@@ -69,7 +69,7 @@ class InterfacPanelPedidos:
 
             'cbx_capturista': ('frame_capturista', None, 'Capturó:', None),
 
-            'cbx_stauts': ('frame_status', None, 'Status:', None),
+            'cbx_status': ('frame_status', None, 'Status:', None),
 
             'den_fecha': ('frame_fecha',
                           None,  # {'row': 0, 'column': 0, 'pady': 5, 'padx': 5, 'sticky': tk.W},
@@ -143,8 +143,8 @@ class InterfacPanelPedidos:
             {"text": "Direccion", "stretch": True, "width": 80},
             {"text": "HoraID", "stretch": False, "width": 0},
             {"text": "WayToPayID", "stretch": False, "width": 0},
-            {"text": "F.Pago", "stretch": True, "width": 75},
-            {"text": "Status", "stretch": True, "width": 75},
+            {"text": "F.Pago", "stretch": True, "width": 70},
+            {"text": "Status", "stretch": True, "width": 70},
             {"text": "Ruta", "stretch": True, "width": 40},
             {"text": "OrderTypeID", "stretch": False, "width": 0},
             {"text": "Tipo", "stretch": True, "width": 50},
@@ -164,7 +164,7 @@ class InterfacPanelPedidos:
             {"text": "SubTotal", "stretch": False, "width": 0},
             {"text": "Impuestos", "stretch": False, "width": 0},
             {"text": "Cancelado", "stretch": False, "width": 0},
-            {"text": "Total", "stretch": True, "width": 75},
+            {"text": "Total", "stretch": True, "width": 85},
             {"text": "Mensajes", "stretch": False, "width": 0},
             {"text": "TypeStatusID", "stretch": False, "width": 0},
             {"text": "StatusScheduleID", "stretch": False, "width": 0},

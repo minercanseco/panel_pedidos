@@ -39,3 +39,11 @@ class ModeloPanelPedidos:
 
     def buscar_nombre_usuario_operador_panel(self, user_id):
         return self.base_de_datos.buscar_nombre_de_usuario(user_id)
+
+    def buscar_partidas_pedido(self, order_document_id):
+        consulta = self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(order_document_id= order_document_id,
+                                                                                partidas_producidas=True,
+                                                                                partidas_eliminadas=True)
+        if not consulta:
+            return
+        return consulta

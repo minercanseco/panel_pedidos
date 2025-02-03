@@ -23,7 +23,9 @@ class ControladorPanelPedidos:
     def _cargar_eventos(self):
         eventos = {
 
-            'den_fecha': lambda event: self._rellenar_tabla_pedidos(self._fecha_seleccionada())
+            'den_fecha': lambda event: self._rellenar_tabla_pedidos(self._fecha_seleccionada()),
+            'tbv_pedidos': (lambda event: self._rellenar_tabla_detalle(), 'doble_click')
+
         }
         self._interfaz.ventanas.cargar_eventos(eventos)
 
@@ -35,7 +37,7 @@ class ControladorPanelPedidos:
         self._interfaz.ventanas.agregar_callback_table_view_al_actualizar('tbv_pedidos',self._colorear_filas_panel_horarios)
 
     def _limpiar_componentes(self):
-        self._interfaz.ventanas.limpiar_componentes(['tbx_comentarios'])
+        self._interfaz.ventanas.limpiar_componentes(['tbx_comentarios', 'tvw_detalle'])
 
     def _buscar_nuevos_registros(self):
         self._limpiar_componentes()
@@ -54,6 +56,7 @@ class ControladorPanelPedidos:
             self._number_orders = number_orders
 
     def _actualizar_comentario_pedido(self):
+        self._limpiar_componentes()
         fila = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
         if not fila:
             return
@@ -334,3 +337,82 @@ class ControladorPanelPedidos:
         self._interfaz.ventanas.actualizar_etiqueta_meter('mtr_en_tiempo', en_tiempo)
         self._interfaz.ventanas.actualizar_etiqueta_meter('mtr_a_tiempo', a_tiempo)
         self._interfaz.ventanas.actualizar_etiqueta_meter('mtr_retrasado', retrasado)
+
+    def _rellenar_tabla_detalle(self):
+        fila = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
+        if not fila:
+            return
+        if len(fila) > 1:
+            return
+
+        order_document_id = fila[0]['OrderDocumentID']
+        partidas = self._modelo.buscar_partidas_pedido(order_document_id)
+        partidas_procesadas = self._procesar_partidas_pedido(partidas)
+
+        for partida in partidas_procesadas:
+            self._interfaz.ventanas.insertar_fila_treeview('tvw_detalle', partida)
+
+        self._colorear_partidas_detalle()
+
+
+    def _colorear_partidas_detalle(self):
+        filas = self._interfaz.ventanas.obtener_filas_treeview('tvw_detalle')
+        if not filas:
+            return
+
+        for fila in filas:
+            valores_fila = self._interfaz.ventanas.procesar_fila_treeview('tvw_detalle', fila)
+
+            estado_produccion_modificado = valores_fila['ItemProductionStatusModified']
+            if estado_produccion_modificado == 0:
+                continue
+
+            # fila borrada
+            if estado_produccion_modificado == 3:
+                self._interfaz.ventanas.colorear_fila_seleccionada_treeview('tvw_detalle', fila, color='danger')
+
+            # fila agregada
+            if estado_produccion_modificado == 1:
+                self._interfaz.ventanas.colorear_fila_seleccionada_treeview('tvw_detalle', fila, color='info')
+
+            # fila editada
+            if estado_produccion_modificado == 2:
+                self._interfaz.ventanas.colorear_fila_seleccionada_treeview('tvw_detalle', fila,
+                                                                            color='warning')
+
+
+    def _procesar_partidas_pedido(self, partidas):
+        if not partidas:
+            return
+        consulta_partidas_con_impuestos = self._modelo.utilerias.agregar_impuestos_productos(partidas)
+
+        partidas_procesadas = []
+        for producto in consulta_partidas_con_impuestos:
+            precio_con_impuestos = producto['SalePriceWithTaxes']
+            cantidad_decimal = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(producto['Quantity'])
+            total = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(precio_con_impuestos * cantidad_decimal)
+            product_id = producto['ProductID']
+
+            if product_id == 5606:
+                continue
+
+            datos_fila = (
+                cantidad_decimal,
+                producto['ProductKey'],
+                producto['ProductName'],
+                precio_con_impuestos,
+                total,
+                producto['Esp'],
+                producto['ProductID'],
+                producto['DocumentItemID'],
+                producto['ItemProductionStatusModified'],
+                producto['ClaveUnidad'],
+                0,  # status surtido
+                producto['UnitPrice'],
+                producto['CayalPiece'],
+                producto['CayalAmount'],
+                producto['Comments'],
+                producto['ProductTypeIDCayal']
+            )
+            partidas_procesadas.append(datos_fila)
+        return partidas_procesadas

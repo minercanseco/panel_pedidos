@@ -11,10 +11,28 @@ class ControladorPanelPedidos:
         self._parametros = self._modelo.parametros
 
         self._crear_tabla_pedidos()
-        self._rellenar_tabla_pedidos()
+        self._rellenar_cbx_horarios()
+        self._rellenar_tabla_pedidos(self._fecha_seleccionada())
         self._crear_barra_herramientas()
 
+        self._cargar_eventos()
         self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Panel pedidos')
+
+    def _cargar_eventos(self):
+        eventos = {
+
+            'den_fecha': lambda event: self._rellenar_tabla_pedidos(self._fecha_seleccionada())
+        }
+        self._interfaz.ventanas.cargar_eventos(eventos)
+        """
+        evento_adicional = {
+            'tbv_pedidos': (lambda event: self._actualizar_comentario_pedido(), 'seleccion')
+        }
+        self._interfaz.ventanas.cargar_eventos(evento_adicional)
+        """
+
+    def _fecha_seleccionada(self):
+        return str(self._interfaz.ventanas.obtener_input_componente('den_fecha'))
 
     def _crear_tabla_pedidos(self):
         componente = {
@@ -23,11 +41,11 @@ class ControladorPanelPedidos:
         }
         self._interfaz.ventanas.crear_componentes(componente)
 
-    def _rellenar_tabla_pedidos(self):
-        self._modelo.buscar_pedidos()
+    def _rellenar_tabla_pedidos(self, fecha):
+        consulta = self._modelo.buscar_pedidos(fecha)
         self._interfaz.ventanas.rellenar_table_view('tbv_pedidos',
                                                     self._interfaz.crear_columnas_tabla(),
-                                                    self._modelo.consulta_pedidos
+                                                    consulta
                                                     )
 
     def _capturar_nuevo(self):
@@ -108,8 +126,6 @@ class ControladorPanelPedidos:
             {'nombre_icono': 'warning.ico', 'etiqueta': 'A.Queja', 'nombre': 'agregar_queja',
              'hotkey': None, 'comando': self._agregar_queja},
 
-            {'nombre_icono': 'Cancelled32.ico', 'etiqueta': 'Cancelar', 'nombre': 'cancelar_pedido',
-             'hotkey': None, 'comando': self._capturar_nuevo},
 
             {'nombre_icono': 'History21.ico', 'etiqueta': 'Historial', 'nombre': 'historial_pedido',
              'hotkey': None, 'comando': self._capturar_nuevo},
@@ -117,14 +133,11 @@ class ControladorPanelPedidos:
             {'nombre_icono': 'Printer21.ico', 'etiqueta': 'Imprimir', 'nombre': 'imprimir_pedido',
              'hotkey': None, 'comando': self._capturar_nuevo},
 
-            {'nombre_icono': 'Organizer32.ico', 'etiqueta': 'A.Horarios', 'nombre': 'acumular_horarios',
-             'hotkey': None, 'comando': self._capturar_nuevo},
 
             {'nombre_icono': 'SwitchUser32.ico', 'etiqueta': 'C.Usuario', 'nombre': 'cambiar_usuario',
              'hotkey': None, 'comando': self._cambiar_usuario},
 
-            {'nombre_icono': 'buscar.ico', 'etiqueta': 'Buscar', 'nombre': 'buscar_pedido',
-             'hotkey': None, 'comando': self._buscar_pedido},
+
 
         ]
 
@@ -133,3 +146,10 @@ class ControladorPanelPedidos:
         self.iconos_barra_herramientas = self.elementos_barra_herramientas[0]
         self.etiquetas_barra_herramientas = self.elementos_barra_herramientas[2]
         self.hotkeys_barra_herramientas = self.elementos_barra_herramientas[1]
+
+    def _rellenar_cbx_horarios(self):
+        # horarios_ids = [pedido['ScheduleID'] for pedido in self._modelo.consulta_pedidos_entrega]
+        horarios_disponibles = [horario['Value'] for horario in self._modelo.consulta_horarios_pedidos
+                                if horario['ScheduleID']]
+
+        self._interfaz.ventanas.rellenar_cbx('cbx_horarios', horarios_disponibles, sin_seleccione=False)

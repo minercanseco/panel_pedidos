@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from cayal.comandos_base_datos import ComandosBaseDatos
 from cayal.util import Utilerias
 
@@ -10,7 +12,31 @@ class ModeloPanelPedidos:
         self.utilerias = Utilerias()
         self.consulta_pedidos = []
 
-    def buscar_pedidos(self):
-        fecha_entrega = self.interfaz.ventanas.obtener_input_componente('den_fecha')
+        valores_puntualidad = self.obtener_valores_de_puntualidad()
+
+        self.valor_a_tiempo = valores_puntualidad['ATiempo']
+        self.valor_en_tiempo = valores_puntualidad['EnTiempo']
+
+        self.hoy = datetime.now().date()
+        self.hora_actual = self.utilerias.hora_actual()
+        self.usuario_operador_panel = ''
+
+        self.consulta_pedidos_entrega = []
+        self.consulta_horarios_pedidos = self.buscar_horarios_pedidos()
+
+        self.pedidos_en_tiempo = 0
+        self.pedidos_a_tiempo = 0
+        self.pedidos_retrasados = 0
+
+    def buscar_pedidos(self, fecha_entrega):
         self.consulta_pedidos = self.base_de_datos.buscar_pedidos_panel_captura_cayal(fecha_entrega)
         return self.consulta_pedidos
+
+    def buscar_horarios_pedidos(self):
+        return self.base_de_datos.buscar_horarios_pedido_cayal()
+
+    def obtener_valores_de_puntualidad(self):
+        consulta = self.base_de_datos.obtener_valores_de_puntualidad_pedidos_cayal('timbrado')
+        if not consulta:
+            return
+        return consulta[0]

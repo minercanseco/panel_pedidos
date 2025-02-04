@@ -120,10 +120,10 @@ class ControladorPanelPedidos:
             #minutos_para_entrega = self._calcular_tiempos_restante_para_entrega(hora_entrega)
 
             if schedule_id == 0:
-                return 0
+                return 1
 
             if schedule_id == 1:
-                return 1
+                return 0
 
             if schedule_id == 2:
                 return 2

@@ -123,10 +123,10 @@ class ControladorPanelPedidos:
                 return 1
 
             if schedule_id == 1:
-                return 0
+                return 2
 
             if schedule_id == 2:
-                return 2
+                return 0
 
         filas = []
         if not actualizar_meters:

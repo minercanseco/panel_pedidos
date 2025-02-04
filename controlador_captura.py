@@ -3,7 +3,6 @@ import datetime
 import pyperclip
 import logging
 
-from configurar_pedido import ConfigurarPedido
 from agregar_manualmente import AgregarPartidaManualmente
 from direccion_cliente import DireccionCliente
 from direcciones_adicionales import DireccionesAdicionales

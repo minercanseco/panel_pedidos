@@ -171,4 +171,6 @@ class InterfacPanelPedidos:
             {"text": "PrintedStatus", "stretch": False, "width": 0},
             {"text": "Comentarios", "stretch": False, "width": 0},
             {"text": "OrderDocumentID", "stretch": False, "width": 0},
+            {"text": "BusinessEntityID", "stretch": False, "width": 0},
+            {"text": "DepotID", "stretch": False, "width": 0}
         ]

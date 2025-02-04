@@ -24,7 +24,10 @@ class ControladorPanelPedidos:
         eventos = {
 
             'den_fecha': lambda event: self._rellenar_tabla_pedidos(self._fecha_seleccionada()),
-            'tbv_pedidos': (lambda event: self._rellenar_tabla_detalle(), 'doble_click')
+            'tbv_pedidos': (lambda event: self._rellenar_tabla_detalle(), 'doble_click'),
+            'cbx_capturista': lambda event: self._filtrar_por_capturados_por(),
+            'cbx_status': lambda event: self._filtrar_por_status(),
+            'cbx_horarios': lambda event: self._filtrar_por_horas()
 
         }
         self._interfaz.ventanas.cargar_eventos(eventos)
@@ -117,13 +120,13 @@ class ControladorPanelPedidos:
             #minutos_para_entrega = self._calcular_tiempos_restante_para_entrega(hora_entrega)
 
             if schedule_id == 0:
-                return 1
+                return 0
 
             if schedule_id == 1:
-                return 2
+                return 1
 
             if schedule_id == 2:
-                return 0
+                return 2
 
         filas = []
         if not actualizar_meters:
@@ -198,6 +201,9 @@ class ControladorPanelPedidos:
         self._modelo.consulta_pedidos_entrega = consulta
         self._colorear_filas_panel_horarios(actualizar_meters=True)
 
+    def _capturar_nuevo_cliente(self):
+        pass
+
     def _capturar_nuevo(self):
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
         self._parametros.id_principal = -1
@@ -206,7 +212,21 @@ class ControladorPanelPedidos:
         self._parametros.id_principal = 0
 
     def _editar_caracteristicas(self):
-        pass
+        fila = self._seleccionar_una_fila()
+        if not fila:
+            return
+
+        status = fila[0]['Status']
+
+        if status == 10:
+            self._interfaz.ventanas.mostrar_mensaje('NO se pueden editar pedidos cancelados.')
+            return
+
+        elif status >= 4:
+            self._interfaz.ventanas.mostrar_mensaje('Sólo se pueden afectar las caracteristicas de un pedido hasta el status  Por timbrar.')
+            return
+        else:
+            print('aqui llamamos a editar caracteristicas')
 
     def _crear_ticket(self):
         pass
@@ -221,7 +241,112 @@ class ControladorPanelPedidos:
         pass
 
     def _facturar(self):
-        pass
+
+        filas = self._validar_seleccion_multiples_filas()
+
+        if not filas:
+            return
+
+        filas_filtradas_por_status = self._filtrar_filas_facturables_por_status(filas)
+        # filtra por status 3 que es por timbrar
+        if not filas_filtradas_por_status:
+            self._interfaz.ventanas.mostrar_mensaje('No hay pedidos con un status válido para facturar')
+            return
+
+        # si es una seleccion unica valida primero si no hay otros pendientes del mimsmo cliente
+        if len(filas) == 1:
+            hay_pedidos_del_mismo_cliente = self._buscar_pedidos_en_proceso_del_mismo_cliente(filas)
+
+            if not hay_pedidos_del_mismo_cliente:
+                print('creamos documento')
+
+            if hay_pedidos_del_mismo_cliente:
+                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('Hay otro pedido del mismo cliente en proceso.'
+                                                                             '¿Desea continuar?')
+                if respuesta:
+                    print('creamos documento')
+            return
+
+        # si hay mas de una fila primero valida que estas filas no tengan solo el mismo cliente
+        # si lo tuvieran hay que ofrecer combinarlas en un documento
+        tienen_el_mismo_cliente = self._validar_si_los_pedidos_son_del_mismo_cliente(filas)
+        if tienen_el_mismo_cliente:
+            respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('Los pedidos son del mismo cliente.'
+                                                                         '¿Desea combinarlos?')
+            if respuesta:
+                print('creamos documento combinado')
+                return
+
+
+
+        # del mismo modo que para una fila valida que no existan otras ordenes de un cliente en proceso
+        # si lo hay para un cliente ese cliente debe excluirse de la seleccion
+        filas_filtradas =self._excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(filas)
+
+
+
+
+        # si en las filas seleccionadas hay multiples cliete
+
+    def _validar_si_los_pedidos_son_del_mismo_cliente(self, filas):
+        business_entity_ids = []
+        for fila in filas:
+            business_entity_id = fila['BusinessEntityID']
+            business_entity_ids.append(business_entity_id)
+
+        business_entity_ids = list(set(business_entity_ids))
+        if len(business_entity_ids) == 1:
+            return True
+        return False
+
+
+    def _excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(self, filas):
+        filas_filtradas = []
+        for fila in filas:
+            hay_pedidos_del_mismo_cliente_en_proceso = self._buscar_pedidos_en_proceso_del_mismo_cliente(fila)
+            if not hay_pedidos_del_mismo_cliente_en_proceso:
+                filas_filtradas.append(fila)
+        return filas_filtradas
+
+    def _buscar_pedidos_en_proceso_del_mismo_cliente(self, fila):
+        business_entity_id = fila[0]['BusinessEntityID']
+        order_document_id = fila[0]['OrderDocumentID']
+
+        pedidos_del_mismo_cliente = 0
+
+        filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos')
+
+        for fila in filas:
+            business_entity_id_fila = fila['BusinessEntityID']
+            order_document_id_fila = fila['OrderDocumentID']
+            status_id = fila['TypeStatusID']
+
+            if order_document_id_fila == order_document_id:
+                continue
+            if business_entity_id_fila == business_entity_id:
+                if status_id in (2, 16, 17, 18):
+                    pedidos_del_mismo_cliente += 1
+                    continue
+
+        if pedidos_del_mismo_cliente > 0:
+            return True
+
+        return False
+
+    def _filtrar_filas_facturables_por_status(self, filas):
+        filas_filtradas = []
+
+        # filtrar por status
+        for fila in filas:
+            status_id = fila['TypeStatusID']
+
+            # pedido por timbrar es status 3
+            if status_id != 3:
+                continue
+
+            filas_filtradas.append(fila)
+
+        return filas_filtradas
 
     def _agregar_queja(self):
         pass
@@ -252,6 +377,9 @@ class ControladorPanelPedidos:
 
     def _crear_barra_herramientas(self):
         self.barra_herramientas_pedido = [
+            {'nombre_icono': 'Customer32.ico', 'etiqueta': 'Nuevo', 'nombre': 'nuevo_cliente',
+             'hotkey': None, 'comando': self._capturar_nuevo_cliente},
+
             {'nombre_icono': 'HeaderFooter32.ico', 'etiqueta': 'Nuevo', 'nombre': 'capturar_nuevo',
              'hotkey': None, 'comando': self._capturar_nuevo},
 
@@ -275,7 +403,6 @@ class ControladorPanelPedidos:
 
             {'nombre_icono': 'warning.ico', 'etiqueta': 'A.Queja', 'nombre': 'agregar_queja',
              'hotkey': None, 'comando': self._agregar_queja},
-
 
             {'nombre_icono': 'History21.ico', 'etiqueta': 'Historial', 'nombre': 'historial_pedido',
              'hotkey': None, 'comando': self._capturar_nuevo},
@@ -338,11 +465,17 @@ class ControladorPanelPedidos:
         self._interfaz.ventanas.actualizar_etiqueta_meter('mtr_a_tiempo', a_tiempo)
         self._interfaz.ventanas.actualizar_etiqueta_meter('mtr_retrasado', retrasado)
 
-    def _rellenar_tabla_detalle(self):
+    def _seleccionar_una_fila(self):
         fila = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
         if not fila:
             return
         if len(fila) > 1:
+            return
+        return fila
+
+    def _rellenar_tabla_detalle(self):
+        fila = self._seleccionar_una_fila()
+        if not fila:
             return
 
         order_document_id = fila[0]['OrderDocumentID']
@@ -353,7 +486,6 @@ class ControladorPanelPedidos:
             self._interfaz.ventanas.insertar_fila_treeview('tvw_detalle', partida)
 
         self._colorear_partidas_detalle()
-
 
     def _colorear_partidas_detalle(self):
         filas = self._interfaz.ventanas.obtener_filas_treeview('tvw_detalle')
@@ -379,7 +511,6 @@ class ControladorPanelPedidos:
             if estado_produccion_modificado == 2:
                 self._interfaz.ventanas.colorear_fila_seleccionada_treeview('tvw_detalle', fila,
                                                                             color='warning')
-
 
     def _procesar_partidas_pedido(self, partidas):
         if not partidas:
@@ -416,3 +547,62 @@ class ControladorPanelPedidos:
             )
             partidas_procesadas.append(datos_fila)
         return partidas_procesadas
+
+    def _filtrar_por_capturados_por(self):
+
+        seleccion = self._interfaz.ventanas.obtener_input_componente('cbx_capturista')
+        if seleccion == 'Seleccione':
+            self._rellenar_tabla_pedidos(self._fecha_seleccionada())
+            self._interfaz.ventanas.limpiar_seleccion_table_view('tbv_pedidos')
+            return
+
+        self._interfaz.ventanas.filtrar_table_view(_table_view='tbv_pedidos',
+                                                       columna=6,
+                                                       valor=[seleccion],
+                                                       )
+
+    def _filtrar_por_status(self):
+        seleccion = self._interfaz.ventanas.obtener_input_componente('cbx_status')
+        if seleccion == 'Seleccione':
+            self._rellenar_tabla_pedidos(self._fecha_seleccionada())
+            self._interfaz.ventanas.limpiar_seleccion_table_view('tbv_pedidos')
+            return
+
+        self._interfaz.ventanas.filtrar_table_view(_table_view='tbv_pedidos',
+                                                   columna=13,
+                                                   valor=[seleccion],
+                                                   )
+
+    def _filtrar_por_horas(self):
+        seleccion = self._interfaz.ventanas.obtener_input_componente('cbx_horarios')
+        if seleccion == 'Seleccione':
+            self._rellenar_tabla_pedidos(self._fecha_seleccionada())
+            self._interfaz.ventanas.limpiar_seleccion_table_view('tbv_pedidos')
+            return
+
+        self._interfaz.ventanas.filtrar_table_view(_table_view='tbv_pedidos',
+                                                   columna=8,
+                                                   valor=[seleccion],
+                                                   )
+
+    def _filtrar_por_no_impresos(self):
+
+        valor_chk = self._interfaz.ventanas.obtener_input_componente('chk_no_impresos')
+
+        if valor_chk == 1:
+            self._interfaz.ventanas.filtrar_table_view(_table_view='tbv_pedidos',
+                                                       columna=37,
+                                                       valor=[""],
+                                                       )
+        if valor_chk == 0:
+            self._interfaz.ventanas.limpiar_seleccion_table_view('tbv_pedidos')
+
+    def _validar_seleccion_multiples_filas(self):
+        # si imprimir en automatico esta desactivado la seleccion de filas solo aplica a la seleccion
+        filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
+
+        if not filas:
+            self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar por lo menos un pedido.')
+            return
+
+        return filas

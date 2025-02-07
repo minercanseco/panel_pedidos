@@ -406,8 +406,6 @@ class ControladorPanelPedidos:
         self._crear_documento(filas_filtradas)
         return
 
-
-
     def _crear_documento(self, filas, combinado=False, mismo_cliente=False):
 
         tipo_documento = 1 # remision
@@ -470,12 +468,12 @@ class ControladorPanelPedidos:
             else:
                 partidas_acumuladas.extend(partidas)
                 total_acumulado += total_documento
+
         # proceso concluido si no fue combinado el documento
         if not combinado:
             return
 
         # aplica para documentos combinados
-
         order_document_ids = sorted([fila['OrderDocumentID'] for fila in filas if fila['OrderTypeID'] == 1], reverse=True)
         if not order_document_ids:
             self._interfaz.ventanas.mostrar_mensaje('Debe por lo menos haber un pedido dentro de las ordenes seleccionadas.')
@@ -483,7 +481,10 @@ class ControladorPanelPedidos:
 
         order_document_id = order_document_ids[0]
         address_detail_id = filas[0]['AddressDetailID']
+
+        # crea cabecera y bloqueala para evitar ediciones
         document_id = self._crear_cabecera_documento(tipo_documento, filas[0])
+
 
         self._insertar_partidas_documento(order_document_id, document_id, partidas_acumuladas, total_acumulado, address_detail_id)
 
@@ -592,7 +593,7 @@ class ControladorPanelPedidos:
         self._base_de_datos.insertar_partida_documento_cayal(parametros)
 
     def _crear_cabecera_documento(self, document_type_id, fila):
-        return self._base_de_datos.crear_documento(
+        document_id = self._base_de_datos.crear_documento(
             document_type_id,
             'FM', # prefijo mayoreo
             fila['BusinessEntityID'],
@@ -600,6 +601,13 @@ class ControladorPanelPedidos:
             self._user_id,
             fila['DepotID']
         )
+
+        order_document_id = fila['OrderDocumentID']
+
+        self._base_de_datos.command('UPDATE docDocument SET ExportID = 6, OrderDocumentID = ? WHERE DocumentID = ?',
+                                    (order_document_id, document_id))
+
+        return document_id
 
     def _cuantificar_valor_partidas_documento(self, filas, mismo_cliente=False):
         # validar que el monto sea superior a 180 debito a que el cliente podria anexar un producto y con ello

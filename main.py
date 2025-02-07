@@ -3,19 +3,34 @@ from cayal.parametros_contpaqi import ParametrosContpaqi
 from interfaz_panel_pedidos import InterfacPanelPedidos
 from modelo_panel_pedidos import ModeloPanelPedidos
 from controlador_panel_pedidos import ControladorPanelPedidos
+from cayal.actualizador_de_paquetes import ActualizadorDePaquetes
+from cayal.login import Login
+
+def si_acceso_exitoso(parametros=None, master=None):
+    llamar_instancia_principal(master, parametros)
 
 
-if __name__ == '__main__':
-    parametros = ParametrosContpaqi()
-    parametros.cadena_conexion = 'Mac'
-    parametros.id_usuario = 64
-    parametros.id_modulo = 1687
+def llamar_instancia_principal(ventana, parametros):
 
-    ventana = ttk.Window()
-    interfaz = InterfacPanelPedidos(ventana)
-    modelo = ModeloPanelPedidos(interfaz, parametros)
+    vista = InterfacPanelPedidos(ventana)
+    modelo = ModeloPanelPedidos(vista, parametros)
     controlador = ControladorPanelPedidos(modelo)
     ventana.mainloop()
 
 
-    # ------------------------------------------
+if __name__ == '__main__':
+    ventana_login = ttk.Window()
+    parametros_login = ParametrosContpaqi()
+
+    actualizar = ActualizadorDePaquetes('panel_pedidos_v3')
+    if not actualizar.actualizar_paquete():
+        # ------------------------------------------
+        # parametros de prueba
+        # parametros_login.cadena_conexion = 'Mac'
+        parametros_login.base_de_datos = 'ComercialSP'
+        parametros_login.id_modulo = 1687
+
+        # ------------------------------------------
+
+        instancia_login = Login(ventana_login, parametros_login, si_acceso_exitoso)
+        ventana_login.mainloop()

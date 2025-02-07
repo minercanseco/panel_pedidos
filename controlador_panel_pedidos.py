@@ -618,12 +618,12 @@ class ControladorPanelPedidos:
         for fila in filas:
             order_document_id = fila['OrderDocumentID']
             total_documento = self._calcular_total_pedido(order_document_id)
-            print(total_documento, mismo_cliente)
+
             if total_documento < 200 and not mismo_cliente:
                 cliente = fila['Cliente']
                 pedido = fila['Pedido']
 
-                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(f'El total de la orden {pedido} del cliente {cliente}'
+                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(f'El total de la orden {pedido} del cliente {cliente} '
                                                                  f'es de {total_documento}, ¿Desea omitir este pedido del proceso para consultar con el cliente un posible incremento en su pedido?'
                                                                  )
                 if respuesta:

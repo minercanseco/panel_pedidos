@@ -456,7 +456,16 @@ class ControladorPanelPedidos:
                 tipo_documento = fila['DocumentTypeID']
                 document_id = self._crear_cabecera_documento(tipo_documento, fila)
                 self._insertar_partidas_documento(order_document_id, document_id, partidas, total_documento, address_detail_id)
+
+                # relacionar documenrtosa con pedidos
                 self._actualizar_status_y_relacionar(document_id, order_document_id)
+
+                # agregar documento para recalculo
+                self._base_de_datos.exec_stored_procedure('zvwRecalcularPedidos', (document_id, order_document_id))
+
+                # afectar bitacora
+                self._afectar_bitacora_de_cambios(document_id, [order_document_id])
+
 
             else:
                 partidas_acumuladas.extend(partidas)
@@ -466,16 +475,65 @@ class ControladorPanelPedidos:
             return
 
         # aplica para documentos combinados
-        document_id = self._crear_cabecera_documento(tipo_documento, filas[0])
+
         order_document_ids = sorted([fila['OrderDocumentID'] for fila in filas if fila['OrderTypeID'] == 1], reverse=True)
+        if not order_document_ids:
+            self._interfaz.ventanas.mostrar_mensaje('Debe por lo menos haber un pedido dentro de las ordenes seleccionadas.')
+            return
+
         order_document_id = order_document_ids[0]
         address_detail_id = filas[0]['AddressDetailID']
+        document_id = self._crear_cabecera_documento(tipo_documento, filas[0])
 
         self._insertar_partidas_documento(order_document_id, document_id, partidas_acumuladas, total_acumulado, address_detail_id)
 
-        # relacionar pedidos
+        # relacionar pedidos con factura
         for order in order_document_ids:
             self._actualizar_status_y_relacionar(document_id, order)
+
+        # relacionar pedido principal con pedidos
+        for order in order_document_ids:
+            if order != order_document_id:
+                self._base_de_datos.command(
+                    'UPDATE docDocumentOrderCayal SET RelatedOrderID = ? WHERE OrderDocumentID = ?',
+                    (order_document_id, order)
+                )
+
+        # agregar documento para recalculo
+        self._base_de_datos.exec_stored_procedure('zvwRecalcularPedidos', (document_id, order_document_id))
+
+        # afectar la bitacora de cambios
+        self._afectar_bitacora_de_cambios(document_id, order_document_ids)
+
+    def _afectar_bitacora_de_cambios(self, document_id, order_document_ids):
+
+        folio = self._base_de_datos.fetchone(
+            "SELECT ISNULL(FolioPrefix,'')+ISNULL(Folio,'') DocFolio FROM docDocument WHERE DocumentID = ?",
+            (document_id,))
+        comentario = f"Documento creado por {self._user_name} - {folio}"
+
+        for order_document_id in order_document_ids:
+            self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
+                                                                   change_type_id=4,
+                                                                   comments=comentario,
+                                                                   user_id=self._user_id)
+
+            self._base_de_datos.command(
+                """
+                UPDATE docDocumentOrderCayal 
+                SET 
+                    SentToInvoice = CASE 
+                        WHEN SentToInvoice IS NULL THEN GETDATE() 
+                        ELSE SentToInvoice 
+                    END,
+                    SentToInvoiceBy = CASE 
+                        WHEN SentToInvoiceBy > 0 THEN SentToInvoiceBy 
+                        ELSE ? 
+                    END
+                WHERE OrderDocumentID = ?;
+                """,
+                (self._user_id, order_document_id)
+            )
 
     def _actualizar_status_y_relacionar(self, document_id, order_document_id):
         self._base_de_datos.command(
@@ -491,6 +549,7 @@ class ControladorPanelPedidos:
             -- Insertar en la tabla OrderInvoiceDocumentCayal
             INSERT INTO OrderInvoiceDocumentCayal (OrderDocumentID, DocumentID)
             VALUES (@OrderDocumentID, @DocumentID);
+            
             """,
             (document_id, order_document_id)
         )

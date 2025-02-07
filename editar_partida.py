@@ -37,6 +37,20 @@ class EditarPartida:
         valor_uuid = self._valores_fila['UUID']
         total = self._valores_fila['Total']
 
+        partida_documento = self._obtener_info_partida_documento(valor_uuid)
+
+        if partida_documento:
+            piezas = partida_documento.get('CayalPiece',0)
+            if piezas == 0:
+                self._ventanas.insertar_input_componente('tbx_cantidad', quantity)
+                self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'deseleccionado')
+
+
+            if  piezas % 1 == 0 and piezas != 0:
+                self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'seleccionado')
+                self._ventanas.insertar_input_componente('tbx_cantidad', piezas)
+
+
         info_producto = self._modelo.buscar_info_productos_por_ids(product_id)[0]
         self._info_producto = self._utilerias.calcular_precio_con_impuesto_producto(info_producto)
 
@@ -46,15 +60,12 @@ class EditarPartida:
         self._ventanas.insertar_input_componente('tbx_equivalencia', equivalencia_decimal)
         self._ventanas.bloquear_componente('tbx_equivalencia')
 
-        self._ventanas.insertar_input_componente('tbx_cantidad', quantity)
         self._ventanas.insertar_input_componente('lbl_monto', total)
 
         texto = self._modelo.crear_texto_existencia_producto(info_producto)
         self._ventanas.insertar_input_componente('lbl_existencia', texto)
 
-        partida_documento = self._obtener_info_partida_documento(valor_uuid)
-
-        comentario = partida_documento['Comments']
+        comentario = partida_documento.get('Comments','')
         self._ventanas.insertar_input_componente('txt_comentario', comentario)
 
     def _obtener_info_partida_documento(self, uuid_partida):
@@ -359,11 +370,14 @@ class EditarPartida:
                     # Crear partida actualizada solo si encontramos la partida correspondiente
                     partida_actualizada = self._utilerias.crear_partida(self._info_producto, cantidad_nueva)
 
+                    valor_pieza = self._ventanas.obtener_input_componente('chk_pieza')
+                    piezas = partida_actualizada['CayalPiece'] if valor_pieza == 1 else 0
+
                     # Actualizar valores de la partida en el documento
                     partida['ItemProductionStatusModified'] = 2 if document_item_id > 0 else 0
                     partida['cantidad'] = cantidad_nueva
                     partida['subtotal'] = partida_actualizada['subtotal']
-                    partida['unidad_cayal'] = self._ventanas.obtener_input_componente('chk_pieza')
+                    partida['CayalPiece'] = piezas #self._ventanas.obtener_input_componente('chk_pieza')
                     partida['monto_cayal'] = self._ventanas.obtener_input_componente('chk_monto')
                     partida['Comments'] = self._ventanas.obtener_input_componente('txt_comentario')
                     partida['CreatedBy'] = self._user_id
@@ -380,7 +394,7 @@ class EditarPartida:
                             valores_fila['Importe'] = "{:.2f}".format(partida_actualizada['subtotal'])
                             valores_fila['Impuestos'] = "{:.2f}".format(partida_actualizada['impuestos'])
                             valores_fila['Total'] = "{:.2f}".format(partida_actualizada['total'])
-                            valores_fila['Piezas'] = partida_actualizada['cantidad_piezas']
+                            valores_fila['Piezas'] = piezas
                             self._ventanas_interfaz.actualizar_fila_treeview_diccionario('tvw_productos', fila,
                                                                                          valores_fila)
 

@@ -85,7 +85,7 @@ class InterfacPanelPedidos:
             'mtr_retrasado': ('frame_meters', 'danger', 'Retrasos', None),
             'tbx_comentarios': ('frame_comentarios', {'row': 0, 'column': 1, 'pady': 5, 'padx': 2, 'sticky': tk.NSEW},
                                 ' ', None),
-            'tvw_detalle':('frame_detalle', self.crear_columnas_tabla_detalle(), 10, None)
+            'tvw_detalle':('frame_detalle', self.crear_columnas_tabla_detalle(), 5, None)
         }
 
         self.ventanas.crear_componentes(componentes)
@@ -172,5 +172,6 @@ class InterfacPanelPedidos:
             {"text": "Comentarios", "stretch": False, "width": 0},
             {"text": "OrderDocumentID", "stretch": False, "width": 0},
             {"text": "BusinessEntityID", "stretch": False, "width": 0},
-            {"text": "DepotID", "stretch": False, "width": 0}
+            {"text": "DepotID", "stretch": False, "width": 0},
+            {"text": "AddressDetailID", "stretch": False, "width": 0}
         ]

@@ -2,6 +2,12 @@ from datetime import datetime
 from buscar_pedido import BuscarPedido
 from cayal.login import Login
 from buscar_generales_cliente import BuscarGeneralesCliente
+from editar_caracteristicas_pedido import EditarCaracteristicasPedido
+from historial_pedido import HistorialPedido
+from ticket_pedido_cliente import TicketPedidoCliente
+from panel_principal_cliente import PanelPrincipal
+from selector_tipo_documento import SelectorTipoDocumento
+
 
 class ControladorPanelPedidos:
     def __init__(self, modelo):
@@ -11,6 +17,9 @@ class ControladorPanelPedidos:
         self._utilerias = self._modelo.utilerias
         self._parametros = self._modelo.parametros
         self._number_orders = 0
+        self._user_id = self._parametros.id_usuario
+        self._user_name = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
+        self._partidas_pedidos = {}
 
 
         self._crear_tabla_pedidos()
@@ -100,6 +109,9 @@ class ControladorPanelPedidos:
             # 0 retrasado -- rojo
             # 2 a tiempo --- naranja
             # 3 cancelado -- rojo
+            if not fecha_entrega_str:
+                return 1
+
             fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(fecha_entrega_str, ['%d/%m/%y', '%d-%m-%y'])
 
             # los pedidos de fechas posteriores se consideran en tiempo
@@ -202,7 +214,9 @@ class ControladorPanelPedidos:
         self._colorear_filas_panel_horarios(actualizar_meters=True)
 
     def _capturar_nuevo_cliente(self):
-        pass
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+        instancia = PanelPrincipal(ventana, self._parametros, self._base_de_datos, self._utilerias)
+        ventana.wait_window()
 
     def _capturar_nuevo(self):
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
@@ -216,7 +230,7 @@ class ControladorPanelPedidos:
         if not fila:
             return
 
-        status = fila[0]['Status']
+        status = fila[0]['TypeStatusID']
 
         if status == 10:
             self._interfaz.ventanas.mostrar_mensaje('NO se pueden editar pedidos cancelados.')
@@ -226,19 +240,122 @@ class ControladorPanelPedidos:
             self._interfaz.ventanas.mostrar_mensaje('Sólo se pueden afectar las caracteristicas de un pedido hasta el status  Por timbrar.')
             return
         else:
-            print('aqui llamamos a editar caracteristicas')
+            order_document_id = fila[0]['OrderDocumentID']
+            self._parametros.id_principal = order_document_id
+
+            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+            instancia = EditarCaracteristicasPedido(ventana, self._parametros, self._base_de_datos, self._utilerias)
+            ventana.wait_window()
+            self._parametros.id_principal = 0
+
+            self._rellenar_tabla_pedidos(self._fecha_seleccionada())
 
     def _crear_ticket(self):
-        pass
+
+        fila = self._seleccionar_una_fila()
+        if not fila:
+            return
+
+        order_document_id = fila[0]['OrderDocumentID']
+        consulta = self._base_de_datos.fetchall("""
+            SELECT
+             CASE WHEN DeliveryPromise IS NULL THEN 0 ELSE 1 END StatusEntrega,
+                DeliveryPromise FechaEntrega
+            FROM docDocumentOrderCayal 
+            WHERE OrderDocumentID = ?
+            """,(order_document_id,))
+        status_entrega = consulta[0]['StatusEntrega']
+
+
+        if status_entrega == 0:
+            self._interfaz.ventanas.mostrar_mensaje('Debe definir la forma de pago del cliente antes de generar el ticket.')
+            return
+        else:
+            fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(str(consulta[0]['FechaEntrega'])[0:10])
+            if fecha_entrega > self._modelo.hoy:
+                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                    'EL pedido es para una fecha de entrega posterior, ¿Desea actualizar los precios antes de generar el ticket?')
+
+                if respuesta:
+                    self._base_de_datos.actualizar_precios_pedido(order_document_id)
+
+            self._parametros.id_principal = order_document_id
+            instancia = TicketPedidoCliente(self._base_de_datos, self._utilerias, self._parametros)
+
+            self._parametros.id_principal = 0
+            self._interfaz.ventanas.mostrar_mensaje('Comprobante generado.')
 
     def _mandar_a_producir(self):
-        pass
+
+        filas = self._validar_seleccion_multiples_filas()
+        if not filas:
+            return
+
+        for fila in filas:
+            order_document_id = fila['OrderDocumentID']
+            consulta = self._base_de_datos.fetchall("""
+                SELECT StatusID, 
+                    CASE WHEN DeliveryPromise IS NULL THEN 0 ELSE 1 END Entrega,
+                    ISNULL(FolioPrefix,'')+ISNULL(Folio,'') DocFolio
+                FROM docDocumentOrderCayal 
+                WHERE OrderDocumentID = ?
+            """,(order_document_id,))
+
+            status = consulta[0]['StatusID']
+            entrega = consulta[0]['Entrega']
+            folio = consulta[0]['DocFolio']
+
+            if entrega == 0:
+                self._interfaz.ventanas.mostrar_mensaje(
+                    f'Debe usar la herramienta de editar características para el pedido {folio}.')
+                continue
+
+            if status == 1:
+                self._base_de_datos.command("""
+                     UPDATE docDocumentOrderCayal SET SentToPrepare = GETDATE(),
+                                                    SentToPrepareBy = ?,
+                                                    StatusID = 2,
+                                                    UserID = NULL
+                    WHERE OrderDocumentID = ?
+                """,(self._user_id, order_document_id,))
+
+                comentario = f'Enviado a producir por {self._user_name}.'
+                self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=order_document_id,
+                                                                       change_type_id=2,
+                                                                       user_id=self._user_id,
+                                                                       comments=comentario)
+
+        self._rellenar_tabla_pedidos(self._fecha_seleccionada())
 
     def _confirmar_transferencia(self):
-        pass
+        fila = self._seleccionar_una_fila()
+        if not fila:
+            return
+
+        way_to_pay_id = fila[0]['WayToPayID']
+        if way_to_pay_id != 6:
+            self._interfaz.ventanas.mostrar_mensaje('Solo aplica para formas de pago transferencia.')
+            return
+
+        order_document_id = fila[0]['OrderDocumentID']
+        document_id = self._base_de_datos.fetchone(
+            'SELECT DocumentID FROM docDocumentOrderCayal WHERE OrderDocumentID = ?', (order_document_id,)
+                                                  )
+        if document_id == 0:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Solo puede confirmar transferencias cuando el documento a sido generado.')
+            return
+
+        consulta = self._base_de_datos.fetchall("""
+            SELECT Balance, StatusPaidID FROM docDocument WHERE DocumentID = ?
+        """,(document_id,))
 
     def _combinar_envio(self):
         pass
+
+    def _inciar_facturacion(self):
+        self._facturar()
+        self._rellenar_tabla_pedidos(self._fecha_seleccionada())
 
     def _facturar(self):
 
@@ -248,23 +365,26 @@ class ControladorPanelPedidos:
             return
 
         filas_filtradas_por_status = self._filtrar_filas_facturables_por_status(filas)
+
         # filtra por status 3 que es por timbrar
         if not filas_filtradas_por_status:
             self._interfaz.ventanas.mostrar_mensaje('No hay pedidos con un status válido para facturar')
             return
 
+        #--------------------------------------------------------------------------------------------------------------
+        # aqui comenzamos el procesamiento de las filas a facturar
         # si es una seleccion unica valida primero si no hay otros pendientes del mimsmo cliente
         if len(filas) == 1:
             hay_pedidos_del_mismo_cliente = self._buscar_pedidos_en_proceso_del_mismo_cliente(filas)
 
             if not hay_pedidos_del_mismo_cliente:
-                print('creamos documento')
+                self._crear_documento(filas)
 
             if hay_pedidos_del_mismo_cliente:
-                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('Hay otro pedido del mismo cliente en proceso.'
+                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('Hay otro pedido del mismo cliente en proceso o por timbrar.'
                                                                              '¿Desea continuar?')
                 if respuesta:
-                    print('creamos documento')
+                    self._crear_documento(filas)
             return
 
         # si hay mas de una fila primero valida que estas filas no tengan solo el mismo cliente
@@ -274,19 +394,232 @@ class ControladorPanelPedidos:
             respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('Los pedidos son del mismo cliente.'
                                                                          '¿Desea combinarlos?')
             if respuesta:
-                print('creamos documento combinado')
+                self._crear_documento(filas, combinado=True, mismo_cliente=True)
                 return
-
-
 
         # del mismo modo que para una fila valida que no existan otras ordenes de un cliente en proceso
         # si lo hay para un cliente ese cliente debe excluirse de la seleccion
-        filas_filtradas =self._excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(filas)
+        filas_filtradas = self._excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(filas)
+        if not filas_filtradas:
+            return
+
+        self._crear_documento(filas_filtradas)
+        return
 
 
 
+    def _crear_documento(self, filas, combinado=False, mismo_cliente=False):
 
-        # si en las filas seleccionadas hay multiples cliete
+        tipo_documento = 1 # remision
+
+        # determina el tipo de documento que se generará ya sea remision y/o factura
+        if len(filas) > 1 and combinado:
+            tipos_documento = list(set([fila['DocumentTypeID'] for fila in filas]))
+            if len(tipos_documento) == 1:
+                tipo_documento = tipos_documento[0]
+            else:
+                tipo_documento = -1
+                while tipo_documento == -1:
+                    ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+                    instancia = SelectorTipoDocumento(ventana)
+                    ventana.wait_window()
+                    tipo_documento = instancia.tipo_documento
+
+
+        # cuantificamos el valor de todas las partidas involucradas excluyendo el servicio a domicilio
+        # y determinamos si superan el valor 200
+
+        filas_valorizadas = self._cuantificar_valor_partidas_documento(filas, mismo_cliente)
+        if not filas_valorizadas:
+            self._interfaz.ventanas.mostrar_mensaje('No hay ningún documento que generar.')
+            return
+
+        # aqui creamos el o los documentos pertinentes
+        # si es un documento por cada orden no hay problema se toma el tipo desde la fila
+        document_id = 0
+        total_acumulado = 0
+        partidas_acumuladas = []
+        for fila in filas_valorizadas:
+            order_document_id =  fila['OrderDocumentID']
+            address_detail_id = fila['AddressDetailID']
+
+            info_documento = self._partidas_pedidos.get(order_document_id, None)
+            if not info_documento:
+                continue
+
+            # info documento es una tupla donde el primer elemento es el total del documento y el segundo las partidas
+            # en este punto los documentos valorizados ya estan filtrado despues de n validaciones
+            total_documento = info_documento[0]
+            partidas = info_documento[1]
+
+            if not combinado:
+                tipo_documento = fila['DocumentTypeID']
+                document_id = self._crear_cabecera_documento(tipo_documento, fila)
+                self._insertar_partidas_documento(order_document_id, document_id, partidas, total_documento, address_detail_id)
+                self._actualizar_status_y_relacionar(document_id, order_document_id)
+
+            else:
+                partidas_acumuladas.extend(partidas)
+                total_acumulado += total_documento
+        # proceso concluido si no fue combinado el documento
+        if not combinado:
+            return
+
+        # aplica para documentos combinados
+        document_id = self._crear_cabecera_documento(tipo_documento, filas[0])
+        order_document_ids = sorted([fila['OrderDocumentID'] for fila in filas if fila['OrderTypeID'] == 1], reverse=True)
+        order_document_id = order_document_ids[0]
+        address_detail_id = filas[0]['AddressDetailID']
+
+        self._insertar_partidas_documento(order_document_id, document_id, partidas_acumuladas, total_acumulado, address_detail_id)
+
+        # relacionar pedidos
+        for order in order_document_ids:
+            self._actualizar_status_y_relacionar(document_id, order)
+
+    def _actualizar_status_y_relacionar(self, document_id, order_document_id):
+        self._base_de_datos.command(
+            """
+            DECLARE @DocumentID INT = ?
+            DECLARE @OrderDocumentID INT  = ?
+
+            -- Actualizar la tabla docDocumentOrderCayal
+            UPDATE docDocumentOrderCayal
+            SET StatusID = 4, DocumentID = @DocumentID
+            WHERE OrderDocumentID = @OrderDocumentID;
+
+            -- Insertar en la tabla OrderInvoiceDocumentCayal
+            INSERT INTO OrderInvoiceDocumentCayal (OrderDocumentID, DocumentID)
+            VALUES (@OrderDocumentID, @DocumentID);
+            """,
+            (document_id, order_document_id)
+        )
+
+    def _insertar_partidas_documento(self, order_document_id, document_id, partidas, total_documento, address_detail_id):
+        if total_documento < 200:
+            self._insertar_servicio_a_docimicilio(document_id, address_detail_id)
+
+        for partida in partidas:
+            parametros = (
+                document_id,
+                partida['ProductID'],
+                2,  # depot_id
+                partida['Quantity'],
+                partida['UnitPrice'],
+                0,  # costo,
+                partida['Subtotal'],
+                partida['TipoCaptura'],  # tipo captura
+                21  # modulo
+            )
+            self._base_de_datos.insertar_partida_documento_cayal(parametros)
+
+    def _insertar_servicio_a_docimicilio(self, document_id, address_detail_id):
+        precio_servicio = self._base_de_datos.fetchone(
+            'SELECT * FROM [dbo].[zvwBuscarCargoEnvio-AddressDetailID](?)',
+            (address_detail_id,))
+
+        precio_servicio_sin_impuesto = self._utilerias.calcular_monto_sin_iva(precio_servicio)
+        parametros = (
+            document_id,
+            5606,  # product_id
+            2,  # depot_id
+            1,
+            precio_servicio_sin_impuesto,
+            0,  # costo,
+            precio_servicio_sin_impuesto,
+            0,  # tipo captura
+            21  # modulo
+        )
+        self._base_de_datos.insertar_partida_documento_cayal(parametros)
+
+    def _crear_cabecera_documento(self, document_type_id, fila):
+        return self._base_de_datos.crear_documento(
+            document_type_id,
+            'FM', # prefijo mayoreo
+            fila['BusinessEntityID'],
+            21, # modulo facturas mayoreo
+            self._user_id,
+            fila['DepotID']
+        )
+
+    def _cuantificar_valor_partidas_documento(self, filas, mismo_cliente=False):
+        # validar que el monto sea superior a 180 debito a que el cliente podria anexar un producto y con ello
+        # evitar generar la factura correspondiente
+
+        total_acumulado = 0
+        filas_filtradas = []
+        for fila in filas:
+            order_document_id = fila['OrderDocumentID']
+            total_documento = self._calcular_total_pedido(order_document_id)
+
+            if total_documento < 181 and not mismo_cliente:
+                cliente = fila['Cliente']
+                pedido = fila['Pedido']
+
+                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(f'El total de la orden {pedido} del cliente {cliente}'
+                                                                 f'es de {total_documento}, ¿Desea omitir este pedido del proceso para consultar con el cliente un posible incremento en su pedido?'
+                                                                 )
+                if respuesta:
+                    continue
+
+                filas_filtradas.append(fila)
+                continue
+
+            if mismo_cliente:
+                total_acumulado += total_documento
+                continue
+
+            if total_documento >  200:
+                filas_filtradas.append(fila)
+                continue
+
+        if mismo_cliente and total_acumulado < 181:
+            cliente = filas[0]['Cliente']
+
+            respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                f'El total acumulado de las ordenes seleccionadas del cliente {cliente}'
+                f'es de {total_acumulado}, ¿Desea consultar con el cliente un posible incremento en su pedido?'
+                )
+
+            if respuesta:
+                return []
+
+            return filas
+
+        if mismo_cliente and total_acumulado > 180:
+            return filas
+
+        return filas_filtradas
+
+    def _calcular_total_pedido(self, order_document_id):
+
+        consulta_partidas = self._modelo.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
+           order_document_id, partidas_producidas=True)
+
+        consulta_partidas_con_impuestos = self._modelo.utilerias.agregar_impuestos_productos(consulta_partidas)
+        subtotal = 0
+        total_tax = 0
+        totales = 0
+        nuevas_partidas = []
+        for producto in consulta_partidas_con_impuestos:
+            precio = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(producto['UnitPrice'])
+            precio_con_impuestos = producto['SalePriceWithTaxes']
+            cantidad_decimal = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(producto['Quantity'])
+            total = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(precio_con_impuestos * cantidad_decimal)
+            product_id = producto['ProductID']
+
+            if product_id == 5606:
+                continue
+
+            subtotal += (precio * cantidad_decimal)
+            total_tax += (precio_con_impuestos - precio)
+            totales += total
+
+            nuevas_partidas.append(producto)
+
+        self._partidas_pedidos[order_document_id] = (totales, nuevas_partidas)
+
+        return totales
 
     def _validar_si_los_pedidos_son_del_mismo_cliente(self, filas):
         business_entity_ids = []
@@ -299,18 +632,31 @@ class ControladorPanelPedidos:
             return True
         return False
 
-
     def _excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(self, filas):
+
+
         filas_filtradas = []
+        clientes_en_proceso = []
+        order_document_ids = [filas[0]['OrderDocumentID']] # agrega el primer pedido a la lista para comparaciones
         for fila in filas:
             hay_pedidos_del_mismo_cliente_en_proceso = self._buscar_pedidos_en_proceso_del_mismo_cliente(fila)
             if not hay_pedidos_del_mismo_cliente_en_proceso:
                 filas_filtradas.append(fila)
+            else:
+                order_document_id = fila['OrderDocumentID']
+                if order_document_id not in order_document_ids:
+                    clientes_en_proceso.append(fila['Cliente'])
+        texto = ''
+        if clientes_en_proceso:
+            clientes_en_proceso = set(clientes_en_proceso)
+            for cliente in clientes_en_proceso:
+                texto = f'{texto} {cliente},'
+            self._interfaz.ventanas.mostrar_mensaje(f'Los clientes: {texto} tienen más órdenes en proceso o por timbrar.')
         return filas_filtradas
 
     def _buscar_pedidos_en_proceso_del_mismo_cliente(self, fila):
-        business_entity_id = fila[0]['BusinessEntityID']
-        order_document_id = fila[0]['OrderDocumentID']
+        business_entity_id = fila[0]['BusinessEntityID'] if isinstance(fila, list) else fila['BusinessEntityID']
+        order_document_id = fila[0]['OrderDocumentID'] if isinstance(fila, list) else fila['OrderDocumentID']
 
         pedidos_del_mismo_cliente = 0
 
@@ -324,7 +670,7 @@ class ControladorPanelPedidos:
             if order_document_id_fila == order_document_id:
                 continue
             if business_entity_id_fila == business_entity_id:
-                if status_id in (2, 16, 17, 18):
+                if status_id in (2, 3, 16, 17, 18):
                     pedidos_del_mismo_cliente += 1
                     continue
 
@@ -339,7 +685,6 @@ class ControladorPanelPedidos:
         # filtrar por status
         for fila in filas:
             status_id = fila['TypeStatusID']
-
             # pedido por timbrar es status 3
             if status_id != 3:
                 continue
@@ -347,6 +692,9 @@ class ControladorPanelPedidos:
             filas_filtradas.append(fila)
 
         return filas_filtradas
+
+    def _editar_pedido(self):
+        pass
 
     def _agregar_queja(self):
         pass
@@ -366,6 +714,24 @@ class ControladorPanelPedidos:
         self._interfaz.ventanas.actualizar_etiqueta_externa_tabla_view('tbv_pedidos', texto)
         self._user_id = self._parametros.id_usuario
 
+    def _validar_seleccion_una_fila(self):
+        if not self._interfaz.ventanas.validar_seleccion_una_fila_table_view('tbv_pedidos'):
+            return
+
+        return self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)[0]
+
+    def _historial_pedido(self):
+        valores_fila = self._validar_seleccion_una_fila()
+        if not valores_fila:
+            return
+        order_document_id = valores_fila['OrderDocumentID']
+
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Historial pedido')
+        self._parametros.id_principal = order_document_id
+        instancia = HistorialPedido(ventana, self._parametros, self._base_de_datos)
+        ventana.wait_window()
+        self._parametros.id_principal = 0
+
     def _cambiar_usuario(self):
         def si_acceso_exitoso(parametros=None, master=None):
             self._parametros = parametros
@@ -377,6 +743,7 @@ class ControladorPanelPedidos:
 
     def _crear_barra_herramientas(self):
         self.barra_herramientas_pedido = [
+
             {'nombre_icono': 'Customer32.ico', 'etiqueta': 'Nuevo', 'nombre': 'nuevo_cliente',
              'hotkey': None, 'comando': self._capturar_nuevo_cliente},
 
@@ -398,14 +765,17 @@ class ControladorPanelPedidos:
             {'nombre_icono': 'Partner32.ico', 'etiqueta': 'C.Envio', 'nombre': 'combinar_envio',
              'hotkey': None, 'comando': self._combinar_envio},
 
+            {'nombre_icono': 'lista-de-verificacion.ico', 'etiqueta': 'Editar', 'nombre': 'editar',
+             'hotkey': None, 'comando': self._editar_pedido},
+
             {'nombre_icono': 'Invoice32.ico', 'etiqueta': 'Facturar', 'nombre': 'facturar',
-             'hotkey': None, 'comando': self._facturar},
+             'hotkey': None, 'comando': self._inciar_facturacion},
 
             {'nombre_icono': 'warning.ico', 'etiqueta': 'A.Queja', 'nombre': 'agregar_queja',
              'hotkey': None, 'comando': self._agregar_queja},
 
             {'nombre_icono': 'History21.ico', 'etiqueta': 'Historial', 'nombre': 'historial_pedido',
-             'hotkey': None, 'comando': self._capturar_nuevo},
+             'hotkey': None, 'comando': self._historial_pedido},
 
             {'nombre_icono': 'Printer21.ico', 'etiqueta': 'Imprimir', 'nombre': 'imprimir_pedido',
              'hotkey': None, 'comando': self._capturar_nuevo},

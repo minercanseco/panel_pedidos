@@ -106,7 +106,7 @@ class ModeloCaptura:
 
         return consulta_procesada
 
-    def agregar_partida_tabla(self, partida, document_item_id, tipo_captura, unidad_cayal, monto_cayal):
+    def agregar_partida_tabla(self, partida, document_item_id, tipo_captura, unidad_cayal=0, monto_cayal=0):
 
         if not self._agregando_partida:
             try:
@@ -116,7 +116,6 @@ class ModeloCaptura:
                 producto = partida.get('ProductName', '')
                 partida['TipoCaptura'] = tipo_captura
                 partida['DocumentItemID'] = document_item_id
-                partida['CayalPiece'] = unidad_cayal
                 partida['CayalAmount'] = monto_cayal
                 partida['uuid'] = uuid.uuid4()
 
@@ -134,8 +133,19 @@ class ModeloCaptura:
                 partida['ItemProductionStatusModified'] = item_production_status_modified
                 partida['CreatedBy'] = self._usuario_id
 
+                cantidad_piezas = 0 if unidad_cayal == 0 else self.utilerias.redondear_valor_cantidad_a_decimal(partida['CayalPiece'])
+
+                equivalencia = self.base_de_datos.fetchone(
+                    'SELECT ISNULL(Equivalencia,0) Equivalencia FROM orgProduct WHERE ProductID = ?'
+                    , partida.get('ProductID', 0))
+                equivalencia_decimal = self.utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
+
+                if equivalencia_decimal > 0 and unidad_cayal == 1:
+                    cantidad_piezas = int((cantidad/equivalencia_decimal))
+
+                partida['CayalPiece'] = cantidad_piezas
                 partida_tabla = (cantidad,
-                                 self.utilerias.redondear_valor_cantidad_a_decimal(partida['cantidad_piezas']),
+                                 cantidad_piezas,
                                  partida['ProductKey'],
                                  producto,
                                  partida['Unit'],
@@ -146,7 +156,7 @@ class ModeloCaptura:
                                  partida['ProductID'],
                                  partida['DocumentItemID'],
                                  partida['TipoCaptura'],  # Tipo de captura 1 para manual y 0 para captura por pistola
-                                 partida['CayalPiece'],  # Viene del control de captura manual
+                                 cantidad_piezas,  # Viene del control de captura manual
                                  partida['CayalAmount'],  # viene del control de tipo monto
                                  partida['uuid'],
                                  partida['ItemProductionStatusModified'],

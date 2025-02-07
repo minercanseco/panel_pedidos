@@ -1,8 +1,10 @@
+import copy
 import datetime
 
 import pyperclip
 import logging
 
+from configurar_pedido import ConfigurarPedido
 from agregar_manualmente import AgregarPartidaManualmente
 from direccion_cliente import DireccionCliente
 from direcciones_adicionales import DireccionesAdicionales
@@ -331,20 +333,26 @@ class ControladorCaptura:
         self._ventanas.insertar_input_componente('txt_comentario_documento', self.documento.comments)
 
         # rellena la informacion relativa a las partidas
-        partidas = self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(self.documento.document_id, partidas_producidas=True)
+        partidas = self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(self.documento.document_id,
+                                                                               partidas_producidas=True)
         for partida in partidas:
-            partida_procesada = self._utilerias.crear_partida(partida)
+            # Crear una copia profunda para evitar referencias pegadas
+            partida_copia = copy.deepcopy(partida)
 
-            chk_pieza = partida_procesada.get('CayalPiece', 0)
-            chk_monto = partida_procesada.get('CayalAmount', 0)
-            tipo_captura = partida_procesada.get('TipoCaptura', 0)
-            document_item_id = partida_procesada.get('DocumentItemID', 0)
+            piezas = partida_copia.get('CayalPiece', 0)
+            chk_pieza = 1 if piezas != 0 else 0
 
-            # hay que garantizar que las partidas agregadas, eliminadas y editadas en previas ocasiones no se
-            # vuelvan a respaldar para impedirlo hay que modificar el campo ItemProductionStatusModified a 0 y con
-            # esto evitamos que se respalden nuevamente
+            chk_monto = partida_copia.get('CayalAmount', 0)
+            tipo_captura = partida_copia.get('TipoCaptura', 0)
+            document_item_id = partida_copia.get('DocumentItemID', 0)
 
-            self._modelo.agregar_partida_tabla(partida, document_item_id=document_item_id, tipo_captura=tipo_captura,
+            # Modificar la copia en lugar del objeto original
+            partida_copia['ItemProductionStatusModified'] = 0
+
+            # Procesar la copia para evitar referencias compartidas
+            partida_procesada = self._utilerias.crear_partida(partida_copia)
+
+            self._modelo.agregar_partida_tabla(partida_procesada, document_item_id=document_item_id, tipo_captura=tipo_captura,
                                                unidad_cayal=chk_pieza, monto_cayal=chk_monto)
 
     def _agregar_partida(self):

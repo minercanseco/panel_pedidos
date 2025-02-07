@@ -1,16 +1,14 @@
 import tkinter as tk
 from datetime import datetime, timedelta
-from cayal.comandos_base_datos import ComandosBaseDatos
 from cayal.ventanas import Ventanas
-from cayal.util import Utilerias
 
 
 class EditarCaracteristicasPedido:
-    def __init__(self, master, parametros):
+    def __init__(self, master, parametros, base_de_datos, utilerias):
         self._master = master
         self._parametros = parametros
-        self._base_de_datos = ComandosBaseDatos(self._parametros.cadena_conexion)
-        self._utilerias = Utilerias()
+        self._base_de_datos = base_de_datos
+        self._utilerias = utilerias
         self._ventanas = Ventanas(self._master)
 
         self._hoy = datetime.now().date()
@@ -39,7 +37,7 @@ class EditarCaracteristicasPedido:
         self._cargar_eventos()
 
         self._settear_valores_pedido_desde_base_de_datos()
-        print(self.info_pedido)
+
         if self.info_pedido['RelatedOrderID'] != 0:
             self._bloquear_componentes_segun_tipo_pedido(self._ventanas.obtener_input_componente('cbx_tipo'))
             self._ventanas.bloquear_componente('btn_guardar')

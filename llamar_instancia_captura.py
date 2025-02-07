@@ -1,3 +1,5 @@
+import copy
+
 from cayal.ventanas import Ventanas
 
 from controlador_captura import ControladorCaptura
@@ -205,24 +207,35 @@ class LlamarInstanciaCaptura:
 
         if self._parametros_contpaqi.id_modulo == 1687:
             for partida in self._documento.items:
-                piezas = 0 if partida['CayalPiece'] == 0 else partida['cantidad_piezas']
-                parametros = (document_id,
-                              partida['ProductID'],
-                              2,  # DepotID
-                              partida['cantidad'],
-                              partida['precio'],
-                              partida['CostPrice'],
-                              partida['subtotal'],
-                              partida['DocumentItemID'],
-                              partida['TipoCaptura'],  # CaptureTypeID 0 lector, 1 manual, 2 automatico
-                              piezas,  # Viene del control de captura manual
-                              partida['CayalAmount'],  # viene del control de tipo monto
-                              partida['ItemProductionStatusModified'],  # viene del status de edicion de la partida
-                              partida['Comments'],
-                              partida['CreatedBy']
-                              )
-                print(parametros)
+                # Crear una copia profunda para evitar referencias compartidas
+                partida_copia = copy.deepcopy(partida)
+
+                unidad = partida_copia.get('Unit', 'KILO')
+                product_id = partida_copia.get('ProductID', 0)
+
+                if unidad != 'KILO' and not self._utilerias.equivalencias_productos_especiales(product_id):
+                    partida_copia['CayalPiece'] = 0
+
+                parametros = (
+                    document_id,
+                    partida_copia['ProductID'],
+                    2,  # DepotID
+                    partida_copia['cantidad'],
+                    partida_copia['precio'],
+                    partida_copia['CostPrice'],
+                    partida_copia['subtotal'],
+                    partida_copia['DocumentItemID'],
+                    partida_copia['TipoCaptura'],  # CaptureTypeID 0 lector, 1 manual, 2 automático
+                    partida_copia['CayalPiece'],  # Viene del control de captura manual
+                    partida_copia['CayalAmount'],  # Viene del control de tipo monto
+                    partida_copia['ItemProductionStatusModified'],  # Viene del status de edición de la partida
+                    partida_copia['Comments'],
+                    partida_copia['CreatedBy']
+                )
+
                 document_item_id = self._base_de_datos.insertar_partida_pedido_cayal(parametros)
+
+                # Actualizar el objeto original solo con el nuevo ID generado
                 partida['DocumentItemID'] = document_item_id
 
         if self._parametros_contpaqi.id_modulo != 1687:
@@ -272,6 +285,7 @@ class LlamarInstanciaCaptura:
                                                                        change_type_id=change_type_id,
                                                                        user_id=self._user_id,
                                                                        comments=comentario)
+
                 parametros = (
                     document_id,
                     partida['ProductID'],

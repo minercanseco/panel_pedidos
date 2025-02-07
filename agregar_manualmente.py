@@ -460,7 +460,6 @@ class AgregarPartidaManualmente:
 
         texto_cantidad = self._modelo.crear_texto_cantidad_producto(cantidad_real_decimal, unidad, product_id)
         self._ventanas.insertar_input_componente('lbl_cantidad', texto_cantidad)
-
         return {'cantidad': cantidad_real_decimal, 'cantidad_piezas': cantidad_piezas, 'total': total}
 
     def _obtener_valores_controles(self):
@@ -596,7 +595,7 @@ class AgregarPartidaManualmente:
                 partida['Comments'] = comentarios
 
 
-                if chk_pieza == 1 and partida['cantidad_piezas'] % 1 != 0:
+                if chk_pieza == 1 and partida['CayalPiece'] % 1 != 0:
                     self._ventanas.mostrar_mensaje('La cantidad de piezas deben ser valores no fraccionarios.')
                     return
 

@@ -619,7 +619,7 @@ class ControladorPanelPedidos:
             order_document_id = fila['OrderDocumentID']
             total_documento = self._calcular_total_pedido(order_document_id)
             print(total_documento, mismo_cliente)
-            if total_documento < 181 and not mismo_cliente:
+            if total_documento < 200 and not mismo_cliente:
                 cliente = fila['Cliente']
                 pedido = fila['Pedido']
 
@@ -636,11 +636,11 @@ class ControladorPanelPedidos:
                 total_acumulado += total_documento
                 continue
 
-            if total_documento >  200:
+            if total_documento >  199:
                 filas_filtradas.append(fila)
                 continue
 
-        if mismo_cliente and total_acumulado < 181:
+        if mismo_cliente and total_acumulado < 200:
             cliente = filas[0]['Cliente']
 
             respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(

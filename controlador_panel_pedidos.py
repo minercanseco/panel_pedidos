@@ -618,7 +618,7 @@ class ControladorPanelPedidos:
         for fila in filas:
             order_document_id = fila['OrderDocumentID']
             total_documento = self._calcular_total_pedido(order_document_id)
-
+            print(total_documento, mismo_cliente)
             if total_documento < 181 and not mismo_cliente:
                 cliente = fila['Cliente']
                 pedido = fila['Pedido']

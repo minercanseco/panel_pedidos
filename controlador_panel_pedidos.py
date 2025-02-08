@@ -1096,16 +1096,69 @@ class ControladorPanelPedidos:
             if comentario:
                 comentarios_pedidos.append(comentario)
 
-        if not comentarios_pedidos:
-            return
-
-        if len(comentarios_pedidos) == 1:
-            comentario_a_insertar = comentarios_pedidos[0]
-
         comentarios = [f"{comentario}," for comentario in comentarios_pedidos]
         comentario_a_insertar = '\n'.join(comentarios)
+
+        comentarios_taras = self._crear_comentario_taras(order_document_ids)
+        comentarios_horarios = self._crear_comentario_horarios(order_document_ids)
+
+        comentario_a_insertar = f"{comentario_a_insertar}\n {comentarios_taras}\n {comentarios_horarios}".upper()
 
         self._base_de_datos.command(
             'UPDATE docDocument SET Comments = ? WHERE DocumentID =?',
             (comentario_a_insertar, document_id)
         )
+
+    def _crear_comentario_taras(self, order_document_ids):
+        comentario = ''
+
+        for order in order_document_ids:
+            consulta = self._base_de_datos.fetchall("""
+                SELECT ISNULL(P.FolioPrefix,'') + ISNULL(P.Folio,'') AS PedFolio, 
+                       TP.Prefix AS TaraPrefix, 
+                       T.NumberTara
+                FROM docDocumentOrderCayal P
+                INNER JOIN docDocumentTarasOrdersCayal T ON P.OrderDocumentID = T.OrderDocumentID
+                INNER JOIN OrderTarasCayal TP ON T.TaraTypeID = TP.TaraTypeID
+                WHERE P.OrderDocumentID = ?
+            """, (order,))
+
+            if not consulta:
+                continue
+
+            # Obtener el folio del pedido
+            folio = consulta[0]['PedFolio']
+            taras = []
+
+            # Generar la lista de taras
+            for tara in consulta:
+                tara_type = tara['TaraPrefix']
+                number_tara = tara['NumberTara']
+                taras.append(f"{tara_type}{number_tara}")
+
+            # Crear la cadena para este pedido
+            taras_str = ",".join(taras)  # Concatenar las taras separadas por comas
+            comentario += f"Folio:{folio}-{taras_str}; "
+
+        # Eliminar el último espacio y punto y coma si existe
+        comentario = comentario.strip("; ")
+        return comentario
+
+    def _crear_comentario_horarios(self, order_document_ids):
+        comentario = ''  # Inicia el comentario vacío
+
+        for pedido in order_document_ids:
+            consulta = self._base_de_datos.buscar_info_documento_pedido_cayal(pedido)
+            if consulta:
+                info_pedido = consulta[0]
+
+                # Extraer la información necesaria
+                folio = info_pedido['DocFolio']
+                he = info_pedido['DeliveryTime']
+                hv = info_pedido['CreatedOnTime']
+
+                # Agregar al comentario en el formato deseado
+                comentario += f"Folio: {folio}, HV: {hv}, HE: {he}\n"
+
+        # Opcionalmente, eliminar el salto de línea final
+        return comentario.strip()

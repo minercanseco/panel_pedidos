@@ -5,12 +5,16 @@ from cayal.login import Login
 from buscar_generales_cliente import BuscarGeneralesCliente
 from editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from historial_pedido import HistorialPedido
+from llamar_instancia_captura import LlamarInstanciaCaptura
 from ticket_pedido_cliente import TicketPedidoCliente
 from panel_principal_cliente import PanelPrincipal
 from selector_tipo_documento import SelectorTipoDocumento
 from ttkbootstrap.constants import *
 from cayal.tableview_cayal import Tableview
 from editar_pedido import EditarPedido
+from cayal.cliente import Cliente
+from cayal.documento import Documento
+
 
 
 
@@ -24,6 +28,7 @@ class ControladorPanelPedidos:
         self._number_orders = 0
         self._user_id = self._parametros.id_usuario
         self._user_name = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
+        self._parametros.nombre_usuario = self._user_name
         self._partidas_pedidos = {}
 
 
@@ -249,8 +254,6 @@ class ControladorPanelPedidos:
             self._interfaz.ventanas.insertar_input_componente('cbx_horarios', valor_cbx_horarios)
             self._filtrar_por_horas(seleccion=valor_cbx_horarios)
 
-
-
     def _capturar_nuevo_cliente(self):
         self._parametros.id_principal = -1
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
@@ -262,8 +265,9 @@ class ControladorPanelPedidos:
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
         self._parametros.id_principal = -1
         instancia = BuscarGeneralesCliente(ventana, self._parametros)
-        #ventana.wait_window()
+        ventana.wait_window()
         self._parametros.id_principal = 0
+        self._rellenar_tabla_pedidos(self._fecha_seleccionada())
 
     def _editar_caracteristicas(self):
         fila = self._seleccionar_una_fila()
@@ -809,21 +813,41 @@ class ControladorPanelPedidos:
         return filas_filtradas
 
     def _editar_pedido(self):
-
         fila = self._validar_seleccion_una_fila()
         if not fila:
             self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar un pedido.')
             return
 
-        if fila['TypeStatusID'] != 3:
-            self._interfaz.ventanas.mostrar_mensaje('No se pueden editar en este módulo documentos que no estén en status Por Timbrar.')
-            return
+        status_id = fila['TypeStatusID']
+        order_document_id = fila['OrderDocumentID']
 
-        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-        instancia = EditarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros, fila)
-        ventana.wait_window()
+        try:
 
-        self._rellenar_tabla_pedidos(self._fecha_seleccionada())
+            if status_id < 3:
+                ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+                cliente = Cliente()
+                documento = Documento()
+
+                self._parametros.id_principal = order_document_id
+                instancia = LlamarInstanciaCaptura(cliente,
+                                                   documento,
+                                                   self._base_de_datos,
+                                                   self._parametros,
+                                                   self._utilerias,
+                                                   ventana)
+                ventana.wait_window()
+                self._parametros.id_principal = 0
+
+            if status_id == 3:
+                ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+                instancia = EditarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros, fila)
+                ventana.wait_window()
+
+            if status_id > 3:
+                self._interfaz.ventanas.mostrar_mensaje('No se pueden editar en este módulo documentos que no estén en status Por Timbrar.')
+        finally:
+            self._actualizar_totales_pedido(order_document_id)
+            self._rellenar_tabla_pedidos(self._fecha_seleccionada())
 
     def _agregar_queja(self):
         pass
@@ -1188,3 +1212,31 @@ class ControladorPanelPedidos:
 
         # Opcionalmente, eliminar el salto de línea final
         return comentario.strip()
+
+    def _actualizar_totales_pedido(self, order_document_id):
+        consulta_partidas = self._modelo.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
+            order_document_id, partidas_producidas=True)
+
+        consulta_partidas_con_impuestos = self._modelo.utilerias.agregar_impuestos_productos(consulta_partidas)
+        subtotal = 0
+        total_tax = 0
+        totales = 0
+
+        for producto in consulta_partidas_con_impuestos:
+            precio = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(producto['UnitPrice'])
+            precio_con_impuestos = producto['SalePriceWithTaxes']
+            cantidad_decimal = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(producto['Quantity'])
+            total = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(precio_con_impuestos * cantidad_decimal)
+            product_id = producto['ProductID']
+
+            if product_id == 5606:
+                continue
+
+            subtotal += (precio * cantidad_decimal)
+            total_tax += (precio_con_impuestos - precio)
+            totales += total
+
+        self._base_de_datos.command(
+            'UPDATE docDocumentOrderCayal SET SubTotal = ?, Total = ?, TotalTax = ? WHERE OrderDocumentID = ?',
+            (subtotal, totales, total_tax, order_document_id)
+        )

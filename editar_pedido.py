@@ -18,6 +18,8 @@ class EditarPedido:
         self._user_name = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
 
         self._business_entity_id = valores_fila['BusinessEntityID']
+        self._order_document_id = valores_fila['OrderDocumentID']
+
         self._consulta_partidas = []
         self._partidas_a_agregar = []
         self._partidas_a_eliminar = []
@@ -273,7 +275,29 @@ class EditarPedido:
         return nuevas_partidas
 
     def _guardar_cambios(self):
+
         self._eliminar_partidas_tabla_base_datos()
+        self._agregar_partidas_adicionales_tabla_base_datos(self._order_document_id)
+        self._actualizar_partidas_tabla_base_datos()
+
+
+    def _actualizar_partidas_tabla_base_datos(self):
+        for partida in self._partidas_a_editar:
+            document_item_id = partida['DocumentItemID']
+            total = partida['Total']
+            cantidad = partida['Cantidad']
+            comentario = partida['Comments']
+            producto = partida['ProductName']
+
+
+            self._base_de_datos.command(
+                """
+                UPDATE docDocumentItemOrderCayalFinalProduction 
+                    SET Quantity = ?, Total = ?, Comments = ?
+                WHERE DocumentItemID = ?
+                """, (cantidad, total, comentario, document_item_id))
+
+
 
     def _eliminar_partidas_tabla_base_datos(self):
         for partida in self._partidas_a_eliminar:
@@ -315,3 +339,46 @@ class EditarPedido:
 
         numero_filas = self._ventanas.numero_filas_treeview('tvw_detalle')
         self._ventanas.insertar_input_componente('lbl_partidas', numero_filas)
+
+    def _agregar_partidas_adicionales_tabla_base_datos(self, order_document_id):
+        # como seleccionar al pedido al cual agrega las partidas
+        for partida in self._partidas_a_agregar:
+            producto = partida['ProductName']
+            cantidad = self._utilerias.redondear_valor_cantidad_a_decimal(partida['Quantity'])
+            precio = self._utilerias.redondear_valor_cantidad_a_decimal(partida['SalePrice'])
+
+            # afectar partidas finalizadas
+            parametros2 = (
+                order_document_id,
+                partida['ProductID'],
+                2,  # DepotID
+                cantidad,
+                precio,
+                0,  # costo,
+                cantidad * precio,
+                0,  # documentitem_id
+                1,  # tipo captura
+                0,
+                0,
+                4,  # stauts surtido,
+                partida['Comments'],
+                partida['CreatedBy']
+            )
+            self._base_de_datos.insertar_partida_surtida_pedido_cayal(parametros2)
+
+            # afectar bitacora usuario
+            employee_user_name = partida['CreatedByName']
+            comentario = f'Producto {cantidad} - {producto} agregado por {self._user_name} producido por {employee_user_name}'
+            self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
+                                                                   change_type_id=15,
+                                                                   comments=comentario,
+                                                                   user_id=self._user_id)
+
+            # afectar bitacora interna
+            self._base_de_datos.command("""
+                INSERT INTO OrderProductionAdditionalItems (ProductID, Quantity, CreatedBy, EmployeeUserID,DocumentID)
+                VALUES 
+                    (?, ?, ?, ?, ?), -- Ejemplo de un producto con cantidad y usuarios asociados
+            """, (partida['ProductID'], cantidad, self._user_id, partida['CreatedBy'], order_document_id))
+
+

@@ -10,6 +10,8 @@ from panel_principal_cliente import PanelPrincipal
 from selector_tipo_documento import SelectorTipoDocumento
 from ttkbootstrap.constants import *
 from cayal.tableview_cayal import Tableview
+from editar_pedido import EditarPedido
+
 
 
 class ControladorPanelPedidos:
@@ -781,7 +783,21 @@ class ControladorPanelPedidos:
         return filas_filtradas
 
     def _editar_pedido(self):
-        pass
+
+        fila = self._validar_seleccion_una_fila()
+        if not fila:
+            self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar un pedido.')
+            return
+
+        if fila['TypeStatusID'] != 3:
+            self._interfaz.ventanas.mostrar_mensaje('No se pueden editar en este módulo documentos que no estén en status Por Timbrar.')
+            return
+
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+        instancia = EditarPedido(ventana, self._base_de_datos, self._utilerias, fila)
+        ventana.wait_window()
+
+        self._rellenar_tabla_pedidos(self._fecha_seleccionada())
 
     def _agregar_queja(self):
         pass

@@ -1,3 +1,4 @@
+import tkinter as tk
 from datetime import datetime
 from buscar_pedido import BuscarPedido
 from cayal.login import Login
@@ -7,6 +8,8 @@ from historial_pedido import HistorialPedido
 from ticket_pedido_cliente import TicketPedidoCliente
 from panel_principal_cliente import PanelPrincipal
 from selector_tipo_documento import SelectorTipoDocumento
+from ttkbootstrap.constants import *
+from cayal.tableview_cayal import Tableview
 
 
 class ControladorPanelPedidos:
@@ -28,6 +31,7 @@ class ControladorPanelPedidos:
 
         self._cargar_eventos()
         self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Panel pedidos')
+        self._rellenar_operador()
 
     def _cargar_eventos(self):
         eventos = {
@@ -84,11 +88,25 @@ class ControladorPanelPedidos:
         return str(self._interfaz.ventanas.obtener_input_componente('den_fecha'))
 
     def _crear_tabla_pedidos(self):
-        componente = {
-                'tbv_pedidos': (
-                'frame_captura', self._interfaz.crear_columnas_tabla(), None, [self._colorear_filas_panel_horarios])
-        }
-        self._interfaz.ventanas.crear_componentes(componente)
+        frame = self._interfaz.ventanas.componentes_forma['frame_captura']
+        colors = self._interfaz.master.style.colors
+        componente = Tableview(
+            master=frame,
+            coldata=self._interfaz.crear_columnas_tabla(),
+            rowdata=self._utilerias.diccionarios_a_tuplas(None),
+            paginated=True,
+            searchable=True,
+            bootstyle=PRIMARY,
+            pagesize=15,
+            stripecolor=None,  # (colors.light, None),
+            height=15,
+            autofit=False,
+            callbacks=[self._colorear_filas_panel_horarios]
+
+        )
+
+        self._interfaz.ventanas.componentes_forma['tbv_pedidos'] = componente
+        componente.grid(row=0, column=0, pady=5, padx=5, sticky=tk.NSEW)
 
     def _colorear_filas_panel_horarios(self, actualizar_meters=None):
         """
@@ -214,9 +232,11 @@ class ControladorPanelPedidos:
         self._colorear_filas_panel_horarios(actualizar_meters=True)
 
     def _capturar_nuevo_cliente(self):
+        self._parametros.id_principal = -1
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
         instancia = PanelPrincipal(ventana, self._parametros, self._base_de_datos, self._utilerias)
         ventana.wait_window()
+        self._parametros.id_principal = 0
 
     def _capturar_nuevo(self):
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
@@ -766,7 +786,7 @@ class ControladorPanelPedidos:
     def _agregar_queja(self):
         pass
 
-    def _cancelar_pedido(self):
+    def _historial_cliente(self):
         pass
 
     def _buscar_pedido(self):
@@ -844,14 +864,14 @@ class ControladorPanelPedidos:
             {'nombre_icono': 'History21.ico', 'etiqueta': 'Historial', 'nombre': 'historial_pedido',
              'hotkey': None, 'comando': self._historial_pedido},
 
+            {'nombre_icono': 'CampaignFlow32.ico', 'etiqueta': 'H.Cliente', 'nombre': 'historial_cliente',
+             'hotkey': None, 'comando': self._historial_cliente},
+
             {'nombre_icono': 'Printer21.ico', 'etiqueta': 'Imprimir', 'nombre': 'imprimir_pedido',
              'hotkey': None, 'comando': self._capturar_nuevo},
 
-
             {'nombre_icono': 'SwitchUser32.ico', 'etiqueta': 'C.Usuario', 'nombre': 'cambiar_usuario',
              'hotkey': None, 'comando': self._cambiar_usuario},
-
-
 
         ]
 

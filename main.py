@@ -22,12 +22,15 @@ if __name__ == '__main__':
     ventana_login = ttk.Window()
     parametros_login = ParametrosContpaqi()
 
-    actualizar = ActualizadorDePaquetes('panel_pedidos_v3')
-    if not actualizar.actualizar_paquete():
+    #actualizar = ActualizadorDePaquetes('panel_pedidos_v3')
+    #if not actualizar.actualizar_paquete():
+    #    pass
+
+    if 1 == 1:
         # ------------------------------------------
         # parametros de prueba
-        # parametros_login.cadena_conexion = 'Mac'
-        parametros_login.base_de_datos = 'ComercialSP'
+        parametros_login.cadena_conexion = 'Mac'
+        #parametros_login.base_de_datos = 'ComercialSP'
         parametros_login.id_modulo = 1687
 
         # ------------------------------------------

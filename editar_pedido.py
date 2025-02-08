@@ -280,7 +280,6 @@ class EditarPedido:
         self._agregar_partidas_adicionales_tabla_base_datos(self._order_document_id)
         self._actualizar_partidas_tabla_base_datos()
 
-
     def _actualizar_partidas_tabla_base_datos(self):
         for partida in self._partidas_a_editar:
             document_item_id = partida['DocumentItemID']
@@ -297,7 +296,16 @@ class EditarPedido:
                 WHERE DocumentItemID = ?
                 """, (cantidad, total, comentario, document_item_id))
 
+            order_document_id = self._base_de_datos.fetchone(
+                'SELECT DocumentID FROM docDocumentItemOrderCayalFinalProduction WHERE DocumentItemID = ?',
+                (document_item_id,)
+            )
 
+            comentario = f'Producto {producto} ({cantidad}) editado por {self._user_name}'
+            self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
+                                                                   change_type_id=16,
+                                                                   comments=comentario,
+                                                                   user_id=self._user_id)
 
     def _eliminar_partidas_tabla_base_datos(self):
         for partida in self._partidas_a_eliminar:

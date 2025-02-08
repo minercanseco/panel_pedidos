@@ -644,13 +644,16 @@ class ControladorPanelPedidos:
             fila['BusinessEntityID'],
             21, # modulo facturas mayoreo
             self._user_id,
-            fila['DepotID']
+            fila['DepotID'],
+            fila['AddressDetailID']
         )
 
         order_document_id = fila['OrderDocumentID']
 
         self._base_de_datos.command('UPDATE docDocument SET ExportID = 6, OrderDocumentID = ? WHERE DocumentID = ?',
                                     (order_document_id, document_id))
+
+
 
         return document_id
 

@@ -168,6 +168,9 @@ class EditarPedido:
 
         if instancia.actualizar_cantidad:
             self._partidas_a_editar.append(instancia.valores_partida)
+            self._ventanas.actualizar_fila_treeview_diccionario('tvw_detalle',
+                                                                         fila,
+                                                                         instancia.valores_partida)
 
 
         total = self._calcular_total_pedido()

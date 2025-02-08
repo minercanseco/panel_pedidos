@@ -111,6 +111,8 @@ class EditarPedido:
                  'heading_anchor': tk.W, 'hide': 1},
                 {"text": "DocumentItemID", "stretch": False, 'width': 100, 'column_anchor': tk.W,
                  'heading_anchor': tk.W, 'hide': 1},
+                {"text": "ClaveUnidad", "stretch": False, 'width': 100, 'column_anchor': tk.W,
+                 'heading_anchor': tk.W, 'hide': 1},
             ]
 
     def _crear_barra_herramientas(self):
@@ -165,7 +167,8 @@ class EditarPedido:
         ventana.wait_window()
 
         if instancia.actualizar_cantidad:
-            print(instancia.valores_partida)
+            self._partidas_a_editar.append(instancia.valores_partida)
+
 
         total = self._calcular_total_pedido()
         self._actualizar_totales_documento(total)
@@ -193,6 +196,8 @@ class EditarPedido:
 
             self._partidas_a_agregar = nuevos_productos_adicionales
 
+
+
         # eliminar de partidas a insertar
         if document_item_id != 0:
             partida_eliminada = [partida for partida in self._consulta_partidas
@@ -200,6 +205,12 @@ class EditarPedido:
 
             if partida_eliminada:
                 self._partidas_a_eliminar.append(partida_eliminada)
+
+            if self._partidas_a_editar:
+                nuevas_partidas_a_editar = [partida for partida in self._partidas_a_editar
+                                            if int(partida['DocumentID']) != document_item_id]
+
+                self._partidas_a_editar = nuevas_partidas_a_editar
 
         self._ventanas.remover_fila_treeview('tvw_detalle', fila)
         total = self._calcular_total_pedido()
@@ -248,7 +259,8 @@ class EditarPedido:
                 'Esp': partida['Esp'],
                 'Comments': partida['Comments'],
                 'UUID': partida.get('UUID', ''),
-                'DocumentItemID': partida['DocumentItemID']
+                'DocumentItemID': partida['DocumentItemID'],
+                'ClaveUnidad': partida.get('ClaveUnidad','KGM')
             }
             nuevas_partidas.append(nueva_partida)
 

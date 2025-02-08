@@ -286,28 +286,6 @@ class LlamarInstanciaCaptura:
                                                                        user_id=self._user_id,
                                                                        comments=comentario)
 
-                parametros = (
-                    document_id,
-                    partida['ProductID'],
-                    2, #DepotID
-                    partida.get('cantidad'),
-                    partida.get('precio'),
-                    partida.get('CostPrice'),
-                    partida.get('subtotal'),
-                    partida.get('DocumentItemID',0),
-                    partida.get('TipoCaptura'),
-                    partida.get('CayalPiece'),
-                    partida.get('CayalAmount'),
-                    partida.get('ItemProductionStatusModified'),
-                    partida.get('Comments'),
-                    self._user_id
-                )
-
-                self._base_de_datos.respaldar_partida_pedido_cayal(parametros)
-
-        if self._parametros_contpaqi.id_modulo != 1687:
-            print('procesamiento de partidas de insercion tradicional')
-
     def _actualizar_totales_documento(self, document_id):
         total = self._documento.total
         subtotal = self._documento.subtotal

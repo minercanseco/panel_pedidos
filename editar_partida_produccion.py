@@ -35,7 +35,7 @@ class EditarPartidaProduccion:
         self._ventanas.cargar_eventos(eventos)
 
     def _rellenar_componentes(self):
-        cantidad = self.valores_partida['Cantidad']
+        cantidad = self.valores_partida[0]
         self._ventanas.insertar_input_componente('tbx_cantidad_actual', cantidad)
         self._ventanas.insertar_input_componente('tbx_cantidad_nueva', cantidad)
 
@@ -52,21 +52,21 @@ class EditarPartidaProduccion:
             return
 
         cantidad_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(cantidad)
-        clave_unidad = self.valores_partida['ClaveUnidad']
+        clave_unidad = self.valores_partida[9]
         unit = 'KILO' if clave_unidad == 'KGM' else 'PIEZA'
 
         if not self._utilerias.validar_unidad(cantidad_decimal, unit):
             self._ventanas.mostrar_mensaje('Los productos con unidad no pueden tener cantidades fraccionarias.')
             return
 
-        precio = self.valores_partida['Precio']
+        precio = self.valores_partida[3]
         precio_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(precio)
 
         total = precio_decimal*cantidad_decimal
         total = f"{total:.2f}"
 
-        self.valores_partida['Cantidad'] = cantidad_decimal
-        self.valores_partida['Total'] = total
+        self.valores_partida[0] = cantidad_decimal
+        self.valores_partida[4] = total
 
         self.actualizar_cantidad = True
 

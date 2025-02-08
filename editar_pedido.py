@@ -165,7 +165,7 @@ class EditarPedido:
         if not self._ventanas.validar_seleccion_una_fila_treeview('tvw_detalle'):
             return
         fila = self._ventanas.obtener_seleccion_filas_treeview('tvw_detalle')
-        valores_fila = self._ventanas.procesar_fila_treeview('tvw_detalle', fila)
+        valores_fila = self._ventanas.obtener_valores_fila_treeview('tvw_detalle', fila)
 
         ventana = self._ventanas.crear_popup_ttkbootstrap(titulo='Editar partida')
         instancia = EditarPartidaProduccion(ventana, self._base_de_datos, self._utilerias, valores_fila)
@@ -173,7 +173,7 @@ class EditarPedido:
 
         if instancia.actualizar_cantidad:
             self._partidas_a_editar.append(instancia.valores_partida)
-            self._ventanas.actualizar_fila_treeview_diccionario('tvw_detalle',
+            self._ventanas.actualizar_fila_treeview('tvw_detalle',
                                                                          fila,
                                                                          instancia.valores_partida)
 
@@ -282,11 +282,11 @@ class EditarPedido:
 
     def _actualizar_partidas_tabla_base_datos(self):
         for partida in self._partidas_a_editar:
-            document_item_id = partida['DocumentItemID']
-            total = partida['Total']
-            cantidad = partida['Cantidad']
-            comentario = partida['Comments']
-            producto = partida['ProductName']
+            document_item_id = partida[8]
+            total = partida[4]
+            cantidad = partida[0]
+            comentario = partida[6]
+            producto = partida[2]
 
 
             self._base_de_datos.command(
@@ -334,11 +334,12 @@ class EditarPedido:
         total_acumulado = 0
 
         for fila in filas:
-            valores = self._ventanas.procesar_fila_treeview('tvw_detalle', fila)
-            total = valores['Total']
-            total_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(total)
+            valores = self._ventanas.obtener_valores_fila_treeview('tvw_detalle', fila)
+            if valores:
+                total = valores[4]
+                total_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(total)
 
-            total_acumulado += total_decimal
+                total_acumulado += total_decimal
         return total_acumulado
 
     def _actualizar_totales_documento(self, total):
@@ -384,9 +385,8 @@ class EditarPedido:
 
             # afectar bitacora interna
             self._base_de_datos.command("""
-                INSERT INTO OrderProductionAdditionalItems (ProductID, Quantity, CreatedBy, EmployeeUserID,DocumentID)
-                VALUES 
-                    (?, ?, ?, ?, ?), -- Ejemplo de un producto con cantidad y usuarios asociados
+                INSERT INTO OrderProductionAdditionalItems (ProductID, Quantity, CreatedBy, EmployeeUserID, DocumentID)
+                VALUES (?, ?, ?, ?, ?) -- Ejemplo de un producto con cantidad y usuarios asociados
             """, (partida['ProductID'], cantidad, self._user_id, partida['CreatedBy'], order_document_id))
 
 

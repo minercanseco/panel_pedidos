@@ -6,13 +6,16 @@ from editar_partida_produccion import EditarPartidaProduccion
 
 
 class EditarPedido:
-    def __init__(self, master, base_de_datos, utilerias, valores_fila):
+    def __init__(self, master, base_de_datos, utilerias, parametros, valores_fila):
         self._master = master
         self._base_de_datos = base_de_datos
         self._utilerias = utilerias
         self._ventanas = Ventanas(self._master)
+        self._parametros = parametros
 
         self._valores_fila = valores_fila
+        self._user_id = self._parametros.id_usuario
+        self._user_name = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
 
         self._business_entity_id = valores_fila['BusinessEntityID']
         self._consulta_partidas = []
@@ -270,7 +273,29 @@ class EditarPedido:
         return nuevas_partidas
 
     def _guardar_cambios(self):
-        pass
+        self._eliminar_partidas_tabla_base_datos()
+
+    def _eliminar_partidas_tabla_base_datos(self):
+        for partida in self._partidas_a_eliminar:
+            document_item_id = partida['DocumentItemID']
+            self._base_de_datos.command(
+                """
+                UPDATE docDocumentItemOrderCayalFinalProduction 
+                    SET DeletedOn = GETDATE(), DeletedBy = ? 
+                WHERE DocumentItemID = ?
+                """, (self._user_id, document_item_id)
+            )
+            order_document_id = self._base_de_datos.fetchone(
+                'SELECT DocumentID FROM docDocumentItemOrderCayalFinalProduction WHERE DocumentItemID = ?',
+                (document_item_id,)
+            )
+            producto = partida['ProductName']
+            cantidad = self._utilerias.redondear_valor_cantidad_a_decimal(partida['Quantity'])
+            comentario = f'Producto {producto} ({cantidad}) eliminado por {self._user_name}'
+            self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
+                                                                   change_type_id=17,
+                                                                   comments=comentario,
+                                                                   user_id=self._user_id)
 
     def _calcular_total_pedido(self):
         filas = self._ventanas.obtener_filas_treeview('tvw_detalle')

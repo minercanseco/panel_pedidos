@@ -477,6 +477,8 @@ class ControladorPanelPedidos:
                 document_id = self._crear_cabecera_documento(tipo_documento, fila)
                 self._insertar_partidas_documento(order_document_id, document_id, partidas, total_documento, address_detail_id)
 
+                # insertar comentarios desde el pedido
+                self._crear_comentario_documento([order_document_id], document_id)
                 # relacionar documenrtosa con pedidos
                 self._actualizar_status_y_relacionar(document_id, order_document_id)
 
@@ -509,6 +511,9 @@ class ControladorPanelPedidos:
 
 
         self._insertar_partidas_documento(order_document_id, document_id, partidas_acumuladas, total_acumulado, address_detail_id)
+
+        # insertar comentario de los pedidos
+        self._crear_comentario_documento(order_document_ids, document_id)
 
         # relacionar pedidos con factura
         for order in order_document_ids:
@@ -794,7 +799,7 @@ class ControladorPanelPedidos:
             return
 
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-        instancia = EditarPedido(ventana, self._base_de_datos, self._utilerias, fila)
+        instancia = EditarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros, fila)
         ventana.wait_window()
 
         self._rellenar_tabla_pedidos(self._fecha_seleccionada())
@@ -1079,3 +1084,28 @@ class ControladorPanelPedidos:
             return
 
         return filas
+
+    def _crear_comentario_documento(self, order_document_ids, document_id):
+        comentarios_pedidos = []
+        comentario_a_insertar = ''
+        for order in order_document_ids:
+            comentario = self._base_de_datos.fetchone(
+                'SELECT CommentsOrder FROM docDocumentOrderCayal WHERE OrderDocumentID = ?',
+                (order,)
+            )
+            if comentario:
+                comentarios_pedidos.append(comentario)
+
+        if not comentarios_pedidos:
+            return
+
+        if len(comentarios_pedidos) == 1:
+            comentario_a_insertar = comentarios_pedidos[0]
+
+        comentarios = [f"{comentario}," for comentario in comentarios_pedidos]
+        comentario_a_insertar = '\n'.join(comentarios)
+
+        self._base_de_datos.command(
+            'UPDATE docDocument SET Comments = ? WHERE DocumentID =?',
+            (comentario_a_insertar, document_id)
+        )

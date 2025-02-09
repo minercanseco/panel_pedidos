@@ -280,6 +280,8 @@ class EditarPedido:
         self._agregar_partidas_adicionales_tabla_base_datos(self._order_document_id)
         self._actualizar_partidas_tabla_base_datos()
 
+        self._master.destroy()
+
     def _actualizar_partidas_tabla_base_datos(self):
         for partida in self._partidas_a_editar:
             document_item_id = partida[8]

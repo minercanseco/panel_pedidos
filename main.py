@@ -22,11 +22,8 @@ if __name__ == '__main__':
     ventana_login = ttk.Window()
     parametros_login = ParametrosContpaqi()
 
-    #actualizar = ActualizadorDePaquetes('panel_pedidos_v3')
-    #if not actualizar.actualizar_paquete():
-    #    pass
-
-    if 1 == 1:
+    actualizar = ActualizadorDePaquetes('panel_pedidos_v3')
+    if not actualizar.actualizar_paquete():
         # ------------------------------------------
         # parametros de prueba
         parametros_login.cadena_conexion = 'Mac'

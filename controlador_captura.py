@@ -529,6 +529,7 @@ class ControladorCaptura:
 
         ventana = self._ventanas.crear_popup_ttkbootstrap(titulo='Editar partida')
         instancia = EditarPartida(ventana, self._interfaz, self._modelo, self._utilerias, self.base_de_datos, valores_fila)
+        ventana.wait_window()
 
     def _verificador_precios(self):
             ventana = self._ventanas.crear_popup_ttkbootstrap(self._master)

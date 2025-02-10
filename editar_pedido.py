@@ -247,7 +247,7 @@ class EditarPedido:
         total = self._calcular_total_pedido()
         self._actualizar_totales_documento(total)
 
-    def _procesar_partidas(self, partidas_a_procesar, ):
+    def _procesar_partidas(self, partidas_a_procesar):
         partidas = self._utilerias.agregar_impuestos_productos(partidas_a_procesar)
 
         nuevas_partidas = []
@@ -266,7 +266,6 @@ class EditarPedido:
                 'ProductName': partida['ProductName'],
                 'UnitPrice': precio,
                 'Total': total,
-                'Esp': partida['Esp'],
                 'Comments': partida['Comments'],
                 'UUID': partida.get('UUID', ''),
                 'DocumentItemID': partida['DocumentItemID'],

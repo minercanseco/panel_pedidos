@@ -4,6 +4,7 @@ from buscar_pedido import BuscarPedido
 from cayal.login import Login
 from buscar_generales_cliente import BuscarGeneralesCliente
 from editar_caracteristicas_pedido import EditarCaracteristicasPedido
+from historial_cliente import HistorialCliente
 from historial_pedido import HistorialPedido
 from llamar_instancia_captura import LlamarInstanciaCaptura
 from ticket_pedido_cliente import TicketPedidoCliente
@@ -14,7 +15,6 @@ from cayal.tableview_cayal import Tableview
 from editar_pedido import EditarPedido
 from cayal.cliente import Cliente
 from cayal.documento import Documento
-
 
 
 
@@ -854,7 +854,9 @@ class ControladorPanelPedidos:
         pass
 
     def _historial_cliente(self):
-        pass
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+        instancia = HistorialCliente(ventana, self._base_de_datos, self._utilerias, 9760)
+        ventana.wait_window()
 
     def _buscar_pedido(self):
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Buscar pedido')
@@ -1241,3 +1243,7 @@ class ControladorPanelPedidos:
             'UPDATE docDocumentOrderCayal SET SubTotal = ?, Total = ?, TotalTax = ? WHERE OrderDocumentID = ?',
             (subtotal, totales, total_tax, order_document_id)
         )
+
+    def _validar_restriciones_fiscales_documento(self, valores_fila):
+
+        pass

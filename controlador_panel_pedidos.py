@@ -327,7 +327,8 @@ class ControladorPanelPedidos:
             instancia = TicketPedidoCliente(self._base_de_datos, self._utilerias, self._parametros)
 
             self._parametros.id_principal = 0
-            self._interfaz.ventanas.mostrar_mensaje('Comprobante generado.')
+            self._interfaz.ventanas.mostrar_mensaje(master=self._interfaz.master,
+                                                    mensaje='Comprobante generado.', tipo='info')
 
     def _mandar_a_producir(self):
 

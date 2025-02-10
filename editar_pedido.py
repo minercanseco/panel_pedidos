@@ -195,6 +195,7 @@ class EditarPedido:
         fila = self._ventanas.obtener_seleccion_filas_treeview('tvw_detalle')
         valores_fila = self._ventanas.procesar_fila_treeview('tvw_detalle', fila)
         document_item_id = int(valores_fila.get('DocumentItemID', 0))
+        order_document_id = int(valores_fila.get('OrderDocumentID',0))
         uuid_tabla = str(valores_fila['UUID'])
 
         # buscar si es un producto adicional
@@ -219,6 +220,50 @@ class EditarPedido:
                                             if int(partida['DocumentID']) != document_item_id]
 
                 self._partidas_a_editar = nuevas_partidas_a_editar
+
+            # afecta la bitacora de eliminacion
+            cantidad = valores_fila['Cantidad']
+            producto = valores_fila['Producto']
+
+            comentario = f'Producto {producto} ({cantidad}) eliminado por {self._user_name}'
+            self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
+                                                                   change_type_id=17,
+                                                                   comments=comentario,
+                                                                   user_id=self._user_id)
+
+            # respalda la partida eliminada
+
+            info_partida = self._base_de_datos.fetchall("""
+                SELECT 
+                    ProductID
+                    Quantity,
+                    UnitPrice,
+                    CostPrice,
+                    Total,
+                    TipoCaptura,
+                    CayalPiece, 
+                    CayalAmount,
+                FROM docDocumentItemOrderCayalFinalProduction 
+                WHERE DocumentID = ? AND DocumentItemID = ?
+            """,(order_document_id,document_item_id))
+
+            parametros = (
+                order_document_id,
+                2, # depot_id
+                info_partida[0]['Quantity'],
+                info_partida[0]['UnitPrice'],
+                info_partida[0]['CostPrice'],
+                info_partida[0]['Total'],
+                document_item_id,
+                info_partida[0]['Quantity'],
+                info_partida[0]['Quantity'],
+                3, # status 3 eliminado
+                comentario,
+                self._user_id
+            )
+
+            self._base_de_datos.exec_stored_procedure('zvwInsertarProductoPedidoCayalExtra', parametros)
+
 
         self._ventanas.remover_fila_treeview('tvw_detalle', fila)
         total = self._calcular_total_pedido()
@@ -391,4 +436,116 @@ class EditarPedido:
                 VALUES (?, ?, ?, ?, ?) -- Ejemplo de un producto con cantidad y usuarios asociados
             """, (partida['ProductID'], cantidad, self._user_id, partida['CreatedBy'], order_document_id))
 
+
+    def _actualizar_partidas_pedidos_cayal(self, accion, dic_parametros_producto):
+
+        """parametros_producto es un diccionario con la siguiente estructura
+
+            parametros = {
+                        "ProductName": None, # este no se pasa como argumento a parametros
+                        "DocumentID": None,
+                        "ProductID": None,
+                        "DepotID": None,
+                        "Cantidad": None,
+                        "Precio": None,
+                        "Costo": None,
+                        "Total": None,
+                        "DocumentItemID": None,  # Se actualizará con el valor de salida
+                        "TipoCaptura": None,
+                        "CayalPiece": None,
+                        "CayalAmount": None,
+                        "ItemProductionStatusModified": None,
+                        "Comments": None,
+                        "CreatedBy": None
+                    }
+
+        """
+        # --------------------------------------------------------------------------------------------------------
+        # procesamos el diccionario de parametros
+        # --------------------------------------------------------------------------------------------------------
+        parametros_producto = (
+            dic_parametros_producto['DocumentID'],
+            dic_parametros_producto['ProductID'],
+            dic_parametros_producto['DepotID'],
+            dic_parametros_producto['Cantidad'],
+            dic_parametros_producto['Precio'],
+            dic_parametros_producto['Costo'],
+            dic_parametros_producto['Total'],
+            dic_parametros_producto['DocumentItemID'],
+            dic_parametros_producto['TipoCaptura'],
+            dic_parametros_producto['CayalPiece'],
+            dic_parametros_producto['CayalAmount'],
+            dic_parametros_producto['ItemProductionStatusModified'],
+            dic_parametros_producto['Comments'],
+            dic_parametros_producto['CreatedBy'],
+        )
+        # --------------------------------------------------------------------------------------------------------
+        # afectaciones previas a realizar
+        # --------------------------------------------------------------------------------------------------------
+        document_item_id = dic_parametros_producto['DocumentItemID']
+        product_name = dic_parametros_producto['ProductName']
+        cantidad = dic_parametros_producto['Cantidad']
+        document_id = document_item_id['DocumentID']
+
+        # si la partida no existe previamente creala para obtener el item id
+        if document_item_id == 0:
+            document_item_id = self._base_de_datos.exec_stored_procedure(
+                'zvwInsertarProductoPedidoCayal', parametros_producto)
+
+        # respaldala para afectaciones posteriores
+        self._base_de_datos.exec_stored_procedure(
+            'zvwInsertarProductoPedidoCayalExtra', parametros_producto)
+
+        # insertala como finalizada para que esta quede dentro del pedido
+        self._base_de_datos.exec_stored_procedure(
+            'zvwInsertarProductoFinalizadoPedidoCayal', parametros_producto)
+
+        #--------------------------------------------------------------------------------------------------------
+        item_production_status_modified = 0
+        change_type_id = 0
+        comentario  = ''
+
+        if accion == 'agregar':
+            item_production_status_modified = 1
+            change_type_id = 15
+            comentario = f"Agregado {product_name} - Cant.{cantidad}"
+
+            # actualiza la partidad
+
+        if accion == 'editar':
+            item_production_status_modified = 2
+            change_type_id = 16
+            comentario = dic_parametros_producto['Comments']
+
+        if accion == 'eliminar':
+            item_production_status_modified = 3
+            change_type_id = 17
+            comentario = f"Eliminado {product_name} - Cant.{cantidad}"
+
+        # afecta la partida en extras y finalizado
+        self._base_de_datos.command(
+            """
+            DECLARE @Comments NVARCHARMAX = ?
+            DECLARE @ItemProductionStatusModified INT = ?
+            DECLARE @DocumentID INT = ?
+            
+            UPDATE docDocumentItemOrderCayal
+                SET Comments = @Comments, ItemProductionStatusModified = @ItemProductionStatusModified
+            WHERE DocumentID = @DocumentID
+            
+            UPDATE docDocumentItemOrderCayalExtra
+                SET Comments = @Comments, ItemProductionStatusModified = @ItemProductionStatusModified
+            WHERE DocumentID = @DocumentID
+            
+            UPDATE docDocumentItemOrderCayalFinalProduction 
+                SET Comments = @Comments, ItemProductionStatusModified = @ItemProductionStatusModified
+            WHERE DocumentID = @DocumentID
+            """,(comentario, item_production_status_modified, document_id)
+        )
+
+        # afecta la bitacora de cambios
+        self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=document_id,
+                                                               change_type_id=change_type_id,
+                                                               user_id=self._user_id,
+                                                               comments=comentario)
 

@@ -216,54 +216,11 @@ class EditarPedido:
                 self._partidas_a_eliminar.append(partida_eliminada)
 
             if self._partidas_a_editar:
+
                 nuevas_partidas_a_editar = [partida for partida in self._partidas_a_editar
-                                            if int(partida['DocumentID']) != document_item_id]
+                                            if int(partida[8]) != document_item_id]
 
                 self._partidas_a_editar = nuevas_partidas_a_editar
-
-            # afecta la bitacora de eliminacion
-            cantidad = valores_fila['Cantidad']
-            producto = valores_fila['Producto']
-
-            comentario = f'Producto {producto} ({cantidad}) eliminado por {self._user_name}'
-            self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
-                                                                   change_type_id=17,
-                                                                   comments=comentario,
-                                                                   user_id=self._user_id)
-
-            # respalda la partida eliminada
-
-            info_partida = self._base_de_datos.fetchall("""
-                SELECT 
-                    ProductID
-                    Quantity,
-                    UnitPrice,
-                    CostPrice,
-                    Total,
-                    TipoCaptura,
-                    CayalPiece, 
-                    CayalAmount,
-                FROM docDocumentItemOrderCayalFinalProduction 
-                WHERE DocumentID = ? AND DocumentItemID = ?
-            """,(order_document_id,document_item_id))
-
-            parametros = (
-                order_document_id,
-                2, # depot_id
-                info_partida[0]['Quantity'],
-                info_partida[0]['UnitPrice'],
-                info_partida[0]['CostPrice'],
-                info_partida[0]['Total'],
-                document_item_id,
-                info_partida[0]['Quantity'],
-                info_partida[0]['Quantity'],
-                3, # status 3 eliminado
-                comentario,
-                self._user_id
-            )
-
-            self._base_de_datos.exec_stored_procedure('zvwInsertarProductoPedidoCayalExtra', parametros)
-
 
         self._ventanas.remover_fila_treeview('tvw_detalle', fila)
         total = self._calcular_total_pedido()
@@ -329,52 +286,63 @@ class EditarPedido:
 
     def _actualizar_partidas_tabla_base_datos(self):
         for partida in self._partidas_a_editar:
-            document_item_id = partida[8]
-            total = partida[4]
             cantidad = partida[0]
-            comentario = partida[6]
-            producto = partida[2]
+            document_item_id = partida[8]
+            info_producto = \
+            self._base_de_datos.fetchall('SELECT * FROM [dbo].[zvwBuscarPartidaPedidoCayal-DocumentItemID](?)',
+                                         (document_item_id,))[0]
 
+            precio = self._utilerias.redondear_valor_cantidad_a_decimal(info_producto['UnitPrice'])
+            total = precio * cantidad
 
-            self._base_de_datos.command(
-                """
-                UPDATE docDocumentItemOrderCayalFinalProduction 
-                    SET Quantity = ?, Total = ?, Comments = ?
-                WHERE DocumentItemID = ?
-                """, (cantidad, total, comentario, document_item_id))
+            parametros = {
+                "ProductName": info_producto['ProductName'],  # este no se pasa como argumento a parametros
+                "DocumentID": self._order_document_id,
+                "ProductID": info_producto['ProductID'],
+                "DepotID": 2,
+                "Cantidad": cantidad,
+                "Precio": precio,
+                "Costo": 0,
+                "Total": total,
+                "DocumentItemID": document_item_id,  # Se actualizará con el valor de salida
+                "TipoCaptura": 1,
+                "CayalPiece": 0,
+                "CayalAmount": 0,
+                "ItemProductionStatusModified": 2,
+                "Comments": info_producto['Comments'],
+                "CreatedBy": self._user_id
 
-            order_document_id = self._base_de_datos.fetchone(
-                'SELECT DocumentID FROM docDocumentItemOrderCayalFinalProduction WHERE DocumentItemID = ?',
-                (document_item_id,)
-            )
+            }
 
-            comentario = f'Producto {producto} ({cantidad}) editado por {self._user_name}'
-            self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
-                                                                   change_type_id=16,
-                                                                   comments=comentario,
-                                                                   user_id=self._user_id)
+            self._actualizar_partidas_pedidos_cayal(accion='editar', dic_parametros_producto=parametros)
 
     def _eliminar_partidas_tabla_base_datos(self):
         for partida in self._partidas_a_eliminar:
+
             document_item_id = partida['DocumentItemID']
-            self._base_de_datos.command(
-                """
-                UPDATE docDocumentItemOrderCayalFinalProduction 
-                    SET DeletedOn = GETDATE(), DeletedBy = ? 
-                WHERE DocumentItemID = ?
-                """, (self._user_id, document_item_id)
-            )
-            order_document_id = self._base_de_datos.fetchone(
-                'SELECT DocumentID FROM docDocumentItemOrderCayalFinalProduction WHERE DocumentItemID = ?',
-                (document_item_id,)
-            )
-            producto = partida['ProductName']
-            cantidad = self._utilerias.redondear_valor_cantidad_a_decimal(partida['Quantity'])
-            comentario = f'Producto {producto} ({cantidad}) eliminado por {self._user_name}'
-            self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
-                                                                   change_type_id=17,
-                                                                   comments=comentario,
-                                                                   user_id=self._user_id)
+            info_producto = self._base_de_datos.fetchall('SELECT * FROM [dbo].[zvwBuscarPartidaPedidoCayal-DocumentItemID](?)',
+                                         (document_item_id,))[0]
+
+            parametros = {
+                "ProductName": info_producto['ProductName'],  # este no se pasa como argumento a parametros
+                "DocumentID": self._order_document_id,
+                "ProductID": info_producto['ProductID'],
+                "DepotID": 2,
+                "Cantidad": info_producto['Quantity'],
+                "Precio": info_producto['UnitPrice'],
+                "Costo": 0,
+                "Total": info_producto['Subtotal'],
+                "DocumentItemID": document_item_id,  # Se actualizará con el valor de salida
+                "TipoCaptura": 1,
+                "CayalPiece": 0,
+                "CayalAmount": 0,
+                "ItemProductionStatusModified": 3,
+                "Comments": info_producto['Comments'],
+                "CreatedBy": self._user_id
+
+            }
+
+            self._actualizar_partidas_pedidos_cayal(accion='eliminar', dic_parametros_producto=parametros)
 
     def _calcular_total_pedido(self):
         filas = self._ventanas.obtener_filas_treeview('tvw_detalle')
@@ -403,39 +371,32 @@ class EditarPedido:
             cantidad = self._utilerias.redondear_valor_cantidad_a_decimal(partida['Quantity'])
             precio = self._utilerias.redondear_valor_cantidad_a_decimal(partida['SalePrice'])
 
-            # afectar partidas finalizadas
-            parametros2 = (
-                order_document_id,
-                partida['ProductID'],
-                2,  # DepotID
-                cantidad,
-                precio,
-                0,  # costo,
-                cantidad * precio,
-                0,  # documentitem_id
-                1,  # tipo captura
-                0,
-                0,
-                4,  # stauts surtido,
-                partida['Comments'],
-                partida['CreatedBy']
-            )
-            self._base_de_datos.insertar_partida_surtida_pedido_cayal(parametros2)
+            parametros = {
+                "ProductName": producto,  # este no se pasa como argumento a parametros
+                "DocumentID": order_document_id,
+                "ProductID": partida['ProductID'],
+                "DepotID": 2,
+                "Cantidad": cantidad,
+                "Precio": precio,
+                "Costo": 0,
+                "Total": cantidad * precio,
+                "DocumentItemID": 0,  # Se actualizará con el valor de salida
+                "TipoCaptura": 1,
+                "CayalPiece": 0,
+                "CayalAmount": 0,
+                "ItemProductionStatusModified": 4,
+                "Comments": partida['Comments'],
+                "CreatedBy": partida['CreatedBy']
 
-            # afectar bitacora usuario
-            employee_user_name = partida['CreatedByName']
-            comentario = f'Producto {cantidad} - {producto} agregado por {self._user_name} producido por {employee_user_name}'
-            self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
-                                                                   change_type_id=15,
-                                                                   comments=comentario,
-                                                                   user_id=self._user_id)
+            }
+
+            self._actualizar_partidas_pedidos_cayal(accion='agregar', dic_parametros_producto=parametros)
 
             # afectar bitacora interna
             self._base_de_datos.command("""
                 INSERT INTO OrderProductionAdditionalItems (ProductID, Quantity, CreatedBy, EmployeeUserID, DocumentID)
                 VALUES (?, ?, ?, ?, ?) -- Ejemplo de un producto con cantidad y usuarios asociados
             """, (partida['ProductID'], cantidad, self._user_id, partida['CreatedBy'], order_document_id))
-
 
     def _actualizar_partidas_pedidos_cayal(self, accion, dic_parametros_producto):
 
@@ -460,10 +421,12 @@ class EditarPedido:
                     }
 
         """
+
+
         # --------------------------------------------------------------------------------------------------------
         # procesamos el diccionario de parametros
         # --------------------------------------------------------------------------------------------------------
-        parametros_producto = (
+        parametros_producto = [
             dic_parametros_producto['DocumentID'],
             dic_parametros_producto['ProductID'],
             dic_parametros_producto['DepotID'],
@@ -478,35 +441,48 @@ class EditarPedido:
             dic_parametros_producto['ItemProductionStatusModified'],
             dic_parametros_producto['Comments'],
             dic_parametros_producto['CreatedBy'],
-        )
+        ]
         # --------------------------------------------------------------------------------------------------------
         # afectaciones previas a realizar
         # --------------------------------------------------------------------------------------------------------
         document_item_id = dic_parametros_producto['DocumentItemID']
         product_name = dic_parametros_producto['ProductName']
         cantidad = dic_parametros_producto['Cantidad']
-        document_id = document_item_id['DocumentID']
+        document_id = dic_parametros_producto['DocumentID']
+        user_id = dic_parametros_producto['CreatedBy']
+        total = dic_parametros_producto['Total']
+
+        cantidad_anterior = 0
+
+        if accion == 'editar':
+            info_producto = self._base_de_datos.fetchall('SELECT * FROM [dbo].[zvwBuscarPartidaPedidoCayal-DocumentItemID](?)',
+                                         (document_item_id,))[0]
+            cantidad_anterior = info_producto['Quantity']
 
         # si la partida no existe previamente creala para obtener el item id
         if document_item_id == 0:
             document_item_id = self._base_de_datos.exec_stored_procedure(
                 'zvwInsertarProductoPedidoCayal', parametros_producto)
 
+        parametros_producto[7] = document_item_id
+
         # respaldala para afectaciones posteriores
         self._base_de_datos.exec_stored_procedure(
             'zvwInsertarProductoPedidoCayalExtra', parametros_producto)
 
-        # insertala como finalizada para que esta quede dentro del pedido
-        self._base_de_datos.exec_stored_procedure(
-            'zvwInsertarProductoFinalizadoPedidoCayal', parametros_producto)
+        if accion == 'agregar':
+            # insertala como finalizada para que esta quede dentro del pedido
+            self._base_de_datos.exec_stored_procedure(
+                'zvwInsertarProductoFinalizadoPedidoCayal', parametros_producto)
 
         #--------------------------------------------------------------------------------------------------------
-        item_production_status_modified = 0
+        item_production_status_modified = dic_parametros_producto['ItemProductionStatusModified']
         change_type_id = 0
         comentario  = ''
 
         if accion == 'agregar':
-            item_production_status_modified = 1
+            # 1 agregado antes de producir 4 agregado despues de producir o durante la produccion
+            item_production_status_modified = 1 if item_production_status_modified in (0,1)  else 4
             change_type_id = 15
             comentario = f"Agregado {product_name} - Cant.{cantidad}"
 
@@ -516,36 +492,77 @@ class EditarPedido:
             item_production_status_modified = 2
             change_type_id = 16
             comentario = dic_parametros_producto['Comments']
+            comentario = f"Editado de Cant {cantidad_anterior} -> Cant {cantidad} - {comentario}"
+
+            self._base_de_datos.command(
+                """
+                DECLARE @Quantity FLOAT = ?
+                DECLARE @Total FLOAT = ?
+                DECLARE @DocumentItemID INT = ?
+                DECLARE @Comments NVARCHAR(MAX) = ?
+                
+                UPDATE docDocumentItemOrderCayal
+                    SET Quantity = @Quantity, Total = @Total, Comments = @Comments
+                WHERE DocumentItemID = @DocumentItemID
+                
+                UPDATE docDocumentItemOrderCayalExtra
+                    SET Quantity = @Quantity, Total = @Total, Comments = @Comments
+                WHERE DocumentItemID = @DocumentItemID
+                
+                UPDATE docDocumentItemOrderCayalFinalProduction 
+                    SET Quantity = @Quantity, Total = @Total, Comments = @Comments
+                WHERE DocumentItemID = @DocumentItemID
+                """, (cantidad, total,  document_item_id, comentario,))
 
         if accion == 'eliminar':
             item_production_status_modified = 3
             change_type_id = 17
             comentario = f"Eliminado {product_name} - Cant.{cantidad}"
 
+            self._base_de_datos.command(
+                """
+                DECLARE @DeletedBy INT = ?
+                DECLARE @DocumentItemID INT = ?
+                
+                
+                UPDATE docDocumentItemOrderCayal
+                    SET DeletedOn = GETDATE(), DeletedBy = @DeletedBy
+                WHERE DocumentItemID = @DocumentItemID
+                
+                UPDATE docDocumentItemOrderCayalExtra
+                    SET DeletedOn = GETDATE(), DeletedBy = @DeletedBy
+                WHERE DocumentItemID = @DocumentItemID
+                
+                UPDATE docDocumentItemOrderCayalFinalProduction 
+                    SET DeletedOn = GETDATE(), DeletedBy = @DeletedBy
+                WHERE DocumentItemID = @DocumentItemID
+                """, (user_id, document_item_id)
+            )
+
         # afecta la partida en extras y finalizado
         self._base_de_datos.command(
             """
-            DECLARE @Comments NVARCHARMAX = ?
+            DECLARE @Comments NVARCHAR(MAX) = ?
             DECLARE @ItemProductionStatusModified INT = ?
-            DECLARE @DocumentID INT = ?
+            DECLARE @DocumentItemID INT = ?
             
             UPDATE docDocumentItemOrderCayal
                 SET Comments = @Comments, ItemProductionStatusModified = @ItemProductionStatusModified
-            WHERE DocumentID = @DocumentID
+            WHERE DocumentItemID = @DocumentItemID
             
             UPDATE docDocumentItemOrderCayalExtra
                 SET Comments = @Comments, ItemProductionStatusModified = @ItemProductionStatusModified
-            WHERE DocumentID = @DocumentID
+            WHERE DocumentItemID = @DocumentItemID
             
             UPDATE docDocumentItemOrderCayalFinalProduction 
                 SET Comments = @Comments, ItemProductionStatusModified = @ItemProductionStatusModified
-            WHERE DocumentID = @DocumentID
-            """,(comentario, item_production_status_modified, document_id)
+            WHERE DocumentItemID = @DocumentItemID
+            """,(comentario, item_production_status_modified, document_item_id)
         )
 
         # afecta la bitacora de cambios
         self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=document_id,
                                                                change_type_id=change_type_id,
-                                                               user_id=self._user_id,
+                                                               user_id=user_id,
                                                                comments=comentario)
 

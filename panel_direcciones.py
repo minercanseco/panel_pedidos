@@ -257,7 +257,7 @@ class PanelDirecciones:
     def _llamar_instancia_direcciones_adicionales(self, accion, seleccion = None):
 
         tabla_direcciones = self._ventanas.componentes_forma['tvw_direcciones']
-        ventana = ttk.Toplevel()
+        ventana = self._ventanas.crear_popup_ttkbootstrap()
 
         instancia = DireccionesAdicionales(ventana,
                                            self._parametros,

@@ -267,6 +267,7 @@ class ControladorPanelPedidos:
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap_sin_bloqueo()
         self._parametros.id_principal = -1
         instancia = BuscarGeneralesCliente(ventana, self._parametros)
+        ventana.grab_release()
         ventana.wait_window()
         self._parametros.id_principal = 0
         self._rellenar_tabla_pedidos(self._fecha_seleccionada())

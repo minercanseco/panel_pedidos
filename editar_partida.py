@@ -29,7 +29,9 @@ class EditarPartida:
         self._cargar_componentes()
         self._cargar_eventos()
         self._rellenar_componentes_forma()
-        self._ventanas.enfocar_componente('tbx_cantidad')
+        self._ventanas.configurar_ventana_ttkbootstrap('Editar partida')
+
+        self._ventanas.enfocar_componente('btn_cancelar')
 
     def _rellenar_componentes_forma(self):
         product_id = self._valores_fila['ProductID']

@@ -16,6 +16,7 @@ from editar_pedido import EditarPedido
 from cayal.cliente import Cliente
 from cayal.documento import Documento
 from buscar_generales_cliente_cartera import BuscarGeneralesClienteCartera
+from combinar_envio import CombinarEnvio
 
 
 class ControladorPanelPedidos:
@@ -375,8 +376,6 @@ class ControladorPanelPedidos:
         self._rellenar_tabla_pedidos(self._fecha_seleccionada())
 
     def _cobrar_nota(self):
-
-
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
         instancia = BuscarGeneralesClienteCartera(ventana, self._parametros)
         ventana.wait_window()
@@ -391,9 +390,10 @@ class ControladorPanelPedidos:
             return
         """
 
-
     def _combinar_envio(self):
-        pass
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+        instancia = CombinarEnvio(ventana, self._base_de_datos, self._parametros)
+        ventana.wait_window()
 
     def _inciar_facturacion(self):
         self._facturar()

@@ -75,9 +75,6 @@ class InterfacPanelPedidos:
                           None,  # {'row': 0, 'column': 0, 'pady': 5, 'padx': 5, 'sticky': tk.W},
                           ' ', None),
 
-            'chk_no_impresos': ('frame_filtros',
-                                {'row': 3, 'column': 10, 'pady': 2, 'padx': 2, 'sticky': tk.W},
-                                'No Impresos', None),
 
             'mtr_total': ('frame_meters', None, 'Total', None),
             'mtr_en_tiempo': ('frame_meters', 'success', 'En tiempo', None),

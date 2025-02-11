@@ -218,7 +218,7 @@ class ControladorSaldarCartera:
 
                 acumulado += total
 
-                self.ventanas.colorear_fila_seleccionada_treeview(tabla, fila, 'success')
+                self.ventanas.colorear_fila_seleccionada_treeview('tvw_tabla_documentos', fila, 'success')
 
         self._acualizar_acumulado(acumulado)
         self._bloquear_forma()
@@ -293,7 +293,7 @@ class ControladorSaldarCartera:
                 tabla.selection_remove(fila)
 
         for fila in filas:
-            self.ventanas.colorear_fila_seleccionada_treeview(tabla, fila, 'white')
+            self.ventanas.colorear_fila_seleccionada_treeview('tvw_tabla_documentos', fila, 'white')
 
         if self._documentos_seleccionados:
             for documento in self._documentos_seleccionados_previo:
@@ -346,7 +346,7 @@ class ControladorSaldarCartera:
                 saldo = 0
 
                 saldar(tabla, cobrado, total, saldo, document_id)
-                self.ventanas.colorear_fila_seleccionada_treeview(tabla, fila, 'success')
+                self.ventanas.colorear_fila_seleccionada_treeview('tvw_tabla_documentos', fila, 'success')
                 return monto
 
             if saldo > monto:
@@ -355,7 +355,7 @@ class ControladorSaldarCartera:
                 monto = 0
 
                 saldar(tabla, cobrado, total, saldo, document_id)
-                self.ventanas.colorear_fila_seleccionada_treeview(tabla, fila, 'warning')
+                self.ventanas.colorear_fila_seleccionada_treeview('tvw_tabla_documentos', fila, 'warning')
                 return monto
 
         # saldado sin calculo
@@ -366,7 +366,7 @@ class ControladorSaldarCartera:
             saldo = 0
 
             saldar(tabla, cobrado, total, saldo, document_id)
-            self.ventanas.colorear_fila_seleccionada_treeview(tabla, fila, 'success')
+            self.ventanas.colorear_fila_seleccionada_treeview('tvw_tabla_documentos', fila, 'success')
             return monto
 
     def calcular_cambio(self):

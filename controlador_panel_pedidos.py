@@ -1103,19 +1103,6 @@ class ControladorPanelPedidos:
                                                    valor=[seleccion],
                                                    )
 
-    def _filtrar_por_no_impresos(self):
-        self._limpiar_componentes()
-
-        valor_chk = self._interfaz.ventanas.obtener_input_componente('chk_no_impresos')
-
-        if valor_chk == 1:
-            self._interfaz.ventanas.filtrar_table_view(_table_view='tbv_pedidos',
-                                                       columna=37,
-                                                       valor=[""],
-                                                       )
-        if valor_chk == 0:
-            self._interfaz.ventanas.limpiar_seleccion_table_view('tbv_pedidos')
-
     def _validar_seleccion_multiples_filas(self):
         # si imprimir en automatico esta desactivado la seleccion de filas solo aplica a la seleccion
         filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
@@ -1233,5 +1220,4 @@ class ControladorPanelPedidos:
         )
 
     def _validar_restriciones_fiscales_documento(self, valores_fila):
-
         pass

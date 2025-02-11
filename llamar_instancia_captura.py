@@ -39,11 +39,14 @@ class LlamarInstanciaCaptura:
                                                               ocultar_master=True,
                                                               ejecutar_al_cierre=self._procesar_documento,
                                                               preguntar=pregunta)
+            ventana.grab_release()
+
         if self._documento.cancelled_on:
             ventana = self._ventanas.crear_popup_ttkbootstrap(self._master,
                                                               titulo='Capturar pedido',
                                                               ocultar_master=True,
                                                               ejecutar_al_cierre=self._procesar_documento)
+            ventana.grab_release()
 
         # llamamos a la instancia de la interfaz
 

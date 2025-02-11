@@ -16,7 +16,6 @@ from editar_pedido import EditarPedido
 from cayal.cliente import Cliente
 from cayal.documento import Documento
 from buscar_generales_cliente_cartera import BuscarGeneralesClienteCartera
-from combinar_envio import CombinarEnvio
 
 
 class ControladorPanelPedidos:
@@ -390,11 +389,6 @@ class ControladorPanelPedidos:
             return
         """
 
-    def _combinar_envio(self):
-        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-        instancia = CombinarEnvio(ventana, self._base_de_datos, self._parametros)
-        ventana.wait_window()
-
     def _inciar_facturacion(self):
         self._facturar()
         self._rellenar_tabla_pedidos(self._fecha_seleccionada())
@@ -446,6 +440,7 @@ class ControladorPanelPedidos:
             return
 
         self._crear_documento(filas_filtradas)
+        self._rellenar_tabla_pedidos(self._fecha_seleccionada())
         return
 
     def _crear_documento(self, filas, combinado=False, mismo_cliente=False):
@@ -904,9 +899,6 @@ class ControladorPanelPedidos:
 
             {'nombre_icono': 'Payments32.ico', 'etiqueta': 'C.Cartera.', 'nombre': 'cobrar_cartera',
              'hotkey': None, 'comando': self._cobrar_nota},
-
-            {'nombre_icono': 'Partner32.ico', 'etiqueta': 'C.Envio', 'nombre': 'combinar_envio',
-             'hotkey': None, 'comando': self._combinar_envio},
 
             {'nombre_icono': 'lista-de-verificacion.ico', 'etiqueta': 'Editar', 'nombre': 'editar',
              'hotkey': None, 'comando': self._editar_pedido},

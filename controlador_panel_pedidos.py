@@ -15,8 +15,7 @@ from cayal.tableview_cayal import Tableview
 from editar_pedido import EditarPedido
 from cayal.cliente import Cliente
 from cayal.documento import Documento
-from cobro_rapido import CobroRapido
-
+from buscar_generales_cliente_cartera import BuscarGeneralesClienteCartera
 
 
 class ControladorPanelPedidos:
@@ -375,31 +374,20 @@ class ControladorPanelPedidos:
 
         self._rellenar_tabla_pedidos(self._fecha_seleccionada())
 
-    def _confirmar_transferencia(self):
+    def _cobrar_nota(self):
         fila = self._seleccionar_una_fila()
         if not fila:
             return
-
+        """
         way_to_pay_id = fila[0]['WayToPayID']
         if way_to_pay_id != 6:
             self._interfaz.ventanas.mostrar_mensaje('Solo aplica para formas de pago transferencia.')
             return
-
-        order_document_id = fila[0]['OrderDocumentID']
-        document_id = self._base_de_datos.fetchone(
-            'SELECT DocumentID FROM docDocumentOrderCayal WHERE OrderDocumentID = ?', (order_document_id,)
-                                                  )
-        if document_id == 0:
-            self._interfaz.ventanas.mostrar_mensaje(
-                'Solo puede confirmar transferencias cuando el documento fiscal a sido generado.')
-            return
-
-        self._parametros.id_principal = document_id
+        """
 
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-        instancia = CobroRapido(ventana, self._parametros)
+        instancia = BuscarGeneralesClienteCartera(ventana, self._parametros)
         ventana.wait_window()
-        self._parametros.id_principal = 0
 
 
     def _combinar_envio(self):
@@ -912,8 +900,8 @@ class ControladorPanelPedidos:
             {'nombre_icono': 'Manufacture32.ico', 'etiqueta': 'M.Producir', 'nombre': 'mandar_producir',
              'hotkey': None, 'comando': self._mandar_a_producir},
 
-            {'nombre_icono': 'BankAccountAdd32.ico', 'etiqueta': 'C.Transf.', 'nombre': 'confirmar_transferencia',
-             'hotkey': None, 'comando': self._confirmar_transferencia},
+            {'nombre_icono': 'Payments32.ico', 'etiqueta': 'C.Cartera.', 'nombre': 'cobrar_cartera',
+             'hotkey': None, 'comando': self._cobrar_nota},
 
             {'nombre_icono': 'Partner32.ico', 'etiqueta': 'C.Envio', 'nombre': 'combinar_envio',
              'hotkey': None, 'comando': self._combinar_envio},

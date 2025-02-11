@@ -6,6 +6,7 @@ from cayal.util import Utilerias
 from cayal.cliente import Cliente
 from controlador_saldar_cartera import ControladorSaldarCartera
 from interfaz_saldar_cartera import InterfazSaldarCartera
+from cayal.ventanas import Ventanas
 
 
 class BuscarGeneralesClienteCartera:
@@ -17,6 +18,7 @@ class BuscarGeneralesClienteCartera:
         self._base_de_datos = BaseDatos(self._cadena_conexion)
         self._utilerias = Utilerias()
         self._cliente = Cliente()
+
 
         self.master = master
         self.master.geometry('352x185')
@@ -66,6 +68,9 @@ class BuscarGeneralesClienteCartera:
         etq_cancelar.grid(row=1, column=1, padx=5, sticky=tk.W)
 
         self.buscar.focus()
+
+        self._ventanas = Ventanas(self.master)
+        self._ventanas.configurar_ventana_ttkbootstrap()
 
     def buscar_cliente(self, event=None):
 

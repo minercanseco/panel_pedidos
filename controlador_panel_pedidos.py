@@ -539,7 +539,7 @@ class ControladorPanelPedidos:
         for order in order_document_ids:
             if order != order_document_id:
                 self._base_de_datos.command(
-                    'UPDATE docDocumentOrderCayal SET RelatedOrderID = ? WHERE OrderDocumentID = ?',
+                    'UPDATE docDocumentOrderCayal SET RelatedOrderID = ?, StatusID=4 WHERE OrderDocumentID = ?',
                     (order_document_id, order)
                 )
 

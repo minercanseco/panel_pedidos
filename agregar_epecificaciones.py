@@ -19,7 +19,7 @@ class AgregarEspecificaciones:
         self._cargar_frames()
         self._cargar_componentes()
         self._cargar_eventos()
-        self._ventanas.centrar_ventana_ttkbootstrap()
+        self._ventanas.configurar_ventana_ttkbootstrap('Especificaciones')
 
     def _buscar_especificaciones(self):
         self._consulta_especificaciones = self._base_de_datos.fetchall(

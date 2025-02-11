@@ -38,7 +38,7 @@ class ControladorSaldarCartera:
 
     def rellenar_tabla(self, tabla, columnas):
         consulta = self._buscar_documentos_con_saldo()
-        self._utilerias.rellenar_treeview(tabla, columnas, consulta, 4)
+        self.ventanas.rellenar_treeview(tabla, columnas, consulta, 4)
 
     def _buscar_documentos_con_saldo(self):
         if not self._consulta_documentos:

@@ -375,6 +375,12 @@ class ControladorPanelPedidos:
         self._rellenar_tabla_pedidos(self._fecha_seleccionada())
 
     def _cobrar_nota(self):
+
+
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+        instancia = BuscarGeneralesClienteCartera(ventana, self._parametros)
+        ventana.wait_window()
+
         fila = self._seleccionar_una_fila()
         if not fila:
             return
@@ -384,10 +390,6 @@ class ControladorPanelPedidos:
             self._interfaz.ventanas.mostrar_mensaje('Solo aplica para formas de pago transferencia.')
             return
         """
-
-        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-        instancia = BuscarGeneralesClienteCartera(ventana, self._parametros)
-        ventana.wait_window()
 
 
     def _combinar_envio(self):

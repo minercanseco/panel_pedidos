@@ -119,7 +119,7 @@ class InterfazSaldarCartera:
              'comando': lambda: self._controlador.deshacer_saldado()},
         ]
 
-        self.lista_iconos_barra_herramientas2 = self._utilerias.crear_barra_herramientas(
+        self.lista_iconos_barra_herramientas2 = self._ventanas.crear_barra_herramientas(
             self.barra_herramientas2, self._componentes_forma['frame_acciones'])
 
         self.barra_herramientas = [
@@ -134,7 +134,7 @@ class InterfazSaldarCartera:
             {'nombre_icono': 'Invoice32.ico', 'etiqueta': 'Facturas', 'nombre': 'aplicar_facturas',
              'hotkey': '[F]', 'comando': lambda: self._controlador.aplicar_por_documento('Factura')},
         ]
-        self.lista_iconos_barra_herramientas = self._utilerias.crear_barra_herramientas(
+        self.lista_iconos_barra_herramientas = self._ventanas.crear_barra_herramientas(
             self.barra_herramientas, self._componentes_forma['frame_botones_aplicar'])
 
     def _columnas_tabla(self):
@@ -218,9 +218,9 @@ class InterfazSaldarCartera:
         tabla_documentos.bind('<<TreeviewSelect>>',
                                    lambda event: self._controlador.seleccionar_documento())
 
-        self._utilerias.agregar_validacion_tbx(self._master, self._componentes_forma['tbx_terminal'], 'cantidad')
-        self._utilerias.agregar_validacion_tbx(self._master, self._componentes_forma['tbx_monto'], 'cantidad')
-        self._utilerias.agregar_validacion_tbx(self._master, self._componentes_forma['tbx_recibido'], 'cantidad')
+        self._ventanas.agregar_validacion_tbx('tbx_terminal', 'cantidad')
+        self._ventanas.agregar_validacion_tbx('tbx_monto', 'cantidad')
+        self._ventanas.agregar_validacion_tbx('tbx_recibido', 'cantidad')
 
     def _ajustar_apariencia_terminal(self):
         seleccion = self._ventanas.obtener_input_componente('cbx_forma_cobro')

@@ -1056,6 +1056,8 @@ class ControladorPanelPedidos:
         return partidas_procesadas
 
     def _filtrar_por_capturados_por(self, rellenar=False, seleccion=None):
+        self._limpiar_componentes()
+
         if not seleccion:
             seleccion = self._interfaz.ventanas.obtener_input_componente('cbx_capturista')
 
@@ -1070,6 +1072,8 @@ class ControladorPanelPedidos:
                                                        )
 
     def _filtrar_por_status(self, rellenar=False, seleccion=None):
+        self._limpiar_componentes()
+
         if not seleccion:
             seleccion = self._interfaz.ventanas.obtener_input_componente('cbx_status')
 
@@ -1084,6 +1088,8 @@ class ControladorPanelPedidos:
                                                    )
 
     def _filtrar_por_horas(self, rellenar=False, seleccion=None):
+        self._limpiar_componentes()
+
         if not seleccion:
             seleccion = self._interfaz.ventanas.obtener_input_componente('cbx_horarios')
 
@@ -1098,6 +1104,7 @@ class ControladorPanelPedidos:
                                                    )
 
     def _filtrar_por_no_impresos(self):
+        self._limpiar_componentes()
 
         valor_chk = self._interfaz.ventanas.obtener_input_componente('chk_no_impresos')
 

@@ -170,5 +170,6 @@ class InterfacPanelPedidos:
             {"text": "OrderDocumentID", "stretch": False, "width": 0},
             {"text": "BusinessEntityID", "stretch": False, "width": 0},
             {"text": "DepotID", "stretch": False, "width": 0},
-            {"text": "AddressDetailID", "stretch": False, "width": 0}
+            {"text": "AddressDetailID", "stretch": False, "width": 0},
+            {"text": "CaptureBy", "stretch": False, "width": 0}
         ]

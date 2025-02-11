@@ -24,7 +24,7 @@ class SaldarDocumentos:
         self.master.place_window_center()
         self.master.resizable(False, False)
         self.master.bind("<Escape>", lambda event: self.master.destroy())
-        self._utilerias.agregar_icono_ventana(self.master)
+        #self._utilerias.agregar_icono_ventana(self.master)
         self.master.focus()
         self.master.grab_set()
 

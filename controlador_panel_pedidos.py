@@ -645,7 +645,7 @@ class ControladorPanelPedidos:
             'FM', # prefijo mayoreo
             fila['BusinessEntityID'],
             21, # modulo facturas mayoreo
-            self._user_id,
+            fila['CaptureBy'],
             fila['DepotID'],
             fila['AddressDetailID']
         )

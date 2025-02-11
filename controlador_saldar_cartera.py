@@ -433,8 +433,8 @@ class ControladorSaldarCartera:
 
         fechahoy = datetime.today()
         fechahoy = fechahoy.date()
-        fecha_afectacion = datetime.strptime(fecha_afectacion, '%Y-%m-%d')
-        fecha_afectacion = fecha_afectacion.date()
+        #fecha_afectacion = datetime.strptime(fecha_afectacion, '%Y-%m-%d')
+        #fecha_afectacion = fecha_afectacion.date()
 
         if fechahoy < fecha_afectacion:
             dialogs.Messagebox.show_error(message='La fecha del cobro no puede ser posterior al día de hoy.',

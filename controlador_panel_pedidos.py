@@ -4,7 +4,7 @@ from buscar_pedido import BuscarPedido
 from cayal.login import Login
 from buscar_generales_cliente import BuscarGeneralesCliente
 from editar_caracteristicas_pedido import EditarCaracteristicasPedido
-from historial_cliente import HistorialCliente
+from cayal.cobros import Cobros
 from historial_pedido import HistorialPedido
 from llamar_instancia_captura import LlamarInstanciaCaptura
 from ticket_pedido_cliente import TicketPedidoCliente
@@ -15,6 +15,7 @@ from cayal.tableview_cayal import Tableview
 from editar_pedido import EditarPedido
 from cayal.cliente import Cliente
 from cayal.documento import Documento
+from cobro_rapido import CobroRapido
 
 
 
@@ -25,6 +26,7 @@ class ControladorPanelPedidos:
         self._base_de_datos = self._modelo.base_de_datos
         self._utilerias = self._modelo.utilerias
         self._parametros = self._modelo.parametros
+        self._cobros = Cobros(self._parametros.cadena_conexion)
         self._number_orders = 0
         self._user_id = self._parametros.id_usuario
         self._user_name = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
@@ -389,12 +391,16 @@ class ControladorPanelPedidos:
                                                   )
         if document_id == 0:
             self._interfaz.ventanas.mostrar_mensaje(
-                'Solo puede confirmar transferencias cuando el documento a sido generado.')
+                'Solo puede confirmar transferencias cuando el documento fiscal a sido generado.')
             return
 
-        consulta = self._base_de_datos.fetchall("""
-            SELECT Balance, StatusPaidID FROM docDocument WHERE DocumentID = ?
-        """,(document_id,))
+        self._parametros.id_principal = document_id
+
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+        instancia = CobroRapido(ventana, self._parametros)
+        ventana.wait_window()
+        self._parametros.id_principal = 0
+
 
     def _combinar_envio(self):
         pass

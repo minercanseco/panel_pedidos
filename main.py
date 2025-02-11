@@ -19,7 +19,7 @@ if __name__ == '__main__':
     ventana_login = ttk.Window()
     parametros_login = ParametrosContpaqi()
 
-    actualizar = ActualizadorDePaquetes('panel_pedidos_v9')
+    actualizar = ActualizadorDePaquetes('panel_pedidos_v11')
     if not actualizar.actualizar_paquete():
         # ------------------------------------------
         # parametros de prueba

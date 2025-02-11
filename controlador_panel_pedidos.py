@@ -16,6 +16,7 @@ from editar_pedido import EditarPedido
 from cayal.cliente import Cliente
 from cayal.documento import Documento
 from buscar_generales_cliente_cartera import BuscarGeneralesClienteCartera
+from buscar_clientes import BuscarClientes
 
 
 class ControladorPanelPedidos:
@@ -879,8 +880,16 @@ class ControladorPanelPedidos:
         instancia = Login(ventana, self._parametros, si_acceso_exitoso)
         ventana.wait_window()
 
+    def _buscar_clientes(self):
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+        instancia = BuscarClientes(ventana, self._base_de_datos, self._parametros, self._utilerias)
+        ventana.wait_window()
+
     def _crear_barra_herramientas(self):
         self.barra_herramientas_pedido = [
+
+            {'nombre_icono': 'Partner32.ico', 'etiqueta': 'Clientes', 'nombre': 'buscar_cliente',
+             'hotkey': None, 'comando': self._buscar_clientes},
 
             {'nombre_icono': 'Customer32.ico', 'etiqueta': 'Nuevo', 'nombre': 'nuevo_cliente',
              'hotkey': None, 'comando': self._capturar_nuevo_cliente},
@@ -980,6 +989,8 @@ class ControladorPanelPedidos:
         order_document_id = fila[0]['OrderDocumentID']
         partidas = self._modelo.buscar_partidas_pedido(order_document_id)
         partidas_procesadas = self._procesar_partidas_pedido(partidas)
+
+        self._interfaz.ventanas.limpiar_componentes(['tvw_detalle'])
 
         for partida in partidas_procesadas:
             self._interfaz.ventanas.insertar_fila_treeview('tvw_detalle', partida)

@@ -746,9 +746,11 @@ class FormularioCliente:
                     setattr(self._cliente, parametro, valor_attributo)
 
         if self._parametros.id_principal == -1:
+            print('creando cliente')
             self._crear_cliente()
 
         if self._parametros.id_principal > 0:
+            print('actualizando cliente')
             self._actualizar_cliente()
 
     def _crear_cliente(self):

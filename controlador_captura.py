@@ -441,6 +441,9 @@ class ControladorCaptura:
         self.cliente.addresses = int(numero_direcciones)
 
     def _editar_cliente(self):
+
+        self._parametros_contpaqi.id_principal = self.cliente.business_entity_id
+
         ventana = self._ventanas.crear_popup_ttkbootstrap(self._master, 'Cliente')
         tipo_captura = 'Remisión' if self.cliente.official_number == 'XAXX010101000' else 'Factura'
         parametros_cliente = {'TipoCaptura': tipo_captura}

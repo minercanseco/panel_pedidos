@@ -277,7 +277,7 @@ class BuscarGeneralesClienteCartera:
             else:
                 self._parametros.id_principal = self.business_entity_id
 
-                nueva_ventana = ttk.Toplevel()
+                nueva_ventana = self._ventanas.crear_popup_ttkbootstrap()
                 controlador =  ControladorSaldarCartera(self._parametros)
                 interfaz = InterfazSaldarCartera(nueva_ventana, controlador)
                 #self.master.withdraw()

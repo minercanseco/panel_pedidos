@@ -18,6 +18,8 @@ class DireccionCliente:
         self._rellenar_cbx_direcciones()
         self._agregar_eventos()
 
+        self._ventanas.configurar_ventana_ttkbootstrap(titulo='Dirección cliente')
+
     def _cargar_componentes_forma(self):
         componentes = [('cbx_direcciones', 'Dirección:'),
                        ('btn_actualizar', 'Actualizar'),

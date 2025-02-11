@@ -43,6 +43,8 @@ class DireccionesAdicionales:
         self.numero_direcciones = 0
         self._business_entity_id = business_entity_id
 
+        self._ventanas.configurar_ventana_ttkbootstrap(titulo='Direcciones adicionales')
+
     def _crear_frames(self):
         frames = {
             'frame_principal': ('master', None,

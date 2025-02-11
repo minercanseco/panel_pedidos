@@ -264,7 +264,7 @@ class ControladorPanelPedidos:
         self._parametros.id_principal = 0
 
     def _capturar_nuevo(self):
-        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap_sin_bloqueo()
         self._parametros.id_principal = -1
         instancia = BuscarGeneralesCliente(ventana, self._parametros)
         ventana.wait_window()
@@ -292,8 +292,8 @@ class ControladorPanelPedidos:
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
             instancia = EditarCaracteristicasPedido(ventana, self._parametros, self._base_de_datos, self._utilerias)
             ventana.wait_window()
-            self._parametros.id_principal = 0
 
+            self._parametros.id_principal = 0
             self._rellenar_tabla_pedidos(self._fecha_seleccionada())
 
     def _crear_ticket(self):

@@ -108,6 +108,7 @@ class EditarCaracteristicasPedido:
             'cbx_prioridad': (self._consulta_prioridad_pedidos, 'Value'),
             'cbx_sucursal': (self._consulta_sucursales, 'DepotName'),
 
+
         }
         try:
             for nombre, (consulta, campo_consulta) in componentes.items():
@@ -124,6 +125,8 @@ class EditarCaracteristicasPedido:
             if not self._consulta_sucursales:
                 self._ventanas.rellenar_cbx('cbx_sucursal', ['No aplica'], sin_seleccione=True)
                 self._ventanas.bloquear_componente('cbx_sucursal')
+
+            self._ventanas.insertar_input_componente('txt_comentario', self.info_pedido['CommentsOrder'])
 
         except:
             print(nombre)

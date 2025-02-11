@@ -12,6 +12,8 @@ class SelectorTipoDocumento:
         self._rellenar_componentes()
         self._cargar_eventos()
 
+        self._ventanas.configurar_ventana_ttkbootstrap(titulo='Tipo documento')
+
     def _cargar_componentes(self):
         componentes = [
             ('cbx_tipo', 'Tipo:'),

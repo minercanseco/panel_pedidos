@@ -825,7 +825,7 @@ class ControladorPanelPedidos:
         try:
 
             if status_id < 3:
-                ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+                ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap_sin_bloqueo()
                 cliente = Cliente()
                 documento = Documento()
 
@@ -836,8 +836,6 @@ class ControladorPanelPedidos:
                                                    self._parametros,
                                                    self._utilerias,
                                                    ventana)
-                ventana.wait_window()
-                self._parametros.id_principal = 0
 
             if status_id == 3:
                 ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
@@ -849,14 +847,6 @@ class ControladorPanelPedidos:
         finally:
             self._actualizar_totales_pedido(order_document_id)
             self._rellenar_tabla_pedidos(self._fecha_seleccionada())
-
-    def _agregar_queja(self):
-        pass
-
-    def _historial_cliente(self):
-        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-        instancia = HistorialCliente(ventana, self._base_de_datos, self._utilerias, 9760)
-        ventana.wait_window()
 
     def _buscar_pedido(self):
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Buscar pedido')
@@ -927,14 +917,8 @@ class ControladorPanelPedidos:
             {'nombre_icono': 'Invoice32.ico', 'etiqueta': 'Facturar', 'nombre': 'facturar',
              'hotkey': None, 'comando': self._inciar_facturacion},
 
-            {'nombre_icono': 'warning.ico', 'etiqueta': 'A.Queja', 'nombre': 'agregar_queja',
-             'hotkey': None, 'comando': self._agregar_queja},
-
             {'nombre_icono': 'History21.ico', 'etiqueta': 'Historial', 'nombre': 'historial_pedido',
              'hotkey': None, 'comando': self._historial_pedido},
-
-            {'nombre_icono': 'CampaignFlow32.ico', 'etiqueta': 'H.Cliente', 'nombre': 'historial_cliente',
-             'hotkey': None, 'comando': self._historial_cliente},
 
             {'nombre_icono': 'Printer21.ico', 'etiqueta': 'Imprimir', 'nombre': 'imprimir_pedido',
              'hotkey': None, 'comando': self._capturar_nuevo},

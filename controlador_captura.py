@@ -8,6 +8,7 @@ from configurar_pedido import ConfigurarPedido
 from agregar_manualmente import AgregarPartidaManualmente
 from direccion_cliente import DireccionCliente
 from direcciones_adicionales import DireccionesAdicionales
+from historial_cliente import HistorialCliente
 from panel_direcciones import PanelDirecciones
 from formulario_cliente import FormularioCliente
 from verificador_precios import VerificadorPrecios
@@ -535,6 +536,15 @@ class ControladorCaptura:
             ventana = self._ventanas.crear_popup_ttkbootstrap(self._master)
             VerificadorPrecios(ventana, self._parametros_contpaqi)
 
+    def _historial_cliente(self):
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+        instancia = HistorialCliente(ventana,
+                                     self._modelo.base_de_datos,
+                                     self._utilerias,
+                                     self.cliente.business_entity_id
+                                     )
+        ventana.wait_window()
+
     def _crear_barra_herramientas(self):
 
         # herramientas de pedidos
@@ -560,6 +570,9 @@ class ControladorCaptura:
 
                 {'nombre_icono': 'DocumentEdit32.ico', 'etiqueta': 'Editar Cliente', 'nombre': 'editar_cliente',
                  'hotkey': '[F12]', 'comando': self._editar_cliente},
+
+                {'nombre_icono': 'CampaignFlow32.ico', 'etiqueta': 'H.Cliente', 'nombre': 'historial_cliente',
+                 'hotkey': None, 'comando': self._historial_cliente},
 
             ]
 

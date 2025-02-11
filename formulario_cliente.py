@@ -263,7 +263,6 @@ class FormularioCliente:
 
             self._actualizar_tbx_domicilios(instancia.numero_direcciones)
         else:
-            ventana = self._ventanas.crear_popup_ttkbootstrap()
 
             instancia = DireccionesAdicionales(ventana,
                                                self._parametros,

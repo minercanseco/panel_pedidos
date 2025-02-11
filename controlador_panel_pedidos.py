@@ -329,6 +329,7 @@ class ControladorPanelPedidos:
             self._parametros.id_principal = 0
             self._interfaz.ventanas.mostrar_mensaje(master=self._interfaz.master,
                                                     mensaje='Comprobante generado.', tipo='info')
+            self._interfaz.master.iconify()
 
     def _mandar_a_producir(self):
 

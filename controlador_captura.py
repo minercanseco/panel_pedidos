@@ -528,7 +528,7 @@ class ControladorCaptura:
             self._ventanas.mostrar_mensaje('No se puede editar la partida servicio a domicilio.')
             return
 
-        ventana = self._ventanas.crear_popup_ttkbootstrap()
+        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master, 'Editar partida')
         instancia = EditarPartida(ventana, self._interfaz, self._modelo, self._utilerias, self.base_de_datos, valores_fila)
         ventana.wait_window()
 

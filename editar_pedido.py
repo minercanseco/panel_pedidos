@@ -1,4 +1,6 @@
 import tkinter as tk
+import uuid
+
 from cayal.ventanas import Ventanas
 
 from agregar_partida_produccion import AgregarPartidaProduccion
@@ -194,9 +196,9 @@ class EditarPedido:
 
         fila = self._ventanas.obtener_seleccion_filas_treeview('tvw_detalle')
 
-        print(fila)
+
         valores_fila = self._ventanas.procesar_fila_treeview('tvw_detalle', fila)
-        print(valores_fila)
+
         document_item_id = int(valores_fila.get('DocumentItemID', 0))
         order_document_id = int(valores_fila.get('OrderDocumentID',0))
         uuid_tabla = str(valores_fila['UUID'])
@@ -269,11 +271,13 @@ class EditarPedido:
                 'ProductName': partida['ProductName'],
                 'UnitPrice': precio,
                 'Total': total,
+                'E': '' if not partida['Comments'] else 'E',
                 'Comments': partida['Comments'],
-                'UUID': partida.get('UUID', ''),
+                'UUID': uuid.uuid4(),
                 'DocumentItemID': partida['DocumentItemID'],
                 'ClaveUnidad': partida.get('ClaveUnidad','KGM')
             }
+
             nuevas_partidas.append(nueva_partida)
 
         return nuevas_partidas

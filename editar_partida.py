@@ -411,7 +411,7 @@ class EditarPartida:
                 self._modelo.actualizar_totales_documento(partida_actualizada, decrementar=False)
 
             if cantidad_original > cantidad_nueva:
-                self._modelo.actualizar_totales_documento(partida_actualizada, decrementar=False)
+                self._modelo.actualizar_totales_documento(partida_actualizada, decrementar=True)
 
             # si aplica remueve el servicio a domicilio
             if self._module_id == 1687 and self._modelo.servicio_a_domicilio_agregado == True:

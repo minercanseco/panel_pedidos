@@ -48,14 +48,15 @@ class InterfacPanelPedidos:
                                 {'row': 0, 'column': 3, 'pady': 2, 'padx': 2,
                                  'sticky': tk.W}),
 
-            'frame_comentarios': ('frame_principal', 'Comentarios',
-                                  {'row': 3, 'columnspan': 2, 'column': 0, 'pady': 2, 'padx': 2,
-                                   'sticky': tk.NSEW}),
-
             'frame_captura': ('frame_principal', 'Pedidos',
-                              {'row': 4, 'columnspan': 2, 'column': 0, 'pady': 2, 'padx': 2,
+                              {'row': 3, 'columnspan': 2, 'column': 0, 'pady': 2, 'padx': 2,
                                'sticky': tk.NSEW}),
-            'frame_detalle': ('frame_principal', 'Detalle',
+
+            'frame_comentarios': ('frame_principal', 'Comentarios',
+            {'row': 4, 'columnspan': 2, 'column': 0, 'pady': 2, 'padx': 2,
+             'sticky': tk.NSEW}),
+
+        'frame_detalle': ('frame_principal', 'Detalle',
                               {'row': 5, 'columnspan': 2, 'column': 0, 'pady': 2, 'padx': 2,
                                'sticky': tk.NSEW}),
 

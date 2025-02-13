@@ -202,7 +202,7 @@ class ModeloCaptura:
             subtotal_documento += subtotal_partida
             total_documento += total_partida
             total_impuestos_documento += total_impuestos_partida
-
+        print(total_documento)
         self.documento.total = total_documento
         total_documento_moneda = self.utilerias.convertir_decimal_a_moneda(total_documento)
         self._ventanas.insertar_input_componente('lbl_total', total_documento_moneda)

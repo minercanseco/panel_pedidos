@@ -325,7 +325,6 @@ class ControladorCaptura:
             self.parametros_pedido = valores_pedido
             self.documento.order_parameters = valores_pedido
 
-
     def _rellenar_desde_base_de_datos(self):
         if self.documento.document_id < 1:
             return

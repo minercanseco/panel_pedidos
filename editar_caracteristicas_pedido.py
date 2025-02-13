@@ -226,6 +226,7 @@ class EditarCaracteristicasPedido:
 
             if self._consulta_sucursales:
                 depot_id = self.info_pedido['DepotID']
+
                 if depot_id != 0:
                     depot_name = [tipo['DepotName'] for tipo in self._consulta_sucursales
                               if depot_id == tipo['DepotID']][0]
@@ -279,12 +280,22 @@ class EditarCaracteristicasPedido:
         self._ventanas.insertar_input_componente('txt_comentario', comments)
         self._ventanas.insertar_input_componente('cbx_forma_pago', payment_term_name)
 
+
+
         schedule_order_id = self.info_pedido['ScheduleID']
         if self._consulta_horarios:
             schedule_order = [tipo['Value'] for tipo in self._consulta_horarios
                               if schedule_order_id == tipo['ScheduleID']][0]
             if schedule_order:
                 self._ventanas.insertar_input_componente('cbx_horario', schedule_order)
+
+        if self._consulta_sucursales:
+            depot_id = self.info_pedido['DepotID']
+
+            if depot_id != 0:
+                depot_name = [tipo['DepotName'] for tipo in self._consulta_sucursales
+                              if depot_id == tipo['DepotID']][0]
+                self._ventanas.insertar_input_componente('cbx_sucursal', depot_name)
 
     def _relacionar_a_pedido(self):
 

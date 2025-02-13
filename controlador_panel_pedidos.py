@@ -64,7 +64,6 @@ class ControladorPanelPedidos:
         }
         self._interfaz.ventanas.cargar_eventos(evento_adicional)
 
-        self._interfaz.ventanas.agregar_callback_table_view_al_actualizar('tbv_pedidos',self._colorear_filas_panel_horarios)
 
     def _limpiar_componentes(self):
         self._interfaz.ventanas.limpiar_componentes(['tbx_comentarios', 'tvw_detalle'])
@@ -121,7 +120,6 @@ class ControladorPanelPedidos:
 
         self._interfaz.ventanas.componentes_forma['tbv_pedidos'] = componente
         componente.grid(row=0, column=0, pady=5, padx=5, sticky=tk.NSEW)
-
         self._interfaz.ventanas.agregar_callback_table_view_al_actualizar('tbv_pedidos', self._colorear_filas_panel_horarios)
 
     def _colorear_filas_panel_horarios(self, actualizar_meters=None):
@@ -130,6 +128,7 @@ class ControladorPanelPedidos:
         También tiene en cuenta la fecha y hora de entrega. Si `actualizar_meters` es True, solo actualiza
         los contadores sin modificar los colores en la tabla.
         """
+
         if self._coloreando:
             return  # Evita ejecuciones simultáneas
 
@@ -184,8 +183,10 @@ class ControladorPanelPedidos:
                 return 1  # En tiempo (Verde)
 
         # Obtener filas a procesar
+
         filas = self._modelo.consulta_pedidos_entrega if actualizar_meters else \
             self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', visibles=True)
+
 
         # Reiniciar contadores si estamos actualizando meters
         if actualizar_meters:
@@ -197,10 +198,12 @@ class ControladorPanelPedidos:
             self._coloreando = False
             return
 
+
         # Definir colores
         colores = {0: 'red', 1: 'green', 2: 'orange', 3: 'red'}
 
         for i, fila in enumerate(filas):
+
             valores_fila = {
                 'PriorityID': fila['PriorityID'],
                 'Cancelled': fila['Cancelado'],  # Corregido (antes 'Cancelado')
@@ -252,7 +255,6 @@ class ControladorPanelPedidos:
         self._rellenar_cbx_status(consulta)
 
         self._modelo.consulta_pedidos_entrega = consulta
-        self._colorear_filas_panel_horarios(actualizar_meters=True)
 
         if valor_cbx_captura != 'Seleccione':
             self._interfaz.ventanas.insertar_input_componente('cbx_capturista', valor_cbx_captura)
@@ -1100,7 +1102,6 @@ class ControladorPanelPedidos:
                                                        valor=[seleccion],
                                                        )
 
-        #self._colorear_filas_panel_horarios(actualizar_meters=False)
 
     def _filtrar_por_status(self, rellenar=False, seleccion=None):
         self._limpiar_componentes()
@@ -1118,7 +1119,6 @@ class ControladorPanelPedidos:
                                                    valor=[seleccion],
                                                    )
 
-        #self._colorear_filas_panel_horarios(actualizar_meters=False)
 
     def _filtrar_por_horas(self, rellenar=False, seleccion=None):
         self._limpiar_componentes()
@@ -1136,7 +1136,6 @@ class ControladorPanelPedidos:
                                                    valor=[seleccion],
                                                    )
 
-        #self._colorear_filas_panel_horarios(actualizar_meters=False)
 
     def _validar_seleccion_multiples_filas(self):
         # si imprimir en automatico esta desactivado la seleccion de filas solo aplica a la seleccion

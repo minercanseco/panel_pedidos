@@ -1,4 +1,7 @@
+import os
+import platform
 import re
+import tempfile
 import tkinter as tk
 from datetime import datetime
 from buscar_pedido import BuscarPedido
@@ -6,6 +9,8 @@ from cayal.login import Login
 from buscar_generales_cliente import BuscarGeneralesCliente
 from editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from cayal.cobros import Cobros
+
+from generador_ticket_produccion import GeneradorTicketProduccion
 from historial_pedido import HistorialPedido
 from horario_acumulado import HorarioslAcumulados
 from llamar_instancia_captura import LlamarInstanciaCaptura
@@ -30,6 +35,9 @@ class ControladorPanelPedidos:
         self._utilerias = self._modelo.utilerias
         self._parametros = self._modelo.parametros
         self._cobros = Cobros(self._parametros.cadena_conexion)
+        self._ticket = GeneradorTicketProduccion(32)
+        self._ticket.ruta_archivo = self._obtener_directorio_reportes()
+
         self._number_orders = 0
 
         self._coloreando = False
@@ -120,6 +128,24 @@ class ControladorPanelPedidos:
         self._interfaz.ventanas.componentes_forma['tbv_pedidos'] = componente
         componente.grid(row=0, column=0, pady=5, padx=5, sticky=tk.NSEW)
         self._interfaz.ventanas.agregar_callback_table_view_al_actualizar('tbv_pedidos', self._colorear_filas_panel_horarios)
+
+    def _obtener_directorio_reportes(self):
+
+        sistema = platform.system()
+
+        if sistema == "Windows":
+            directorio = os.path.join(os.getenv("USERPROFILE"), "Documents")
+
+        elif sistema in ["Darwin", "Linux"]:  # macOS y Linux
+            directorio = os.path.join(os.getenv("HOME"), "Documents")
+
+        else:
+            directorio = tempfile.gettempdir()  # como último recurso
+
+        if not os.path.exists(directorio):
+            os.makedirs(directorio)
+
+        return directorio
 
     def _colorear_filas_panel_horarios(self, actualizar_meters=None):
         """
@@ -943,7 +969,7 @@ class ControladorPanelPedidos:
              'hotkey': None, 'comando': self._acumular_horarios},
 
             {'nombre_icono': 'Printer21.ico', 'etiqueta': 'Imprimir', 'nombre': 'imprimir_pedido',
-             'hotkey': None, 'comando': self._capturar_nuevo},
+             'hotkey': None, 'comando': self._imprimir},
 
             {'nombre_icono': 'SwitchUser32.ico', 'etiqueta': 'C.Usuario', 'nombre': 'cambiar_usuario',
              'hotkey': None, 'comando': self._cambiar_usuario},
@@ -955,6 +981,178 @@ class ControladorPanelPedidos:
         self.iconos_barra_herramientas = self.elementos_barra_herramientas[0]
         self.etiquetas_barra_herramientas = self.elementos_barra_herramientas[2]
         self.hotkeys_barra_herramientas = self.elementos_barra_herramientas[1]
+
+    def _imprimir(self):
+        filas = self._validar_seleccion_multiples_filas()
+
+        if not filas:
+            return
+
+        for fila in filas:
+            self._preparar_ticket_impresion(fila)
+
+            #self._afectar_bitacora_impresion(order_document_id)
+            #self._actualizar_tablas_impresion(order_document_id)
+
+        self._rellenar_tabla_pedidos(self._fecha_seleccionada())
+
+    def _preparar_ticket_impresion(self, fila):
+        order_document_id = fila['OrderDocumentID']
+
+        areas_imprimibles = set(self._base_de_datos.fetchone("""
+                    SELECT PT.Value
+                    FROM docDocumentOrderCayal P INNER JOIN
+                        OrdersProductionTypesCayal PT ON P.ProductionTypeID = PT.ProductionTypesID
+                    WHERE P.OrderDocumentID = ?
+                """, (order_document_id,)))
+
+        if len(areas_imprimibles) in (1, 2):
+            self._ticket.parcial = True
+        else:
+            self._ticket.parcial = False
+
+        for area in areas_imprimibles:
+
+            imprimir = self._settear_valores_ticket(fila, order_document_id, area)
+
+            if not imprimir:
+
+                continue
+
+            self._ticket.imprimir(fuente_tamano=10, nombre_impresora="Ticket")
+
+    def _settear_valores_ticket(self, pedido, order_document_id, areas_imprimibles):
+        self._ticket.cliente = pedido.get('Cliente', '')
+        self._ticket.pedido = pedido.get('Folio', '')
+        self._ticket.relacionado = pedido.get('Relacion', '')
+        self._ticket.tipo = pedido.get('Tipo', '')
+
+        fecha_captura = pedido.get('F.Captura', '')
+        hora_captura = pedido.get('H.Captura', '')
+        captura = f'{fecha_captura}-{hora_captura}'
+        self._ticket.venta = captura
+
+        fecha_entrega = pedido.get('F.Entrega', '')
+        hora_entrega = pedido.get('H.Entrega', '')
+        entrega = f'{fecha_entrega}-{hora_entrega}'
+        self._ticket.entrega = entrega
+        self._ticket.tipo_entrega = pedido.get('Entrega', '')
+
+        self._ticket.capturista = pedido.get('Capturó', '')
+        self._ticket.ruta = pedido.get('Ruta')
+
+        consulta = self._base_de_datos.fetchall(
+            """
+            SELECT Z.ZoneName, DT.City
+            FROM docDocumentOrderCayal D INNER JOIN
+                orgZone Z ON D.ZoneID = D.ZoneID INNER JOIN
+                orgAddressDetail DT ON D.AddressDetailID = DT.AddressDetailID
+            WHERE OrderDocumentID = ? AND D.ZoneID = Z.ZoneID
+            """,
+            (order_document_id,)
+        )
+        if consulta:
+            valores = consulta[0]
+            ruta = valores.get('ZoneName', '')
+            ruta = self._utilerias.limitar_caracteres(ruta, 22)
+            self._ticket.ruta = ruta
+
+            colonia = valores.get('City', '')
+            self._ticket.colonia = colonia
+
+        consulta_partidas = self._base_de_datos.buscar_partidas_pedidos_produccion_cayal(
+            order_document_id, partidas_eliminadas=False)
+
+        partidas_filtradas_por_area = self._filtrar_partidas_por_area_impresion(consulta_partidas, areas_imprimibles)
+
+        partidas_ticket = self._filtrar_partidas_ticket(partidas_filtradas_por_area)
+
+        if not partidas_ticket:
+            return False
+
+        self._ticket.set_productos(partidas_ticket)
+
+        return True
+
+    def _filtrar_partidas_por_area_impresion(self, consulta_partidas, areas_imprimibles):
+
+        partidas_sin_servicio_domicilio = [partida for partida in consulta_partidas if partida['ProductID'] != 5606]
+        sin_partidas_eliminadas = [partida for partida in partidas_sin_servicio_domicilio
+                                   if partida['ItemProductionStatusModified'] != 3]
+
+        tipos_partida = {0: 'M', 1: 'P', 2: 'A'}
+
+        partidas = []
+        for partida in sin_partidas_eliminadas:
+            product_type_id_cayal = partida.get('ProductTypeIDCayal', 1)
+            if tipos_partida[product_type_id_cayal] in areas_imprimibles:
+                partidas.append(partida)
+
+        def generar_texto(conjunto):
+            # Mapeo de letras a sus respectivos textos
+            mapeo = {
+                'P': 'Produccion',
+                'M': 'Minisuper',
+                'A': 'Almacen'
+            }
+
+            # Filtrar las letras válidas y generar el texto
+            textos = [mapeo[letra] for letra in conjunto if letra in mapeo]
+            return ', '.join(textos)
+
+        self._ticket.areas = generar_texto(areas_imprimibles)
+        self._ticket.areas_aplicables = generar_texto(areas_imprimibles)
+        return partidas
+
+    def _filtrar_partidas_ticket(self, consulta_partidas):
+        partidas = []
+
+        for partida in consulta_partidas:
+
+            cayal_piece = partida['CayalPiece']
+            unidad_producto = partida['Unit']
+            product_id = partida['ProductID']
+
+            abreviatura_unidad = self._utilerias.abreviatura_unidad_producto(unidad_producto)
+
+            # es un producto pesado con unidad pieza
+            if cayal_piece != 0:
+
+                # el texto experado en la partida si es por piezas es:
+                # TOMATE
+                # CANTIDAD: (1 Pz) 0.20 Kg
+
+                # HUEVO (REJA)
+                # CANTIDAD: (1 Rj) 30 Pz
+
+                # CUERO
+                # CANTIDAD: (1 Cj) 25 Kg
+
+                unidad_especial = self._utilerias.equivalencias_productos_especiales(product_id)
+
+                if unidad_especial:
+                    unidad_especial = unidad_especial[0]
+
+                if not unidad_especial:
+                    unidad_especial = 'Pz' if cayal_piece == 1 else 'Pzs'
+
+                cantidad_original = partida['Quantity']
+                if unidad_especial:
+                    partida['Quantity'] = f"({cayal_piece} {unidad_especial}) {cantidad_original} {abreviatura_unidad}"
+                else:
+                    partida['Quantity'] = f"({cayal_piece} {unidad_especial}) {cantidad_original}"
+
+                abreviatura_unidad = ''
+
+            producto = {
+                'clave': partida['ProductKey'],
+                'cantidad': partida['Quantity'],
+                'descripcion': partida['ProductName'],
+                'unidad': abreviatura_unidad,
+                'observacion': partida['Comments']
+            }
+            partidas.append(producto)
+        return partidas
 
     def _acumular_horarios(self):
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(self._interfaz.master, 'Acumulados horarios')

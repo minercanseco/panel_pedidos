@@ -268,6 +268,8 @@ class ControladorPanelPedidos:
             self._interfaz.ventanas.insertar_input_componente('cbx_horarios', valor_cbx_horarios)
             self._filtrar_por_horas(seleccion=valor_cbx_horarios)
 
+        self._colorear_filas_panel_horarios(True)
+
     def _capturar_nuevo_cliente(self):
         self._parametros.id_principal = -1
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()

@@ -177,7 +177,7 @@ class ControladorPanelPedidos:
             # Comparar con los tiempos límites
             if tiempo_transcurrido > tiempo_maximo:
                 return 0  # Retrasado (Rojo)
-            elif tiempo_transcurrido > tiempo_maximo * 0.8:
+            elif tiempo_transcurrido > tiempo_maximo * 0.5:
                 return 2  # A punto de expirar (Naranja)
             else:
                 return 1  # En tiempo (Verde)
@@ -1102,7 +1102,6 @@ class ControladorPanelPedidos:
                                                        valor=[seleccion],
                                                        )
 
-
     def _filtrar_por_status(self, rellenar=False, seleccion=None):
         self._limpiar_componentes()
 
@@ -1118,7 +1117,6 @@ class ControladorPanelPedidos:
                                                    columna=13,
                                                    valor=[seleccion],
                                                    )
-
 
     def _filtrar_por_horas(self, rellenar=False, seleccion=None):
         self._limpiar_componentes()
@@ -1136,7 +1134,6 @@ class ControladorPanelPedidos:
                                                    valor=[seleccion],
                                                    )
 
-
     def _validar_seleccion_multiples_filas(self):
         # si imprimir en automatico esta desactivado la seleccion de filas solo aplica a la seleccion
         filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
@@ -1153,13 +1150,15 @@ class ControladorPanelPedidos:
             r'\bes un anexo\b',  # Nueva frase a eliminar
             r'\banexo\b', r'\banexos\b',
             r'\bllevar terminal\b',
-            r'\bviene\b',
-            r'\bes viene\b',
+            #r'\bviene\b',
+            #r'\bes viene\b',
             r'\btransferencia\b', r'\btransf\b', r'\bestransferencia\b',
             r'\bcheque\b',
             r'\bfolio\b',
             r'\bllevar a\b',
             r'\bes folio\b',
+            r'\bcredito\b',
+            r'\bes credito\b',
         ]
 
         # Expresión regular para eliminar frases no deseadas
@@ -1199,12 +1198,11 @@ class ControladorPanelPedidos:
         comentarios_taras = self._crear_comentario_taras(order_document_ids)
         comentarios_horarios = self._crear_comentario_horarios(order_document_ids)
         comentarios_forma_pago = self._crear_comentario_forma_pago(order_document_ids)
+        comentarios_entrega = self._crear_comentario_entrega(order_document_ids)
 
-        comentario_a_insertar = f"{comentario_a_insertar}\n {comentarios_taras}\n {comentarios_horarios}\n {comentarios_forma_pago}".upper()
-
-
+        comentario_a_insertar = f"{comentario_a_insertar}\n {comentarios_taras}\n {comentarios_horarios}\n {comentarios_forma_pago}\n {comentarios_entrega}".upper()
         comentario_a_insertar = self._validar_credito_documento_cliente(business_entity_id, comentario_a_insertar, total_documento)
-
+        print(comentario_a_insertar)
         self._base_de_datos.command(
             'UPDATE docDocument SET Comments = ?, UserID = NULL WHERE DocumentID =?',
             (comentario_a_insertar, document_id)
@@ -1245,6 +1243,36 @@ class ControladorPanelPedidos:
         comentario = comentario.strip("; ")
         return comentario
 
+    def _crear_comentario_entrega(self, order_document_ids):
+        comentario = ''  # Inicia el comentario vacío
+        delivery_forms = []
+        info_delivery = {}
+        for pedido in order_document_ids:
+            consulta = self._base_de_datos.buscar_info_documento_pedido_cayal(pedido)
+            if consulta:
+                info_pedido = consulta[0]
+                # Extraer la información necesaria
+                order_delivery_type_id = info_pedido['OrderDeliveryTypeID']
+                if order_delivery_type_id == 1:
+                    continue
+
+                doc_folio = info_pedido['DocFolio']
+                delivery_form = 'VIENE' if order_delivery_type_id == 2 else ''
+
+                delivery_forms.append(delivery_form)
+                info_delivery[doc_folio] = delivery_form
+
+        if len(delivery_forms) == 1:
+            return list(delivery_forms)[0]
+
+        else:
+            comentarios = []
+            for folio, delivery_form in info_delivery.items():
+                comentarios.append(f"{folio} {delivery_form}")
+
+            comentario = ", ".join(comentarios)
+            return comentario
+
     def _crear_comentario_horarios(self, order_document_ids):
         comentario = ''  # Inicia el comentario vacío
 
@@ -1273,7 +1301,6 @@ class ControladorPanelPedidos:
             consulta = self._base_de_datos.buscar_info_documento_pedido_cayal(pedido)
             if consulta:
                 info_pedido = consulta[0]
-
                 # Extraer la información necesaria
                 doc_folio = info_pedido['DocFolio']
                 payment_form = info_pedido['WayToPayID']

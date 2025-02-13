@@ -124,107 +124,93 @@ class ControladorPanelPedidos:
 
     def _colorear_filas_panel_horarios(self, actualizar_meters=None):
         """
-        esta funcion colorea las filas de la tabla segun los horarios, se dispara desde dentro del
-        tableview sin embargo si se pasa el argumento actualizar meters procesa los contadores
-        la diferencia es que los meters no se actualizan en la misma pasada por rendimiento y solo
-        se actualizan cuando se recarga la tabla
+        Colorea las filas de la tabla según los horarios.
+        Si se pasa el argumento `actualizar_meters`, solo procesa los contadores
+        sin actualizar los colores en la tabla.
         """
-        if not self._coloreando:
-            print('aqui')
-            self._coloreando = True
 
-            def _procesar_fila(valores_fila):
-                priority_id = valores_fila['PriorityID']
-                cancelled = valores_fila['Cancelled']
-                fecha_entrega_str = valores_fila['FechaEntrega']
-                hora_entrega = valores_fila['HoraEntrega']
-                schedule_id = valores_fila['StatusScheduleID']
+        if self._coloreando:
+            return  # Evita reentradas en caso de llamadas simultáneas
 
-                # 1 en tiempo -- verde
-                # 0 retrasado -- rojo
-                # 2 a tiempo --- naranja
-                # 3 cancelado -- rojo
-                if not fecha_entrega_str:
-                    return 1
+        self._coloreando = True
 
-                fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(fecha_entrega_str, ['%d/%m/%y', '%d-%m-%y'])
+        def _procesar_fila(valores_fila):
+            """Determina el color de la fila basado en sus valores."""
+            priority_id = valores_fila['PriorityID']
+            cancelled = valores_fila['Cancelled']
+            fecha_entrega_str = valores_fila['FechaEntrega']
+            schedule_id = valores_fila['StatusScheduleID']
 
-                # los pedidos de fechas posteriores se consideran en tiempo
-                if fecha_entrega < self._modelo.hoy:
-                    return 0
+            # Si no hay fecha de entrega, se considera en tiempo (verde)
+            if not fecha_entrega_str:
+                return 1
 
-                if fecha_entrega > self._modelo.hoy:
-                    return 1
+            fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(fecha_entrega_str, ['%d/%m/%y', '%d-%m-%y'])
 
-                # indistintamente de su horario de entrega los urgentes y cancelados se marcan con rojo
-                if priority_id == 2:
-                    return 0
+            # Pedidos de fechas anteriores están retrasados (rojo)
+            if fecha_entrega < self._modelo.hoy:
+                return 0
+            # Pedidos de fechas futuras están en tiempo (verde)
+            elif fecha_entrega > self._modelo.hoy:
+                return 1
 
-                if cancelled == 1:
-                    return 3
+            # Cancelados siempre en rojo (estado 3)
+            if cancelled:
+                return 3
+            # Prioridad urgente también se considera retrasado (rojo)
+            if priority_id == 2:
+                return 0
 
-                # encuentra la diferencia en minutos entre la hora actual y la hora de entrega del pedido
-                #minutos_para_entrega = self._calcular_tiempos_restante_para_entrega(hora_entrega)
+            # Determina el color según `StatusScheduleID`
+            return {
+                0: 0,  # Retrasado
+                1: 1,  # En tiempo
+                2: 2  # A tiempo
+            }.get(schedule_id, 1)  # Valor por defecto: en tiempo
 
-                if schedule_id == 0:
-                    return 0
+        # Obtiene las filas según el contexto (actualización de meters o coloreo en tabla)
+        filas = self._modelo.consulta_pedidos_entrega if actualizar_meters else \
+            self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', visibles=True)
 
-                if schedule_id == 1:
-                    return 1
-
-                if schedule_id == 2:
-                    return 2
-
-            filas = []
-            if not actualizar_meters:
-                filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', visibles=True)
-
-            if actualizar_meters:
-                filas = self._modelo.consulta_pedidos_entrega
-
+        # Reinicia los contadores si se actualizan meters
+        if actualizar_meters:
             self._modelo.pedidos_retrasados = 0
             self._modelo.pedidos_en_tiempo = 0
             self._modelo.pedidos_a_tiempo = 0
 
-            if not filas:
-                return
+        if not filas:
+            self._coloreando = False
+            return
 
-            colores = {
-                0: 'red', 1: 'green', 2: 'orange', 3: 'red'
+        # Definición de colores
+        colores = {0: 'red', 1: 'green', 2: 'orange', 3: 'red'}
+
+        for i, fila in enumerate(filas):
+            valores_fila = {
+                'PriorityID': fila['PriorityID'],
+                'Cancelled': fila['Cancelado'],  # Corregido (antes 'Cancelado')
+                'FechaEntrega': fila['FechaEntrega'] if actualizar_meters else fila['F.Entrega'],
+                'HoraEntrega': fila['HoraEntrega'] if actualizar_meters else fila['H.Entrega'],
+                'StatusScheduleID': fila['StatusScheduleID']
             }
 
-            for i, fila in enumerate(filas):
-                priority_id = fila['PriorityID']
-                cancelled = fila['Cancelado']
-                fecha_entrega_str = fila['F.Entrega'] if not actualizar_meters else fila['FechaEntrega']
-                hora_entrega = fila['H.Entrega'] if not actualizar_meters else fila['HoraEntrega']
-                schedule_id = fila['StatusScheduleID']
-
-                valores_fila = {
-                    'PriorityID': priority_id,
-                    'Cancelled': cancelled,
-                    'FechaEntrega': fecha_entrega_str,
-                    'HoraEntrega': hora_entrega,
-                    'StatusScheduleID': schedule_id
-                }
-                status_pedido = _procesar_fila(valores_fila)
-                color = colores[status_pedido]
-
-                if not actualizar_meters:
-                    self._interfaz.ventanas.colorear_filas_table_view('tbv_pedidos', [i], color)
-
-                if actualizar_meters:
-                    if color == 'green':
-                        self._modelo.pedidos_en_tiempo += 1
-                    if color == 'red':
-                        self._modelo.pedidos_retrasados += 1
-                    if color == 'orange':
-                        self._modelo.pedidos_a_tiempo += 1
+            status_pedido = _procesar_fila(valores_fila)
+            color = colores[status_pedido]
 
             if actualizar_meters:
-                self._rellenar_meters()
+                if status_pedido == 0:
+                    self._modelo.pedidos_retrasados += 1
+                elif status_pedido == 1:
+                    self._modelo.pedidos_en_tiempo += 1
+                elif status_pedido == 2:
+                    self._modelo.pedidos_a_tiempo += 1
+            else:
+                self._interfaz.ventanas.colorear_filas_table_view('tbv_pedidos', [i], color)
 
-            self._coloreando = False
+        if actualizar_meters:
+            self._rellenar_meters()
+
+        self._coloreando = False
 
     def _rellenar_tabla_pedidos(self, fecha):
         consulta = self._modelo.buscar_pedidos(fecha)
@@ -1089,6 +1075,8 @@ class ControladorPanelPedidos:
                                                        valor=[seleccion],
                                                        )
 
+        self._colorear_filas_panel_horarios(actualizar_meters=False)
+
     def _filtrar_por_status(self, rellenar=False, seleccion=None):
         self._limpiar_componentes()
 
@@ -1105,6 +1093,8 @@ class ControladorPanelPedidos:
                                                    valor=[seleccion],
                                                    )
 
+        self._colorear_filas_panel_horarios(actualizar_meters=False)
+
     def _filtrar_por_horas(self, rellenar=False, seleccion=None):
         self._limpiar_componentes()
 
@@ -1120,6 +1110,8 @@ class ControladorPanelPedidos:
                                                    columna=8,
                                                    valor=[seleccion],
                                                    )
+
+        self._colorear_filas_panel_horarios(actualizar_meters=False)
 
     def _validar_seleccion_multiples_filas(self):
         # si imprimir en automatico esta desactivado la seleccion de filas solo aplica a la seleccion
@@ -1321,9 +1313,6 @@ class ControladorPanelPedidos:
             'UPDATE docDocumentOrderCayal SET SubTotal = ?, Total = ?, TotalTax = ? WHERE OrderDocumentID = ?',
             (subtotal, totales, total_tax, order_document_id)
         )
-
-    def _validar_restriciones_fiscales_documento(self, valores_fila):
-        pass
 
     def _eliminar_suspension_crediticia(self, business_entity_id):
         sql = """

@@ -50,8 +50,8 @@ class HistorialCliente:
             'btn_cancelar': ('frame_botones', 'Danger', 'Cancelar', None),
         }
         self._ventanas.crear_componentes(componentes)
-        self._ventanas.ajustar_ancho_componente('txt_comentario_documento',40)
-        self._ventanas.ajustar_ancho_componente('txt_especificacion', 40)
+        self._ventanas.ajustar_ancho_componente('txt_comentario_documento',50)
+        self._ventanas.ajustar_ancho_componente('txt_especificacion', 50)
 
     def _rellenar_componentes(self):
         consulta = self._buscar_historial_cliente(self._business_entity_id)

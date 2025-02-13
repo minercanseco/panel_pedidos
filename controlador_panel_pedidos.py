@@ -147,7 +147,7 @@ class ControladorPanelPedidos:
         def _procesar_fila(valores_fila):
             """Determina el color de la fila basado en StatusID y tiempos máximos permitidos."""
             priority_id = valores_fila['PriorityID']
-            cancelled = valores_fila['Cancelled']
+            cancelled = valores_fila['Cancelado']
             fecha_entrega_str = valores_fila['FechaEntrega']
             hora_entrega_str = valores_fila['HoraEntrega']
             status_id = valores_fila['StatusID']

@@ -627,7 +627,8 @@ class ControladorPanelPedidos:
                 0,  # costo,
                 partida['Subtotal'],
                 partida['TipoCaptura'],  # tipo captura
-                21  # modulo
+                21,  # modulo
+                partida['Comments']
             )
             self._base_de_datos.insertar_partida_documento_cayal(parametros)
 
@@ -1188,7 +1189,6 @@ class ControladorPanelPedidos:
 
 
         comentario_a_insertar = self._validar_credito_documento_cliente(business_entity_id, comentario_a_insertar, total_documento)
-        print(comentario_a_insertar)
 
         self._base_de_datos.command(
             'UPDATE docDocument SET Comments = ?, UserID = NULL WHERE DocumentID =?',

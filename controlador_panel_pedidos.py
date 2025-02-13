@@ -122,51 +122,54 @@ class ControladorPanelPedidos:
 
         self._interfaz.ventanas.agregar_callback_table_view_al_actualizar('tbv_pedidos', self._colorear_filas_panel_horarios)
 
+    from datetime import datetime, timedelta
+
     def _colorear_filas_panel_horarios(self, actualizar_meters=None):
         """
-        Colorea las filas de la tabla según los horarios.
-        Si se pasa el argumento `actualizar_meters`, solo procesa los contadores
-        sin actualizar los colores en la tabla.
+        Colorea las filas de la tabla según la fecha y hora de entrega.
+        Si `actualizar_meters` es True, solo actualiza los contadores sin colorear la tabla.
         """
 
         if self._coloreando:
-            return  # Evita reentradas en caso de llamadas simultáneas
+            return  # Evita ejecuciones simultáneas
 
         self._coloreando = True
+        ahora = datetime.now()  # Captura la fecha y hora actual
 
         def _procesar_fila(valores_fila):
-            """Determina el color de la fila basado en sus valores."""
+            """Determina el color de la fila basado en fecha y hora de entrega."""
             priority_id = valores_fila['PriorityID']
             cancelled = valores_fila['Cancelled']
             fecha_entrega_str = valores_fila['FechaEntrega']
-            schedule_id = valores_fila['StatusScheduleID']
+            hora_entrega_str = valores_fila['HoraEntrega']
 
-            # Si no hay fecha de entrega, se considera en tiempo (verde)
-            if not fecha_entrega_str:
-                return 1
-
-            fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(fecha_entrega_str, ['%d/%m/%y', '%d-%m-%y'])
-
-            # Pedidos de fechas anteriores están retrasados (rojo)
-            if fecha_entrega < self._modelo.hoy:
-                return 0
-            # Pedidos de fechas futuras están en tiempo (verde)
-            elif fecha_entrega > self._modelo.hoy:
-                return 1
-
-            # Cancelados siempre en rojo (estado 3)
+            # Si el pedido está cancelado, se marca como rojo
             if cancelled:
                 return 3
-            # Prioridad urgente también se considera retrasado (rojo)
-            if priority_id == 2:
-                return 0
 
-            # Determina el color según `StatusScheduleID`
-            return {
-                0: 0,  # Retrasado
-                1: 1,  # En tiempo
-                2: 2  # A tiempo
-            }.get(schedule_id, 1)  # Valor por defecto: en tiempo
+            # Si no hay fecha de entrega, se considera en tiempo (verde)
+            if not fecha_entrega_str or not hora_entrega_str:
+                return 1
+
+            # Convierte fecha y hora a objeto datetime
+            fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(fecha_entrega_str, ['%d/%m/%y', '%d-%m-%y'])
+            hora_entrega = datetime.strptime(hora_entrega_str, "%H:%M").time()
+
+            # Fusiona fecha y hora para comparación con el momento actual
+            fecha_hora_entrega = datetime.combine(fecha_entrega, hora_entrega)
+
+            # Si la fecha de entrega es en el futuro, el pedido está en tiempo (verde)
+            if fecha_hora_entrega > ahora:
+                # Calcula la diferencia en minutos
+                minutos_restantes = (fecha_hora_entrega - ahora).total_seconds() / 60
+
+                if minutos_restantes > 60:
+                    return 1  # Verde (más de 1 hora de margen)
+                else:
+                    return 2  # Naranja (menos de 1 hora)
+
+            # Si ya pasó la hora de entrega, el pedido está retrasado (rojo)
+            return 0
 
         # Obtiene las filas según el contexto (actualización de meters o coloreo en tabla)
         filas = self._modelo.consulta_pedidos_entrega if actualizar_meters else \
@@ -190,8 +193,7 @@ class ControladorPanelPedidos:
                 'PriorityID': fila['PriorityID'],
                 'Cancelled': fila['Cancelado'],  # Corregido (antes 'Cancelado')
                 'FechaEntrega': fila['FechaEntrega'] if actualizar_meters else fila['F.Entrega'],
-                'HoraEntrega': fila['HoraEntrega'] if actualizar_meters else fila['H.Entrega'],
-                'StatusScheduleID': fila['StatusScheduleID']
+                'HoraEntrega': fila['HoraEntrega'] if actualizar_meters else fila['H.Entrega']
             }
 
             status_pedido = _procesar_fila(valores_fila)

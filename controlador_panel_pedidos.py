@@ -18,6 +18,7 @@ from cayal.cliente import Cliente
 from cayal.documento import Documento
 from buscar_generales_cliente_cartera import BuscarGeneralesClienteCartera
 from buscar_clientes import BuscarClientes
+from cancelar_pedido import CancelarPedido
 
 
 class ControladorPanelPedidos:
@@ -932,6 +933,9 @@ class ControladorPanelPedidos:
             {'nombre_icono': 'History21.ico', 'etiqueta': 'Historial', 'nombre': 'historial_pedido',
              'hotkey': None, 'comando': self._historial_pedido},
 
+            {'nombre_icono': 'Cancelled32.ico', 'etiqueta': 'Cancelar', 'nombre': 'cancelar_pedido',
+             'hotkey': None, 'comando': self._cancelar_pedido},
+
             {'nombre_icono': 'Printer21.ico', 'etiqueta': 'Imprimir', 'nombre': 'imprimir_pedido',
              'hotkey': None, 'comando': self._capturar_nuevo},
 
@@ -1088,7 +1092,7 @@ class ControladorPanelPedidos:
                                                        valor=[seleccion],
                                                        )
 
-        self._colorear_filas_panel_horarios(actualizar_meters=False)
+        #self._colorear_filas_panel_horarios(actualizar_meters=False)
 
     def _filtrar_por_status(self, rellenar=False, seleccion=None):
         self._limpiar_componentes()
@@ -1106,7 +1110,7 @@ class ControladorPanelPedidos:
                                                    valor=[seleccion],
                                                    )
 
-        self._colorear_filas_panel_horarios(actualizar_meters=False)
+        #self._colorear_filas_panel_horarios(actualizar_meters=False)
 
     def _filtrar_por_horas(self, rellenar=False, seleccion=None):
         self._limpiar_componentes()
@@ -1124,7 +1128,7 @@ class ControladorPanelPedidos:
                                                    valor=[seleccion],
                                                    )
 
-        self._colorear_filas_panel_horarios(actualizar_meters=False)
+        #self._colorear_filas_panel_horarios(actualizar_meters=False)
 
     def _validar_seleccion_multiples_filas(self):
         # si imprimir en automatico esta desactivado la seleccion de filas solo aplica a la seleccion
@@ -1358,7 +1362,21 @@ class ControladorPanelPedidos:
             bloqueo_crediticio = int(info_cliente[0]['CreditBlock'])
 
             if bloqueo_crediticio == 1:
-                tabla_credito = self._base_de_datos.fetchall('SELECT * FROM zvwStatusCreditoCayal WHERE IDEmpresa = ?',
+                tabla_credito = self._base_de_datos.fetchall("""
+                        SELECT IDEmpresa, 
+                                IDCLiente,
+                                Cliente,
+                                FechaBaja,	
+                                ISNULL(FechaAlta, CAST('2052-03-26' as date)) FechaAlta,
+                                TipoBaja,
+                                Usuario,
+                                StatusCredito,
+                                Motivo,
+                                Comentario,
+                                ULTIMAEDICION,
+                                USUARIOEDICION 
+                        FROM zvwStatusCreditoCayal WHERE IDEmpresa = ?
+                        """,
                                                  (business_entity_id,))
 
                 if tabla_credito:
@@ -1392,3 +1410,23 @@ class ControladorPanelPedidos:
             return f'{comentario_crediticio} {comentarios_documento}'
 
         return comentarios_documento
+
+    def _cancelar_pedido(self):
+        user_group_id = self._base_de_datos.fetchone('SELECT UserGroupID FROM engUser WHERE UserID = ?', (self._user_id,))
+        if user_group_id not in (1, 5, 6, 7, 15,20):
+            self._interfaz.ventanas.mostrar_mensaje('No está autorizado para cancelar pedidos.')
+            return
+        valores_fila = self._validar_seleccion_una_fila()
+        if not valores_fila:
+            self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar solo o por lo menos un pedido.')
+            return
+
+        order_document_id = valores_fila['OrderDocumentID']
+        self._parametros.id_principal = order_document_id
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+        instancia = CancelarPedido(ventana, self._parametros, self._base_de_datos)
+        ventana.wait_window()
+        self._parametros.id_principal = 0
+
+        self._rellenar_tabla_pedidos(self._fecha_seleccionada())
+

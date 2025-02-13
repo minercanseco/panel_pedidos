@@ -226,7 +226,6 @@ class ControladorPanelPedidos:
 
             self._coloreando = False
 
-
     def _rellenar_tabla_pedidos(self, fecha):
         consulta = self._modelo.buscar_pedidos(fecha)
 
@@ -897,7 +896,7 @@ class ControladorPanelPedidos:
         ventana.wait_window()
 
     def _buscar_clientes(self):
-        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap_sin_bloqueo()
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
         instancia = BuscarClientes(ventana, self._base_de_datos, self._parametros, self._utilerias)
         ventana.wait_window()
 

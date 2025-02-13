@@ -150,7 +150,7 @@ class ControladorPanelPedidos:
             cancelled = valores_fila['Cancelled']
             fecha_entrega_str = valores_fila['FechaEntrega']
             hora_entrega_str = valores_fila['HoraEntrega']
-            status_id = valores_fila['TypeStatusID']
+            status_id = valores_fila['StatusID']
 
             # Si está cancelado, se marca como rojo
             if cancelled:

@@ -31,8 +31,12 @@ class HistorialCliente:
                                     {'row': 2, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2,
                                      'sticky': tk.NSEW}),
 
+            'frame_comentarios': ('frame_principal', 'Comentarios:',
+                                    {'row': 3, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2,
+                                     'sticky': tk.NSEW}),
+
             'frame_botones': ('frame_principal', None,
-                              {'row': 3, 'column': 1, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
+                              {'row': 4, 'column': 1, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
         }
         self._ventanas.crear_frames(frames)
 
@@ -40,6 +44,8 @@ class HistorialCliente:
         componentes = {
             'tvw_documentos': ('frame_tabla', self._crear_columnas_tabla(), 10, None),
             'tvw_detalle': ('frame_tabla_detalle', self._crear_columnas_tabla_detalle(), 10, 'Danger'),
+            'txt_comentario_documento':('frame_comentarios', None, ' ', None ),
+            'txt_especificacion':('frame_comentarios', None, ' ', None ),
             'btn_aceptar': ('frame_botones', None, 'Aceptar', None),
             'btn_cancelar': ('frame_botones', 'Danger', 'Cancelar', None),
         }
@@ -62,6 +68,39 @@ class HistorialCliente:
         }
         self._ventanas.cargar_eventos(eventos)
 
+        evento_adicional = {
+            'tvw_documentos': (lambda event: self._actualizar_comentario_documento(), 'seleccion'),
+            'tvw_detalle': (lambda event: self._actualizar_comentario_especificacion(), 'seleccion')
+        }
+        self._ventanas.cargar_eventos(evento_adicional)
+
+    def _actualizar_comentario_documento(self):
+        self._limpiar_componentes()
+        if not self._ventanas.validar_seleccion_una_fila_treeview('tvw_documentos'):
+            return
+        fila = self._ventanas.obtener_seleccion_filas_treeview('tvw_documentos')
+        valores_fila = self._ventanas.procesar_fila_treeview('tvw_documentos', fila)
+        comentario = valores_fila['Comments']
+
+        comentario = comentario if comentario else ''
+
+        self._ventanas.insertar_input_componente('txt_comentario_documento', comentario)
+
+    def _actualizar_comentario_especificacion(self):
+        if not self._ventanas.validar_seleccion_una_fila_treeview('tvw_detalle'):
+            return
+
+        fila = self._ventanas.obtener_seleccion_filas_treeview('tvw_detalle')
+        valores_fila = self._ventanas.procesar_fila_treeview('tvw_detalle', fila)
+        comentario = valores_fila['Comments']
+
+        comentario = comentario if comentario else ''
+        self._ventanas.insertar_input_componente('txt_especificacion', comentario)
+
+    def _limpiar_componentes(self):
+        componentes = ['tvw_detalle', 'txt_especificacion', 'txt_comentario_documento']
+        self._ventanas.limpiar_componentes(componentes)
+
     def _buscar_historial_cliente(self, business_entity_id):
         return self._base_de_datos.fetchall(
             """
@@ -73,7 +112,8 @@ class HistorialCliente:
                 
                 CFD.FormaPago, cfd.MetodoPago, CFD.ReceptorUsoCFDI UsoCFDI,
                 CASE WHEN X.AddressDetailID = 0 THEN  ADE.AddressName ELSE   ad.AddressName END Dirección, 
-                CASE WHEN X.AddressDetailID = 0 THEN  ADTE.City ELSE   ADT.City END Colonia, D.DocumentID
+                CASE WHEN X.AddressDetailID = 0 THEN  ADTE.City ELSE   ADT.City END Colonia, D.DocumentID, 
+                D.Comments
             FROM docDocument D INNER JOIN
                 docDocumentCFD CFD ON D.DocumentID = CFD.DocumentID INNER JOIN
                 orgBusinessEntity E ON D.BusinessEntityID = E.BusinessEntityID INNER JOIN
@@ -111,6 +151,8 @@ class HistorialCliente:
              'heading_anchor': tk.W, 'hide': 0},
             {"text": "DocumentID", "stretch": False, 'width': 0, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 1},
+            {"text": "Comments", "stretch": False, 'width': 0, 'column_anchor': tk.W,
+             'heading_anchor': tk.W, 'hide': 1},
         ]
 
     def _crear_columnas_tabla_detalle(self):
@@ -126,7 +168,11 @@ class HistorialCliente:
             {"text": "Precio", "stretch": False, 'width': 80, 'column_anchor': tk.E,
              'heading_anchor': tk.W, 'hide': 0},
             {"text": "Total", "stretch": False, 'width': 100, 'column_anchor': tk.E,
-             'heading_anchor': tk.W, 'hide': 0}
+             'heading_anchor': tk.W, 'hide': 0},
+            {"text": "Esp.", "stretch": False, 'width': 100, 'column_anchor': tk.E,
+             'heading_anchor': tk.W, 'hide': 0},
+            {"text": "Comments", "stretch": False, 'width': 100, 'column_anchor': tk.E,
+             'heading_anchor': tk.W, 'hide': 1}
         ]
 
     def _rellenar_tabla_detalle(self):
@@ -157,7 +203,9 @@ class HistorialCliente:
             precio = self._utilerias.redondear_valor_cantidad_a_decimal(partida['SalePriceWithTaxes'])
             total = cantidad * precio
             total = f"{total:.2f}"
-
+            comentario = self._base_de_datos.fetchone(
+                "SELECT ISNULL(Comments, '') Comentario FROM docDocumentItem WHERE DocumentItemID = ?",(partida['DocumentItemID'])
+            )
             nueva_partida = {
                 'Quantity': cantidad,
                 'ProductKey': partida['ProductKey'],
@@ -165,6 +213,8 @@ class HistorialCliente:
                 'ProductName': partida['Description'],
                 'UnitPrice': precio,
                 'Total': total,
+                'Esp.': 'E' if comentario != '' else '',
+                'Comments': comentario if comentario != '' else '',
 
             }
             partidas_procesadas.append(nueva_partida)

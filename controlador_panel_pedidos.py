@@ -201,7 +201,7 @@ class ControladorPanelPedidos:
         for i, fila in enumerate(filas):
             valores_fila = {
                 'PriorityID': fila['PriorityID'],
-                'Cancelled': fila['Cancelled'],  # Corregido (antes 'Cancelado')
+                'Cancelled': fila['Cancelado'],  # Corregido (antes 'Cancelado')
                 'FechaEntrega': fila['FechaEntrega'] if actualizar_meters else fila['F.Entrega'],
                 'HoraEntrega': fila['HoraEntrega'] if actualizar_meters else fila['H.Entrega'],
                 'StatusID': fila['StatusID']

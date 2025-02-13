@@ -150,7 +150,7 @@ class ControladorPanelPedidos:
             cancelled = valores_fila['Cancelado']
             fecha_entrega_str = valores_fila['FechaEntrega']
             hora_entrega_str = valores_fila['HoraEntrega']
-            status_id = valores_fila['StatusID']
+            status_id = valores_fila['TypeStatusID']
 
             # Si está cancelado, se marca como rojo
             if cancelled:
@@ -204,7 +204,7 @@ class ControladorPanelPedidos:
                 'Cancelled': fila['Cancelado'],  # Corregido (antes 'Cancelado')
                 'FechaEntrega': fila['FechaEntrega'] if actualizar_meters else fila['F.Entrega'],
                 'HoraEntrega': fila['HoraEntrega'] if actualizar_meters else fila['H.Entrega'],
-                'StatusID': fila['StatusID']
+                'StatusID': fila['TypeStatusID']
             }
 
             status_pedido = _procesar_fila(valores_fila)

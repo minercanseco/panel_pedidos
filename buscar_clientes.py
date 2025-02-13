@@ -3,7 +3,6 @@ from cayal.ventanas import Ventanas
 from cayal.cliente import Cliente
 
 from formulario_cliente import FormularioCliente
-from panel_principal_cliente import PanelPrincipal
 
 
 class BuscarClientes:
@@ -20,6 +19,7 @@ class BuscarClientes:
         self._cargar_eventos()
         self._rellenar_tabla_clientes()
         self._ventanas.configurar_ventana_ttkbootstrap('Clientes')
+
 
     def _crear_frames(self):
         frames = {

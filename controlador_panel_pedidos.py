@@ -7,6 +7,7 @@ from buscar_generales_cliente import BuscarGeneralesCliente
 from editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from cayal.cobros import Cobros
 from historial_pedido import HistorialPedido
+from horario_acumulado import HorarioslAcumulados
 from llamar_instancia_captura import LlamarInstanciaCaptura
 from ticket_pedido_cliente import TicketPedidoCliente
 from panel_principal_cliente import PanelPrincipal
@@ -936,6 +937,9 @@ class ControladorPanelPedidos:
             {'nombre_icono': 'Cancelled32.ico', 'etiqueta': 'Cancelar', 'nombre': 'cancelar_pedido',
              'hotkey': None, 'comando': self._cancelar_pedido},
 
+            {'nombre_icono': 'Organizer32.ico', 'etiqueta': 'A.Horarios', 'nombre': 'acumular_horarios',
+             'hotkey': None, 'comando': self._acumular_horarios},
+
             {'nombre_icono': 'Printer21.ico', 'etiqueta': 'Imprimir', 'nombre': 'imprimir_pedido',
              'hotkey': None, 'comando': self._capturar_nuevo},
 
@@ -949,6 +953,10 @@ class ControladorPanelPedidos:
         self.iconos_barra_herramientas = self.elementos_barra_herramientas[0]
         self.etiquetas_barra_herramientas = self.elementos_barra_herramientas[2]
         self.hotkeys_barra_herramientas = self.elementos_barra_herramientas[1]
+
+    def _acumular_horarios(self):
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(self._interfaz.master, 'Acumulados horarios')
+        instancia = HorarioslAcumulados(ventana, self._base_de_datos, self._utilerias)
 
     def _rellenar_cbx_captura(self, consulta):
         capturo = [reg['CapturadoPor'] for reg in consulta]

@@ -64,7 +64,6 @@ class ControladorPanelPedidos:
         }
         self._interfaz.ventanas.cargar_eventos(evento_adicional)
 
-
     def _limpiar_componentes(self):
         self._interfaz.ventanas.limpiar_componentes(['tbx_comentarios', 'tvw_detalle'])
 
@@ -197,7 +196,6 @@ class ControladorPanelPedidos:
         if not filas:
             self._coloreando = False
             return
-
 
         # Definir colores
         colores = {0: 'red', 1: 'green', 2: 'orange', 3: 'red'}

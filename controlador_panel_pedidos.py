@@ -1,3 +1,4 @@
+import re
 import tkinter as tk
 from datetime import datetime
 from buscar_pedido import BuscarPedido
@@ -28,6 +29,8 @@ class ControladorPanelPedidos:
         self._parametros = self._modelo.parametros
         self._cobros = Cobros(self._parametros.cadena_conexion)
         self._number_orders = 0
+
+        self._coloreando = False
         self._user_id = self._parametros.id_usuario
         self._user_name = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
         self._parametros.nombre_usuario = self._user_name
@@ -117,6 +120,8 @@ class ControladorPanelPedidos:
         self._interfaz.ventanas.componentes_forma['tbv_pedidos'] = componente
         componente.grid(row=0, column=0, pady=5, padx=5, sticky=tk.NSEW)
 
+        self._interfaz.ventanas.agregar_callback_table_view_al_actualizar('tbv_pedidos', self._colorear_filas_panel_horarios)
+
     def _colorear_filas_panel_horarios(self, actualizar_meters=None):
         """
         esta funcion colorea las filas de la tabla segun los horarios, se dispara desde dentro del
@@ -124,98 +129,103 @@ class ControladorPanelPedidos:
         la diferencia es que los meters no se actualizan en la misma pasada por rendimiento y solo
         se actualizan cuando se recarga la tabla
         """
+        if not self._coloreando:
+            print('aqui')
+            self._coloreando = True
 
-        def _procesar_fila(valores_fila):
-            priority_id = valores_fila['PriorityID']
-            cancelled = valores_fila['Cancelled']
-            fecha_entrega_str = valores_fila['FechaEntrega']
-            hora_entrega = valores_fila['HoraEntrega']
-            schedule_id = valores_fila['StatusScheduleID']
+            def _procesar_fila(valores_fila):
+                priority_id = valores_fila['PriorityID']
+                cancelled = valores_fila['Cancelled']
+                fecha_entrega_str = valores_fila['FechaEntrega']
+                hora_entrega = valores_fila['HoraEntrega']
+                schedule_id = valores_fila['StatusScheduleID']
 
-            # 1 en tiempo -- verde
-            # 0 retrasado -- rojo
-            # 2 a tiempo --- naranja
-            # 3 cancelado -- rojo
-            if not fecha_entrega_str:
-                return 1
+                # 1 en tiempo -- verde
+                # 0 retrasado -- rojo
+                # 2 a tiempo --- naranja
+                # 3 cancelado -- rojo
+                if not fecha_entrega_str:
+                    return 1
 
-            fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(fecha_entrega_str, ['%d/%m/%y', '%d-%m-%y'])
+                fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(fecha_entrega_str, ['%d/%m/%y', '%d-%m-%y'])
 
-            # los pedidos de fechas posteriores se consideran en tiempo
-            if fecha_entrega > self._modelo.hoy:
-                return 1
+                # los pedidos de fechas posteriores se consideran en tiempo
+                if fecha_entrega < self._modelo.hoy:
+                    return 0
 
-            if fecha_entrega < self._modelo.hoy:
-                return 0
+                if fecha_entrega > self._modelo.hoy:
+                    return 1
 
-            # indistintamente de su horario de entrega los urgentes y cancelados se marcan con rojo
-            if priority_id == 2:
-                return 0
+                # indistintamente de su horario de entrega los urgentes y cancelados se marcan con rojo
+                if priority_id == 2:
+                    return 0
 
-            if cancelled == 1:
-                return 3
+                if cancelled == 1:
+                    return 3
 
-            # encuentra la diferencia en minutos entre la hora actual y la hora de entrega del pedido
-            #minutos_para_entrega = self._calcular_tiempos_restante_para_entrega(hora_entrega)
+                # encuentra la diferencia en minutos entre la hora actual y la hora de entrega del pedido
+                #minutos_para_entrega = self._calcular_tiempos_restante_para_entrega(hora_entrega)
 
-            if schedule_id == 0:
-                return 0
+                if schedule_id == 0:
+                    return 0
 
-            if schedule_id == 1:
-                return 1
+                if schedule_id == 1:
+                    return 1
 
-            if schedule_id == 2:
-                return 2
+                if schedule_id == 2:
+                    return 2
 
-        filas = []
-        if not actualizar_meters:
-            filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', visibles=True)
-
-        if actualizar_meters:
-            filas = self._modelo.consulta_pedidos_entrega
-
-        self._modelo.pedidos_retrasados = 0
-        self._modelo.pedidos_en_tiempo = 0
-        self._modelo.pedidos_a_tiempo = 0
-
-        if not filas:
-            return
-
-        colores = {
-            0: 'red', 1: 'green', 2: 'orange', 3: 'red'
-        }
-
-        for i, fila in enumerate(filas):
-            priority_id = fila['PriorityID']
-            cancelled = fila['Cancelado']
-            fecha_entrega_str = fila['F.Entrega'] if not actualizar_meters else fila['FechaEntrega']
-            hora_entrega = fila['H.Entrega'] if not actualizar_meters else fila['HoraEntrega']
-            schedule_id = fila['StatusScheduleID']
-
-
-
-            valores_fila = {
-                'PriorityID': priority_id,
-                'Cancelled': cancelled,
-                'FechaEntrega': fecha_entrega_str,
-                'HoraEntrega': hora_entrega,
-                'StatusScheduleID': schedule_id
-            }
-            status_pedido = _procesar_fila(valores_fila)
-            color = colores[status_pedido]
-
+            filas = []
             if not actualizar_meters:
-                self._interfaz.ventanas.colorear_filas_table_view('tbv_pedidos', [i], color)
+                filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', visibles=True)
 
             if actualizar_meters:
-                if color == 'green':
-                    self._modelo.pedidos_en_tiempo += 1
-                if color == 'red':
-                    self._modelo.pedidos_retrasados += 1
-                if color == 'orange':
-                    self._modelo.pedidos_a_tiempo += 1
-        if actualizar_meters:
-            self._rellenar_meters()
+                filas = self._modelo.consulta_pedidos_entrega
+
+            self._modelo.pedidos_retrasados = 0
+            self._modelo.pedidos_en_tiempo = 0
+            self._modelo.pedidos_a_tiempo = 0
+
+            if not filas:
+                return
+
+            colores = {
+                0: 'red', 1: 'green', 2: 'orange', 3: 'red'
+            }
+
+            for i, fila in enumerate(filas):
+                priority_id = fila['PriorityID']
+                cancelled = fila['Cancelado']
+                fecha_entrega_str = fila['F.Entrega'] if not actualizar_meters else fila['FechaEntrega']
+                hora_entrega = fila['H.Entrega'] if not actualizar_meters else fila['HoraEntrega']
+                schedule_id = fila['StatusScheduleID']
+
+                valores_fila = {
+                    'PriorityID': priority_id,
+                    'Cancelled': cancelled,
+                    'FechaEntrega': fecha_entrega_str,
+                    'HoraEntrega': hora_entrega,
+                    'StatusScheduleID': schedule_id
+                }
+                status_pedido = _procesar_fila(valores_fila)
+                color = colores[status_pedido]
+
+                if not actualizar_meters:
+                    self._interfaz.ventanas.colorear_filas_table_view('tbv_pedidos', [i], color)
+
+                if actualizar_meters:
+                    if color == 'green':
+                        self._modelo.pedidos_en_tiempo += 1
+                    if color == 'red':
+                        self._modelo.pedidos_retrasados += 1
+                    if color == 'orange':
+                        self._modelo.pedidos_a_tiempo += 1
+
+            if actualizar_meters:
+                self._rellenar_meters()
+
+            self._coloreando = False
+
 
     def _rellenar_tabla_pedidos(self, fecha):
         consulta = self._modelo.buscar_pedidos(fecha)
@@ -476,9 +486,11 @@ class ControladorPanelPedidos:
         document_id = 0
         total_acumulado = 0
         partidas_acumuladas = []
+
         for fila in filas_valorizadas:
             order_document_id =  fila['OrderDocumentID']
             address_detail_id = fila['AddressDetailID']
+            business_entity_id = fila['BusinessEntityID']
 
             info_documento = self._partidas_pedidos.get(order_document_id, None)
             if not info_documento:
@@ -495,7 +507,7 @@ class ControladorPanelPedidos:
                 self._insertar_partidas_documento(order_document_id, document_id, partidas, total_documento, address_detail_id)
 
                 # insertar comentarios desde el pedido
-                self._crear_comentario_documento([order_document_id], document_id)
+                self._crear_comentario_documento([order_document_id], document_id, business_entity_id, total_documento)
                 # relacionar documenrtosa con pedidos
                 self._actualizar_status_y_relacionar(document_id, order_document_id)
 
@@ -515,6 +527,7 @@ class ControladorPanelPedidos:
             return
 
         # aplica para documentos combinados
+        all_order_document_ids = [fila['OrderDocumentID'] for fila in filas]
         order_document_ids = sorted([fila['OrderDocumentID'] for fila in filas if fila['OrderTypeID'] == 1], reverse=True)
         if not order_document_ids:
             self._interfaz.ventanas.mostrar_mensaje('Debe por lo menos haber un pedido dentro de las ordenes seleccionadas.')
@@ -522,6 +535,7 @@ class ControladorPanelPedidos:
 
         order_document_id = order_document_ids[0]
         address_detail_id = filas[0]['AddressDetailID']
+        business_entity_id = filas[0]['BusinessEntityID']
 
         # crea cabecera y bloqueala para evitar ediciones
         document_id = self._crear_cabecera_documento(tipo_documento, filas[0])
@@ -530,14 +544,14 @@ class ControladorPanelPedidos:
         self._insertar_partidas_documento(order_document_id, document_id, partidas_acumuladas, total_acumulado, address_detail_id)
 
         # insertar comentario de los pedidos
-        self._crear_comentario_documento(order_document_ids, document_id)
+        self._crear_comentario_documento(all_order_document_ids, document_id, business_entity_id, total_acumulado)
 
         # relacionar pedidos con factura
-        for order in order_document_ids:
+        for order in all_order_document_ids:
             self._actualizar_status_y_relacionar(document_id, order)
 
         # relacionar pedido principal con pedidos
-        for order in order_document_ids:
+        for order in all_order_document_ids:
             if order != order_document_id:
                 self._base_de_datos.command(
                     'UPDATE docDocumentOrderCayal SET RelatedOrderID = ?, StatusID=4 WHERE OrderDocumentID = ?',
@@ -548,7 +562,7 @@ class ControladorPanelPedidos:
         self._base_de_datos.exec_stored_procedure('zvwRecalcularPedidos', (document_id, order_document_id))
 
         # afectar la bitacora de cambios
-        self._afectar_bitacora_de_cambios(document_id, order_document_ids)
+        self._afectar_bitacora_de_cambios(document_id, all_order_document_ids)
 
     def _afectar_bitacora_de_cambios(self, document_id, order_document_ids):
 
@@ -1117,7 +1131,41 @@ class ControladorPanelPedidos:
 
         return filas
 
-    def _crear_comentario_documento(self, order_document_ids, document_id):
+    def _filtrar_comentario_documento(self, comentario):
+
+        palabras_a_eliminar = [
+            r'\bes un anexo\b',  # Nueva frase a eliminar
+            r'\banexo\b', r'\banexos\b',
+            r'\bllevar terminal\b',
+            r'\bviene\b',
+            r'\bes viene\b',
+            r'\btransferencia\b', r'\btransf\b', r'\bestransferencia\b',
+            r'\bcheque\b',
+            r'\bfolio\b',
+            r'\bllevar a\b',
+            r'\bes folio\b',
+        ]
+
+        # Expresión regular para eliminar frases no deseadas
+        patron_palabras = re.compile(r"(,?\s*)?(" + "|".join(palabras_a_eliminar) + r")(,?\s*)?", re.IGNORECASE)
+
+        # Expresión regular para reemplazar múltiples guiones por un solo guion
+        patron_guiones = re.compile(r'-{2,}')  # Busca "--", "---", etc.
+
+        # Eliminar palabras/frases no deseadas
+        comentario_filtrado = patron_palabras.sub("", comentario)
+
+        # Reemplazar múltiples guiones por un solo guion
+        comentario_filtrado = patron_guiones.sub("-", comentario_filtrado)
+
+        # Limpiar espacios y comas innecesarias después de la sustitución
+        comentario_filtrado = re.sub(r'\s*,\s*', ', ', comentario_filtrado)  # Espacios alrededor de comas
+        comentario_filtrado = re.sub(r',\s*$', '', comentario_filtrado)  # Coma al final
+        comentario_filtrado = comentario_filtrado.strip()  # Eliminar espacios en los extremos
+
+        return comentario_filtrado
+
+    def _crear_comentario_documento(self, order_document_ids, document_id, business_entity_id, total_documento):
         comentarios_pedidos = []
         comentario_a_insertar = ''
         for order in order_document_ids:
@@ -1130,14 +1178,20 @@ class ControladorPanelPedidos:
 
         comentarios = [f"{comentario}," for comentario in comentarios_pedidos]
         comentario_a_insertar = '\n'.join(comentarios)
+        comentario_a_insertar = self._filtrar_comentario_documento(comentario_a_insertar)
 
         comentarios_taras = self._crear_comentario_taras(order_document_ids)
         comentarios_horarios = self._crear_comentario_horarios(order_document_ids)
+        comentarios_forma_pago = self._crear_comentario_forma_pago(order_document_ids)
 
-        comentario_a_insertar = f"{comentario_a_insertar}\n {comentarios_taras}\n {comentarios_horarios}".upper()
+        comentario_a_insertar = f"{comentario_a_insertar}\n {comentarios_taras}\n {comentarios_horarios}\n {comentarios_forma_pago}".upper()
+
+
+        comentario_a_insertar = self._validar_credito_documento_cliente(business_entity_id, comentario_a_insertar, total_documento)
+        print(comentario_a_insertar)
 
         self._base_de_datos.command(
-            'UPDATE docDocument SET Comments = ? WHERE DocumentID =?',
+            'UPDATE docDocument SET Comments = ?, UserID = NULL WHERE DocumentID =?',
             (comentario_a_insertar, document_id)
         )
 
@@ -1170,7 +1224,7 @@ class ControladorPanelPedidos:
 
             # Crear la cadena para este pedido
             taras_str = ",".join(taras)  # Concatenar las taras separadas por comas
-            comentario += f"Folio:{folio}-{taras_str}; "
+            comentario += f"{folio}->{taras_str}; "
 
         # Eliminar el último espacio y punto y coma si existe
         comentario = comentario.strip("; ")
@@ -1190,10 +1244,56 @@ class ControladorPanelPedidos:
                 hv = info_pedido['CreatedOnTime']
 
                 # Agregar al comentario en el formato deseado
-                comentario += f"Folio: {folio}, HV: {hv}, HE: {he}\n"
+                comentario += f"HE:{he}\n"
 
         # Opcionalmente, eliminar el salto de línea final
         return comentario.strip()
+
+    def _crear_comentario_forma_pago(self, order_document_ids):
+        comentario = ''  # Inicia el comentario vacío
+
+        payment_forms = []
+        info_payment = {}
+        for pedido in order_document_ids:
+            consulta = self._base_de_datos.buscar_info_documento_pedido_cayal(pedido)
+            if consulta:
+                info_pedido = consulta[0]
+
+                # Extraer la información necesaria
+                doc_folio = info_pedido['DocFolio']
+                payment_form = info_pedido['WayToPayID']
+                total = info_pedido['Total']
+
+                payment_forms.append(payment_form)
+                info_payment[doc_folio] = (payment_form, total)
+
+        payment_forms = set(payment_forms)
+
+        if len(payment_forms) == 1:
+
+            way_to_pay_id = list(payment_forms)[0]
+            if way_to_pay_id == 5:
+                return ''
+
+            return self._base_de_datos.fetchone(
+                'SELECT Comments FROM OrdersPaymentTermCayal WHERE PaymentTermID = ?',
+                (list(payment_forms)[0])
+            )
+        else:
+            comentarios = []
+            for folio, (payment_form, total) in info_payment.items():
+                if payment_form == 5:
+                    continue
+
+                comentario_pago = self._base_de_datos.fetchone(
+                    'SELECT Comments FROM OrdersPaymentTermCayal WHERE PaymentTermID = ?',
+                    (payment_form,)
+                )
+                if comentario_pago:
+                    comentarios.append(f"{folio} {comentario_pago}")
+
+            comentario = ", ".join(comentarios)
+            return comentario
 
     def _actualizar_totales_pedido(self, order_document_id):
         consulta_partidas = self._modelo.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
@@ -1225,3 +1325,69 @@ class ControladorPanelPedidos:
 
     def _validar_restriciones_fiscales_documento(self, valores_fila):
         pass
+
+    def _eliminar_suspension_crediticia(self, business_entity_id):
+        sql = """
+            DELETE FROM zvwStatusCreditoCayal WHERE IDEmpresa = ?
+
+            INSERT INTO zvwBitacoraCambiosClientesT (Fecha, Cliente, Incidencia, ValorAnterior, ValorNuevo, Ruta, Usuario)
+            VALUES(GETDATE(), 
+                    (SELECT DISTINCT OfficialName FROM orgBusinessEntity WHERE BusinessEntityID = ?),
+                    'ELIMINACION DE SUSPENSIÓN CREDITICIA',
+                    'ELIMINACION DE SUSPENSIÓN CREDITICIA',
+                    'ELIMINACION DE SUSPENSIÓN CREDITICIA',
+                    (SELECT Z.ZoneName FROM orgCustomer C INNER JOIN orgZone Z on C.ZoneID = Z.ZoneID),
+                    'SISTEMA')
+
+            UPDATE orgCustomer SET ComentarioCredito = 'SI EXCEDE LO AUTORIZADO, TIENE QUE PAGAR LA DIFERENCIA' 
+            WHERE BusinessEntityID = ?
+
+            UPDATE orgBusinessEntity SET Custom4 = 1 WHERE BusinessEntityID = ?
+        """
+        self._base_de_datos.command(sql, (business_entity_id, business_entity_id, business_entity_id, business_entity_id))
+
+    def _validar_credito_documento_cliente(self, business_entity_id, comentarios_documento, total_documento):
+
+        info_cliente = self._base_de_datos.fetchall('SELECT * FROM [dbo].[zvwBuscarInfoCliente-BusinessEntityID](?)',
+                                        (business_entity_id,))
+        credito_autorizado = float(info_cliente[0]['AuthorizedCredit'])
+        ruta = int(info_cliente[0]['ZoneID'])
+
+        if credito_autorizado > 0 and ruta == 1040:
+            bloqueo_crediticio = int(info_cliente[0]['CreditBlock'])
+
+            if bloqueo_crediticio == 1:
+                tabla_credito = self._base_de_datos.fetchall('SELECT * FROM zvwStatusCreditoCayal WHERE IDEmpresa = ?',
+                                                 (business_entity_id,))
+
+                if tabla_credito:
+                    fecha_alta_bd = tabla_credito[0]['FechaAlta']
+                    fecha_alta = fecha_alta_bd.date()
+                    fecha_hoy = datetime.today().date()
+
+                    if fecha_hoy >= fecha_alta:
+                        self._eliminar_suspension_crediticia(business_entity_id)
+
+                comentario_crediticio = '--NO TIENE CRÉDITO SU COMPRA ES DE CONTADO.-- '
+            else:
+                credito_restante = float(info_cliente[0]['RemainingCredit'])
+                debe = credito_autorizado - credito_restante
+
+                if credito_restante > 0:
+                    comentario_crediticio = f'--DEBE: {debe}. CRÉDITO DISPONIBLE: {credito_restante}-- '
+                else:
+                    credito_restante_real = credito_restante + total_documento
+
+                    if credito_restante_real <= 0:
+                        comentario_crediticio = '--NO TIENE CRÉDITO SU COMPRA ES DE CONTADO.-- '
+
+                    elif credito_restante_real > 0 and credito_restante_real < total_documento:
+                        obligatorio = total_documento - credito_restante_real
+                        comentario_crediticio = f'--DEBE PAGAR OBLIGATORIAMENTE: {obligatorio}-- '
+
+                    elif credito_restante_real == total_documento:
+                        comentario_crediticio = f'--DEBE: {debe}. CRÉDITO DISPONIBLE: 0-- '
+
+            return f'{comentario_crediticio} {comentarios_documento}'
+
+        return comentarios_documento

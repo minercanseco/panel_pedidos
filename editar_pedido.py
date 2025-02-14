@@ -295,7 +295,6 @@ class EditarPedido:
             cantidad = partida[0]
             document_item_id = partida[8]
 
-            print(partida)
             if document_item_id != 0:
                 info_producto = self._base_de_datos.fetchall('SELECT * FROM [dbo].[zvwBuscarPartidaPedidoCayal-DocumentItemID](?)',
                                              (document_item_id,))[0]

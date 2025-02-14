@@ -255,7 +255,6 @@ class ControladorPanelPedidos:
         self._coloreando = False
 
     def _rellenar_tabla_pedidos(self, fecha=None):
-
         if not fecha:
             consulta = self._modelo.consulta_pedidos_entrega
         else:
@@ -1313,51 +1312,19 @@ class ControladorPanelPedidos:
         return partidas_procesadas
 
     def _filtrar_por_capturados_por(self):
+        print('filtrando por capturado por')
         self._limpiar_componentes()
-
-        seleccion = self._interfaz.ventanas.obtener_input_componente('cbx_capturista')
-
-        if seleccion == 'Seleccione':
-            self._rellenar_tabla_pedidos(self._fecha_seleccionada())
-            self._interfaz.ventanas.limpiar_seleccion_table_view('tbv_pedidos')
-            return
-
-        self._rellenar_tabla_pedidos()
-        self._interfaz.ventanas.filtrar_table_view(_table_view='tbv_pedidos',
-                                                       columna=6,
-                                                       valor=[seleccion],
-                                                       )
+        self._rellenar_tabla_pedidos(self._fecha_seleccionada())
 
     def _filtrar_por_status(self):
+        print('filtrar por status')
         self._limpiar_componentes()
-
-        seleccion = self._interfaz.ventanas.obtener_input_componente('cbx_status')
-
-        if seleccion == 'Seleccione':
-            self._rellenar_tabla_pedidos(self._fecha_seleccionada())
-            self._interfaz.ventanas.limpiar_seleccion_table_view('tbv_pedidos')
-            return
-
-        self._rellenar_tabla_pedidos()
-        self._interfaz.ventanas.filtrar_table_view(_table_view='tbv_pedidos',
-                                                   columna=13,
-                                                   valor=[seleccion],
-                                                   )
+        self._rellenar_tabla_pedidos(self._fecha_seleccionada())
 
     def _filtrar_por_horas(self):
+        print('filtrando por horas')
         self._limpiar_componentes()
-        seleccion = self._interfaz.ventanas.obtener_input_componente('cbx_horarios')
-
-        if seleccion == 'Seleccione':
-            self._rellenar_tabla_pedidos(self._fecha_seleccionada())
-            self._interfaz.ventanas.limpiar_seleccion_table_view('tbv_pedidos')
-            return
-
-        self._rellenar_tabla_pedidos()
-        self._interfaz.ventanas.filtrar_table_view(_table_view='tbv_pedidos',
-                                                   columna=8,
-                                                   valor=[seleccion],
-                                                   )
+        self._rellenar_tabla_pedidos(self._fecha_seleccionada())
 
     def _validar_seleccion_multiples_filas(self):
         # si imprimir en automatico esta desactivado la seleccion de filas solo aplica a la seleccion

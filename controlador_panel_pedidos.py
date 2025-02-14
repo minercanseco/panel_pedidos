@@ -1038,7 +1038,7 @@ class ControladorPanelPedidos:
 
     def _settear_valores_ticket(self, pedido, order_document_id, areas_imprimibles):
         self._ticket.cliente = pedido.get('Cliente', '')
-        self._ticket.pedido = pedido.get('Folio', '')
+        self._ticket.pedido = pedido.get('Pedido', '')
         self._ticket.relacionado = pedido.get('Relacion', '')
         self._ticket.tipo = pedido.get('Tipo', '')
 
@@ -1053,7 +1053,7 @@ class ControladorPanelPedidos:
         self._ticket.entrega = entrega
         self._ticket.tipo_entrega = pedido.get('Entrega', '')
 
-        self._ticket.capturista = pedido.get('Capturó', '')
+        self._ticket.capturista = pedido.get('Captura', '')
         self._ticket.ruta = pedido.get('Ruta')
 
         consulta = self._base_de_datos.fetchall(

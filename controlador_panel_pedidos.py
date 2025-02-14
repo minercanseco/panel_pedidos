@@ -983,16 +983,24 @@ class ControladorPanelPedidos:
         self.hotkeys_barra_herramientas = self.elementos_barra_herramientas[1]
 
     def _imprimir(self):
-        filas = self._validar_seleccion_multiples_filas()
+
+        filas = None
+        seleccion_status = self._interfaz.ventanas.obtener_input_componente('cbx_status')
+        if seleccion_status == 'En Proceso':
+            respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('¿Desea imprimir todos los pedidos en el status en proceso?')
+            if respuesta:
+                filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos')
+                filas = [fila for fila in filas if fila['TypeStatusID'] in (2, 16, 17, 18)]
+            else:
+                filas =  self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
+        else:
+            filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
 
         if not filas:
             return
 
         for fila in filas:
             self._preparar_ticket_impresion(fila)
-
-            #self._afectar_bitacora_impresion(order_document_id)
-            #self._actualizar_tablas_impresion(order_document_id)
 
         self._rellenar_tabla_pedidos(self._fecha_seleccionada())
 
@@ -1020,6 +1028,8 @@ class ControladorPanelPedidos:
                 continue
 
             self._ticket.imprimir(fuente_tamano=10, nombre_impresora="Ticket")
+            self._afectar_bitacora_impresion(order_document_id)
+            self._actualizar_tablas_impresion(order_document_id)
 
     def _settear_valores_ticket(self, pedido, order_document_id, areas_imprimibles):
         self._ticket.cliente = pedido.get('Cliente', '')
@@ -1061,7 +1071,7 @@ class ControladorPanelPedidos:
             self._ticket.colonia = colonia
 
         consulta_partidas = self._base_de_datos.buscar_partidas_pedidos_produccion_cayal(
-            order_document_id, partidas_eliminadas=False)
+            order_document_id, partidas_eliminadas=False, partidas_producidas=True)
 
         partidas_filtradas_por_area = self._filtrar_partidas_por_area_impresion(consulta_partidas, areas_imprimibles)
 
@@ -1662,3 +1672,35 @@ class ControladorPanelPedidos:
 
         self._rellenar_tabla_pedidos(self._fecha_seleccionada())
 
+    def _afectar_bitacora_impresion(self, order_document_id):
+
+        change_type_id = 12
+        user_name = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
+        comentario = f"{user_name}-{self._ticket.pedido}-{self._ticket.areas}"
+
+        self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
+                                                               change_type_id=change_type_id,
+                                                               comments=comentario,
+                                                               user_id=self._user_id)
+
+    def _actualizar_tablas_impresion(self, order_document_id):
+
+        areas = self._ticket.areas
+
+        if 'Minisuper' in areas:
+            self._base_de_datos.command(
+                'UPDATE docDocumentOrderCayal SET StorePrintedOn=GETDATE(), StorePrintedBy=? WHERE OrderDocumentID = ?',
+                (self._user_id, order_document_id)
+            )
+
+        if 'Almacen' in areas:
+            self._base_de_datos.command(
+                'UPDATE docDocumentOrderCayal SET WarehousePrintedOn=GETDATE(), WarehousePrintedBy=? WHERE OrderDocumentID = ?',
+                (self._user_id, order_document_id)
+            )
+
+        if 'Produccion' in areas:
+            self._base_de_datos.command(
+                'UPDATE docDocumentOrderCayal SET ProductionPrintedOn=GETDATE(), ProductionPrintedBy=? WHERE OrderDocumentID = ?',
+                (self._user_id, order_document_id)
+            )

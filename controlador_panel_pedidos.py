@@ -987,7 +987,8 @@ class ControladorPanelPedidos:
         filas = None
         seleccion_status = self._interfaz.ventanas.obtener_input_componente('cbx_status')
         if seleccion_status == 'En Proceso':
-            respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('¿Desea imprimir todos los pedidos en el status en proceso?')
+            respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                '¿Desea imprimir todos los pedidos en el status en proceso, que faltan por imprimir?')
             if respuesta:
                 filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos')
                 filas = [

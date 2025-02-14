@@ -60,9 +60,9 @@ class ControladorPanelPedidos:
 
             'den_fecha': lambda event: self._rellenar_tabla_pedidos(self._fecha_seleccionada()),
             'tbv_pedidos': (lambda event: self._rellenar_tabla_detalle(), 'doble_click'),
-            'cbx_capturista': lambda event: self._filtrar_por_capturados_por(rellenar=True),
-            'cbx_status': lambda event: self._filtrar_por_status(rellenar=True),
-            'cbx_horarios': lambda event: self._filtrar_por_horas(rellenar=True)
+            'cbx_capturista': lambda event: self._filtrar_por_capturados_por(),
+            'cbx_status': lambda event: self._filtrar_por_status(),
+            'cbx_horarios': lambda event: self._filtrar_por_horas()
 
         }
         self._interfaz.ventanas.cargar_eventos(eventos)
@@ -254,8 +254,12 @@ class ControladorPanelPedidos:
 
         self._coloreando = False
 
-    def _rellenar_tabla_pedidos(self, fecha):
-        consulta = self._modelo.buscar_pedidos(fecha)
+    def _rellenar_tabla_pedidos(self, fecha=None):
+
+        if not fecha:
+            consulta = self._modelo.consulta_pedidos_entrega
+        else:
+            consulta = self._modelo.buscar_pedidos(fecha)
 
         if not consulta:
             tabla = self._interfaz.ventanas.componentes_forma['tbv_pedidos']
@@ -266,33 +270,44 @@ class ControladorPanelPedidos:
             tabla.delete_rows()
             return
 
-        valor_cbx_captura = self._interfaz.ventanas.obtener_input_componente('cbx_capturista')
-        valor_cbx_horarios = self._interfaz.ventanas.obtener_input_componente('cbx_horarios')
-        valor_cbx_status = self._interfaz.ventanas.obtener_input_componente('cbx_status')
-
+        consulta_filtrada = self._filtrar_consulta(consulta)
         self._interfaz.ventanas.rellenar_table_view('tbv_pedidos',
                                                         self._interfaz.crear_columnas_tabla(),
-                                                        consulta
+                                                        consulta_filtrada
                                                         )
-        self._rellenar_cbx_captura(consulta)
-        self._rellenar_cbx_horarios(consulta)
-        self._rellenar_cbx_status(consulta)
 
         self._modelo.consulta_pedidos_entrega = consulta
-
-        if valor_cbx_captura != 'Seleccione':
-            self._interfaz.ventanas.insertar_input_componente('cbx_capturista', valor_cbx_captura)
-            self._filtrar_por_capturados_por(seleccion=valor_cbx_captura)
-
-        if valor_cbx_status != 'Seleccione':
-            self._interfaz.ventanas.insertar_input_componente('cbx_status', valor_cbx_status)
-            self._filtrar_por_status(seleccion=valor_cbx_status)
-
-        if valor_cbx_horarios != 'Seleccione':
-            self._interfaz.ventanas.insertar_input_componente('cbx_horarios', valor_cbx_horarios)
-            self._filtrar_por_horas(seleccion=valor_cbx_horarios)
-
         self._colorear_filas_panel_horarios(True)
+
+    def _filtrar_consulta(self, consulta):
+        # obtiene los valores antes de actualizar la tabla
+        vlr_cbx_captura = self._interfaz.ventanas.obtener_input_componente('cbx_capturista')
+        vlr_cbx_horarios = self._interfaz.ventanas.obtener_input_componente('cbx_horarios')
+        vlr_cbx_status = self._interfaz.ventanas.obtener_input_componente('cbx_status')
+
+        capturistas = [fila['CapturadoPor'] for fila in consulta]
+        horarios = [fila['HoraEntrega']for fila in consulta]
+        status = [fila['Status'] for fila in consulta]
+        self._rellenar_cbx_status(status)
+        self._rellenar_cbx_horarios(horarios)
+        self._rellenar_cbx_captura(capturistas)
+
+        if vlr_cbx_captura != 'Seleccione' and vlr_cbx_captura:
+            consulta= [fila for fila in consulta if fila['CapturadoPor'] == vlr_cbx_captura]
+            if vlr_cbx_captura in capturistas:
+                self._interfaz.ventanas.insertar_input_componente('cbx_capturista', vlr_cbx_captura)
+
+        if vlr_cbx_horarios != 'Seleccione' and vlr_cbx_horarios:
+            consulta= [fila for fila in consulta if fila['HoraEntrega'] == vlr_cbx_horarios]
+            if vlr_cbx_horarios in horarios:
+                self._interfaz.ventanas.insertar_input_componente('cbx_horarios', vlr_cbx_horarios)
+
+        if vlr_cbx_status != 'Seleccione' and vlr_cbx_status:
+            consulta= [fila for fila in consulta  if fila['Status'] == vlr_cbx_status]
+            if vlr_cbx_status in status:
+                self._interfaz.ventanas.insertar_input_componente('cbx_status', vlr_cbx_status)
+
+        return consulta
 
     def _capturar_nuevo_cliente(self):
         self._parametros.id_principal = -1
@@ -1027,7 +1042,7 @@ class ControladorPanelPedidos:
 
         for area in areas_imprimibles:
 
-            imprimir = self._settear_valores_ticket(fila, order_document_id, area)
+            imprimir = self._settear_valores_ticket(fila, order_document_id, area, areas_imprimibles)
 
             if not imprimir:
 
@@ -1037,7 +1052,7 @@ class ControladorPanelPedidos:
             self._afectar_bitacora_impresion(order_document_id)
             self._actualizar_tablas_impresion(order_document_id)
 
-    def _settear_valores_ticket(self, pedido, order_document_id, areas_imprimibles):
+    def _settear_valores_ticket(self, pedido, order_document_id, areas_imprimibles, todas_las_areas):
         self._ticket.cliente = pedido.get('Cliente', '')
         self._ticket.pedido = pedido.get('Pedido', '')
         self._ticket.relacionado = pedido.get('Relacion', '')
@@ -1079,7 +1094,7 @@ class ControladorPanelPedidos:
         consulta_partidas = self._base_de_datos.buscar_partidas_pedidos_produccion_cayal(
             order_document_id, partidas_eliminadas=False, partidas_producidas=True)
 
-        partidas_filtradas_por_area = self._filtrar_partidas_por_area_impresion(consulta_partidas, areas_imprimibles)
+        partidas_filtradas_por_area = self._filtrar_partidas_por_area_impresion(consulta_partidas, areas_imprimibles, todas_las_areas)
 
         partidas_ticket = self._filtrar_partidas_ticket(partidas_filtradas_por_area)
 
@@ -1090,7 +1105,7 @@ class ControladorPanelPedidos:
 
         return True
 
-    def _filtrar_partidas_por_area_impresion(self, consulta_partidas, areas_imprimibles):
+    def _filtrar_partidas_por_area_impresion(self, consulta_partidas, areas_imprimibles, todas_las_areas):
 
         partidas_sin_servicio_domicilio = [partida for partida in consulta_partidas if partida['ProductID'] != 5606]
         sin_partidas_eliminadas = [partida for partida in partidas_sin_servicio_domicilio
@@ -1117,7 +1132,7 @@ class ControladorPanelPedidos:
             return ', '.join(textos)
 
         self._ticket.areas = generar_texto(areas_imprimibles)
-        self._ticket.areas_aplicables = generar_texto(areas_imprimibles)
+        self._ticket.areas_aplicables = generar_texto(todas_las_areas)
         return partidas
 
     def _filtrar_partidas_ticket(self, consulta_partidas):
@@ -1174,20 +1189,17 @@ class ControladorPanelPedidos:
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(self._interfaz.master, 'Acumulados horarios')
         instancia = HorarioslAcumulados(ventana, self._base_de_datos, self._utilerias)
 
-    def _rellenar_cbx_captura(self, consulta):
-        capturo = [reg['CapturadoPor'] for reg in consulta]
-        capturo = sorted(list(set(capturo)))
-        self._interfaz.ventanas.rellenar_cbx('cbx_capturista', capturo)
+    def _rellenar_cbx_captura(self, valores):
+        valores = sorted(list(set(valores)))
+        self._interfaz.ventanas.rellenar_cbx('cbx_capturista', valores)
 
-    def _rellenar_cbx_status(self, consulta):
-        status = [reg['Status'] for reg in consulta]
-        status = sorted(list(set(status)))
-        self._interfaz.ventanas.rellenar_cbx('cbx_status', status)
+    def _rellenar_cbx_status(self, valores):
+        valores = sorted(list(set(valores)))
+        self._interfaz.ventanas.rellenar_cbx('cbx_status', valores)
 
-    def _rellenar_cbx_horarios(self, consulta):
-        horas = [reg['HoraEntrega'] for reg in consulta]
-        horas = sorted(list(set(horas)))
-        self._interfaz.ventanas.rellenar_cbx('cbx_horarios', horas)
+    def _rellenar_cbx_horarios(self, valores):
+        valores = sorted(list(set(valores)))
+        self._interfaz.ventanas.rellenar_cbx('cbx_horarios', valores)
 
     def _rellenar_meters(self):
 
@@ -1300,49 +1312,48 @@ class ControladorPanelPedidos:
             partidas_procesadas.append(datos_fila)
         return partidas_procesadas
 
-    def _filtrar_por_capturados_por(self, rellenar=False, seleccion=None):
+    def _filtrar_por_capturados_por(self):
         self._limpiar_componentes()
 
-        if not seleccion:
-            seleccion = self._interfaz.ventanas.obtener_input_componente('cbx_capturista')
+        seleccion = self._interfaz.ventanas.obtener_input_componente('cbx_capturista')
 
-        if seleccion == 'Seleccione' and rellenar:
+        if seleccion == 'Seleccione':
             self._rellenar_tabla_pedidos(self._fecha_seleccionada())
             self._interfaz.ventanas.limpiar_seleccion_table_view('tbv_pedidos')
             return
 
+        self._rellenar_tabla_pedidos()
         self._interfaz.ventanas.filtrar_table_view(_table_view='tbv_pedidos',
                                                        columna=6,
                                                        valor=[seleccion],
                                                        )
 
-    def _filtrar_por_status(self, rellenar=False, seleccion=None):
+    def _filtrar_por_status(self):
         self._limpiar_componentes()
 
-        if not seleccion:
-            seleccion = self._interfaz.ventanas.obtener_input_componente('cbx_status')
+        seleccion = self._interfaz.ventanas.obtener_input_componente('cbx_status')
 
-        if seleccion == 'Seleccione' and rellenar:
+        if seleccion == 'Seleccione':
             self._rellenar_tabla_pedidos(self._fecha_seleccionada())
             self._interfaz.ventanas.limpiar_seleccion_table_view('tbv_pedidos')
             return
 
+        self._rellenar_tabla_pedidos()
         self._interfaz.ventanas.filtrar_table_view(_table_view='tbv_pedidos',
                                                    columna=13,
                                                    valor=[seleccion],
                                                    )
 
-    def _filtrar_por_horas(self, rellenar=False, seleccion=None):
+    def _filtrar_por_horas(self):
         self._limpiar_componentes()
+        seleccion = self._interfaz.ventanas.obtener_input_componente('cbx_horarios')
 
-        if not seleccion:
-            seleccion = self._interfaz.ventanas.obtener_input_componente('cbx_horarios')
-
-        if seleccion == 'Seleccione' and rellenar:
+        if seleccion == 'Seleccione':
             self._rellenar_tabla_pedidos(self._fecha_seleccionada())
             self._interfaz.ventanas.limpiar_seleccion_table_view('tbv_pedidos')
             return
 
+        self._rellenar_tabla_pedidos()
         self._interfaz.ventanas.filtrar_table_view(_table_view='tbv_pedidos',
                                                    columna=8,
                                                    valor=[seleccion],

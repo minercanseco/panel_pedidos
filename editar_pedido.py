@@ -294,9 +294,11 @@ class EditarPedido:
         for partida in self._partidas_a_editar:
             cantidad = partida[0]
             document_item_id = partida[8]
-            info_producto = \
-            self._base_de_datos.fetchall('SELECT * FROM [dbo].[zvwBuscarPartidaPedidoCayal-DocumentItemID](?)',
-                                         (document_item_id,))[0]
+
+            print(partida)
+            if document_item_id != 0:
+                info_producto = self._base_de_datos.fetchall('SELECT * FROM [dbo].[zvwBuscarPartidaPedidoCayal-DocumentItemID](?)',
+                                             (document_item_id,))[0]
 
             precio = self._utilerias.redondear_valor_cantidad_a_decimal(info_producto['UnitPrice'])
             total = precio * cantidad

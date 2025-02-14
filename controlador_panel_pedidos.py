@@ -1002,6 +1002,7 @@ class ControladorPanelPedidos:
             filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
 
         if not filas:
+            self._interfaz.ventanas.mostrar_mensaje('No hay pedidos que imprimir')
             return
 
         for fila in filas:

@@ -153,6 +153,7 @@ class InterfacPanelPedidos:
             {"text": "ProductionTypeID", "stretch": False, "width": 0},
             {"text": "Áreas", "stretch": True, "width": 50},
             {"text": "PriorityID", "stretch": False, "width": 0},
+            {"text": "Impreso", "stretch": True, "width": 50},
             {"text": "Prioridad", "stretch": True, "width": 70},
             {"text": "DocumentTypeID", "stretch": False, "width": 0},
             {"text": "T.Docto", "stretch": True, "width": 65},
@@ -167,7 +168,7 @@ class InterfacPanelPedidos:
             {"text": "Mensajes", "stretch": False, "width": 0},
             {"text": "TypeStatusID", "stretch": False, "width": 0},
             {"text": "StatusScheduleID", "stretch": False, "width": 0},
-            {"text": "PrintedStatus", "stretch": False, "width": 0},
+
             {"text": "Comentarios", "stretch": False, "width": 0},
             {"text": "OrderDocumentID", "stretch": False, "width": 0},
             {"text": "BusinessEntityID", "stretch": False, "width": 0},

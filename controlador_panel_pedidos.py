@@ -990,7 +990,11 @@ class ControladorPanelPedidos:
             respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('¿Desea imprimir todos los pedidos en el status en proceso?')
             if respuesta:
                 filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos')
-                filas = [fila for fila in filas if fila['TypeStatusID'] in (2, 16, 17, 18)]
+                filas = [
+                    fila for fila in filas
+                    if fila['TypeStatusID'] in (2, 16, 17, 18) and set(fila['PrintedStatus']) != set(
+                        fila['TipoProduccion'])
+                ]
             else:
                 filas =  self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
         else:

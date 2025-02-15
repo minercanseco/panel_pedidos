@@ -1627,7 +1627,7 @@ class ControladorPanelPedidos:
 
         info_cliente = self._base_de_datos.fetchall('SELECT * FROM [dbo].[zvwBuscarInfoCliente-BusinessEntityID](?)',
                                         (business_entity_id,))
-        credito_autorizado = float(info_cliente[0]['AuthorizedCredit'])
+        credito_autorizado = self._utilerias.redondear_valor_cantidad_a_decimal(info_cliente[0]['AuthorizedCredit'])
         ruta = int(info_cliente[0]['ZoneID'])
 
         if credito_autorizado > 0 and ruta == 1040:
@@ -1661,7 +1661,7 @@ class ControladorPanelPedidos:
 
                 comentario_crediticio = '--NO TIENE CRÉDITO SU COMPRA ES DE CONTADO.-- '
             else:
-                credito_restante = float(info_cliente[0]['RemainingCredit'])
+                credito_restante = self._utilerias.redondear_valor_cantidad_a_decimal(info_cliente[0]['RemainingCredit'])
                 debe = credito_autorizado - credito_restante
 
                 if credito_restante > 0:

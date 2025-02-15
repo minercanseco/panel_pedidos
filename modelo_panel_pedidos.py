@@ -21,15 +21,18 @@ class ModeloPanelPedidos:
         self.hora_actual = self.utilerias.hora_actual()
         self.usuario_operador_panel = ''
 
-        self.consulta_pedidos_entrega = []
-
         self.pedidos_en_tiempo = 0
         self.pedidos_a_tiempo = 0
         self.pedidos_retrasados = 0
 
     def buscar_pedidos(self, fecha_entrega):
-        self.consulta_pedidos = self.base_de_datos.buscar_pedidos_panel_captura_cayal(fecha_entrega)
-        return self.consulta_pedidos
+        return self.base_de_datos.buscar_pedidos_panel_captura_cayal(fecha_entrega)
+
+    def buscar_pedidos_sin_procesar(self):
+        return self.base_de_datos.pedidos_sin_procesar('pedidos')
+
+    def buscar_pedidos_cliente_sin_fecha(self):
+        return self.base_de_datos.buscar_pedidos_cliente_sin_fecha('pedidos')
 
     def obtener_valores_de_puntualidad(self):
         consulta = self.base_de_datos.obtener_valores_de_puntualidad_pedidos_cayal('timbrado')

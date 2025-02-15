@@ -110,7 +110,6 @@ class HorarioslAcumulados:
             frame.grid_columnconfigure(0, weight=1)  # La única columna en el frame se expande
             frame.grid_rowconfigure(0, weight=1)
 
-
     def _rellenar_tabla_pedidos(self):
         if not self._ventanas.validar_seleccion_una_fila_treeview('tvw_horarios'):
             return
@@ -130,7 +129,11 @@ class HorarioslAcumulados:
                                                         valores_fila['ScheduleID']))
 
         consulta_filtrada = []
+        cancelados = 0
         for pedido in consulta_pedidos:
+            status = pedido['Status']
+            if status == 'Cancelado':
+                cancelados += 1
             consulta_filtrada.append(
                 {
                     'FolioPedido': pedido['FolioPedido'],
@@ -138,7 +141,7 @@ class HorarioslAcumulados:
                     'Cliente': pedido['Cliente'],
                     'Total': pedido['Total'],
                     'HoraEntrega': pedido['HoraEntrega'],
-                    'Status': pedido['Status'],
+                    'Status': status,
                     'OrderDocumentID': pedido['OrderDocumentID'],
                     'Comentarios': pedido['Comentarios']
                 }
@@ -150,8 +153,7 @@ class HorarioslAcumulados:
                                          valor_barra_desplazamiento=15,
                                          variar_color_filas=True
                                          )
-        self._ventanas.insertar_input_componente('lbl_total_pedidos', f'TOTAL: {len(consulta_filtrada)}')
-
+        self._ventanas.insertar_input_componente('lbl_total_pedidos', f'TOTAL: {len(consulta_filtrada) -cancelados}')
 
     def _crear_sql_consulta_horarios(self):
         return """

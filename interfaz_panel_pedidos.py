@@ -76,7 +76,9 @@ class InterfacPanelPedidos:
                           None,  # {'row': 0, 'column': 0, 'pady': 5, 'padx': 5, 'sticky': tk.W},
                           ' ', None),
 
-
+            'chk_sin_procesar': ('frame_filtros',
+                               {'row': 0, 'column': 4, 'pady': 2, 'padx': 2, 'sticky': tk.W},
+                               'Sin procesar', None),
             'mtr_total': ('frame_meters', None, 'Total', None),
             'mtr_en_tiempo': ('frame_meters', 'success', 'En tiempo', None),
             'mtr_a_tiempo': ('frame_meters', 'warning', 'A tiempo', None),

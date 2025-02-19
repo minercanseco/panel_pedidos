@@ -59,7 +59,7 @@ class ControladorPanelPedidos:
     def _cargar_eventos(self):
         eventos = {
 
-            'den_fecha': lambda event: self._actualizar_pedidos(self._fecha_seleccionada()),
+            'den_fecha': lambda event: self._actualizar_pedidos(self._fecha_seleccionada(), criteria=False),
             'tbv_pedidos': (lambda event: self._rellenar_tabla_detalle(), 'doble_click'),
             'cbx_capturista': lambda event: self._filtrar_por_capturados_por(),
             'cbx_status': lambda event: self._filtrar_por_status(),
@@ -328,7 +328,7 @@ class ControladorPanelPedidos:
         if vlr_cbx_status != 'Seleccione':
             self._interfaz.ventanas.insertar_input_componente('cbx_status', vlr_cbx_status)
 
-    def _actualizar_pedidos(self, fecha=None):
+    def _actualizar_pedidos(self, fecha=None, criteria=True):
         if self._actualizando_tabla:
             print('rechazando actualizar tabla')
             return
@@ -337,7 +337,7 @@ class ControladorPanelPedidos:
         self._actualizando_tabla = True
 
         # limpia los filtroas antes de rellenar
-        self._interfaz.ventanas.limpiar_filtros_table_view('tbv_pedidos')
+        self._interfaz.ventanas.limpiar_filtros_table_view('tbv_pedidos', criteria)
 
         # Obtener la consulta según la fecha o usar la última consulta almacenada
         consulta = self._modelo.consulta_pedidos if not fecha and self._modelo.consulta_pedidos else self._modelo.buscar_pedidos(

@@ -73,7 +73,7 @@ class InterfacPanelPedidos:
             'cbx_status': ('frame_status', None, 'Status:', None),
 
             'den_fecha': ('frame_fecha',
-                          None,  # {'row': 0, 'column': 0, 'pady': 5, 'padx': 5, 'sticky': tk.W},
+                          'normal',  # {'row': 0, 'column': 0, 'pady': 5, 'padx': 5, 'sticky': tk.W},
                           ' ', None),
 
             'chk_sin_procesar': ('frame_filtros',

@@ -31,8 +31,8 @@ class ModeloPanelPedidos:
     def buscar_pedidos_sin_procesar(self):
         return self.base_de_datos.pedidos_sin_procesar('pedidos')
 
-    def buscar_pedidos_cliente_sin_fecha(self):
-        return self.base_de_datos.buscar_pedidos_cliente_sin_fecha('pedidos')
+    def buscar_pedidos_cliente_sin_fecha(self, criteria):
+        return self.base_de_datos.buscar_pedidos_cliente_sin_fecha_panel_pedidos(criteria)
 
     def obtener_valores_de_puntualidad(self):
         consulta = self.base_de_datos.obtener_valores_de_puntualidad_pedidos_cayal('timbrado')

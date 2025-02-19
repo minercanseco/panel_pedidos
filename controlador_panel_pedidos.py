@@ -333,40 +333,42 @@ class ControladorPanelPedidos:
             print('rechazando actualizar tabla')
             return
 
-        print('actualizando tabla')
-        self._actualizando_tabla = True
+        try:
+            print('actualizando tabla')
+            self._actualizando_tabla = True
 
-        # limpia los filtroas antes de rellenar
-        self._interfaz.ventanas.limpiar_filtros_table_view('tbv_pedidos', criteria)
+            # limpia los filtroas antes de rellenar
+            self._interfaz.ventanas.limpiar_filtros_table_view('tbv_pedidos', criteria)
 
-        # Obtener la consulta según la fecha o usar la última consulta almacenada
-        consulta = self._modelo.consulta_pedidos if not fecha and self._modelo.consulta_pedidos else self._modelo.buscar_pedidos(
-            fecha)
+            # Obtener la consulta según la fecha o usar la última consulta almacenada
+            consulta = self._modelo.consulta_pedidos if not fecha and self._modelo.consulta_pedidos else self._modelo.buscar_pedidos(
+                fecha)
 
 
-        if not consulta:
-            self._limpiar_tabla()
+            if not consulta:
+                self._limpiar_tabla()
+                self._actualizando_tabla = False
+                print('no se rellena la tabla porque no hay resultados')
+                return
+
+            # Obtener valores actuales de los filtros
+            valores_cbx_filtros = self._obtener_valores_cbx_filtros()
+
+            # Aplicar filtros
+            consulta_filtrada = self._filtrar_consulta(consulta, valores_cbx_filtros)
+
+            # Rellenar tabla con los datos filtrados
+            self._interfaz.ventanas.rellenar_table_view(
+                'tbv_pedidos',
+                self._interfaz.crear_columnas_tabla(),
+                consulta_filtrada
+            )
+
+            self._modelo.consulta_pedidos = consulta
+            self._colorear_filas_panel_horarios(actualizar_meters=True)
+            self._settear_valores_cbx_filtros(valores_cbx_filtros)
+        finally:
             self._actualizando_tabla = False
-            print('no se rellena la tabla porque no hay resultados')
-            return
-
-        # Obtener valores actuales de los filtros
-        valores_cbx_filtros = self._obtener_valores_cbx_filtros()
-
-        # Aplicar filtros
-        consulta_filtrada = self._filtrar_consulta(consulta, valores_cbx_filtros)
-
-        # Rellenar tabla con los datos filtrados
-        self._interfaz.ventanas.rellenar_table_view(
-            'tbv_pedidos',
-            self._interfaz.crear_columnas_tabla(),
-            consulta_filtrada
-        )
-
-        self._modelo.consulta_pedidos = consulta
-        self._colorear_filas_panel_horarios(actualizar_meters=True)
-        self._settear_valores_cbx_filtros(valores_cbx_filtros)
-        self._actualizando_tabla = False
 
     def _filtrar_consulta(self, consulta, valores_cbx_filtros):
         # Si el checkbox está activado, solo devolver los pedidos sin procesar

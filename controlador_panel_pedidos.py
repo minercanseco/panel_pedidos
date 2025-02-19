@@ -338,13 +338,16 @@ class ControladorPanelPedidos:
 
         # limpia los filtroas antes de rellenar
         self._interfaz.ventanas.limpiar_filtros_table_view('tbv_pedidos')
+
         # Obtener la consulta según la fecha o usar la última consulta almacenada
         consulta = self._modelo.consulta_pedidos if not fecha and self._modelo.consulta_pedidos else self._modelo.buscar_pedidos(
             fecha)
 
+
         if not consulta:
             self._limpiar_tabla()
             self._actualizando_tabla = False
+            print('no se rellena la tabla porque no hay resultados')
             return
 
         # Obtener valores actuales de los filtros

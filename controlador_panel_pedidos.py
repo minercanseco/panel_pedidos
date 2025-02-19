@@ -82,10 +82,14 @@ class ControladorPanelPedidos:
         valor_chk = self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar')
         if valor_chk == 1:
             print('check activo')
+
             self._actualizar_pedidos()
 
         if valor_chk == 0:
+            fecha = str(datetime.today().date())
+            self._interfaz.ventanas.insertar_input_componente('den_fecha', fecha)
             print('check no activo')
+
             self._actualizar_pedidos()
 
     def _buscar_pedidos_cliente_sin_fecha(self, criteria):
@@ -324,7 +328,6 @@ class ControladorPanelPedidos:
         if vlr_cbx_status != 'Seleccione':
             self._interfaz.ventanas.insertar_input_componente('cbx_status', vlr_cbx_status)
 
-
     def _actualizar_pedidos(self, fecha=None):
         if self._actualizando_tabla:
             print('rechazando actualizar tabla')
@@ -332,6 +335,7 @@ class ControladorPanelPedidos:
 
         print('actualizando tabla')
         self._actualizando_tabla = True
+
         # limpia los filtroas antes de rellenar
         self._interfaz.ventanas.limpiar_filtros_table_view('tbv_pedidos')
         # Obtener la consulta según la fecha o usar la última consulta almacenada

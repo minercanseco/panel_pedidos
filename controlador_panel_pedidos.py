@@ -152,7 +152,9 @@ class ControladorPanelPedidos:
         self._interfaz.ventanas.bloquear_componente('tbx_comentarios')
 
     def _fecha_seleccionada(self):
-        return str(self._interfaz.ventanas.obtener_input_componente('den_fecha'))
+
+        fecha = self._interfaz.ventanas.obtener_input_componente('den_fecha')
+        return str(fecha) if fecha else None
 
     def _crear_tabla_pedidos(self):
         frame = self._interfaz.ventanas.componentes_forma['frame_captura']

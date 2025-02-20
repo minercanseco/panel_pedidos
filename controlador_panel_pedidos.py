@@ -220,7 +220,8 @@ class ControladorPanelPedidos:
             3: 10, 4: 10,  # Timbrado
             5: 10, 6: 10, 7: 10,  # Logística
             8: 10,  # Entrega almacén
-            9: 15  # Reparto
+            9: 15,  # Reparto
+            13: 0 # entregado
         }
 
         def _procesar_fila(valores_fila):
@@ -230,7 +231,19 @@ class ControladorPanelPedidos:
             fecha_captura_str = valores_fila['FechaCaptura']
             hora_captura_str = valores_fila['HoraCaptura']
             status_id = valores_fila['StatusID']
+            order_delivery_type_id = valores_fila['OrderDeliveryTypeID']
 
+            # si es urgente es rojo
+            if priority_id == 2:
+                return 3
+
+            # si es viene es azul
+            if order_delivery_type_id == 2:
+                return 4
+
+            # si esta en status 13 se considera entregado
+            if status_id == 13:
+                return 4
             # Si está cancelado, se marca como rojo
             if cancelled:
                 return 3  # Rojo
@@ -275,7 +288,7 @@ class ControladorPanelPedidos:
             return
 
         # Definir colores
-        colores = {0: 'red', 1: 'green', 2: 'orange', 3: 'red'}
+        colores = {0: 'red', 1: 'green', 2: 'orange', 3: 'red', 4:'blue'}
 
         for i, fila in enumerate(filas):
             valores_fila = {
@@ -283,7 +296,10 @@ class ControladorPanelPedidos:
                 'Cancelled': fila['Cancelado'],
                 'FechaCaptura': fila['FechaCaptura'] if actualizar_meters else fila['F.Captura'],
                 'HoraCaptura': fila['HoraCaptura'] if actualizar_meters else fila['H.Captura'],
-                'StatusID': fila['TypeStatusID']
+                'StatusID': fila['TypeStatusID'],
+                'OrderDeliveryTypeID': fila['OrderDeliveryTypeID']
+
+
             }
 
             status_pedido = _procesar_fila(valores_fila)

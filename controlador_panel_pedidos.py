@@ -317,8 +317,8 @@ class ControladorPanelPedidos:
                 elif status_pedido == 2:
                     self._modelo.pedidos_a_tiempo += 1
 
-            else:
-                self._interfaz.ventanas.colorear_filas_table_view('tbv_pedidos', [i], color)
+            #else:
+            self._interfaz.ventanas.colorear_filas_table_view('tbv_pedidos', [i], color)
 
         if actualizar_meters:
             self._rellenar_meters()

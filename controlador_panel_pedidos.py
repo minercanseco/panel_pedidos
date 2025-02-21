@@ -312,10 +312,11 @@ class ControladorPanelPedidos:
             if actualizar_meters:
                 if status_pedido == 0:
                     self._modelo.pedidos_retrasados += 1
-                elif status_pedido == 1:
+                elif status_pedido in (1, 4):
                     self._modelo.pedidos_en_tiempo += 1
                 elif status_pedido == 2:
                     self._modelo.pedidos_a_tiempo += 1
+
             else:
                 self._interfaz.ventanas.colorear_filas_table_view('tbv_pedidos', [i], color)
 

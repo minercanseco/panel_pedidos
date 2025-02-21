@@ -228,13 +228,13 @@ class ControladorPanelPedidos:
             return
 
         # Definir colores
-        colores = {0: 'red', 1: 'green', 2: 'orange', 3: 'red', 4:'blue'}
+        colores = { 1: 'green', 2: 'orange', 3: 'red',  4: 'blue'}
 
         for i, fila in enumerate(filas):
             valores_fila = {
                 'PriorityID': fila['PriorityID'],
                 'Cancelled': fila['Cancelado'],
-                'FechaEntrega': fila['FechaCaptura'] if actualizar_meters else fila['F.Entrega'],
+                'FechaEntrega': fila['FechaEntrega'] if actualizar_meters else fila['F.Entrega'],
                 'HoraEntrega': fila['HoraCaptura'] if actualizar_meters else fila['H.Entrega'],
                 'StatusID': fila['TypeStatusID'],
                 'OrderDeliveryTypeID': fila['OrderDeliveryTypeID']
@@ -242,16 +242,16 @@ class ControladorPanelPedidos:
 
             }
             status_pedido = self._utilerias.determinar_color_fila_respecto_entrega_pedido(valores_fila, ahora)
+
             color = colores[status_pedido]
 
             if actualizar_meters:
-                if status_pedido == 0:
-                    self._modelo.pedidos_retrasados += 1
-                elif status_pedido in (1, 4):
+                if status_pedido in (1, 4):
                     self._modelo.pedidos_en_tiempo += 1
                 elif status_pedido == 2:
                     self._modelo.pedidos_a_tiempo += 1
-
+                elif status_pedido == 3:
+                    self._modelo.pedidos_retrasados += 1
             else:
                 self._interfaz.ventanas.colorear_filas_table_view('tbv_pedidos', [i], color)
 

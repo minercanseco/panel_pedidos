@@ -213,70 +213,6 @@ class ControladorPanelPedidos:
         self._coloreando = True
         ahora = datetime.now()
 
-        # Tiempos máximos en minutos por status
-        tiempos_maximos = {
-            1: 10,  # Captura
-            2: 35, 16: 35, 17: 35, 18: 35,  # Producción
-            3: 10, 4: 10,  # Timbrado
-            5: 10, 6: 10, 7: 10,  # Logística
-            8: 10,  # Entrega almacén
-            9: 15,  # Reparto
-            13: 0 # entregado
-        }
-
-        def _procesar_fila(valores_fila):
-            """Determina el color de la fila basado en StatusID y tiempos máximos permitidos."""
-            priority_id = valores_fila['PriorityID']
-            cancelled = valores_fila['Cancelled']
-            fecha_entrega_str = valores_fila['FechaEntrega']
-            hora_entrega_str = valores_fila['HoraEntrega']
-            status_id = valores_fila['StatusID']
-            order_delivery_type_id = valores_fila['OrderDeliveryTypeID']
-
-            # si es urgente es rojo
-            if priority_id == 2:
-                return 3
-
-            # si es viene es azul
-            if order_delivery_type_id == 2:
-                return 4
-
-            # si esta en status 13 se considera entregado
-            if status_id == 13:
-                return 4
-            # Si está cancelado, se marca como rojo
-            if cancelled:
-                return 3  # Rojo
-
-            # Si no hay fecha de captura, se considera en tiempo
-            if not fecha_entrega_str or not hora_entrega_str:
-                return 1  # Verde
-
-            # Convertir fecha y hora de captura a datetime
-            fecha_captura = self._utilerias.convertir_fecha_str_a_datetime(fecha_entrega_str, ['%d/%m/%y', '%d-%m-%y'])
-            hora_captura = datetime.strptime(hora_entrega_str, "%H:%M").time()
-            fecha_hora_captura = datetime.combine(fecha_captura, hora_captura)
-
-            if fecha_captura < datetime.today().date():
-                return 1
-
-
-            # Calcular tiempo transcurrido desde la captura
-            tiempo_transcurrido = (ahora - fecha_hora_captura).total_seconds() / 60  # Minutos
-
-            # Obtener el tiempo máximo permitido según `StatusID`
-            tiempo_maximo = tiempos_maximos.get(status_id, 90)  # Si no está en la lista, se asume 90 min
-
-            # Evaluar color según el tiempo transcurrido
-            if tiempo_transcurrido >= tiempo_maximo:
-                return 0  # Rojo (retrasado)
-            elif tiempo_transcurrido >= tiempo_maximo * 0.75:
-                return 3  # Rojo (última cuarta parte del tiempo)
-            elif tiempo_transcurrido >= tiempo_maximo * 0.5:
-                return 2  # Naranja (más de la mitad del tiempo)
-            else:
-                return 1  # Verde (en tiempo)
-
         # Obtener filas a procesar
         filas = self._modelo.consulta_pedidos if actualizar_meters else \
             self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', visibles=True)
@@ -305,8 +241,7 @@ class ControladorPanelPedidos:
 
 
             }
-
-            status_pedido = _procesar_fila(valores_fila)
+            status_pedido = self._utilerias.determinar_color_fila_respecto_entrega_pedido(valores_fila, ahora)
             color = colores[status_pedido]
 
             if actualizar_meters:
@@ -317,8 +252,8 @@ class ControladorPanelPedidos:
                 elif status_pedido == 2:
                     self._modelo.pedidos_a_tiempo += 1
 
-            #else:
-            self._interfaz.ventanas.colorear_filas_table_view('tbv_pedidos', [i], color)
+            else:
+                self._interfaz.ventanas.colorear_filas_table_view('tbv_pedidos', [i], color)
 
         if actualizar_meters:
             self._rellenar_meters()

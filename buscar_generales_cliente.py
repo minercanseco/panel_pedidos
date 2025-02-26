@@ -128,11 +128,11 @@ class BuscarGeneralesCliente:
         btn_seleccionar = self._ventanas.componentes_forma['btn_seleccionar']
 
         if not termino_buscado:
-            ttkbootstrap.dialogs.Messagebox.show_error(master=self._master,message='Debe introducir un termino a buscar')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='Debe introducir un termino a buscar')
             btn_seleccionar.config(state='disabled')
 
         elif len(termino_buscado) < 5:
-            ttkbootstrap.dialogs.Messagebox.show_error(master = self._master,message='Insuficientes letras en el termino a buscar')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent = self._master,message='Insuficientes letras en el termino a buscar')
             btn_seleccionar.config(state='disabled')
 
         elif termino_buscado != self._termino_buscado:
@@ -145,7 +145,7 @@ class BuscarGeneralesCliente:
             if not nombres_clientes:
                 btn_seleccionar.config(state='disabled')
                 self._ventanas.rellenar_cbx('cbx_resultados', None, 'sin seleccione')
-                ttkbootstrap.dialogs.Messagebox.show_error(master=self._master, message='No se encontraron resultados.')
+                ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master, message='No se encontraron resultados.')
             else:
                 if len(nombres_clientes) > 1:
                     self._ventanas.rellenar_cbx('cbx_resultados', nombres_clientes)
@@ -168,7 +168,7 @@ class BuscarGeneralesCliente:
 
         if seleccion == 'Seleccione':
             self._cliente.reinicializar_atributos()
-            ttkbootstrap.dialogs.Messagebox.show_error(master = self._master,message='Debe seleccionar un cliente de la lista')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent = self._master,message='Debe seleccionar un cliente de la lista')
             btn_seleccionar.config(state='disabled')
         else:
             btn_seleccionar.config(state='enabled')
@@ -195,9 +195,9 @@ class BuscarGeneralesCliente:
         seleccion = self._ventanas.obtener_input_componente('cbx_resultados')
 
         if not seleccion:
-            ttkbootstrap.dialogs.Messagebox.show_error(master =self._master, message='Debe buscar y seleccionar un cliente.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent =self._master, message='Debe buscar y seleccionar un cliente.')
         elif seleccion == 'Seleccione':
-            ttkbootstrap.dialogs.Messagebox.show_error(master=self._master, message='Debe seleccionar un cliente de la lista.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master, message='Debe seleccionar un cliente de la lista.')
         else:
             proceder = True
 
@@ -206,7 +206,7 @@ class BuscarGeneralesCliente:
                 seleccion_direccion = seleccion_direccion.upper()
 
                 if seleccion_direccion == 'DIRECCIÓN FISCAL' or not seleccion_direccion:
-                    respuesta = ttk.dialogs.Messagebox.yesno(master =self._master, message='El cliente tiene sucursales '
+                    respuesta = ttk.dialogs.Messagebox.yesno(parent =self._master, message='El cliente tiene sucursales '
                                                             '¿Desea proceder sin seleccionar una?')
                     if respuesta == 'No':
                         proceder = False
@@ -231,7 +231,7 @@ class BuscarGeneralesCliente:
             seleccion = self._ventanas.obtener_input_componente('cbx_documento')
 
             if seleccion == 'Seleccione':
-                ttkbootstrap.dialogs.Messagebox.show_error(master=self._master, message='Debe seleccionar un tipo de documento.')
+                ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master, message='Debe seleccionar un tipo de documento.')
                 return False
 
             es_factura() if seleccion == 'Factura' else es_remision()

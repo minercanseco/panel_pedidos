@@ -77,9 +77,9 @@ class BuscarGeneralesClienteCartera:
         termino_buscado_tbx = self.buscar.get()
 
         if not termino_buscado_tbx:
-            ttkbootstrap.dialogs.Messagebox.show_error('Debe introducir un termino a buscar')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self.master,message='Debe introducir un termino a buscar')
         elif len(termino_buscado_tbx)<5:
-            ttkbootstrap.dialogs.Messagebox.show_error('Insuficientes letras en el termino a buscar')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self.master,message='Insuficientes letras en el termino a buscar')
         elif termino_buscado_tbx != self.termino_buscado:
             self.termino_buscado = self.buscar.get()
             self.consulta_buscar_cliente = self._base_de_datos.fetchall("""
@@ -92,7 +92,7 @@ class BuscarGeneralesClienteCartera:
             """, (self.buscar.get()))
 
             if not self.consulta_buscar_cliente:
-                ttk.dialogs.Messagebox.show_error('El término de búsqueda no arrojó resultados.')
+                ttk.dialogs.Messagebox.show_error(parent=self.master,message='El término de búsqueda no arrojó resultados.')
                 self.buscar.delete(0,tk.END)
             else:
                 self.nombres_de_clientes = [cliente['OfficialName'] for cliente in self.consulta_buscar_cliente]
@@ -116,7 +116,7 @@ class BuscarGeneralesClienteCartera:
 
     def cambio_de_seleccion_cliente(self, event = None):
         if self.cbx_resultados.get() == 'Seleccione':
-            ttkbootstrap.dialogs.Messagebox.show_error('Debe seleccionar un cliente de la lista')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self.master,message='Debe seleccionar un cliente de la lista')
             self.btn_seleccionar.config(state='disabled')
             if hasattr(self, 'frame_informacion') and self.frame_informacion.winfo_exists():
                 self.frame_informacion.destroy()
@@ -273,7 +273,7 @@ class BuscarGeneralesClienteCartera:
     def llamar_saldar_cartera(self):
         if self.business_entity_id != 0:
             if self.buscar_documentos_en_cartera() == 0:
-                ttk.dialogs.Messagebox.show_error('El cliente no tiene documentos en cartera.')
+                ttk.dialogs.Messagebox.show_error(parent=self.master,message='El cliente no tiene documentos en cartera.')
             else:
                 self._parametros.id_principal = self.business_entity_id
 

@@ -120,7 +120,7 @@ class ControladorSaldarCartera:
         afiliacion = self.ventanas.obtener_input_componente('tbx_terminal')
 
         if not afiliacion:
-            ttkbootstrap.dialogs.Messagebox.show_error('Debe escanear un valor a buscar.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self.master,message='Debe escanear un valor a buscar.')
             return
 
         info_terminal = self._buscar_informacion_terminal('tbx')
@@ -163,7 +163,7 @@ class ControladorSaldarCartera:
                              if reg['Barcode'] == barcode]
 
             if not info_terminal:
-                ttkbootstrap.dialogs.Messagebox.show_error('No se encontró ningún valor favor de validar.')
+                ttkbootstrap.dialogs.Messagebox.show_error(parent=self.master,message='No se encontró ningún valor favor de validar.')
                 return
 
             if info_terminal:
@@ -240,7 +240,7 @@ class ControladorSaldarCartera:
                 filas = filas_seleccionadas
 
                 if not filas:
-                    ttkbootstrap.dialogs.Messagebox.show_error('Debe seleccionar por lo menos un documento')
+                    ttkbootstrap.dialogs.Messagebox.show_error(parent=self.master,message='Debe seleccionar por lo menos un documento')
                     return
 
             if tipo == 'auto':
@@ -373,20 +373,20 @@ class ControladorSaldarCartera:
         recibido = self.ventanas.obtener_input_componente('tbx_recibido')
 
         if not self._utilerias.es_cantidad(recibido):
-            ttkbootstrap.dialogs.Messagebox.show_error('Debe introducir un monto válido.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self.master,message='Debe introducir un monto válido.')
             return
 
         recibido = self._utilerias.redondear_valor_cantidad_a_decimal(recibido)
 
         if recibido <= 0:
-            ttkbootstrap.dialogs.Messagebox.show_error('Debe introducir un monto válido.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self.master,message='Debe introducir un monto válido.')
             return
 
         monto_moneda = self.ventanas.obtener_input_componente('lbl_monto')
         monto = self._utilerias.convertir_moneda_a_decimal(monto_moneda)
 
         if recibido < monto:
-            ttkbootstrap.dialogs.Messagebox.show_error('El monto recibido no debe ser menor al monto a cobrar.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self.master,message='El monto recibido no debe ser menor al monto a cobrar.')
             return
 
         restante = recibido - monto
@@ -428,7 +428,7 @@ class ControladorSaldarCartera:
             banco_id = info_terminal['FinancialEntityID']
 
             if afiliacion == 'Seleccione':
-                ttkbootstrap.dialogs.Messagebox.show_error('Debe seleccionar una terminal bancaria.')
+                ttkbootstrap.dialogs.Messagebox.show_error(parent=self.master,message='Debe seleccionar una terminal bancaria.')
                 return
 
         fechahoy = datetime.today()

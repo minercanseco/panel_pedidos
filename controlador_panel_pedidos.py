@@ -718,7 +718,13 @@ class ControladorPanelPedidos:
 
     def _insertar_partidas_documento(self, order_document_id, document_id, partidas, total_documento, address_detail_id):
         if total_documento < 200:
-            self._insertar_servicio_a_docimicilio(document_id, address_detail_id)
+            order_delivery_type_id = self._base_de_datos.fetchone(
+                'SELECT OrderDeliveryTypeID FROM docDocumentOrderCayal WHERE OrderDocumentID = ?',
+                                         (order_document_id,))
+
+            # si el cliente viene omite el servicio a domicilio
+            if order_delivery_type_id == 1:
+                self._insertar_servicio_a_docimicilio(document_id, address_detail_id)
 
         for partida in partidas:
             parametros = (

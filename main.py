@@ -23,8 +23,8 @@ if __name__ == '__main__':
     if not actualizar.actualizar_paquete():
         # ------------------------------------------
         # parametros de prueba
-        #parametros_login.cadena_conexion = 'Mac'
-        parametros_login.base_de_datos = 'ComercialSP'
+        parametros_login.cadena_conexion = 'Mac'
+        #parametros_login.base_de_datos = 'ComercialSP'
         parametros_login.id_modulo = 1687
         # ------------------------------------------
         instancia_login = Login(ventana_login, parametros_login, si_acceso_exitoso)

@@ -701,7 +701,11 @@ class ControladorPanelPedidos:
 
             -- Actualizar la tabla docDocumentOrderCayal
             UPDATE docDocumentOrderCayal
-            SET StatusID = 4, DocumentID = @DocumentID
+            SET StatusID = CASE WHEN StatusID = 3 AND ToDeliverBy = 0 AND AssignedBy = 0 THEN 4 
+                                WHEN StatusID = 3 AND ToDeliverBy = 0 AND AssignedBy <> 0 THEN 7 
+                                WHEN StatusID = 3 AND ToDeliverBy <> 0 AND AssignedBy <> 0 THEN 13 
+                            END,
+                DocumentID = @DocumentID
             WHERE OrderDocumentID = @OrderDocumentID;
 
             -- Insertar en la tabla OrderInvoiceDocumentCayal

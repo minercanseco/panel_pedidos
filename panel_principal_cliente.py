@@ -167,11 +167,11 @@ class PanelPrincipal:
         seleccion_documento = cbx_documento.get()
 
         if seleccion == 'Seleccione':
-            ttkbootstrap.dialogs.Messagebox.show_error('Debe seleccionar una opción válida.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='Debe seleccionar una opción válida.')
             return
 
         if seleccion_documento == 'Seleccione' and seleccion == 'Manual':
-            ttkbootstrap.dialogs.Messagebox.show_error('Debe seleccionar un documento preferente.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='Debe seleccionar un documento preferente.')
             return
 
         if seleccion == 'Manual':
@@ -184,7 +184,7 @@ class PanelPrincipal:
                 business_entity_id = self._base_de_datos.cliente_existente(cliente)
 
                 if business_entity_id > 0:
-                    validacion = ttkbootstrap.dialogs.Messagebox.yesno(
+                    validacion = ttkbootstrap.dialogs.Messagebox.yesno(parent=self._master,message=
                         '¿El cliente ya existe en la base de datos desea continuar?')
 
                     if validacion == 'No':
@@ -194,7 +194,7 @@ class PanelPrincipal:
                     business_entity_id = self._base_de_datos.cliente_borrado(cliente)
 
                     if business_entity_id > 0:
-                        validacion = ttkbootstrap.dialogs.Messagebox.yesno(
+                        validacion = ttkbootstrap.dialogs.Messagebox.yesno(parent=self._master,message=
                             '¿El cliente ya existe en la base de datos pero esta borrado desea continuar?')
 
                         if validacion == 'No':
@@ -234,7 +234,7 @@ class PanelPrincipal:
             business_entity_id = self._base_de_datos.rfc_existente(rfc)
 
             if business_entity_id > 0:
-                validacion = ttkbootstrap.dialogs.Messagebox.yesno(
+                validacion = ttkbootstrap.dialogs.Messagebox.yesno(parent=self._master,message=
                     '¿El rfc ya existe en la base de datos desea continuar?')
 
                 if validacion == 'No':
@@ -244,7 +244,7 @@ class PanelPrincipal:
                 business_entity_id = self._base_de_datos.rfc_borrado(rfc)
 
                 if business_entity_id > 0:
-                    validacion = ttkbootstrap.dialogs.Messagebox.yesno(
+                    validacion = ttkbootstrap.dialogs.Messagebox.yesno(parent=self._master,message=
                         '¿El rfc ya existe en la base de datos pero está borrado desea continuar?')
 
                     if validacion == 'No':
@@ -254,11 +254,11 @@ class PanelPrincipal:
 
     def _validar_cliente(self, cliente):
         if not cliente:
-            ttkbootstrap.dialogs.Messagebox.show_error('Debe agregar un nombre para el cliente.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='Debe agregar un nombre para el cliente.')
             return False
 
         if len(cliente) < 5:
-            ttkbootstrap.dialogs.Messagebox.show_error('Debe agregar un nombre más largo.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='Debe agregar un nombre más largo.')
             return False
 
         return True
@@ -266,11 +266,11 @@ class PanelPrincipal:
     def _validar_cif(self, cif):
 
         if not cif:
-            ttkbootstrap.dialogs.Messagebox.show_error('Debe introducir información en los campos requeridos.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='Debe introducir información en los campos requeridos.')
             return False
 
         if not self._utilerias.es_cif(cif):
-            ttkbootstrap.dialogs.Messagebox.show_error('El cif es es inválido favor de validar.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='El cif es es inválido favor de validar.')
             return False
 
         return True
@@ -278,11 +278,11 @@ class PanelPrincipal:
     def _validar_rfc(self, rfc):
 
         if not rfc:
-            ttkbootstrap.dialogs.Messagebox.show_error('Debe introducir información en los campos requeridos.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='Debe introducir información en los campos requeridos.')
             return False
 
         if not self._utilerias.es_rfc(rfc):
-            ttkbootstrap.dialogs.Messagebox.show_error('El rfc es inválido favor de validar.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='El rfc es inválido favor de validar.')
             return False
 
         return True
@@ -323,7 +323,7 @@ class PanelPrincipal:
                 self._master.withdraw()
 
                 instancia_cliente = buscar_info_cif.cliente
-                ventana = ttk.Toplevel()
+                ventana = self._ventanas.crear_popup_ttkbootstrap()
                 instancia = FormularioCliente(ventana,
                                               self._parametros,
                                               informacion_captura,

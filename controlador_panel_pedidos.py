@@ -768,7 +768,8 @@ class ControladorPanelPedidos:
             21, # modulo facturas mayoreo
             fila['CaptureBy'],
             fila['DepotID'],
-            fila['AddressDetailID']
+            fila['AddressDetailID'],
+            self._user_id
         )
 
         order_document_id = fila['OrderDocumentID']

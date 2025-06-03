@@ -93,10 +93,6 @@ class InterfazPanelPedidos:
         frame_comentario.rowconfigure(0, weight=1)
 
     def crear_columnas_tabla_detalle(self):
-        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
-        print(ancho, alto)
-        validacion = self.ventanas.validar_resolucion(min_ancho=ancho, min_alto=alto)
-        print(validacion)
         columnas = [
             {"text": "Cantidad", "stretch": False, 'width': 68, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},
@@ -131,16 +127,10 @@ class InterfazPanelPedidos:
             {"text": "ProductTypeIDCayal", "stretch": False, 'width': 100, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 1},
         ]
-        if not validacion:
-            print(f'ajustando a {ancho}')
-            return self.ventanas.ajustar_columnas_a_resolucion(ancho, columnas)
 
-        return columnas
+        return self.ventanas.ajustar_columnas_a_resolucion(columnas)
 
     def crear_columnas_tabla(self):
-        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
-        validacion = self.ventanas.validar_resolucion(min_ancho=ancho, min_alto=alto)
-        print(validacion)
         columnas = [
             {"text": "Pedido", "stretch": True, "width": 80},
             {"text": "Relacion", "stretch": True, "width": 80},
@@ -190,8 +180,6 @@ class InterfazPanelPedidos:
             {"text": "CaptureBy", "stretch": False, "width": 0}
         ]
 
-        if not validacion:
-            print(f'ajustando a {ancho}')
-            return self.ventanas.ajustar_columnas_a_resolucion(ancho, columnas)
 
-        return columnas
+        return self.ventanas.ajustar_columnas_a_resolucion(columnas)
+

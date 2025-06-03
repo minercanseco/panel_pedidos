@@ -171,7 +171,6 @@ class InterfazPanelPedidos:
             {"text": "Mensajes", "stretch": False, "width": 0},
             {"text": "TypeStatusID", "stretch": False, "width": 0},
             {"text": "StatusScheduleID", "stretch": False, "width": 0},
-
             {"text": "Comentarios", "stretch": False, "width": 0},
             {"text": "OrderDocumentID", "stretch": False, "width": 0},
             {"text": "BusinessEntityID", "stretch": False, "width": 0},

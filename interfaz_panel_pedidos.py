@@ -92,6 +92,10 @@ class InterfazPanelPedidos:
         frame_comentario.columnconfigure(1, weight=1)  # Asegurar que la columna 1 se extienda
         frame_comentario.rowconfigure(0, weight=1)
 
+        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
+        if ancho == 1280:
+            self.ventanas.ocultar_frame('frame_meters')
+
     def crear_columnas_tabla_detalle(self):
         columnas = [
             {"text": "Cantidad", "stretch": False, 'width': 68, 'column_anchor': tk.W,

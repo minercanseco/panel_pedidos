@@ -157,7 +157,7 @@ class ControladorPanelPedidos:
         return str(fecha) if fecha else None
 
     def _crear_tabla_pedidos(self):
-        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
+        ancho, alto = self._interfaz.ventanas.obtener_resolucion_pantalla()
 
         frame = self._interfaz.ventanas.componentes_forma['frame_captura']
         colors = self._interfaz.master.style.colors

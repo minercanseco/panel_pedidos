@@ -93,7 +93,7 @@ class InterfazPanelPedidos:
         frame_comentario.rowconfigure(0, weight=1)
 
     def crear_columnas_tabla_detalle(self):
-        ancho, alto = self.ventanas.obtener_resolucion_frame(self.ventanas.componentes_forma['frame_principal'])
+        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
         validacion = self.ventanas.validar_resolucion(min_ancho=ancho, min_alto=alto)
 
         columnas = [
@@ -137,7 +137,7 @@ class InterfazPanelPedidos:
         return columnas
 
     def crear_columnas_tabla(self):
-        ancho, alto = self.ventanas.obtener_resolucion_frame(self.ventanas.componentes_forma['frame_principal'])
+        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
         validacion = self.ventanas.validar_resolucion(min_ancho=ancho, min_alto=alto)
 
         columnas = [

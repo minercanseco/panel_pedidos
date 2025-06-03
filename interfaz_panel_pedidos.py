@@ -128,7 +128,7 @@ class InterfazPanelPedidos:
              'heading_anchor': tk.W, 'hide': 1},
         ]
 
-        return self.ventanas.ajustar_columnas_a_resolucion(columnas, 1280)
+        return self.ventanas.ajustar_columnas_a_resolucion(columnas)
 
     def crear_columnas_tabla(self):
         columnas = [
@@ -178,5 +178,5 @@ class InterfazPanelPedidos:
             {"text": "AddressDetailID", "stretch": False, "width": 0},
             {"text": "CaptureBy", "stretch": False, "width": 0}
         ]
-        return self.ventanas.ajustar_columnas_a_resolucion(columnas, 1280)
+        return self.ventanas.ajustar_columnas_a_resolucion(columnas)
 

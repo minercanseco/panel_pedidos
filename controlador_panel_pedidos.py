@@ -157,6 +157,8 @@ class ControladorPanelPedidos:
         return str(fecha) if fecha else None
 
     def _crear_tabla_pedidos(self):
+        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
+
         frame = self._interfaz.ventanas.componentes_forma['frame_captura']
         colors = self._interfaz.master.style.colors
         componente = Tableview(
@@ -166,9 +168,9 @@ class ControladorPanelPedidos:
             paginated=True,
             searchable=True,
             bootstyle=PRIMARY,
-            pagesize=15,
+            pagesize=20 if ancho  <= 1367 else 15,
             stripecolor=None,  # (colors.light, None),
-            height=15,
+            height=20 if ancho  <= 1367 else 15,
             autofit=False,
             callbacks=[self._colorear_filas_panel_horarios],
             callbacks_search = [self._buscar_pedidos_cliente_sin_fecha]

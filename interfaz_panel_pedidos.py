@@ -139,7 +139,7 @@ class InterfazPanelPedidos:
     def crear_columnas_tabla(self):
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
         validacion = self.ventanas.validar_resolucion(min_ancho=ancho, min_alto=alto)
-
+        print(validacion)
         columnas = [
             {"text": "Pedido", "stretch": True, "width": 80},
             {"text": "Relacion", "stretch": True, "width": 80},

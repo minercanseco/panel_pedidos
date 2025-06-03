@@ -131,6 +131,7 @@ class InterfazPanelPedidos:
              'heading_anchor': tk.W, 'hide': 1},
         ]
         if not validacion:
+            print(f'ajustando a {ancho}')
             return self.ventanas.ajustar_columnas_a_resolucion(ancho, columnas)
 
         return columnas
@@ -189,6 +190,7 @@ class InterfazPanelPedidos:
         ]
 
         if not validacion:
+            print(f'ajustando a {ancho}')
             return self.ventanas.ajustar_columnas_a_resolucion(ancho, columnas)
 
         return columnas

@@ -94,8 +94,9 @@ class InterfazPanelPedidos:
 
     def crear_columnas_tabla_detalle(self):
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
+        print(ancho, alto)
         validacion = self.ventanas.validar_resolucion(min_ancho=ancho, min_alto=alto)
-
+        print(validacion)
         columnas = [
             {"text": "Cantidad", "stretch": False, 'width': 68, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},

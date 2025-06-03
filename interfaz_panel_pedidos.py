@@ -93,8 +93,9 @@ class InterfazPanelPedidos:
         frame_comentario.rowconfigure(0, weight=1)
 
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
-        if ancho == 1280:
+        if ancho <= 1367:
             self.ventanas.ocultar_frame('frame_meters')
+            self.ventanas.ocultar_frame('frame_detalle')
 
     def crear_columnas_tabla_detalle(self):
         columnas = [

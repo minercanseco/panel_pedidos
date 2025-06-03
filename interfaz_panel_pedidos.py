@@ -2,11 +2,10 @@ import tkinter as tk
 from cayal.ventanas import Ventanas
 
 
-class InterfacPanelPedidos:
+class InterfazPanelPedidos:
     def __init__(self, master):
         self.master = master
         self.ventanas = Ventanas(self.master)
-
         self._cargar_frames()
         self._cargar_componentes_forma()
         self.ventanas.configurar_ventana_ttkbootstrap(titulo='Panel captura', master=self.master)
@@ -94,7 +93,10 @@ class InterfacPanelPedidos:
         frame_comentario.rowconfigure(0, weight=1)
 
     def crear_columnas_tabla_detalle(self):
-        return [
+        ancho, alto = self.ventanas.obtener_resolucion_frame(self.ventanas.componentes_forma['frame_principal'])
+        validacion = self.ventanas.validar_resolucion(min_ancho=ancho, min_alto=alto)
+
+        columnas = [
             {"text": "Cantidad", "stretch": False, 'width': 68, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},
             {"text": "Clave", "stretch": False, 'width': 100, 'column_anchor': tk.W,
@@ -128,9 +130,16 @@ class InterfacPanelPedidos:
             {"text": "ProductTypeIDCayal", "stretch": False, 'width': 100, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 1},
         ]
+        if not validacion:
+            return self.ventanas.ajustar_columnas_a_resolucion(ancho, columnas)
+
+        return columnas
 
     def crear_columnas_tabla(self):
-        return [
+        ancho, alto = self.ventanas.obtener_resolucion_frame(self.ventanas.componentes_forma['frame_principal'])
+        validacion = self.ventanas.validar_resolucion(min_ancho=ancho, min_alto=alto)
+
+        columnas = [
             {"text": "Pedido", "stretch": True, "width": 80},
             {"text": "Relacion", "stretch": True, "width": 80},
             {"text": "Factura", "stretch": True, "width": 80},
@@ -178,3 +187,8 @@ class InterfacPanelPedidos:
             {"text": "AddressDetailID", "stretch": False, "width": 0},
             {"text": "CaptureBy", "stretch": False, "width": 0}
         ]
+
+        if not validacion:
+            return self.ventanas.ajustar_columnas_a_resolucion(ancho, columnas)
+
+        return columnas

@@ -74,6 +74,8 @@ class InterfazCaptura:
 
     def _cargar_componentes_forma(self):
         """
+
+
         if self._modulo_id not in [1687]:
             componentes.update({
                 'cbx_usocfdi': ('frame_fiscal', {'row': 0, 'column': 0, 'pady': 5, 'padx': 5}, None, None),
@@ -187,6 +189,10 @@ class InterfazCaptura:
         }
 
         frame_totales = self.ventanas.componentes_forma['frame_totales']
+        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
+        tamano_fuente_titulo_1 = 16 if ancho > 1366 else 14
+        tamano_fuente_titulo_2 = 20 if ancho > 1366 else 18
+
 
         for nombre, (estilo, posicion, etiqueta) in etiqueta_totales.items():
             componente = ttk.Label(frame_totales)
@@ -200,14 +206,16 @@ class InterfazCaptura:
             lbl.config(**estilo)
             lbl.grid(**posicion)
 
+
+
             if nombre in ('lbl_credito', 'lbl_debe', 'lbl_restante'):
-                lbl.config(font=('roboto', 16, 'bold'))
+                lbl.config(font=('roboto', tamano_fuente_titulo_1, 'bold'))
                 lbl_texto = f'{nombre}_texto'
 
                 self.ventanas.componentes_forma[lbl_texto] = lbl
 
             if nombre in ('lbl_credito', 'lbl_debe', 'lbl_restante', 'lbl_total'):
-                componente.config(text='$ 0.00', font=('roboto', 20, 'bold'), anchor='e')
+                componente.config(text='$ 0.00', font=('roboto', tamano_fuente_titulo_2, 'bold'), anchor='e')
 
             if nombre == 'lbl_articulos':
                 componente.config(text='0')

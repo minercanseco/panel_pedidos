@@ -150,17 +150,21 @@ class InterfazCaptura:
             self.ventanas.componentes_forma[nombre] = componente
         """
     def _cargar_componentes_frame_totales(self):
+        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
+
+        tamano_fuente_titulo_1 = 16 if ancho > 1366 else 14
+        tamano_fuente_titulo_2 = 29 if ancho > 1366 else 27
 
         estilo_auxiliar = {
             'foreground': 'white',
             'background': '#E30421',
-            'font': ('Consolas', 16, 'bold'),
+            'font': ('Consolas', tamano_fuente_titulo_1, 'bold'),
         }
 
         estilo_total = {
             'foreground': 'white',
             'background': '#E30421',
-            'font': ('consolas', 29, 'bold'),
+            'font': ('consolas', tamano_fuente_titulo_2, 'bold'),
         }
 
         etiqueta_totales = {
@@ -189,10 +193,10 @@ class InterfazCaptura:
         }
 
         frame_totales = self.ventanas.componentes_forma['frame_totales']
-        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
-        tamano_fuente_titulo_1 = 16 if ancho > 1366 else 11
-        tamano_fuente_titulo_2 = 20 if ancho > 1366 else 15
-        print(tamano_fuente_titulo_1, tamano_fuente_titulo_2)
+
+        tamano_fuente_titulo_2 = 16 if ancho > 1366 else 14
+        tamano_fuente_titulo_3 = 20 if ancho > 1366 else 18
+
 
         for nombre, (estilo, posicion, etiqueta) in etiqueta_totales.items():
             componente = ttk.Label(frame_totales)
@@ -209,13 +213,13 @@ class InterfazCaptura:
 
 
             if nombre in ('lbl_credito', 'lbl_debe', 'lbl_restante'):
-                lbl.config(font=('roboto', tamano_fuente_titulo_1, 'bold'))
+                lbl.config(font=('roboto', tamano_fuente_titulo_2, 'bold'))
                 lbl_texto = f'{nombre}_texto'
 
                 self.ventanas.componentes_forma[lbl_texto] = lbl
 
             if nombre in ('lbl_credito', 'lbl_debe', 'lbl_restante', 'lbl_total'):
-                componente.config(text='$ 0.00', font=('roboto', tamano_fuente_titulo_2, 'bold'), anchor='e')
+                componente.config(text='$ 0.00', font=('roboto', tamano_fuente_titulo_3, 'bold'), anchor='e')
 
             if nombre == 'lbl_articulos':
                 componente.config(text='0')

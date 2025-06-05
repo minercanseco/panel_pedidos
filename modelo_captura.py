@@ -138,12 +138,14 @@ class ModeloCaptura:
                 equivalencia = self.base_de_datos.fetchone(
                     'SELECT ISNULL(Equivalencia,0) Equivalencia FROM orgProduct WHERE ProductID = ?'
                     , partida.get('ProductID', 0))
+                equivalencia = 0 if not equivalencia else equivalencia
                 equivalencia_decimal = self.utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
 
                 if equivalencia_decimal > 0 and unidad_cayal == 1:
                     cantidad_piezas = int((cantidad/equivalencia_decimal))
 
                 partida['CayalPiece'] = cantidad_piezas
+
                 partida_tabla = (cantidad,
                                  cantidad_piezas,
                                  partida['ProductKey'],
@@ -293,11 +295,13 @@ class ModeloCaptura:
         self.documento.items = partidas_filtradas
 
     def crear_texto_existencia_producto(self, info_producto):
-        product_id = info_producto['ProductID']
+        product_id = info_producto.get('ProductID',0)
         unidad = info_producto.get('Unit', 'PIEZA')
         consulta = self.base_de_datos.buscar_existencia_productos(product_id)
+        existencia = 0.0
+        if consulta:
+           existencia = consulta[0].get('Existencia', 0.0)
 
-        existencia = consulta[0].get('Existencia', 0.0)
         existencia = 0 if existencia < 0 else existencia
 
         unidad_producto = self.utilerias.abreviatura_unidad_producto(unidad)

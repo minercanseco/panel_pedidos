@@ -285,7 +285,9 @@ class AgregarPartidaManualmente:
 
         ids_productos = self._modelo.obtener_product_ids_consulta(consulta)
         consulta_productos = self._modelo.buscar_info_productos_por_ids(ids_productos)
+
         consulta_productos_impuestos = self._modelo.agregar_impuestos_productos(consulta_productos)
+
         self._modelo.consulta_productos = consulta_productos_impuestos
         self._rellenar_tabla_productos(consulta_productos_impuestos)
 
@@ -337,7 +339,8 @@ class AgregarPartidaManualmente:
 
             valores = self._ventanas.obtener_valores_fila_treeview('tvw_productos', fila)
 
-            product_id = valores[3]
+            product_id = int(valores[3])
+
             info_producto = copy.deepcopy(self._modelo.buscar_informacion_producto(product_id))
 
             if info_producto:

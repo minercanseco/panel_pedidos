@@ -20,7 +20,7 @@ class InterfazCaptura:
         self._cargar_imagen_publicitaria()
         self._cargar_componentes_frame_totales()
 
-        self._ajustar_tamaño_componentes_forma()
+        self._ajustar_componentes_forma()
         self._agregar_validaciones()
 
 
@@ -37,21 +37,22 @@ class InterfazCaptura:
                                     'sticky': tk.NSEW}),
 
             'frame_cliente': ('frame_principal', 'Cliente',
-                              {'row': 1, 'column': 0, 'columnspan': 2, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}),
+                              {'row': 1, 'column': 0, 'columnspan': 2, 'rowspan': 3, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}),
 
             'frame_totales': ('frame_principal', None,
                               {'row': 0, 'column': 2, 'rowspan': 2, 'columnspan': 3, 'pady': 5, 'padx': 5,
                                'sticky': tk.NE}),
 
             'frame_captura': ('frame_principal', 'Captura',
-                              {'row': 2, 'columnspan': 3, 'column': 0, 'pady': 5, 'padx': 5,
-                               'sticky': tk.NS}),
+                              {'row': 4, 'columnspan': 2, 'column': 0, 'pady': 5, 'padx': 5,
+                               'sticky': tk.NSEW}),
+
             'frame_comentario': ('frame_principal', None,
-                             {'row': 3, 'column': 0, 'columnspan': 3, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}
+                             {'row': 5, 'column': 0, 'columnspan': 2, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}
                              ),
 
             'frame_anuncio': ('frame_principal', 'Anuncios',
-                              {'row': 2, 'rowspan': 2, 'column': 3, 'columnspan': 2, 'pady': 5, 'padx': 5,
+                              {'row': 2, 'rowspan': 3, 'column': 2, 'columnspan': 3, 'pady': 5, 'padx': 5,
                                'sticky': tk.NSEW}),
         }
 
@@ -263,11 +264,11 @@ class InterfazCaptura:
         # Actualizar el Canvas en el diccionario de componentes
         self.ventanas.componentes_forma['cvs_anuncio'] = self.cvs_anuncio
 
-    def _ajustar_tamaño_componentes_forma(self):
+    def _ajustar_componentes_forma(self):
         self.ventanas.ajustar_ancho_componente('tbx_cliente', 101)
         self.ventanas.ajustar_ancho_componente('tbx_direccion', 101)
-        self.ventanas.ajustar_ancho_componente('tbx_comentario', 101)
-        self.ventanas.ajustar_ancho_componente('txt_comentario_documento', 135)
+        #self.ventanas.ajustar_ancho_componente('tbx_comentario', 101)
+        #self.ventanas.ajustar_ancho_componente('txt_comentario_documento', 135)
 
     def crear_columnas_tabla(self):
 

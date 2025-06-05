@@ -400,7 +400,7 @@ class AgregarPartidaManualmente:
         equivalencia = self._ventanas.obtener_input_componente('tbx_equivalencia')
         equivalencia_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
 
-        product_id = valores[3]
+        product_id = int(valores[3])
         clave_unidad = valores[4]
 
         return {
@@ -459,7 +459,7 @@ class AgregarPartidaManualmente:
         self._ventanas.insertar_input_componente('lbl_existencia', texto)
 
         unidad = info_producto.get('Unit', 'PIEZA')
-        product_id = info_producto.get('ProductID', 0)
+        product_id = int(info_producto.get('ProductID', 0))
 
         texto_cantidad = self._modelo.crear_texto_cantidad_producto(cantidad_real_decimal, unidad, product_id)
         self._ventanas.insertar_input_componente('lbl_cantidad', texto_cantidad)

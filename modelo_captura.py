@@ -283,7 +283,7 @@ class ModeloCaptura:
 
         for fila in filas:
             valores = self._ventanas.procesar_fila_treeview('tvw_productos', fila)
-            product_id_tabla = valores['ProductID']
+            product_id_tabla = int(valores['ProductID'])
             if product_id_tabla == product_id:
                 self._ventanas.remover_fila_treeview('tvw_productos', fila)
 

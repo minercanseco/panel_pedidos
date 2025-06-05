@@ -74,30 +74,6 @@ class InterfazCaptura:
 
     def _cargar_componentes_forma(self):
         """
-        componentes = {
-            'tbx_cliente': ('frame_cliente',
-                            {'row': 0, 'column': 0, 'columnspan': 5, 'sticky': tk.W, 'pady': 5, 'padx': 5},
-                            None, 'Cliente:'),
-
-            'tbx_direccion': ('frame_cliente',
-                              {'row': 1, 'column': 0, 'columnspan': 5, 'sticky': tk.W, 'pady': 5, 'padx': 5},
-                              None, 'Dirección:'),
-
-            'tbx_comentario': ('frame_cliente',
-                               {'row': 2, 'column': 0, 'columnspan': 5, 'sticky': tk.W, 'pady': 5, 'padx': 5},
-                               None, 'Comentario:'),
-
-            'tbx_clave': ('frame_captura', None, None, None),
-
-            'tvw_productos': ('frame_captura', None, None, None),
-
-            'txt_comentario_documento': ('frame_comentario',
-                               {'row': 0, 'column': 0, 'columnspan': 5, 'sticky': tk.W, 'pady': 5, 'padx': 5},
-                               None, 'Comentarios:'),
-
-            'cvs_anuncio': ('frame_anuncio', None, None, None),
-        }
-
         if self._modulo_id not in [1687]:
             componentes.update({
                 'cbx_usocfdi': ('frame_fiscal', {'row': 0, 'column': 0, 'pady': 5, 'padx': 5}, None, None),
@@ -116,6 +92,7 @@ class InterfazCaptura:
             'tbx_clave': ('frame_clave', None, None, None),
             'tvw_productos': ('frame_tabla', self.crear_columnas_tabla(), None, None),
             'txt_comentario_documento': ('frame_comentario', None,'Comentarios:', None),
+            'cvs_anuncio': ('frame_anuncio', None, None, None),
         }
 
         self.ventanas.crear_componentes(componentes)

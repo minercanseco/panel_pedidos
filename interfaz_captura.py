@@ -192,7 +192,7 @@ class InterfazCaptura:
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
         tamano_fuente_titulo_1 = 16 if ancho > 1366 else 14
         tamano_fuente_titulo_2 = 20 if ancho > 1366 else 18
-
+        print(tamano_fuente_titulo_1, tamano_fuente_titulo_2)
 
         for nombre, (estilo, posicion, etiqueta) in etiqueta_totales.items():
             componente = ttk.Label(frame_totales)

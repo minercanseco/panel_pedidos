@@ -47,7 +47,7 @@ class InterfazCaptura:
                               {'row': 4, 'columnspan': 2, 'column': 0, 'pady': 5, 'padx': 5,
                                'sticky': tk.NSEW}),
 
-            'frame_comentario': ('frame_principal', None,
+            'frame_comentario': ('frame_principal', 'Comentarios documento:',
                              {'row': 5, 'column': 0, 'columnspan': 2, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}
                              ),
 
@@ -85,7 +85,7 @@ class InterfazCaptura:
 
             'txt_comentario_documento': ('frame_comentario',
                                {'row': 0, 'column': 0, 'columnspan': 5, 'sticky': tk.W, 'pady': 5, 'padx': 5},
-                               None, 'Comentarios:'),
+                               None, ' '),
 
             'cvs_anuncio': ('frame_anuncio', None, None, None),
         }
@@ -265,10 +265,10 @@ class InterfazCaptura:
         self.ventanas.componentes_forma['cvs_anuncio'] = self.cvs_anuncio
 
     def _ajustar_componentes_forma(self):
-        self.ventanas.ajustar_ancho_componente('tbx_cliente', 101)
-        self.ventanas.ajustar_ancho_componente('tbx_direccion', 101)
-        #self.ventanas.ajustar_ancho_componente('tbx_comentario', 101)
-        #self.ventanas.ajustar_ancho_componente('txt_comentario_documento', 135)
+        self.ventanas.ajustar_componente_en_frame('tbx_cliente', 'frame_cliente')
+        self.ventanas.ajustar_componente_en_frame('tbx_direccion', 'frame_cliente')
+        self.ventanas.ajustar_componente_en_frame('tbx_comentario', 'frame_cliente')
+        self.ventanas.ajustar_componente_en_frame('txt_comentario_documento', 'frame_comentario')
 
     def crear_columnas_tabla(self):
 

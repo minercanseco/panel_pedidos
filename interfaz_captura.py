@@ -47,7 +47,7 @@ class InterfazCaptura:
                               {'row': 4, 'columnspan': 2, 'column': 0, 'pady': 5, 'padx': 5,
                                'sticky': tk.NSEW}),
 
-            'frame_comentario': ('frame_principal', 'Comentarios documento:',
+            'frame_comentario': ('frame_principal', None,
                              {'row': 5, 'column': 0, 'columnspan': 2, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}
                              ),
 
@@ -85,7 +85,7 @@ class InterfazCaptura:
 
             'txt_comentario_documento': ('frame_comentario',
                                {'row': 0, 'column': 0, 'columnspan': 5, 'sticky': tk.W, 'pady': 5, 'padx': 5},
-                               None, ' '),
+                               None, 'Comentarios:'),
 
             'cvs_anuncio': ('frame_anuncio', None, None, None),
         }

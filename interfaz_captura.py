@@ -13,7 +13,7 @@ class InterfazCaptura:
         self.master = master
         self._modulo_id = modulo_id
         self.ventanas = Ventanas(self.master)
-        self._PATH_IMAGENES_PUBLICITARIAS = r'\\ccayal\Users\Administrador\Pictures\ClienteVentas'
+        self._PATH_IMAGENES_PUBLICITARIAS = self._obtener_ruta_imagenes_publitarias()
 
         self._cargar_frames()
         self._cargar_componentes_forma()
@@ -177,47 +177,70 @@ class InterfazCaptura:
     def _agregar_validaciones(self):
         self.ventanas.agregar_validacion_tbx('tbx_clave', 'codigo_barras')
 
+    def _obtener_ruta_imagenes_publitarias(self):
+        ruta_windows = r'\\ccayal\Users\Administrador\Pictures\ClienteVentas'
+        if not os.path.exists(ruta_windows):
+            RUTA_BASE =  os.path.dirname(os.path.abspath(__file__))
+            return os.path.join(RUTA_BASE, 'publicidad')
+        return ruta_windows
+
     def _cargar_imagen_publicitaria(self):
-        # Obtener la lista de archivos y seleccionar uno al azar
+        # Verificar existencia del directorio
         if not os.path.exists(self._PATH_IMAGENES_PUBLICITARIAS):
+            print('Ruta de imágenes publicitarias inválida')
             return
 
-        # Filtrar solo archivos con extensión .png
+        # Filtrar archivos PNG
         archivos = [
             archivo for archivo in os.listdir(self._PATH_IMAGENES_PUBLICITARIAS)
             if archivo.lower().endswith('.png')
         ]
 
-        # Verificar si hay archivos válidos
         if not archivos:
             print("No hay imágenes PNG disponibles.")
             return
 
-        # Seleccionar un archivo aleatorio
+        # Seleccionar una imagen aleatoria
         archivo = random.choice(archivos)
-
-        # Obtener la ruta completa de la imagen seleccionada
         ruta_imagen = os.path.join(self._PATH_IMAGENES_PUBLICITARIAS, archivo)
 
-        # Cargar la imagen
-        image = Image.open(ruta_imagen)
+        # Intentar cargar la imagen
+        try:
+            image = Image.open(ruta_imagen)
+        except Exception as e:
+            print(f"Error al cargar la imagen: {e}")
+            return
 
-        # Obtener las dimensiones del Canvas
+        # Obtener el canvas
         self.cvs_anuncio = self.ventanas.componentes_forma['cvs_anuncio']
-        self.cvs_anuncio.update_idletasks()  # Asegurarse de que el Canvas tiene el tamaño correcto
+        self.cvs_anuncio.update_idletasks()  # Forzar cálculo del layout
+
+        # Obtener dimensiones actuales del canvas
         canvas_width = self.cvs_anuncio.winfo_width()
         canvas_height = self.cvs_anuncio.winfo_height()
 
-        # Redimensionar la imagen para que coincida con el tamaño del Canvas
+        # Verificar si el canvas ya está visible y tiene dimensiones válidas
+        if canvas_width <= 1 or canvas_height <= 1:
+            print(f"Tamaño inválido detectado ({canvas_width}x{canvas_height}), reintentando...")
+            self.cvs_anuncio.after(100, self._cargar_imagen_publicitaria)
+            return
+
+        # Colorear el fondo para comprobar visibilidad
+        self.cvs_anuncio.configure(bg="gray")
+
+        # Limpiar el canvas antes de insertar nueva imagen
+        self.cvs_anuncio.delete("all")
+
+        # Redimensionar imagen al tamaño del canvas
         image = image.resize((canvas_width, canvas_height), Image.Resampling.LANCZOS)
 
-        # Convertir la imagen redimensionada en un objeto PhotoImage
-        self._imagen_publicitaria = ImageTk.PhotoImage(image)  # Mantener referencia en la clase
+        # Convertir imagen a PhotoImage y mantener referencia
+        self._imagen_publicitaria = ImageTk.PhotoImage(image)
 
-        # Mostrar la imagen en el Canvas
+        # Dibujar la imagen en el canvas
         self.cvs_anuncio.create_image(0, 0, anchor=tk.NW, image=self._imagen_publicitaria)
 
-        # Actualizar el Canvas en el diccionario de componentes
+        # Actualizar referencia en el diccionario si es necesario
         self.ventanas.componentes_forma['cvs_anuncio'] = self.cvs_anuncio
 
     def _ajustar_componentes_forma(self):

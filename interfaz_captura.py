@@ -74,8 +74,6 @@ class InterfazCaptura:
 
     def _cargar_componentes_forma(self):
         """
-
-
         if self._modulo_id not in [1687]:
             componentes.update({
                 'cbx_usocfdi': ('frame_fiscal', {'row': 0, 'column': 0, 'pady': 5, 'padx': 5}, None, None),
@@ -92,63 +90,13 @@ class InterfazCaptura:
             'tbx_direccion': ('frame_cliente', None, 'Dirección:', None),
             'tbx_comentario': ('frame_cliente', None, 'Comentario:', None),
             'tbx_clave': ('frame_clave', None, None, None),
-            'tvw_productos': ('frame_tabla', self.crear_columnas_tabla(), None, None),
+            'tvw_productos': ('frame_tabla', self.crear_columnas_tabla(), 20, None),
             'txt_comentario_documento': ('frame_comentario', None,'Comentarios:', None),
             'cvs_anuncio': ('frame_anuncio', None, None, None),
         }
 
         self.ventanas.crear_componentes(componentes)
-        """
-        for i, (nombre, (nombre_frame, info_grid, estilo, etiqueta)) in enumerate(componentes.items()):
-            etiqueta = nombre[4::].capitalize() if not etiqueta else etiqueta
-            tipo = nombre[0:3]
-            frame = self.ventanas.componentes_forma[nombre_frame]
 
-            if tipo == 'tbx':
-                componente = ttk.Entry(frame)
-
-            if tipo == 'txt':
-                componente = ttk.Text(frame, width=47, height=2)
-
-            if tipo == 'tvw':
-                style = ttk.Style()
-                style.configure("Treeview.Heading", font=("Roboto", 10)) #13
-                style.configure("Treeview", font=("Consolas", 9)) #12
-
-                componente = ttk.Treeview(master=frame,
-                                          bootstyle='primary',
-                                          columns=self.crear_columnas_tabla(),
-                                          show='headings',
-                                          height=20)
-
-                self.ventanas.rellenar_treeview(componente, self.crear_columnas_tabla())
-
-                componente.grid(row=i, column=0, columnspan=26, padx=5, pady=5, sticky=tk.W)
-
-            if tipo == 'cbx':
-                componente = ttk.Combobox(frame, state='readonly')
-
-            if tipo == 'cvs':
-                componente = tk.Canvas(frame, width=290, height=450)
-                componente.grid(row=0, column=1, padx=5, sticky=tk.W)
-
-            if tipo not in ('btn', 'tvw', 'cvs'):
-
-                if not (info_grid and tipo in ('tbx', 'txt','cbx')):
-                    lbl = ttk.Label(frame, text=etiqueta)
-                    lbl.grid(row=i, column=0, pady=5, padx=5, sticky=tk.W)
-
-                    componente.grid(row=i, column=1, padx=5, pady=5, sticky=tk.W)
-
-                if info_grid and tipo in ('tbx', 'txt', 'cbx'):
-                    lbl = ttk.Label(frame, text=etiqueta, width=12)
-                    lbl.grid(row=info_grid["row"], column=info_grid["column"], pady=5, padx=5, sticky=tk.W)
-
-                    info_grid["column"] = info_grid["column"] + 1
-                    componente.grid(**info_grid)
-
-            self.ventanas.componentes_forma[nombre] = componente
-        """
     def _cargar_componentes_frame_totales(self):
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
 

@@ -152,8 +152,8 @@ class InterfazCaptura:
     def _cargar_componentes_frame_totales(self):
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
 
-        tamano_fuente_titulo_1 = 16 if ancho > 1366 else 14
-        tamano_fuente_titulo_2 = 29 if ancho > 1366 else 27
+        tamano_fuente_titulo_1 = 16 if ancho > 1366 else 13
+        tamano_fuente_titulo_2 = 29 if ancho > 1366 else 26
 
         estilo_auxiliar = {
             'foreground': 'white',
@@ -194,8 +194,8 @@ class InterfazCaptura:
 
         frame_totales = self.ventanas.componentes_forma['frame_totales']
 
-        tamano_fuente_titulo_2 = 16 if ancho > 1366 else 14
-        tamano_fuente_titulo_3 = 20 if ancho > 1366 else 18
+        tamano_fuente_titulo_2 = 16 if ancho > 1366 else 13
+        tamano_fuente_titulo_3 = 20 if ancho > 1366 else 17
 
 
         for nombre, (estilo, posicion, etiqueta) in etiqueta_totales.items():

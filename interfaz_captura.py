@@ -47,6 +47,13 @@ class InterfazCaptura:
                               {'row': 4, 'columnspan': 2, 'column': 0, 'pady': 5, 'padx': 5,
                                'sticky': tk.NSEW}),
 
+            'frame_clave': ('frame_captura', None,
+                              {'row': 0, 'columnspan': 2, 'column': 0, 'pady': 5, 'padx': 5,
+                               'sticky': tk.NSEW}),
+            'frame_tabla': ('frame_captura', None,
+                            {'row': 1, 'columnspan': 2, 'column': 0, 'pady': 5, 'padx': 5,
+                             'sticky': tk.NSEW}),
+
             'frame_comentario': ('frame_principal', None,
                              {'row': 5, 'column': 0, 'columnspan': 2, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}
                              ),
@@ -66,6 +73,7 @@ class InterfazCaptura:
         self.ventanas.crear_frames(frames)
 
     def _cargar_componentes_forma(self):
+        """
         componentes = {
             'tbx_cliente': ('frame_cliente',
                             {'row': 0, 'column': 0, 'columnspan': 5, 'sticky': tk.W, 'pady': 5, 'padx': 5},
@@ -100,7 +108,18 @@ class InterfazCaptura:
 
                 'cbx_regimen': ('frame_fiscal', {'row': 0, 'column': 6, 'pady': 5, 'padx': 5}, None, None),
             })
+        """
+        componentes = {
+            'tbx_cliente': ('frame_cliente', None, 'Cliente:', None),
+            'tbx_direccion': ('frame_cliente', None, 'Dirección:', None),
+            'tbx_comentario': ('frame_cliente', None, 'Comentario:', None),
+            'tbx_clave': ('frame_clave', None, None, None),
+            'tvw_productos': ('frame_tabla', self.crear_columnas_tabla(), None, None),
+            'txt_comentario_documento': ('frame_comentario', None,'Comentarios:', None),
+        }
 
+        self.ventanas.crear_componentes(componentes)
+        """
         for i, (nombre, (nombre_frame, info_grid, estilo, etiqueta)) in enumerate(componentes.items()):
             etiqueta = nombre[4::].capitalize() if not etiqueta else etiqueta
             tipo = nombre[0:3]
@@ -150,7 +169,7 @@ class InterfazCaptura:
                     componente.grid(**info_grid)
 
             self.ventanas.componentes_forma[nombre] = componente
-
+        """
     def _cargar_componentes_frame_totales(self):
 
         estilo_auxiliar = {

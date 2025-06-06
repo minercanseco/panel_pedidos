@@ -2,6 +2,7 @@ import tkinter as tk
 import unicodedata
 from doctest import master
 
+import pyperclip
 import ttkbootstrap as ttk
 import ttkbootstrap.dialogs
 
@@ -170,7 +171,54 @@ class BuscarGeneralesCliente:
         self._ventanas.agregar_hotkeys_forma(hotkeys)
 
     def _copiar_informacion_direccion(self):
-        print('hola')
+
+        def generar_mensaje_whatsapp(info):
+            mensaje = (
+                "📍 *Dirección del cliente*\n\n"
+                f"🏠 *Calle:* {info.get('lbl_calle', '')}\n"
+                f"🔢 *Número:* {info.get('lbl_numero', '')}\n"
+                f"📮 *C.P.:* {info.get('lbl_cp', '')}\n"
+                f"🏘️ *Colonia:* {info.get('lbl_colonia', '')}\n"
+                f"🏙️ *Municipio:* {info.get('lbl_municipio', '')}\n"
+                f"🌎 *Estado:* {info.get('lbl_estado', '')}\n\n"
+                f"📞 *Teléfono:* {info.get('lbl_telefono', '')}\n"
+                f"📱 *Celular:* {info.get('lbl_celular', '')}\n\n"
+                f"📝 *Comentarios:* {info.get('txt_comentario', '').strip()}\n"
+            )
+
+            if self._info_cliente_seleccionado[0]['CayalCustomerTypeID'] == 2:
+                fiscales = (
+                    f"\n📧 *Correo:* {self._info_cliente_seleccionado[0].get('Email', '')}\n"
+                    f"🆔 *RFC:* {self._info_cliente_seleccionado[0].get('OfficialNumber', '')}\n"
+                    f"📄 *Uso CFDI:* {self._info_cliente_seleccionado[0].get('ReceptorUsoCFDI', '')}\n"
+                )
+                mensaje += fiscales
+
+            return mensaje
+
+        informacion = {
+            'lbl_ncomercial': '',
+            'lbl_telefono': '',
+            'lbl_celular': '',
+            'lbl_calle': '',
+            'lbl_numero': '',
+            'lbl_cp': '',
+            'lbl_colonia': '',
+            'lbl_estado': '',
+            'lbl_municipio': '',
+            'txt_comentario': '',
+        }
+
+        for nombre_componente, valores in self._componentes_direccion.items():
+            if '_txt' in nombre_componente:
+                continue
+
+            if nombre_componente in informacion:
+                valor = self._ventanas.obtener_input_componente(nombre_componente)
+                informacion[nombre_componente] = valor
+
+        pyperclip.copy(generar_mensaje_whatsapp(informacion))
+        self._ventanas.mostrar_mensaje(mensaje="Dirección copiada al portapapeles.", master=self._master, tipo='info')
 
     def _buscar_cliente(self, event=None):
 
@@ -246,9 +294,9 @@ class BuscarGeneralesCliente:
         seleccion = self._ventanas.obtener_input_componente('cbx_resultados')
 
         if not seleccion:
-            ttkbootstrap.dialogs.Messagebox.show_error(parent =self._master, message='Debe buscar y seleccionar un cliente.')
+            self._ventanas.mostrar_mensaje(master =self._master, mensaje='Debe buscar y seleccionar un cliente.')
         elif seleccion == 'Seleccione':
-            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master, message='Debe seleccionar un cliente de la lista.')
+            self._ventanas.mostrar_mensaje(master=self._master, mensaje='Debe seleccionar un cliente de la lista.')
         else:
             proceder = True
 

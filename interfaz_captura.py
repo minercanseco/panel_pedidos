@@ -1,5 +1,6 @@
 import os
 import random
+import time
 
 import tkinter as tk
 import ttkbootstrap as ttk
@@ -17,13 +18,12 @@ class InterfazCaptura:
 
         self._cargar_frames()
         self._cargar_componentes_forma()
+        self._ajustar_componentes_forma()
         self._cargar_imagen_publicitaria()
         self._cargar_componentes_frame_totales()
 
-        self._ajustar_componentes_forma()
+
         self._agregar_validaciones()
-
-
 
     def _cargar_frames(self):
 
@@ -59,7 +59,7 @@ class InterfazCaptura:
                              ),
 
             'frame_anuncio': ('frame_principal', 'Anuncios',
-                              {'row': 2, 'rowspan': 3, 'column': 2, 'columnspan': 3, 'pady': 5, 'padx': 5,
+                              {'row': 2, 'rowspan': 4, 'column': 2, 'columnspan': 3, 'pady': 5, 'padx': 5,
                                'sticky': tk.NSEW}),
         }
 
@@ -81,7 +81,10 @@ class InterfazCaptura:
             'tbx_clave': ('frame_clave', None, None, None),
             'tvw_productos': ('frame_tabla', self.crear_columnas_tabla(), 15, None),
             'txt_comentario_documento': ('frame_comentario', None,'Comentarios:', None),
-            'cvs_anuncio': ('frame_anuncio', None, None, None),
+            'lbl_anuncio': ('frame_anuncio',
+                               {'text': '', 'style': 'inverse-danger'},
+                               {'row': 0, 'column': 0, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
+                               None),
         }
 
         if self._modulo_id not in [1687]:
@@ -185,69 +188,45 @@ class InterfazCaptura:
         return ruta_windows
 
     def _cargar_imagen_publicitaria(self):
-        # Verificar existencia del directorio
         if not os.path.exists(self._PATH_IMAGENES_PUBLICITARIAS):
-            print('Ruta de imágenes publicitarias inválida')
+            print("Ruta inválida")
             return
 
-        # Filtrar archivos PNG
         archivos = [
-            archivo for archivo in os.listdir(self._PATH_IMAGENES_PUBLICITARIAS)
-            if archivo.lower().endswith('.png')
+            f for f in os.listdir(self._PATH_IMAGENES_PUBLICITARIAS)
+            if f.lower().endswith('.png')
         ]
-
         if not archivos:
-            print("No hay imágenes PNG disponibles.")
+            print("No hay imágenes")
             return
 
-        # Seleccionar una imagen aleatoria
-        archivo = random.choice(archivos)
-        ruta_imagen = os.path.join(self._PATH_IMAGENES_PUBLICITARIAS, archivo)
+        ruta = os.path.join(self._PATH_IMAGENES_PUBLICITARIAS, random.choice(archivos))
+        imagen = Image.open(ruta)
 
-        # Intentar cargar la imagen
-        try:
-            image = Image.open(ruta_imagen)
-        except Exception as e:
-            print(f"Error al cargar la imagen: {e}")
+        self.label_imagen =  self.ventanas.componentes_forma['lbl_anuncio']
+        largo_frame, alto_frame = self.ventanas.obtener_resolucion_frame('frame_anuncio')
+        self.label_imagen.update_idletasks()  # Forzar cálculo de tamaño
+        largo = self.label_imagen.winfo_width()
+        alto = self.label_imagen.winfo_height()
+
+        if largo <= 1 or alto <= 1:
+            print(f"Tamaño inválido ({largo}x{alto}), reintentando...")
             return
 
-        # Obtener el canvas
-        self.cvs_anuncio = self.ventanas.componentes_forma['cvs_anuncio']
-        self.cvs_anuncio.update_idletasks()  # Forzar cálculo del layout
+        # Redimensionar y mostrar
 
-        # Obtener dimensiones actuales del canvas
-        canvas_width = self.cvs_anuncio.winfo_width()
-        canvas_height = self.cvs_anuncio.winfo_height()
+        print(largo, alto, largo_frame, alto_frame)
+        imagen = imagen.resize((largo*5, alto), Image.Resampling.LANCZOS)
+        self.imagen_publicitaria = ImageTk.PhotoImage(imagen)
+        self.label_imagen.configure(image=self.imagen_publicitaria)
 
-        # Verificar si el canvas ya está visible y tiene dimensiones válidas
-        if canvas_width <= 1 or canvas_height <= 1:
-            print(f"Tamaño inválido detectado ({canvas_width}x{canvas_height}), reintentando...")
-            self.cvs_anuncio.after(100, self._cargar_imagen_publicitaria)
-            return
-
-        # Colorear el fondo para comprobar visibilidad
-        self.cvs_anuncio.configure(bg="gray")
-
-        # Limpiar el canvas antes de insertar nueva imagen
-        self.cvs_anuncio.delete("all")
-
-        # Redimensionar imagen al tamaño del canvas
-        image = image.resize((canvas_width, canvas_height), Image.Resampling.LANCZOS)
-
-        # Convertir imagen a PhotoImage y mantener referencia
-        self._imagen_publicitaria = ImageTk.PhotoImage(image)
-
-        # Dibujar la imagen en el canvas
-        self.cvs_anuncio.create_image(0, 0, anchor=tk.NW, image=self._imagen_publicitaria)
-
-        # Actualizar referencia en el diccionario si es necesario
-        self.ventanas.componentes_forma['cvs_anuncio'] = self.cvs_anuncio
 
     def _ajustar_componentes_forma(self):
         self.ventanas.ajustar_componente_en_frame('tbx_cliente', 'frame_cliente')
         self.ventanas.ajustar_componente_en_frame('tbx_direccion', 'frame_cliente')
         self.ventanas.ajustar_componente_en_frame('tbx_comentario', 'frame_cliente')
         self.ventanas.ajustar_componente_en_frame('txt_comentario_documento', 'frame_comentario')
+        self.ventanas.ajustar_label_en_frame('lbl_anuncio', 'frame_anuncio')
 
     def crear_columnas_tabla(self):
 

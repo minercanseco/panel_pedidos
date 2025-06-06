@@ -66,11 +66,16 @@ class BuscarGeneralesCliente:
 
             'frame_botones': ('frame_buscar', None,
                               {'row': 5, 'column': 0, 'columnspan': 4, 'padx': 52, 'pady': 5, 'sticky': tk.NSEW}),
+
             'frame_informacion': ('frame_data', 'Información:',
-                                  {'row': 0, 'column': 0, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.W}),
+                                  {'row': 0, 'column': 0, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NS}),
 
             'frame_direccion': ('frame_data', 'Dirección:',
-                                {'row': 0, 'column': 2, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.W}),
+                                {'row': 0, 'column': 2, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NS}),
+
+            'frame_copiar_direccion': ('frame_direccion', None,
+                                       {'row': 10, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}),
+
 
         }
 
@@ -89,6 +94,7 @@ class BuscarGeneralesCliente:
                               '  ', None),
             'btn_seleccionar': ('frame_botones', 'primary', 'Seleccionar', '[F1]'),
             'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', '[Esc]'),
+
         }
 
         self._ventanas.crear_componentes(componentes)
@@ -363,6 +369,7 @@ class BuscarGeneralesCliente:
 
             'lbl_municipio': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text':  info_direccion['municipio']},
                         {'row': 9, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+            'btn_copiar': ('frame_copiar_direccion', 'warning', 'Copiar', '[F4]'),
         }
         self._ventanas.crear_componentes(componentes)
 

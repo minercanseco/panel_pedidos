@@ -40,7 +40,7 @@ class InterfazCaptura:
                               {'row': 1, 'column': 0, 'columnspan': 2, 'rowspan': 3, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}),
 
             'frame_totales': ('frame_principal', None,
-                              {'row': 0, 'column': 2, 'rowspan': 2, 'columnspan': 3, 'pady': 5, 'padx': 5,
+                              {'row': 0, 'column': 2, 'rowspan': 2, 'columnspan': 4, 'pady': 5, 'padx': 5,
                                'sticky': tk.NE}),
 
             'frame_captura': ('frame_principal', 'Captura',
@@ -59,14 +59,14 @@ class InterfazCaptura:
                              ),
 
             'frame_anuncio': ('frame_principal', 'Anuncios',
-                              {'row': 2, 'rowspan': 4, 'column': 2, 'columnspan': 3, 'pady': 5, 'padx': 5,
+                              {'row': 2, 'rowspan': 4, 'column': 2, 'columnspan': 4, 'pady': 5, 'padx': 5,
                                'sticky': tk.NSEW}),
         }
-
+        self._modulo_id = 1400
         if self._modulo_id not in [1687]:
             frames.update({
-                'frame_fiscal': ('frame_principal', None,
-                                 {'row': 4, 'column': 0, 'columnspan': 3, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}
+                'frame_fiscal': ('frame_principal', 'Parametros Fiscales:',
+                                 {'row': 6, 'column': 0, 'columnspan': 5, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}
                                  )  # Cierra correctamente la tupla
             })  # Cierra correctamente el diccionario
 
@@ -89,13 +89,34 @@ class InterfazCaptura:
 
         if self._modulo_id not in [1687]:
             componentes.update({
-                'cbx_usocfdi': ('frame_fiscal', {'row': 0, 'column': 0, 'pady': 5, 'padx': 5}, None, None),
 
-                'cbx_metodopago': ('frame_fiscal', {'row': 0, 'column': 2, 'pady': 5, 'padx': 5}, None, None),
+                'lbl_usocfdi': ('frame_fiscal',
+                                {'text': 'Uso CFDI:'},
+                                {'row': 0, 'column': 0, 'pady': 0, 'padx': 0, 'sticky': tk.W},
+                                None),
 
-                'cbx_formapago': ('frame_fiscal', {'row': 0, 'column': 4, 'pady': 5, 'padx': 5}, None, None),
+                'cbx_usocfdi': ('frame_fiscal', {'row': 0, 'column': 1, 'pady': 5, 'padx': 5}, None, None),
 
-                'cbx_regimen': ('frame_fiscal', {'row': 0, 'column': 6, 'pady': 5, 'padx': 5}, None, None),
+                'lbl_metodopago': ('frame_fiscal',
+                                {'text': 'Método Pago:'},
+                                {'row': 0, 'column': 2, 'pady': 0, 'padx': 0, 'sticky': tk.W},
+                                None),
+
+                'cbx_metodopago': ('frame_fiscal', {'row': 0, 'column': 3, 'pady': 5, 'padx': 5}, None, None),
+
+                'lbl_formapago': ('frame_fiscal',
+                                   {'text': 'Forma Pago:'},
+                                   {'row': 0, 'column': 4, 'pady': 0, 'padx': 0, 'sticky': tk.W},
+                                   None),
+
+                'cbx_formapago': ('frame_fiscal', {'row': 0, 'column': 5, 'pady': 5, 'padx': 5},  None,None),
+
+                'lbl_regimen': ('frame_fiscal',
+                                   {'text': 'Régimen Fiscal:'},
+                                   {'row': 0, 'column': 6, 'pady': 0, 'padx': 0, 'sticky': tk.W},
+                                   None),
+
+                'cbx_regimen': ('frame_fiscal', {'row': 0, 'column': 7, 'pady': 5, 'padx': 5},  None, None),
             })
 
         self.ventanas.crear_componentes(componentes)
@@ -213,7 +234,7 @@ class InterfazCaptura:
             return
 
         # Redimensionar y mostrar
-        imagen = imagen.resize((largo*5, alto), Image.Resampling.LANCZOS)
+        imagen = imagen.resize((largo+100, alto), Image.Resampling.LANCZOS)
         self.imagen_publicitaria = ImageTk.PhotoImage(imagen)
         self.label_imagen.configure(image=self.imagen_publicitaria)
 

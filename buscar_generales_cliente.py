@@ -1,4 +1,5 @@
 import tkinter as tk
+import unicodedata
 from doctest import master
 
 import ttkbootstrap as ttk
@@ -25,10 +26,11 @@ class BuscarGeneralesCliente:
         self._crear_instancias_de_clases()
 
         self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
-
         self._crear_frames()
         self._cargar_componentes_forma()
         self._cargar_eventos_componentes_forma()
+        self._cargar_hotkeys()
+        self._ajustar_componentes()
         self._ventanas.enfocar_componente('tbx_buscar')
 
     def _declarar_variables_globales(self):
@@ -76,7 +78,6 @@ class BuscarGeneralesCliente:
             'frame_copiar_direccion': ('frame_direccion', None,
                                        {'row': 10, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}),
 
-
         }
 
         self._ventanas.crear_frames(frames)
@@ -99,16 +100,54 @@ class BuscarGeneralesCliente:
 
         self._ventanas.crear_componentes(componentes)
 
-        self._ventanas.ocultar_frame('frame_cbx')
-        self._master.update_idletasks()
-        self._ventanas.ocultar_componente('cbx_direccion')
-        self._ventanas.ocultar_componente('cbx_documento')
+        self._componentes_direccion = {
 
-        cbx_resultados = self._ventanas.componentes_forma['cbx_resultados']
-        cbx_resultados.config(width=50)
+            'lbl_txt_ncomercial': ('frame_direccion',  None, 'N.Comercial:', None),
+            'lbl_txt_telefono': ('frame_direccion', None, 'Teléfono:', None),
+            'lbl_txt_celular': ('frame_direccion', None, 'Celular:', None),
+            'lbl_txt_calle': ('frame_direccion', None, 'Calle:', None),
+            'lbl_txt_numero': ('frame_direccion', None, 'Número:', None),
+            'txt_comentario': ('frame_direccion', None, 'Comentario:', None),
+            'lbl_txt_cp': ('frame_direccion', None, 'C.P.', None),
+            'lbl_txt_colonia': ('frame_direccion', None, 'Colonia:', None),
+            'lbl_txt_estado': ('frame_direccion', None, 'Estado:', None),
+            'lbl_txt_municipio': ('frame_direccion', None, 'Municipio:', None),
 
-        btn_seleccionar = self._ventanas.componentes_forma['btn_seleccionar']
-        btn_seleccionar.config(state='disabled')
+            'lbl_ncomercial': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                               {'row': 0, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_telefono': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                             {'row': 1, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_celular': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                            {'row': 2, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_calle': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                          {'row': 3, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_numero': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                           {'row': 4, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_cp': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                       {'row': 6, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_colonia': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                            {'row': 7, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_estado': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                           {'row': 8, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_municipio': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                              {'row': 9, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'btn_copiar': ('frame_copiar_direccion', 'warning', 'Copiar', '[F4]'),
+        }
+
+        self._ventanas.crear_componentes(self._componentes_direccion)
+
+    def _ajustar_componentes(self):
+        self._ventanas.ajustar_ancho_componente('cbx_resultados', 50)
+        self._ventanas.bloquear_componente('btn_seleccionar')
 
     def _cargar_eventos_componentes_forma(self):
         eventos = {
@@ -116,16 +155,22 @@ class BuscarGeneralesCliente:
             'btn_seleccionar': self._seleccionar_cliente,
             'tbx_buscar': self._buscar_cliente,
             'cbx_resultados': self._cambio_de_seleccion_cliente,
-            'cbx_direccion': self._seleccionar_direccion
+            'cbx_direccion': self._seleccionar_direccion,
+            'btn_copiar':self._copiar_informacion_direccion
         }
 
         self._ventanas.cargar_eventos(eventos)
 
+    def _cargar_hotkeys(self):
         hotkeys = {
-            'F1': self._seleccionar_cliente
+            'F1': self._seleccionar_cliente,
+            'F4': self._copiar_informacion_direccion
         }
 
         self._ventanas.agregar_hotkeys_forma(hotkeys)
+
+    def _copiar_informacion_direccion(self):
+        print('hola')
 
     def _buscar_cliente(self, event=None):
 
@@ -170,20 +215,20 @@ class BuscarGeneralesCliente:
 
     def _cambio_de_seleccion_cliente(self, event=None):
         seleccion = self._ventanas.obtener_input_componente('cbx_resultados')
-        btn_seleccionar = self._ventanas.componentes_forma['btn_seleccionar']
 
         if seleccion == 'Seleccione':
             self._cliente.reinicializar_atributos()
-            ttkbootstrap.dialogs.Messagebox.show_error(parent = self._master,message='Debe seleccionar un cliente de la lista')
-            btn_seleccionar.config(state='disabled')
-        else:
-            btn_seleccionar.config(state='enabled')
-            business_entity_id = self._buscar_busines_entity_id(seleccion)
-            self._buscar_info_cliente_seleccionado(business_entity_id)
+            self._ventanas.mostrar_mensaje(mensaje= 'Debe seleccionar un cliente de la lista', master=self._master)
+            self._ventanas.bloquear_componente('btn_seleccionar')
+            return
 
-            self._cliente.consulta = self._info_cliente_seleccionado
-            self._cliente.settear_valores_consulta()
-            self._actualizar_apariencia_segun_tipo_cliente()
+        self._ventanas.desbloquear_componente('btn_seleccionar')
+        business_entity_id = self._buscar_busines_entity_id(seleccion)
+        self._buscar_info_cliente_seleccionado(business_entity_id)
+        self._cliente.consulta = self._info_cliente_seleccionado
+        self._cliente.settear_valores_consulta()
+
+        self._actualizar_apariencia_segun_tipo_cliente()
 
     def _buscar_busines_entity_id(self, cliente):
         business_entity_id = [valor['BusinessEntityID'] for valor in self._consulta_clientes if valor['OfficialName'] == cliente]
@@ -245,8 +290,33 @@ class BuscarGeneralesCliente:
 
     def _procesar_direccion_seleccionada(self):
 
-        valor_cbx = self._ventanas.obtener_input_componente('cbx_direccion')
-        return self._base_de_datos.procesar_direccion_seleccionada_cbx(valor_cbx, self._consulta_direcciones)
+        def normalizar(texto):
+            """Elimina acentos y convierte a minúsculas."""
+            texto = unicodedata.normalize('NFD', texto)
+            texto = ''.join(c for c in texto if unicodedata.category(c) != 'Mn')
+            return texto.lower()
+
+        # Obtener nombre de dirección del componente
+        address_name = self._ventanas.obtener_input_componente('cbx_direccion')
+
+        # Normaliza el texto para comparación
+        address_name_normalizado = normalizar(address_name)
+
+        # Verifica si contiene "direccion fiscal"
+        if 'direccion fiscal' in address_name_normalizado:
+
+            address_fiscal_detail_id = self._info_cliente_seleccionado[0].get('AddressFiscalDetailID', 0)
+            address_selected = [reg for reg in self._consulta_direcciones
+                            if reg['AddressDetailID'] == address_fiscal_detail_id]
+
+            if address_selected:
+                self._seleccionar_direccion_fiscal(address_selected)
+
+                # esto pr
+                self._base_de_datos.homologar_direccion_fiscal(address_fiscal_detail_id)
+                return address_selected[0]
+
+        return self._base_de_datos.procesar_direccion_seleccionada_cbx(address_name, self._consulta_direcciones)
 
     def _actualizar_apariencia_si_tiene_sucursales(self):
 
@@ -264,7 +334,7 @@ class BuscarGeneralesCliente:
             		FROM orgBusinessEntity E INNER JOIN
             			orgDepot A ON E.BusinessEntityID=A.BusinessEntityID 
             		WHERE E.BusinessEntityID = ? AND A.DeletedOn IS NULL
-                    """, (self._cliente.business_entity_id))
+                    """, (self._cliente.business_entity_id,))
 
             nombres_sucursales = [sucursal['DepotName'] for sucursal in self._consulta_sucursales]
 
@@ -308,11 +378,16 @@ class BuscarGeneralesCliente:
             datos_direccion = self._procesar_direccion_seleccionada()
             address_detail_id = datos_direccion.get('address_detail_id', 0)
             direccion = self._base_de_datos.buscar_detalle_direccion_formateada(address_detail_id)
+            direccion['celular'] = self._info_cliente_seleccionado[0]['CellPhone']
 
         self._documento.address_details = direccion
         self._cargar_info_direccion(direccion)
 
     def _seleccionar_direccion_fiscal(self, direccion):
+
+        if isinstance(direccion, list):
+            direccion = direccion[0]
+
         direccion['address_detail_id'] = self._cliente.address_fiscal_detail_id
         direccion['address_name'] = 'Dirección Fiscal'
         direccion['depot_id'] = 0
@@ -330,51 +405,27 @@ class BuscarGeneralesCliente:
 
     def _cargar_info_direccion(self, info_direccion):
         self._limpiar_direccion()
+        self._ventanas.posicionar_frame('frame_direccion')
 
-        componentes = {
-            'lbl_txt_ncomercial': ('frame_direccion', None, 'N.Comercial:', None),
-            'lbl_txt_telefono': ('frame_direccion', None, 'Teléfono:', None),
-            'lbl_txt_celular': ('frame_direccion', None, 'Celular:', None),
-            'lbl_txt_calle': ('frame_direccion', None, 'Calle:', None),
-            'lbl_txt_numero': ('frame_direccion', None, 'Número:', None),
-            'txt_comentario': ('frame_direccion', None, 'Comentario:', None),
-            'lbl_txt_cp': ('frame_direccion', None, 'C.P.', None),
-            'lbl_txt_colonia': ('frame_direccion', None, 'Colonia:', None),
-            'lbl_txt_estado': ('frame_direccion', None, 'Estado:', None),
-            'lbl_txt_municipio': ('frame_direccion', None, 'Municipio:', None),
-
-            'lbl_ncomercial': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': self._cliente.commercial_name},
-                             {'row': 0, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_telefono': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': info_direccion['telefono']},
-                        {'row': 1, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_celular': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text':  info_direccion['celular']},
-                           {'row': 2, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_calle': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text':  info_direccion['calle']},
-                            {'row': 3, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_numero': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text':  info_direccion['numero']},
-                            {'row': 4, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_cp': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text':  info_direccion['cp']},
-                            {'row': 6, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_colonia': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': info_direccion['colonia']},
-                       {'row': 7, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_estado': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text':  info_direccion['estado']},
-                        {'row': 8, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_municipio': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text':  info_direccion['municipio']},
-                        {'row': 9, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-            'btn_copiar': ('frame_copiar_direccion', 'warning', 'Copiar', '[F4]'),
+        informacion = {
+            'lbl_ncomercial': self._cliente.commercial_name,
+            'lbl_telefono': info_direccion.get('telefono', ''),
+            'lbl_celular': info_direccion.get('celular', ''),
+            'lbl_calle': info_direccion.get('calle', ''),
+            'lbl_numero': info_direccion.get('numero', ''),
+            'lbl_cp': info_direccion.get('cp', ''),
+            'lbl_colonia': info_direccion.get('colonia', ''),
+            'lbl_estado': info_direccion.get('estado', ''),
+            'lbl_municipio': info_direccion.get('municipio', ''),
+            'txt_comentario': info_direccion.get('comentario','')
         }
-        self._ventanas.crear_componentes(componentes)
 
-        txt_comentario = self._ventanas.componentes_forma['txt_comentario']
-        txt_comentario.insert('1.0', info_direccion['comentario'])
+        for nombre_componente, valores in self._componentes_direccion.items():
+            if '_txt' in nombre_componente:
+                continue
+
+            valor_direccion = informacion.get(nombre_componente, '')
+            self._ventanas.insertar_input_componente(nombre_componente, valor_direccion)
 
     def _apariencia_credito(self):
         self._limpiar_formulario()

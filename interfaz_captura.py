@@ -48,10 +48,10 @@ class InterfazCaptura:
                                'sticky': tk.NSEW}),
 
             'frame_clave': ('frame_captura', None,
-                              {'row': 0, 'columnspan': 2, 'column': 0, 'pady': 5, 'padx': 5,
+                              {'row': 0, 'columnspan': 2, 'column': 0, 'pady': 0, 'padx': 5,
                                'sticky': tk.NSEW}),
             'frame_tabla': ('frame_captura', None,
-                            {'row': 1, 'columnspan': 2, 'column': 0, 'pady': 5, 'padx': 5,
+                            {'row': 1, 'columnspan': 2, 'column': 0, 'pady': 2, 'padx': 5,
                              'sticky': tk.NSEW}),
 
             'frame_comentario': ('frame_principal', None,
@@ -204,7 +204,6 @@ class InterfazCaptura:
         imagen = Image.open(ruta)
 
         self.label_imagen =  self.ventanas.componentes_forma['lbl_anuncio']
-        largo_frame, alto_frame = self.ventanas.obtener_resolucion_frame('frame_anuncio')
         self.label_imagen.update_idletasks()  # Forzar cálculo de tamaño
         largo = self.label_imagen.winfo_width()
         alto = self.label_imagen.winfo_height()
@@ -214,12 +213,9 @@ class InterfazCaptura:
             return
 
         # Redimensionar y mostrar
-
-        print(largo, alto, largo_frame, alto_frame)
         imagen = imagen.resize((largo*5, alto), Image.Resampling.LANCZOS)
         self.imagen_publicitaria = ImageTk.PhotoImage(imagen)
         self.label_imagen.configure(image=self.imagen_publicitaria)
-
 
     def _ajustar_componentes_forma(self):
         self.ventanas.ajustar_componente_en_frame('tbx_cliente', 'frame_cliente')

@@ -64,6 +64,8 @@ class InterfazPanelPedidos:
         self.ventanas.crear_frames(frames)
 
     def _cargar_componentes_forma(self):
+        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
+        tamano_meters =  80 if ancho <= 1367 else None
         componentes = {
             'cbx_horarios': ('frame_horarios', None, 'Horas:', None),
 
@@ -78,10 +80,10 @@ class InterfazPanelPedidos:
             'chk_sin_procesar': ('frame_filtros',
                                {'row': 0, 'column': 4, 'pady': 2, 'padx': 2, 'sticky': tk.W},
                                'Sin procesar', None),
-            'mtr_total': ('frame_meters', None, 'Total', 50),
-            'mtr_en_tiempo': ('frame_meters', 'success', 'En tiempo', 50),
-            'mtr_a_tiempo': ('frame_meters', 'warning', 'A tiempo', 50),
-            'mtr_retrasado': ('frame_meters', 'danger', 'Retrasos', 50),
+            'mtr_total': ('frame_meters', None, 'Total', tamano_meters),
+            'mtr_en_tiempo': ('frame_meters', 'success', 'En tiempo', tamano_meters),
+            'mtr_a_tiempo': ('frame_meters', 'warning', 'A tiempo', tamano_meters),
+            'mtr_retrasado': ('frame_meters', 'danger', 'Retrasos', tamano_meters),
             'tbx_comentarios': ('frame_comentarios', {'row': 0, 'column': 1, 'pady': 5, 'padx': 2, 'sticky': tk.NSEW},
                                 ' ', None),
             'tvw_detalle':('frame_detalle', self.crear_columnas_tabla_detalle(), 5, None)
@@ -92,7 +94,7 @@ class InterfazPanelPedidos:
         frame_comentario.columnconfigure(1, weight=1)  # Asegurar que la columna 1 se extienda
         frame_comentario.rowconfigure(0, weight=1)
 
-        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
+
         """
         if ancho <= 1367:
             self.ventanas.ocultar_frame('frame_meters')

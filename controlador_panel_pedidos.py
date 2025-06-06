@@ -168,7 +168,7 @@ class ControladorPanelPedidos:
             paginated=True,
             searchable=True,
             bootstyle=PRIMARY,
-            pagesize=20 if ancho  <= 1367 else 15,
+            pagesize=10 if ancho  <= 1367 else 15,
             stripecolor=None,  # (colors.light, None),
             height=20 if ancho  <= 1367 else 15,
             autofit=False,

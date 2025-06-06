@@ -79,9 +79,9 @@ class InterfazPanelPedidos:
                                {'row': 0, 'column': 4, 'pady': 2, 'padx': 2, 'sticky': tk.W},
                                'Sin procesar', None),
             'mtr_total': ('frame_meters', None, 'Total', None),
-            'mtr_en_tiempo': ('frame_meters', 'success', 'En tiempo', None),
-            'mtr_a_tiempo': ('frame_meters', 'warning', 'A tiempo', None),
-            'mtr_retrasado': ('frame_meters', 'danger', 'Retrasos', None),
+            'mtr_en_tiempo': ('frame_meters', 'success', 'En tiempo', 80),
+            'mtr_a_tiempo': ('frame_meters', 'warning', 'A tiempo', 80),
+            'mtr_retrasado': ('frame_meters', 'danger', 'Retrasos', 80),
             'tbx_comentarios': ('frame_comentarios', {'row': 0, 'column': 1, 'pady': 5, 'padx': 2, 'sticky': tk.NSEW},
                                 ' ', None),
             'tvw_detalle':('frame_detalle', self.crear_columnas_tabla_detalle(), 5, None)
@@ -93,10 +93,11 @@ class InterfazPanelPedidos:
         frame_comentario.rowconfigure(0, weight=1)
 
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
+        """
         if ancho <= 1367:
             self.ventanas.ocultar_frame('frame_meters')
             self.ventanas.ocultar_frame('frame_detalle')
-
+        """
     def crear_columnas_tabla_detalle(self):
         columnas = [
             {"text": "Cantidad", "stretch": False, 'width': 68, 'column_anchor': tk.W,

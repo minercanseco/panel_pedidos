@@ -33,7 +33,7 @@ class DireccionesAdicionales:
         self._accion = accion
         self._seleccion = seleccion
         self._valores_fila_seleccionada = {}
-
+        self._business_entity_id = self._parametros.id_principal
         self._crear_frames()
         self._cargar_componentes_forma()
         self._cargar_eventos_forma()
@@ -41,7 +41,7 @@ class DireccionesAdicionales:
 
         self._nombre_usuario = self._base_de_datos.buscar_nombre_de_usuario(self._parametros.id_usuario)
         self.numero_direcciones = 0
-        self._business_entity_id = business_entity_id
+
 
         self._ventanas.configurar_ventana_ttkbootstrap(titulo='Direcciones adicionales')
 
@@ -81,6 +81,9 @@ class DireccionesAdicionales:
 
         self._ventanas.crear_componentes(nombres_componentes)
 
+        if not self._accion == 'editar':
+            self._ventanas.bloquear_componente('btn_copiar')
+
     def _cargar_eventos_forma(self):
 
         tbx_telefono = self._ventanas.componentes_forma['tbx_telefono']
@@ -106,35 +109,12 @@ class DireccionesAdicionales:
 
     def copiar_direccion(self):
 
-        nombres_componentes = ['tbx_titulo', 'tbx_telefono', 'tbx_calle', 'tbx_numero', 'txt_comentario',
-                               'tbx_cp', 'lbl_estado', 'lbl_municipio', 'cbx_colonia']
-        datos_cliente = {}
+        business_entity_id = self._business_entity_id
+        address_detail_id = self._valores_fila_seleccionada.get('address_detail_id', 0)
 
-        for nombre in nombres_componentes:
-            componente = self._ventanas.componentes_forma[nombre]
-
-            if 'lbl' in nombre:
-                valor = componente.cget("text")
-
-            if 'txt' in nombre:
-                valor = componente.get('1.0', tk.END)
-
-            if nombre[0:3] in ('cbx', 'tbx'):
-                valor = componente.get()
-
-            valor = '' if not valor else valor.strip()
-
-            datos_cliente[nombre[4::]] = valor
-
-        texto = f'¿Podría confirmarnos si sus datos son correctos?\n' \
-                f"Nombre: {datos_cliente['titulo']}\n" \
-                f"Nombre: {datos_cliente['telefono']}\n" \
-                f"Calle: {datos_cliente['calle']}\n" \
-                f"Número: {datos_cliente['numero']}\n" \
-                f"Comentarios: {datos_cliente['comentario']}\n" \
-                f"Colonia: {datos_cliente['colonia']}\n" \
-                f"CP: {datos_cliente['cp']}\n"
-        pyperclip.copy(texto)
+        informacion = self._base_de_datos.buscar_informacion_direccion_whatsapp(address_detail_id, business_entity_id)
+        pyperclip.copy(informacion)
+        self._ventanas.mostrar_mensaje(mensaje="Dirección copiada al portapapeles.", master=self._master, tipo='info')
         self._master.destroy()
 
     def _validar_inputs_formulario(self):
@@ -352,7 +332,7 @@ class DireccionesAdicionales:
             )
             return
 
-        self._ventanas.atualizar_fila_treeview(
+        self._ventanas.actualizar_fila_treeview(
             self._tabla_direcciones,
             self._valores_fila_seleccionada['fila'],
             (

@@ -224,54 +224,11 @@ class BuscarGeneralesCliente:
         self._ventanas.agregar_hotkeys_forma(hotkeys)
 
     def _copiar_informacion_direccion(self):
+        business_entity_id = self._info_cliente_seleccionado[0]['BusinessEntityID']
+        address_detail_id = self._documento.address_detail_id
 
-        def generar_mensaje_whatsapp(info):
-            mensaje = (
-                f"👤 *Cliente:* {self._info_cliente_seleccionado[0]['OfficialName']} \n\n"
-                f"📍 *Dirección del cliente* ({self._ventanas.obtener_input_componente('cbx_direccion')})\n"
-                f"🏠 *Calle:* {info.get('lbl_calle', '')}\n"
-                f"🔢 *Número:* {info.get('lbl_numero', '')}\n"
-                f"📮 *C.P.:* {info.get('lbl_cp', '')}\n"
-                f"🏘️ *Colonia:* {info.get('lbl_colonia', '')}\n"
-                f"🏙️ *Municipio:* {info.get('lbl_municipio', '')}\n"
-                f"🌎 *Estado:* {info.get('lbl_estado', '')}\n\n"
-                f"📞 *Teléfono:* {info.get('lbl_telefono', '')}\n"
-                f"📱 *Celular:* {info.get('lbl_celular', '')}\n\n"
-                f"📝 *Comentarios:* {info.get('txt_comentario', '').strip()}\n"
-            )
-
-            if self._info_cliente_seleccionado[0]['CayalCustomerTypeID'] == 2:
-                fiscales = (
-                    f"\n📧 *Correo:* {self._info_cliente_seleccionado[0].get('Email', '')}\n"
-                    f"🆔 *RFC:* {self._info_cliente_seleccionado[0].get('OfficialNumber', '')}\n"
-                    f"📄 *Uso CFDI:* {self._info_cliente_seleccionado[0].get('ReceptorUsoCFDI', '')}\n"
-                )
-                mensaje += fiscales
-
-            return mensaje
-
-        informacion = {
-            'lbl_ncomercial': '',
-            'lbl_telefono': '',
-            'lbl_celular': '',
-            'lbl_calle': '',
-            'lbl_numero': '',
-            'lbl_cp': '',
-            'lbl_colonia': '',
-            'lbl_estado': '',
-            'lbl_municipio': '',
-            'txt_comentario': '',
-        }
-
-        for nombre_componente, valores in self._componentes_direccion.items():
-            if '_txt' in nombre_componente:
-                continue
-
-            if nombre_componente in informacion:
-                valor = self._ventanas.obtener_input_componente(nombre_componente)
-                informacion[nombre_componente] = valor
-
-        pyperclip.copy(generar_mensaje_whatsapp(informacion))
+        informacion = self._base_de_datos.buscar_informacion_direccion_whatsapp(address_detail_id, business_entity_id)
+        pyperclip.copy(informacion)
         self._ventanas.mostrar_mensaje(mensaje="Dirección copiada al portapapeles.", master=self._master, tipo='info')
 
     def _buscar_cliente(self, event=None):
@@ -500,6 +457,7 @@ class BuscarGeneralesCliente:
             direccion['celular'] = self._info_cliente_seleccionado[0]['CellPhone']
 
         self._documento.address_details = direccion
+        self._documento.address_detail_id = direccion.get('address_detail_id', 0)
         self._cargar_info_direccion(direccion)
 
     def _seleccionar_direccion_fiscal(self, direccion):

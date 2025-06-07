@@ -32,6 +32,7 @@ class BuscarGeneralesCliente:
         self._cargar_eventos_componentes_forma()
         self._cargar_hotkeys()
         self._ajustar_componentes()
+        self._actualizar_apariencia_forma(solo_apariencia_inicial=True)
         self._ventanas.enfocar_componente('tbx_buscar')
 
     def _declarar_variables_globales(self):
@@ -60,21 +61,26 @@ class BuscarGeneralesCliente:
             'frame_buscar': ('frame_principal', 'Buscar cliente:',
                                       {'row': 0, 'columnspan': 4, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
 
-            'frame_data': ('frame_principal', None,
-                             {'row': 2, 'column': 0, 'columnspan': 4, 'padx': 5, 'pady': 5, 'sticky': tk.W}),
-
-
-            'frame_cbx': ('frame_buscar', None,
-                             {'row': 4, 'column': 0, 'columnspan': 4, 'padx': 52, 'pady': 5, 'sticky': tk.NSEW}),
-
             'frame_botones': ('frame_buscar', None,
-                              {'row': 5, 'column': 0, 'columnspan': 4, 'padx': 52, 'pady': 5, 'sticky': tk.NSEW}),
+                              {'row': 2, 'column': 1,  'pady': 5, 'sticky': tk.NSEW}),
 
-            'frame_informacion': ('frame_data', 'Información:',
-                                  {'row': 0, 'column': 0, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NS}),
+            'frame_data': ('frame_principal', 'Información:',
+                           {'row': 3, 'column': 0, 'columnspan': 8, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
 
-            'frame_direccion': ('frame_data', 'Dirección:',
-                                {'row': 0, 'column': 2, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NS}),
+            'frame_cbxs': ('frame_data', None,
+                              {'row': 0, 'column': 0,  'columnspan': 4, 'pady': 5, 'sticky': tk.W}),
+
+            'frame_cbx_direccion': ('frame_cbxs', 'Dirección:',
+                               {'row': 0, 'column': 1,  'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
+
+            'frame_cbx_documento': ('frame_cbxs', 'Documento:',
+                               {'row': 0, 'column': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
+
+            'frame_informacion': ('frame_data', 'Generales:',
+                                  {'row': 1, 'column': 0, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
+
+            'frame_direccion': ('frame_data', 'Detalles dirección:',
+                                {'row': 1, 'column': 2, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NS}),
 
             'frame_copiar_direccion': ('frame_direccion', None,
                                        {'row': 10, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}),
@@ -88,17 +94,17 @@ class BuscarGeneralesCliente:
         componentes = {
             'tbx_buscar': ('frame_buscar', None, 'Buscar:', None),
             'cbx_resultados': ('frame_buscar', None, '  ', None),
-            'cbx_direccion': ('frame_cbx',
-                              {'row': 0, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W},
+
+            'cbx_direccion': ('frame_cbx_direccion',
+                              {'row': 0, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.W},
                               '  ', None),
-            'cbx_documento': ('frame_cbx',
-                              {'row': 0, 'column': 3, 'padx': 5, 'pady': 5, 'sticky': tk.W},
+            'cbx_documento': ('frame_cbx_documento',
+                              {'row': 0, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.W},
                               '  ', None),
             'btn_seleccionar': ('frame_botones', 'primary', 'Seleccionar', '[F1]'),
             'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', '[Esc]'),
 
         }
-
         self._ventanas.crear_componentes(componentes)
 
         self._componentes_direccion = {
@@ -143,8 +149,59 @@ class BuscarGeneralesCliente:
 
             'btn_copiar': ('frame_copiar_direccion', 'warning', 'Copiar', '[F4]'),
         }
-
         self._ventanas.crear_componentes(self._componentes_direccion)
+
+        self._componentes_credito = {
+            'lbl_txt_nombre': ('frame_informacion', None, 'Nombre:', None),
+            'lbl_txt_rfc': ('frame_informacion', None, 'RFC:', None),
+            'lbl_txt_ruta': ('frame_informacion', None, 'Ruta:', None),
+            'lbl_txt_autorizado': ('frame_informacion', None, 'Autorizado:', None),
+            'lbl_txt_debe': ('frame_informacion', None, 'Debe:', None),
+            'lbl_txt_restante': ('frame_informacion', None, 'Restante:', None),
+            'lbl_txt_condicion': ('frame_informacion', None, 'Condición:', None),
+            'lbl_txt_pcompra': ('frame_informacion', None, 'P.Compra:', None),
+            'lbl_txt_comentario': ('frame_informacion', None, 'Comentario:', None),
+            'lbl_txt_minisuper': ('frame_informacion', None, 'Minisuper:', None),
+            'lbl_txt_lista': ('frame_informacion', None, 'Lista:', None),
+
+            'lbl_nombre': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                           {'row': 0, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_rfc': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                        {'row': 1, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_ruta': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                         {'row': 2, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_autorizado': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                               {'row': 3, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_debe': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                         {'row': 4, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_restante': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                             {'row': 5, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_condicion': (
+            'frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+            {'row': 6, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_pcompra': ('frame_informacion', {'font': ('Arial', 9, 'bold'),
+                                                  'text': ''},
+                            {'row': 7, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_comentario': ('frame_informacion', {'font': ('Arial', 9, 'bold'),
+                                                     'text': ''},
+                               {'row': 8, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_minisuper': ('frame_informacion', {'font': ('Arial', 9, 'bold'),
+                                                    'text': ''},
+                              {'row': 9, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
+            'lbl_lista': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                          {'row': 10, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+        }
+        self._ventanas.crear_componentes(self._componentes_credito)
 
     def _ajustar_componentes(self):
         self._ventanas.ajustar_ancho_componente('cbx_resultados', 50)
@@ -174,7 +231,8 @@ class BuscarGeneralesCliente:
 
         def generar_mensaje_whatsapp(info):
             mensaje = (
-                "📍 *Dirección del cliente*\n\n"
+                f"👤 *Cliente:* {self._info_cliente_seleccionado[0]['OfficialName']} \n\n"
+                f"📍 *Dirección del cliente\n"
                 f"🏠 *Calle:* {info.get('lbl_calle', '')}\n"
                 f"🔢 *Número:* {info.get('lbl_numero', '')}\n"
                 f"📮 *C.P.:* {info.get('lbl_cp', '')}\n"
@@ -256,7 +314,7 @@ class BuscarGeneralesCliente:
 
                     self._cliente.consulta = self._info_cliente_seleccionado
                     self._cliente.settear_valores_consulta()
-                    self._actualizar_apariencia_segun_tipo_cliente()
+                    self._actualizar_apariencia_forma()
 
                 btn_seleccionar.config(state='enabled')
                 self._ventanas.enfocar_componente('cbx_resultados')
@@ -276,7 +334,7 @@ class BuscarGeneralesCliente:
         self._cliente.consulta = self._info_cliente_seleccionado
         self._cliente.settear_valores_consulta()
 
-        self._actualizar_apariencia_segun_tipo_cliente()
+        self._actualizar_apariencia_forma()
 
     def _buscar_busines_entity_id(self, cliente):
         business_entity_id = [valor['BusinessEntityID'] for valor in self._consulta_clientes if valor['OfficialName'] == cliente]
@@ -389,14 +447,29 @@ class BuscarGeneralesCliente:
             if self._consulta_sucursales:
                 self._ventanas.rellenar_cbx('cbx_sucursales', nombres_sucursales)
 
-    def _actualizar_apariencia_segun_tipo_cliente(self):
-        cbx_direccion =  self._ventanas.componentes_forma['cbx_direccion']
+    def _actualizar_apariencia_forma(self, solo_apariencia_inicial = False):
+
+        def apariencia_inicial():
+            self._ventanas.ocultar_frame('frame_data')
+
+
+        if solo_apariencia_inicial:
+            apariencia_inicial()
+            return
+
+        cbx_direccion = self._ventanas.componentes_forma['cbx_direccion']
 
         if self._cliente.cayal_customer_type_id in (1, 2):
+            self._ventanas.posicionar_frame('frame_data')
             self._ventanas.posicionar_frame('frame_informacion')
-            self._apariencia_credito()
+            self._ventanas.posicionar_frame('frame_direccion')
+            self._cargar_info_credito()
         else:
+            self._ventanas.posicionar_frame('frame_data')
             self._ventanas.ocultar_frame('frame_informacion')
+            posicion = {'row': 1, 'column': 0, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}
+            self._ventanas.posicionar_frame('frame_direccion', posicion)
+            print('a')
 
         self._consulta_direcciones = self._base_de_datos.rellenar_cbx_direcciones(
             self._cliente.business_entity_id,
@@ -404,20 +477,25 @@ class BuscarGeneralesCliente:
         )
         self._rellenar_cbx_documento()
         self._seleccionar_direccion()
+
+        self._master.update_idletasks()
+        self._master.update()
+
         self._ventanas.centrar_ventana_ttkbootstrap()
 
     def _rellenar_cbx_documento(self):
         if self._cliente.cayal_customer_type_id == 2:
-            self._ventanas.mostrar_componente('cbx_documento')
             tipos_documento = ['Remisión', 'Factura']
             self._ventanas.rellenar_cbx('cbx_documento', tipos_documento)
         else:
-            self._ventanas.ocultar_componente('cbx_documento')
+            self._ventanas.mostrar_componente('cbx_documento')
+            tipos_documento = ['Remisión']
+            self._ventanas.rellenar_cbx('cbx_documento', tipos_documento, sin_seleccione=True)
 
     def _seleccionar_direccion(self, event=None):
         direccion = {}
 
-        self._ventanas.posicionar_frame('frame_cbx')
+        self._ventanas.posicionar_frame('frame_cbxs')
         self._ventanas.mostrar_componente('cbx_direccion')
 
         if self._cliente.addresses == 1:
@@ -475,59 +553,27 @@ class BuscarGeneralesCliente:
             valor_direccion = informacion.get(nombre_componente, '')
             self._ventanas.insertar_input_componente(nombre_componente, valor_direccion)
 
-    def _apariencia_credito(self):
+    def _cargar_info_credito(self):
         self._limpiar_formulario()
-        componentes = {
-            'lbl_txt_nombre': ('frame_informacion',None, 'Nombre:', None),
-            'lbl_txt_rfc': ('frame_informacion', None, 'RFC:', None),
-            'lbl_txt_ruta': ('frame_informacion', None, 'Ruta:', None),
-            'lbl_txt_autorizado': ('frame_informacion', None, 'Autorizado:', None),
-            'lbl_txt_debe': ('frame_informacion', None, 'Debe:', None),
-            'lbl_txt_restante': ('frame_informacion', None, 'Restante:', None),
-            'lbl_txt_condicion': ('frame_informacion', None, 'Condición:', None),
-            'lbl_txt_pcompra': ('frame_informacion', None, 'P.Compra:', None),
-            'lbl_txt_comentario': ('frame_informacion', None, 'Comentario:', None),
-            'lbl_txt_minisuper': ('frame_informacion', None, 'Minisuper:', None),
-            'lbl_txt_lista': ('frame_informacion', None, 'Lista:', None),
-
-            'lbl_nombre': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text':self._cliente.official_name},
-                           {'row': 0, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_rfc': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': self._cliente.official_number},
-                           {'row': 1, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_ruta': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text':self._cliente.zone_name},
-                           {'row': 2, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_autorizado': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text':self._credito_autorizado()},
-                           {'row': 3, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_debe': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text':self._documentos_en_cartera()},
-                           {'row': 4, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_restante': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text':self._credito_restante()},
-                           {'row': 5, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_condicion': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text':self._cliente.payment_term_name},
-                           {'row': 6, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_pcompra': ('frame_informacion', {'font': ('Arial', 9, 'bold'),
-                            'text':self._ultimo_documento_en_cartera(self._cliente.business_entity_id)},
-                           {'row': 7, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_comentario': ('frame_informacion', {'font': ('Arial', 9, 'bold'),
-                                                    'text': self._cliente.credit_comments},
-                              {'row': 8, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_minisuper': ('frame_informacion', {'font': ('Arial', 9, 'bold'),
-                            'text':self._credito_en_super()},
-                           {'row': 9, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
-
-            'lbl_lista': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text':self._cliente.customer_type_name},
-                           {'row': 10, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+        informacion = {
+            'lbl_nombre': self._cliente.official_name,
+            'lbl_rfc': self._cliente.official_number,
+            'lbl_ruta': self._cliente.zone_name,
+            'lbl_autorizado': self._credito_autorizado(),
+            'lbl_debe': self._documentos_en_cartera(),
+            'lbl_restante': self._credito_restante(),
+            'lbl_condicion': self._cliente.payment_term_name,
+            'lbl_pcompra': self._ultimo_documento_en_cartera(self._cliente.business_entity_id),
+            'lbl_comentario': self._cliente.credit_comments,
+            'lbl_minisuper': self._credito_en_super(),
+            'lbl_lista': self._cliente.customer_type_name,
         }
+        for nombre_componente, valores in self._componentes_credito.items():
+            if '_txt' in nombre_componente:
+                continue
 
-        self._ventanas.crear_componentes(componentes)
+            valor_direccion = informacion.get(nombre_componente, '')
+            self._ventanas.insertar_input_componente(nombre_componente, valor_direccion)
 
     def _limpiar_formulario(self):
         componentes = ['lbl_ncomercial','lbl_nombre',  'lbl_rfc', 'lbl_ruta', 'lbl_autorizado', 'lbl_debe', 'lbl_restante',

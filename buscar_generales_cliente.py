@@ -228,7 +228,7 @@ class BuscarGeneralesCliente:
         def generar_mensaje_whatsapp(info):
             mensaje = (
                 f"👤 *Cliente:* {self._info_cliente_seleccionado[0]['OfficialName']} \n\n"
-                f"📍 *Dirección del cliente\n"
+                f"📍 *Dirección del cliente* ({self._ventanas.obtener_input_componente('cbx_direccion')})\n"
                 f"🏠 *Calle:* {info.get('lbl_calle', '')}\n"
                 f"🔢 *Número:* {info.get('lbl_numero', '')}\n"
                 f"📮 *C.P.:* {info.get('lbl_cp', '')}\n"

@@ -1,7 +1,5 @@
 import tkinter as tk
 import unicodedata
-from doctest import master
-
 import pyperclip
 import ttkbootstrap as ttk
 import ttkbootstrap.dialogs
@@ -22,11 +20,9 @@ class BuscarGeneralesCliente:
         self._parametros_contpaqi = parametros
 
         self._master = master
-
         self._declarar_variables_globales()
         self._crear_instancias_de_clases()
 
-        self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
         self._crear_frames()
         self._cargar_componentes_forma()
         self._cargar_eventos_componentes_forma()
@@ -369,7 +365,7 @@ class BuscarGeneralesCliente:
                         proceder = False
 
             if proceder:
-                self._llamar_instancia_captura()
+                self._llamar_instancia()
 
     def _documento_seleccionado(self):
 
@@ -455,6 +451,7 @@ class BuscarGeneralesCliente:
 
         if solo_apariencia_inicial:
             apariencia_inicial()
+            self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
             return
 
         cbx_direccion = self._ventanas.componentes_forma['cbx_direccion']
@@ -469,7 +466,6 @@ class BuscarGeneralesCliente:
             self._ventanas.ocultar_frame('frame_informacion')
             posicion = {'row': 1, 'column': 0, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}
             self._ventanas.posicionar_frame('frame_direccion', posicion)
-            print('a')
 
         self._consulta_direcciones = self._base_de_datos.rellenar_cbx_direcciones(
             self._cliente.business_entity_id,
@@ -478,10 +474,7 @@ class BuscarGeneralesCliente:
         self._rellenar_cbx_documento()
         self._seleccionar_direccion()
 
-        self._master.update_idletasks()
-        self._master.update()
-
-        self._ventanas.centrar_ventana_ttkbootstrap()
+        self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
 
     def _rellenar_cbx_documento(self):
         if self._cliente.cayal_customer_type_id == 2:
@@ -682,7 +675,7 @@ class BuscarGeneralesCliente:
 
         return texto
 
-    def _llamar_instancia_captura(self):
+    def _llamar_instancia(self):
 
         if not self._instancia_llamada and self._documento_seleccionado():
 

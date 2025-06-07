@@ -876,7 +876,30 @@ class FormularioCliente:
 
     def _copiar_info_formulario(self):
 
-        self._master.iconify()
+        def generar_mensaje_whatsapp(datos_cliente):
+            mensaje = (
+                f"👤 *Cliente:* {datos_cliente['cliente']} \n\n"
+                f"📍 *Dirección del cliente* ({self._ventanas.obtener_input_componente('cbx_direccion')})\n"
+                f"🏠 *Calle:* {datos_cliente['calle']}\n"
+                f"🔢 *Número:* {datos_cliente['numero']}\n"
+                f"📮 *C.P.:* {datos_cliente['cp']}\n"
+                f"🏘️ *Colonia:* {datos_cliente['colonia']}\n"
+                f"🏙️ *Municipio:* {datos_cliente['municipio']}\n"
+                f"🌎 *Estado:* {datos_cliente['estado']}\n\n"
+                f"📞 *Teléfono:* {datos_cliente['telefono']}\n"
+                f"📱 *Celular:* {datos_cliente['celular']}\n\n"
+                f"📝 *Comentarios:* {datos_cliente['comentario']}\n"
+            )
+
+            if self._cliente.cayal_customer_type_id == 2:
+                fiscales = (
+                    f"\n📧 *Correo:* {datos_cliente['correo']}\n"
+                    f"🆔 *RFC:* {datos_cliente['rfc']}\n"
+                    f"📄 *Uso CFDI:* {datos_cliente['usocfdi']}\n"
+                )
+                mensaje += fiscales
+
+            return mensaje
 
         nombres_componentes = ['tbx_cliente', 'tbx_ncomercial', 'tbx_telefono', 'tbx_celular',
                                 'tbx_calle', 'tbx_numero', 'txt_comentario', 'tbx_cp', 'lbl_estado',
@@ -900,29 +923,9 @@ class FormularioCliente:
 
             datos_cliente[nombre[4::]] = valor
 
-        if self._cliente.official_number == 'XAXX010101000':
-            texto = f'¿Podría confirmarnos si sus datos son correctos?\n' \
-                    f"Cliente: {datos_cliente['cliente']}\n" \
-                    f"Calle: {datos_cliente['calle']}\n" \
-                    f"Número: {datos_cliente['numero']}\n" \
-                    f"Comentarios: {datos_cliente['comentario']}\n" \
-                    f"Colonia: {datos_cliente['colonia']}\n" \
-                    f"CP: {datos_cliente['cp']}\n"
-        else:
-            texto = f'¿Podría confirmarnos si sus datos son correctos?\n' \
-                    f"Cliente: {datos_cliente['cliente']}\n" \
-                    f"Calle: {datos_cliente['calle']}\n" \
-                    f"Número: {datos_cliente['numero']}\n" \
-                    f"Comentarios: {datos_cliente['comentario']}\n" \
-                    f"Colonia: {datos_cliente['colonia']}\n" \
-                    f"CP: {datos_cliente['cp']}\n" \
-                    f"RFC: {datos_cliente['rfc']}\n" \
-                    f"Forma Pago: {datos_cliente['formapago']}\n" \
-                    f"Metodo Pago: {datos_cliente['metodopago']}\n" \
-                    f"Uso CFDI: {datos_cliente['usocfdi']}\n" \
-                    f"Correo: {datos_cliente['correo']}\n" \
-
+        texto = generar_mensaje_whatsapp(datos_cliente)
         pyperclip.copy(texto)
+        self._ventanas.mostrar_mensaje(mensaje="Dirección copiada al portapapeles.", master=self._master, tipo='info')
 
     def _actualizar_por_cif(self):
 

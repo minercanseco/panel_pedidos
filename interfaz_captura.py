@@ -62,7 +62,7 @@ class InterfazCaptura:
                               {'row': 2, 'rowspan': 4, 'column': 2, 'columnspan': 4, 'pady': 5, 'padx': 5,
                                'sticky': tk.NSEW}),
         }
-        self._modulo_id = 1400
+
         if self._modulo_id not in [1687]:
             frames.update({
                 'frame_fiscal': ('frame_principal', 'Parametros Fiscales:',

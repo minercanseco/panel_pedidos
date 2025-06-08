@@ -34,7 +34,7 @@ class EditarPartida:
         self._ventanas.enfocar_componente('btn_cancelar')
 
     def _rellenar_componentes_forma(self):
-        product_id = self._valores_fila['ProductID']
+        product_id = int(self._valores_fila['ProductID'])
         quantity = self._valores_fila['Cantidad']
         valor_uuid = self._valores_fila['UUID']
         total = self._valores_fila['Total']

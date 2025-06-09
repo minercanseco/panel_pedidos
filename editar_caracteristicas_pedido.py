@@ -316,7 +316,7 @@ class EditarCaracteristicasPedido:
             fecha_entrega_str = valores_fila[2]
             fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(fecha_entrega_str)
             fecha_pedido = self._ventanas.obtener_input_componente('den_fecha')
-            minutos_transcurridos = valores_fila[6]
+            minutos_transcurridos = int(valores_fila[6])
 
             if not self._validar_fecha_pedido():
                 self._ventanas.mostrar_mensaje('La fecha no puede ser menor al día de hoy.')
@@ -342,7 +342,7 @@ class EditarCaracteristicasPedido:
         if not respuesta:
             return
 
-        order_document_id = valores_fila[5]
+        order_document_id = int(valores_fila[5])
 
         self._asignar_valores_pedido_a_anexo_o_cambio(order_document_id, tipo_pedido)
 
@@ -397,9 +397,6 @@ class EditarCaracteristicasPedido:
                 if nombre == 'cbx_tipo':
                     valor_bd = 3
 
-                if nombre == 'cbx_forma_pago':
-                    valor_bd = 8
-
             valor_componente = [reg[seleccion_consulta] for reg in consulta if reg[campo_consulta] == valor_bd]
 
             if valor_componente:
@@ -435,7 +432,7 @@ class EditarCaracteristicasPedido:
                                         'cbx_forma_pago', 'cbx_prioridad']
 
         componentes_a_bloquear_cambio = ['den_fecha', 'cbx_tipo',
-                                         'cbx_forma_pago', 'cbx_prioridad']
+                                         'cbx_prioridad']
 
         componentes_a_bloquear = componentes_a_bloquear_anexo if tipo_pedido == 'Anexo' else componentes_a_bloquear_cambio
 

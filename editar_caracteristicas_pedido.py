@@ -91,9 +91,25 @@ class EditarCaracteristicasPedido:
             'den_fecha': lambda event: self._filtrar_horario_disponibles(
                 self._ventanas.obtener_input_componente('den_fecha')),
             'cbx_tipo': lambda event: self._filtrar_horario_disponibles(
-                self._ventanas.obtener_input_componente('den_fecha'))
+                self._ventanas.obtener_input_componente('den_fecha')),
+
         }
         self._ventanas.cargar_eventos(eventos)
+
+    def _actualizar_horario_de_viene(self):
+
+        fecha_entrega = self.info_pedido['DeliveryPromise']
+        if fecha_entrega != self._hoy:
+            return
+
+        hora_actual_mas_hora = self._hora_actual_mas_hora()
+        consulta = self._base_de_datos.buscar_numero_pedidos_por_horario(fecha_entrega)
+
+        horas = [hora for hora in consulta if
+         datetime.strptime(hora['Value'], "%H:%M").time() > hora_actual_mas_hora]
+
+        hora_mas_cercana = horas[0]
+        self.info_pedido['ScheduleID'] = hora_mas_cercana['ScheduleID']
 
     def _rellenar_componentes(self):
         componentes = {
@@ -130,6 +146,12 @@ class EditarCaracteristicasPedido:
 
         except:
             print(nombre)
+
+    def _hora_actual_mas_hora(self):
+        ahora = datetime.now()
+        nueva_hora = ahora + timedelta(hours=1, minutes=00)
+
+        return nueva_hora.time()
 
     def _hora_actual_mas_hora_y_media(self):
         ahora = datetime.now()
@@ -198,7 +220,7 @@ class EditarCaracteristicasPedido:
         valores = [reg['Value'] for reg in self._consulta_horarios]
 
         # si tiene fecha de entrega se asume que se debe settear el horario original por tanto se debe poner
-        # como opcion de captura
+        # como opcion de captura del horario
         if self.info_pedido['DeliveryPromise'] and self._hoy == fecha_entrega:
             schedule_order_id = self.info_pedido['ScheduleID']
             horario_pedido = [reg for reg in consulta_completa if reg['ScheduleID'] == schedule_order_id][0]
@@ -563,7 +585,13 @@ class EditarCaracteristicasPedido:
                 self._ventanas.mostrar_mensaje('Debe relacionar el anexo o el cambio con un pedido.')
                 self.parametros_pedido = {}
             else:
-                self._actualizar_docdocumentordercayal(self._order_document_id, self.parametros_pedido)
+
+                # aqui actualiza el horario de un pedido de viene a hora de entrega a 1 hora despues de procesado
+                order_delivery_type_id = self.parametros_pedido['OrderDeliveryTypeID']
+                if order_delivery_type_id == 2:
+                    self._actualizar_horario_de_viene()
+
+                self._actualizar_docdocument_order_cayal(self._order_document_id, self.parametros_pedido)
 
                 # para el caso de anexo o cambio hay que marcarlos como urgentes en el horario mas cercano a realizar
                 # en caso que la orden sea un anexo o un pedido hay que actualizar dicho documento
@@ -598,10 +626,10 @@ class EditarCaracteristicasPedido:
                         """,
                         (self._order_document_id, schedule_id, order_type_id)
                     )
-                    print('aqui quedo asociado con el pedido en orden y prioridad')
+
                 self._master.destroy()
 
-    def _actualizar_docdocumentordercayal(self, order_document_id, valores_actualizacion):
+    def _actualizar_docdocument_order_cayal(self, order_document_id, valores_actualizacion):
         """
         Actualiza la tabla 'docdocumentordercayal' con los valores proporcionados en el diccionario.
 

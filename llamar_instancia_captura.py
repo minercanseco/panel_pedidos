@@ -112,11 +112,25 @@ class LlamarInstanciaCaptura:
 
             self._actualizar_totales_documento(self._documento.document_id)
 
-
-
+            # si la nota se edita nuevamente valida el tipo de pedido es es decir que areas contiene
             production_type_id = self._determinar_tipo_de_orden_produccion()
-            self._base_de_datos.command('UPDATE docDocumentOrderCayal SET ProductionTypeID = ? WHERE OrderDocumentID = ?',
-                                        (production_type_id, self._documento.document_id))
+            self._base_de_datos.command("""
+            DECLARE @ProductionTypeID INT = ?
+            DECLARE @CommentsOrder NVARCHAR(MAX) = ?
+            DECLARE @OrderDocumentID INT = ?
+            
+            DECLARE @StatusID INT = (SELECT StatusID
+                                    FROM docDocumentOrderCayal 
+                                    WHERE OrderDocumentID = @OrderDocumentID)
+                
+            IF @StatusID IN (1,2,3,4,11,12,16,17,18,13)
+            BEGIN
+                UPDATE docDocumentOrderCayal SET CommentsOrder = @CommentsOrder
+                WHERE OrderDocumentID = @OrderDocumentID
+            END
+                UPDATE docDocumentOrderCayal SET ProductionTypeID = @ProductionTypeID
+                                            WHERE OrderDocumentID = @OrderDocumentID
+                """,(production_type_id, self._documento.comments, self._documento.document_id))
 
     def _determinar_tipo_de_orden_produccion(self):
 

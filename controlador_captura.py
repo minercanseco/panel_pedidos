@@ -11,7 +11,8 @@ from direcciones_adicionales import DireccionesAdicionales
 from historial_cliente import HistorialCliente
 from panel_direcciones import PanelDirecciones
 from formulario_cliente import FormularioCliente
-from verificador_precios import VerificadorPrecios
+from interfaz_verificador import InterfazVerificador
+from controlador_verificador import ControladorVerificador
 from editar_partida import EditarPartida
 
 
@@ -537,8 +538,9 @@ class ControladorCaptura:
         ventana.wait_window()
 
     def _verificador_precios(self):
-            ventana = self._ventanas.crear_popup_ttkbootstrap(self._master)
-            VerificadorPrecios(ventana, self._parametros_contpaqi)
+        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master)
+        vista = InterfazVerificador(ventana)
+        controlador = ControladorVerificador(vista, self._parametros_contpaqi)
 
     def _historial_cliente(self):
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()

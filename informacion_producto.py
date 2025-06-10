@@ -1,9 +1,8 @@
 import tkinter as tk
 import ttkbootstrap as ttk
 import pyperclip
+from cayal.ventanas import Ventanas
 from PIL import Image, ImageTk
-
-from cayal.util import Utilerias
 
 
 class InformacionProducto:
@@ -16,16 +15,16 @@ class InformacionProducto:
         image = Image.open(self._ruta_imagen)
         self._imagen = ImageTk.PhotoImage(image)
 
-        self._utilerias = Utilerias()
-
-        self._componentes_forma = {}
         self._master = master
+
+        self._ventanas = Ventanas(self._master)
+        self._componentes_forma = self._ventanas.componentes_forma
 
         self._cargar_componentes_forma()
         self._cargar_eventos_forma()
         self._cargar_info_componentes_forma()
 
-        self._utilerias.configurar_ventana_ttkbootstrap(self._master, 'Información')
+        self._ventanas.configurar_ventana_ttkbootstrap(titulo='Información')
 
     def _cargar_componentes_forma(self):
 

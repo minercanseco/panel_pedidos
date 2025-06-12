@@ -117,6 +117,8 @@ class LlamarInstanciaCaptura:
             self._base_de_datos.command("""
             DECLARE @ProductionTypeID INT = ?
             DECLARE @CommentsOrder NVARCHAR(MAX) = ?
+            DECLARE @AddressDetailID INT = ?
+            DECLARE @Total FLOAT = ?
             DECLARE @OrderDocumentID INT = ?
             
             DECLARE @StatusID INT = (SELECT StatusID
@@ -125,12 +127,17 @@ class LlamarInstanciaCaptura:
                 
             IF @StatusID IN (1,2,3,4,11,12,16,17,18,13)
             BEGIN
-                UPDATE docDocumentOrderCayal SET CommentsOrder = @CommentsOrder
+                UPDATE docDocumentOrderCayal SET CommentsOrder = @CommentsOrder,
+                                                AddressDetailID = @AddressDetailID
                 WHERE OrderDocumentID = @OrderDocumentID
             END
                 UPDATE docDocumentOrderCayal SET ProductionTypeID = @ProductionTypeID
                                             WHERE OrderDocumentID = @OrderDocumentID
-                """,(production_type_id, self._documento.comments, self._documento.document_id))
+                """,(production_type_id,
+                     self._documento.comments,
+                     self._documento.address_detail_id,
+                     self._documento.total,
+                     self._documento.document_id))
 
     def _determinar_tipo_de_orden_produccion(self):
 

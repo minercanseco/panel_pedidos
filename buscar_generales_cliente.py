@@ -79,7 +79,7 @@ class BuscarGeneralesCliente:
                                 {'row': 1, 'column': 2, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NS}),
 
             'frame_copiar_direccion': ('frame_direccion', None,
-                                       {'row': 10, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}),
+                                       {'row': 11, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}),
 
         }
 
@@ -106,6 +106,7 @@ class BuscarGeneralesCliente:
         self._componentes_direccion = {
 
             'lbl_txt_ncomercial': ('frame_direccion',  None, 'N.Comercial:', None),
+            'lbl_txt_ruta': ('frame_direccion', None, 'Ruta:', None),
             'lbl_txt_telefono': ('frame_direccion', None, 'Teléfono:', None),
             'lbl_txt_celular': ('frame_direccion', None, 'Celular:', None),
             'lbl_txt_calle': ('frame_direccion', None, 'Calle:', None),
@@ -119,29 +120,32 @@ class BuscarGeneralesCliente:
             'lbl_ncomercial': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
                                {'row': 0, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
+            'lbl_ruta': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                         {'row': 1, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+
             'lbl_telefono': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-                             {'row': 1, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                             {'row': 2, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'lbl_celular': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-                            {'row': 2, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                            {'row': 3, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'lbl_calle': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-                          {'row': 3, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                          {'row': 4, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'lbl_numero': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-                           {'row': 4, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                           {'row': 5, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'lbl_cp': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-                       {'row': 6, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                       {'row': 7, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'lbl_colonia': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-                            {'row': 7, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                            {'row': 8, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'lbl_estado': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-                           {'row': 8, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                           {'row': 9, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'lbl_municipio': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-                              {'row': 9, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                              {'row': 10, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'btn_copiar': ('frame_copiar_direccion', 'warning', 'Copiar', '[F4]'),
         }
@@ -150,7 +154,7 @@ class BuscarGeneralesCliente:
         self._componentes_credito = {
             'lbl_txt_nombre': ('frame_informacion', None, 'Nombre:', None),
             'lbl_txt_rfc': ('frame_informacion', None, 'RFC:', None),
-            'lbl_txt_ruta': ('frame_informacion', None, 'Ruta:', None),
+            #'lbl_txt_ruta': ('frame_informacion', None, 'Ruta:', None),
             'lbl_txt_autorizado': ('frame_informacion', None, 'Autorizado:', None),
             'lbl_txt_debe': ('frame_informacion', None, 'Debe:', None),
             'lbl_txt_restante': ('frame_informacion', None, 'Restante:', None),
@@ -166,36 +170,36 @@ class BuscarGeneralesCliente:
             'lbl_rfc': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
                         {'row': 1, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
-            'lbl_ruta': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-                         {'row': 2, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+            #'lbl_ruta': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+            #             {'row': 2, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'lbl_autorizado': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-                               {'row': 3, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                               {'row': 2, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'lbl_debe': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-                         {'row': 4, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                         {'row': 3, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'lbl_restante': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-                             {'row': 5, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                             {'row': 4, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'lbl_condicion': (
             'frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-            {'row': 6, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+            {'row': 5, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'lbl_pcompra': ('frame_informacion', {'font': ('Arial', 9, 'bold'),
                                                   'text': ''},
-                            {'row': 7, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                            {'row': 6, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'lbl_comentario': ('frame_informacion', {'font': ('Arial', 9, 'bold'),
                                                      'text': ''},
-                               {'row': 8, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                               {'row': 7, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'lbl_minisuper': ('frame_informacion', {'font': ('Arial', 9, 'bold'),
                                                     'text': ''},
-                              {'row': 9, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                              {'row': 8, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
 
             'lbl_lista': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-                          {'row': 10, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                          {'row': 9, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
         }
         self._ventanas.crear_componentes(self._componentes_credito)
 
@@ -486,6 +490,7 @@ class BuscarGeneralesCliente:
 
         informacion = {
             'lbl_ncomercial': self._cliente.commercial_name,
+            'lbl_ruta': self._cliente.zone_name,
             'lbl_telefono': info_direccion.get('telefono', ''),
             'lbl_celular': info_direccion.get('celular', ''),
             'lbl_calle': info_direccion.get('calle', ''),

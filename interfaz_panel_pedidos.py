@@ -40,11 +40,11 @@ class InterfazPanelPedidos:
                              'sticky': tk.W}),
 
             'frame_capturista': ('frame_filtros', None,
-                            {'row': 0, 'column': 2, 'pady': 2, 'padx': 2,
+                            {'row': 0, 'column': 3, 'pady': 2, 'padx': 2,
                              'sticky': tk.W}),
 
             'frame_status': ('frame_filtros', None,
-                                {'row': 0, 'column': 3, 'pady': 2, 'padx': 2,
+                                {'row': 0, 'column': 5, 'pady': 2, 'padx': 2,
                                  'sticky': tk.W}),
 
             'frame_captura': ('frame_principal', 'Pedidos',
@@ -74,8 +74,8 @@ class InterfazPanelPedidos:
             'cbx_status': ('frame_status', None, 'Status:', None),
 
             'den_fecha': ('frame_fecha',
-                          'normal',  # {'row': 0, 'column': 0, 'pady': 5, 'padx': 5, 'sticky': tk.W},
-                          ' ', None),
+                          'normal',   'Fecha:'
+                          , None),
 
             'chk_sin_procesar': ('frame_filtros',
                                {'row': 0, 'column': 4, 'pady': 2, 'padx': 2, 'sticky': tk.W},

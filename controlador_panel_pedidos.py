@@ -81,14 +81,13 @@ class ControladorPanelPedidos:
 
         valor_chk = self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar')
         if valor_chk == 1:
-            print('check activo')
 
             self._actualizar_pedidos()
 
         if valor_chk == 0:
             fecha = str(datetime.today().date())
             self._interfaz.ventanas.insertar_input_componente('den_fecha', fecha)
-            print('check no activo')
+
 
             self._actualizar_pedidos()
 
@@ -287,11 +286,11 @@ class ControladorPanelPedidos:
 
     def _actualizar_pedidos(self, fecha=None, criteria=True):
         if self._actualizando_tabla:
-            print('rechazando actualizar tabla')
+
             return
 
         try:
-            print('actualizando tabla')
+
             self._actualizando_tabla = True
 
             # limpia los filtroas antes de rellenar
@@ -305,7 +304,7 @@ class ControladorPanelPedidos:
             if not consulta:
                 self._limpiar_tabla()
                 self._actualizando_tabla = False
-                print('no se rellena la tabla porque no hay resultados')
+
                 return
 
             # Obtener valores actuales de los filtros
@@ -609,6 +608,7 @@ class ControladorPanelPedidos:
 
                 # insertar comentarios desde el pedido
                 self._crear_comentario_documento([order_document_id], document_id, business_entity_id, total_documento)
+
                 # relacionar documenrtosa con pedidos
                 self._actualizar_status_y_relacionar(document_id, order_document_id)
 
@@ -763,25 +763,61 @@ class ControladorPanelPedidos:
         self._base_de_datos.insertar_partida_documento_cayal(parametros)
 
     def _crear_cabecera_documento(self, document_type_id, fila):
+        # este valor hace que se inserte la configuracion del cliente que esta predeterminada
+        way_to_pay_id = 0
+
+        # solo si el documento es factura realiza la actualización de tipo de pago
+        if document_type_id == 0:
+            way_to_pay_id = self._actualizar_forma_de_pago_documento(info_documento=fila)
+
         document_id = self._base_de_datos.crear_documento(
             document_type_id,
             'FM', # prefijo mayoreo
             fila['BusinessEntityID'],
             21, # modulo facturas mayoreo
-            fila['CaptureBy'],
+            fila['CaptureBy'], # valor de quien captura el pedido
             fila['DepotID'],
             fila['AddressDetailID'],
-            self._user_id
+            self._user_id, # valor de quien crea el documento (envía a timbrar)
+            way_to_pay_id
         )
 
         order_document_id = fila['OrderDocumentID']
 
+        # este valor hace que para los doctos de mayoreo no sean recalculables
         self._base_de_datos.command('UPDATE docDocument SET ExportID = 6, OrderDocumentID = ? WHERE DocumentID = ?',
                                     (order_document_id, document_id))
 
-
-
         return document_id
+
+    def _actualizar_forma_de_pago_documento(self, info_documento):
+
+        # equivalencias de forma de pago de pedidos
+        way_to_pay_cfd = {
+            2: 1, # efectivo
+            3: 28, # tdb
+            4: 4, # tbc
+            6: 3, # transferencia
+            7: 2 # cheque
+        }
+
+        way_to_pay_id = int(info_documento['WayToPayID'])
+
+        # si la forma de pago entra entre tdc,tdb, efectivo, transferencia o cheque, actualizala
+        """
+        1	Por Definir	El pago se definirá en el cobro
+        2	Efectivo	Efectivo
+        3	Tarjeta Debito	Llevar terminal
+        4	Tarjeta Crédito	Llevar terminal
+        5	Firma	Es a crédito
+        6	Transferencia	Transferencia
+        7	Cheque	Cheque
+        8	No aplica	No cobrar 
+        """
+        if way_to_pay_id in (2,3,4,6,7):
+            return way_to_pay_cfd[way_to_pay_id]
+
+        return 0
 
     def _cuantificar_valor_partidas_documento(self, filas, mismo_cliente=False):
         # validar que el monto sea superior a 180 debito a que el cliente podria anexar un producto y con ello
@@ -1382,17 +1418,17 @@ class ControladorPanelPedidos:
         return partidas_procesadas
 
     def _filtrar_por_capturados_por(self):
-        print('filtrando por capturado por')
+
         self._limpiar_componentes()
         self._actualizar_pedidos(self._fecha_seleccionada())
 
     def _filtrar_por_status(self):
-        print('filtrar por status')
+
         self._limpiar_componentes()
         self._actualizar_pedidos(self._fecha_seleccionada())
 
     def _filtrar_por_horas(self):
-        print('filtrando por horas')
+
         self._limpiar_componentes()
         self._actualizar_pedidos(self._fecha_seleccionada())
 
@@ -1464,7 +1500,7 @@ class ControladorPanelPedidos:
 
         comentario_a_insertar = f"{comentario_a_insertar}\n {comentarios_taras}\n {comentarios_horarios}\n {comentarios_forma_pago}\n {comentarios_entrega}".upper()
         comentario_a_insertar = self._validar_credito_documento_cliente(business_entity_id, comentario_a_insertar, total_documento)
-        print(comentario_a_insertar)
+
         self._base_de_datos.command(
             'UPDATE docDocument SET Comments = ?, UserID = NULL WHERE DocumentID =?',
             (comentario_a_insertar, document_id)

@@ -110,6 +110,7 @@ class BuscarClientes:
                 ISNULL([CIF], '') AS CIF
             FROM vwLBSCustomerList
             WHERE BusinessEntityID NOT IN (9277,6211,8179) and ZoneName<>'Proveedores' and CustomerID<>9578
+            ORDER BY BusinessEntityID DESC 
 
         """)
 

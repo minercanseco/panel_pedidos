@@ -402,27 +402,30 @@ class EditarPartida:
                             self._ventanas_interfaz.actualizar_fila_treeview_diccionario('tvw_productos', fila,
                                                                                          valores_fila)
 
-            # Actualizar los totales del documento en función de la copia de partida original
-            self._modelo.actualizar_totales_documento(partida_original_copia, decrementar=True)
-
             # Redondear valores de cantidad
             cantidad_original = self._utilerias.redondear_valor_cantidad_a_decimal(cantidad_original)
             cantidad_nueva = self._utilerias.redondear_valor_cantidad_a_decimal(cantidad_nueva)
 
-            if cantidad_original < cantidad_nueva:
-                self._modelo.actualizar_totales_documento(partida_actualizada, decrementar=False)
+            if cantidad_original == cantidad_nueva:
+                comentario  = self._ventanas.obtener_input_componente('txt_comentario')
+                comentario = f'EDITADO POR {self._user_name}: {comentario}'
+            else:
+                # Actualizar los totales del documento en función de la copia de partida original
+                self._modelo.actualizar_totales_documento(partida_original_copia, decrementar=True)
 
-            if cantidad_original > cantidad_nueva:
-                self._modelo.actualizar_totales_documento(partida_actualizada, decrementar=False)
+                if cantidad_original < cantidad_nueva:
+                    self._modelo.actualizar_totales_documento(partida_actualizada, decrementar=False)
 
-            # si aplica remueve el servicio a domicilio
-            if self._module_id == 1687 and self._modelo.servicio_a_domicilio_agregado == True:
-                if self._documento.total - self._modelo.costo_servicio_a_domicilio >= 200:
-                    self._modelo.remover_servicio_a_domicilio()
+                if cantidad_original > cantidad_nueva:
+                    self._modelo.actualizar_totales_documento(partida_actualizada, decrementar=False)
+
+                # si aplica remueve el servicio a domicilio
+                if self._module_id == 1687 and self._modelo.servicio_a_domicilio_agregado == True:
+                    if self._documento.total - self._modelo.costo_servicio_a_domicilio >= 200:
+                        self._modelo.remover_servicio_a_domicilio()
 
             # respalda la partida extra para tratamiento despues del cierre del documento
             self._modelo.agregar_partida_items_documento_extra(partida_original, 'editar', comentario, uuid_partida)
-
             self._master.destroy()
 
     def _procesar_producto(self, event=None):

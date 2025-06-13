@@ -101,9 +101,25 @@ class TicketPedidoCliente:
     def _procesar_partidas(self, partidas):
         partidas_con_impuestos = []
         total_documento = 0
+
+
         for partida in partidas:
+            piezas = partida.get('CayalPiece',0)
             cantidad = self._utilerias.redondear_valor_cantidad_a_decimal(partida['Quantity'])
             partida_con_impuesto  = self._utilerias.crear_partida(partida, cantidad)
+
+            if piezas !=0:
+                equivalencia = self._base_de_datos.fetchone(
+                    'SELECT CAST(ISNULL(Equivalencia, 0) AS DECIMAL(18, 4)) AS E FROM orgProduct WHERE ProductID = ?',
+                    (partida_con_impuesto['ProductID'],)
+                )
+
+                partida_con_impuesto['CayalPiece'] = piezas
+                partida_con_impuesto['Equivalencia'] = equivalencia
+            else:
+                partida_con_impuesto['CayalPiece'] = 0
+                partida_con_impuesto['Equivalencia'] = 0
+
             partidas_con_impuestos.append(partida_con_impuesto)
             total_documento += partida_con_impuesto['total']
 

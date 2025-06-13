@@ -165,6 +165,7 @@ class AgregarPartidaManualmente:
         self._ventanas.ajustar_alto_componente('txt_comentario', 6)
         self._ventanas.ajustar_alto_componente('txt_portapapeles', 6)
 
+
     def _rellenar_componentes(self):
 
         # 0 por clave o termino /// 1 por linea

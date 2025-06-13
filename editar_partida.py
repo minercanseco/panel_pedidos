@@ -168,6 +168,8 @@ class EditarPartida:
         }
 
         self._ventanas.crear_componentes(componentes)
+        self._ventanas.ajustar_componente_en_frame('tbx_equivalencia', 'frame_cantidades')
+        self._ventanas.ajustar_componente_en_frame('txt_comentario', 'frame_txt_comentario')
         self._ventanas.ajustar_ancho_componente('tbx_equivalencia', 6)
         self._ventanas.ajustar_ancho_componente('txt_comentario', 60)
 

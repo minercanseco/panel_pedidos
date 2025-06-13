@@ -255,7 +255,7 @@ class GeneradorTicketCliente:
                     total_producto = cantidad_especial * precio
                     cantidad = piezas
                 else:
-                    print(producto['Equivalencia'])
+
                     precio_pieza = precio * producto['Equivalencia']
                     cantidad = producto['CayalPiece']
                     unidad = 'PZS'
@@ -399,25 +399,28 @@ class GeneradorTicketCliente:
         total_general = 0  # Variable para acumular el total general
         cuerpo = ""
         for producto in self.productos:
-            print(producto)
+
             precio = producto.get('precio', 0.00)
             piezas = int(producto['CayalPiece'])
             total_producto = 0
 
             if piezas != 0:
-                print('aqui')
+
                 equivalencia_especial = self._utilerias.equivalencias_productos_especiales(producto['ProductID'])
                 if equivalencia_especial:
-                    unidad = equivalencia_especial[0]
+                    unidad = equivalencia_especial[0].upper()
                     cantidad_especial = equivalencia_especial[1]
                     total_producto = cantidad_especial * precio
                     cantidad = piezas
+
                 else:
+                    precio_pieza = precio * producto['Equivalencia']
                     cantidad = producto['CayalPiece']
                     unidad = 'PZS'
+                    total_producto = cantidad * precio_pieza
             else:
                 cantidad = producto['cantidad']
-                unidad = producto['ClaveUnidad']
+                unidad = 'PZS' if producto['ClaveUnidad'] == 'H87' else producto['ClaveUnidad']
                 total_producto = cantidad * precio  # Calcular el total por producto
 
             descripcion = producto['ProductName']

@@ -1395,6 +1395,9 @@ class ControladorPanelPedidos:
 
             if product_id == 5606:
                 continue
+            comentario = producto.get('Comments', '')
+            comentario = '' if not comentario else comentario
+            comentario =  comentario.strip()
 
             datos_fila = (
                 cantidad_decimal,
@@ -1411,7 +1414,7 @@ class ControladorPanelPedidos:
                 producto['UnitPrice'],
                 producto['CayalPiece'],
                 producto['CayalAmount'],
-                producto['Comments'],
+                comentario,
                 producto['ProductTypeIDCayal']
             )
             partidas_procesadas.append(datos_fila)

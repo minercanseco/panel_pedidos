@@ -256,7 +256,7 @@ class InterfazCaptura:
              'heading_anchor': tk.W, 'hide': 0},
             {"text": "Código", "stretch": False, 'width': 110, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},
-            {"text": "Descripción", "stretch": False, 'width': 260, 'column_anchor': tk.W,
+            {"text": "Descripción", "stretch": False, 'width': 230, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},
             {"text": "Unidad", "stretch": False, 'width': 70, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},

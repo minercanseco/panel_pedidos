@@ -53,7 +53,7 @@ class ControladorPanelPedidos:
         self._crear_barra_herramientas()
 
         self._cargar_eventos()
-        self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Panel pedidos')
+        self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Panel pedidos', bloquear=False)
         self._rellenar_operador()
 
     def _cargar_eventos(self):

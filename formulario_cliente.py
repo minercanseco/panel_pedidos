@@ -30,7 +30,6 @@ class FormularioCliente:
         self._cargar_info_componentes_forma()
 
         self._ventanas.configurar_ventana_ttkbootstrap('Formulario cliente')
-        self._master.lift()
         self._parent = self._utilerias.obtener_master(self._componentes_forma['tbx_cliente'])
 
     def _instanciar_clases_de_apoyo(self):

@@ -419,7 +419,7 @@ class InterfazCaptura:
             {"text": "Descripción", "stretch": False, 'width': 390, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},
             {"text": "Precio", "stretch": False, 'width': 70, 'column_anchor': tk.E,
-             'heading_anchor': tk.W, 'hide': 0},
+             'heading_anchor': tk.W, 'hide': 1},
             {"text": "ProductID", "stretch": False, 'width': 0, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 1},
             {"text": "ClaveUnidad", "stretch": False, 'width': 0, 'column_anchor': tk.W,

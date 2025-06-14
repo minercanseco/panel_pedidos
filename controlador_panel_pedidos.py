@@ -375,8 +375,10 @@ class ControladorPanelPedidos:
         self._parametros.id_principal = 0
 
     def _capturar_nuevo(self):
+
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap_sin_bloqueo()
         self._parametros.id_principal = -1
+        self._interfaz.master.iconify()
         instancia = BuscarGeneralesCliente(ventana, self._parametros)
         ventana.grab_release()
         ventana.wait_window()

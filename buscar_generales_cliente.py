@@ -233,7 +233,7 @@ class BuscarGeneralesCliente:
 
         informacion = self._base_de_datos.buscar_informacion_direccion_whatsapp(address_detail_id, business_entity_id)
         pyperclip.copy(informacion)
-        self._ventanas.mostrar_mensaje(mensaje="Dirección copiada al portapapeles.", master=self._master, tipo='info')
+        self._master.iconify()
 
     def _buscar_cliente(self, event=None):
 

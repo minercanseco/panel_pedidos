@@ -19,11 +19,12 @@ class InterfazCaptura:
         self._cargar_frames()
         self._cargar_componentes_forma()
         self._ajustar_componentes_forma()
-        self._cargar_imagen_publicitaria()
+        #self._cargar_imagen_publicitaria()
         self._cargar_componentes_frame_totales()
-
-
         self._agregar_validaciones()
+
+        self._cargar_frames_manual()
+        self._cargar_componentes_manual()
 
     def _cargar_frames(self):
 
@@ -40,7 +41,7 @@ class InterfazCaptura:
                               {'row': 1, 'column': 0, 'columnspan': 2, 'rowspan': 3, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}),
 
             'frame_totales': ('frame_principal', None,
-                              {'row': 0, 'column': 2, 'rowspan': 2, 'columnspan': 4, 'pady': 5, 'padx': 5,
+                              {'row': 0, 'column': 2, 'rowspan': 2, 'columnspan': 5, 'pady': 5, 'padx': 5,
                                'sticky': tk.NE}),
 
             'frame_captura': ('frame_principal', 'Captura',
@@ -58,7 +59,7 @@ class InterfazCaptura:
                              {'row': 5, 'column': 0, 'columnspan': 2, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}
                              ),
 
-            'frame_anuncio': ('frame_principal', 'Anuncios',
+            'frame_anuncio': ('frame_principal', None,
                               {'row': 2, 'rowspan': 4, 'column': 2, 'columnspan': 4, 'pady': 5, 'padx': 5,
                                'sticky': tk.NSEW}),
         }
@@ -81,14 +82,15 @@ class InterfazCaptura:
             'tbx_clave': ('frame_clave', None, None, None),
             'tvw_productos': ('frame_tabla', self.crear_columnas_tabla(), 15, None),
             'txt_comentario_documento': ('frame_comentario', None,'Comentarios:', None),
-            'lbl_anuncio': ('frame_anuncio',
-                               {'text': '', 'style': 'inverse-danger'},
-                               {'row': 0, 'column': 0, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
-                               None),
+
         }
 
         if self._modulo_id not in [1687]:
             componentes.update({
+                'lbl_anuncio': ('frame_anuncio',
+                                {'text': '', 'style': 'inverse-danger'},
+                                {'row': 0, 'column': 0, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
+                                None),
 
                 'lbl_usocfdi': ('frame_fiscal',
                                 {'text': 'Uso CFDI:'},
@@ -284,4 +286,142 @@ class InterfazCaptura:
              'heading_anchor': tk.W, 'hide': 1},
             {"text": "CreatedBy", "stretch": False, 'width': 0, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 1}
+        ]
+
+    def _cargar_frames_manual(self):
+
+        frames = {
+
+            'frame_anuncio': ('master', None,
+                                {'row': 0, 'column': 0, 'sticky': tk.NSEW}),
+
+            'frame_buscar_manual' : ('frame_anuncio', 'Búsqueda',
+                       {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+
+            'frame_tbx_buscar_manual' : ('frame_buscar_manual', None,
+                                       {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+
+            'frame_cbx_buscar_manual' : ('frame_buscar_manual', None,
+                                       {'row': 0, 'column': 3, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+
+            'frame_partida_manual' : ('frame_anuncio', 'Partida:',
+                                    {'row': 2, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+
+
+            'frame_cantidades_manual' : ('frame_partida_manual', None,
+                                       {'row': 0, 'column': 0, 'rowspan': 2, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.W}),
+
+            'frame_controles_y_totales_manual': ('frame_partida_manual', None,
+                                        {'row': 3, 'column': 0, 'rowspan': 2, 'columnspan': 2, 'pady': 2, 'padx': 2,
+                                         'sticky': tk.W}),
+
+            'frame_controles_manual' : ('frame_controles_y_totales_manual', None,
+                                      {'row': 0, 'column': 0, 'rowspan': 2,  'pady': 2, 'padx': 50, 'sticky': tk.W}),
+
+            'frame_totales_manual' : ('frame_controles_y_totales_manual', None,
+                                    {'row': 0, 'column': 1, 'rowspan': 2,  'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+
+
+            'frame_txt_comentario_manual' : ('frame_partida_manual', 'Especificación:',
+                                           {'row': 6, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+
+            'frame_txt_portapapeles_manual' : ('frame_partida_manual', 'Portapapeles:',
+                                             {'row': 7, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+
+            'frame_botones_manual' : ('frame_partida_manual', None,
+                                    {'row': 11, 'column': 1, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
+
+            'frame_tabla_manual': ('frame_anuncio', 'Productos ',
+                                   {'row': 3, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW})
+        }
+        self.ventanas.crear_frames(frames)
+
+    def _cargar_componentes_manual(self):
+
+        componentes = {
+            'cbx_tipo_busqueda': ('frame_cbx_buscar_manual', None, 'Tipo:', None),
+            'tbx_buscar_manual': ('frame_tbx_buscar_manual', None, 'Buscar:', None),
+
+            'tbx_cantidad_manual': ('frame_cantidades_manual', 10, 'Cantidad:', None),
+            'tbx_equivalencia_manual': ('frame_cantidades_manual',
+                                 {'row': 2, 'column': 3, 'pady': 5, 'padx': 5, 'sticky': tk.W},
+                                 'Equivalencia:', None),
+
+            'txt_comentario_manual': ('frame_txt_comentario_manual', None, ' ', None),
+            'txt_portapapeles_manual': ('frame_txt_portapapeles_manual', None, ' ', None),
+
+            'lbl_monto_texto_manual': ('frame_totales_manual',
+                                {'width': 10, 'text': 'TOTAL:', 'style': 'inverse-danger', 'anchor': 'e',
+                                 'font': ('Consolas', 10, 'bold')},
+                                {'row': 0, 'column': 0, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
+                                None),
+
+            'lbl_monto_manual': ('frame_totales_manual',
+                          {'width': 10, 'text': '$0.00', 'style': 'inverse-danger', 'anchor': 'e',
+                           'font': ('Consolas', 10, 'bold')},
+                          {'row': 0, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
+                          None),
+
+            'lbl_cantidad_texto_manual': ('frame_totales_manual',
+                                   {'width': 10, 'text': 'CANTIDAD:', 'style': 'inverse-danger', 'anchor': 'e',
+                                    'font': ('Consolas', 10, 'bold')},
+                                   {'row': 1, 'column': 0, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
+                                   None),
+
+            'lbl_cantidad_manual': ('frame_totales_manual',
+                             {'width': 10, 'text': '0.00', 'style': 'inverse-danger', 'anchor': 'e',
+                              'font': ('Consolas', 10, 'bold')},
+                             {'row': 1, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
+                             None),
+
+            'lbl_existencia_texto_manual': ('frame_totales_manual',
+                                     {'width': 10, 'text': 'EXISTENCIA:', 'style': 'inverse-danger', 'anchor': 'e',
+                                      'font': ('Consolas', 10, 'bold')},
+                                     {'row': 2, 'column': 0, 'padx': 0, 'sticky': tk.NSEW},
+                                     None),
+
+            'lbl_existencia_manual': ('frame_totales_manual',
+                               {'width': 10, 'text': '0.00', 'style': 'inverse-danger', 'anchor': 'e',
+                                'font': ('Consolas', 10, 'bold')},
+                               {'row': 2, 'column': 1, 'padx': 0, 'sticky': tk.NSEW},
+                               None),
+
+            'chk_pieza_manual': ('frame_controles_manual',
+                          {'row': 0, 'column': 3, 'pady': 5, 'padx': 5, 'sticky': tk.W},
+                          'Pieza', '[F1]'),
+
+            'chk_monto_manual': ('frame_controles_manual',
+                          {'row': 0, 'column': 5, 'pady': 5, 'padx': 5, 'sticky': tk.W},
+                          'Monto', '[F4]'),
+
+            'tvw_productos_manual': ('frame_tabla_manual', self._crear_columnas_tabla_manual(), 5, None),
+            'btn_agregar_manual': ('frame_botones_manual', 'success', 'Agregar', '[F8]'),
+            'btn_especificaciones_manual': ('frame_botones_manual', 'primary', 'Especificación', '[Ctrl+E]'),
+            'btn_ofertas_manual': ('frame_botones_manual', 'info', 'Ofertas', '[F9]'),
+            'btn_copiar_manual': ('frame_botones_manual', 'warning', 'Copiar', '[F12]'),
+
+        }
+
+        self.ventanas.crear_componentes(componentes)
+        self.ventanas.ajustar_ancho_componente('cbx_tipo_busqueda',15)
+        self.ventanas.ajustar_ancho_componente('tbx_buscar_manual', 15)
+        self.ventanas.ajustar_ancho_componente('tbx_equivalencia_manual', 10)
+
+        self.ventanas.ajustar_componente_en_frame('txt_comentario_manual', 'frame_txt_comentario_manual')
+        self.ventanas.ajustar_componente_en_frame('txt_portapapeles_manual', 'frame_txt_portapapeles_manual')
+        self.ventanas.ajustar_alto_componente('txt_comentario_manual', 4)
+        self.ventanas.ajustar_alto_componente('txt_portapapeles_manual', 4)
+
+    def _crear_columnas_tabla_manual(self):
+        return [
+            {"text": "Código", "stretch": False, 'width': 130, 'column_anchor': tk.W,
+             'heading_anchor': tk.W, 'hide': 1},
+            {"text": "Descripción", "stretch": False, 'width': 390, 'column_anchor': tk.W,
+             'heading_anchor': tk.W, 'hide': 0},
+            {"text": "Precio", "stretch": False, 'width': 70, 'column_anchor': tk.E,
+             'heading_anchor': tk.W, 'hide': 0},
+            {"text": "ProductID", "stretch": False, 'width': 0, 'column_anchor': tk.W,
+             'heading_anchor': tk.W, 'hide': 1},
+            {"text": "ClaveUnidad", "stretch": False, 'width': 0, 'column_anchor': tk.W,
+             'heading_anchor': tk.W, 'hide': 1},
         ]

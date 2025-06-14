@@ -45,7 +45,7 @@ class AgregarPartidaManualmente:
                                 {'row': 0, 'column': 0, 'sticky': tk.NSEW}),
 
             'frame_buscar': ('frame_principal', 'Buscar',
-                             {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2,
+                             {'row': 0, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2,
                               'sticky': tk.NSEW}),
 
             'frame_tbx_buscar': ('frame_buscar', None,
@@ -53,7 +53,7 @@ class AgregarPartidaManualmente:
                                   'sticky': tk.NSEW}),
 
             'frame_cbx_buscar': ('frame_buscar', None,
-                                 {'row': 0, 'column': 3, 'columnspan': 2, 'pady': 2, 'padx': 2,
+                                 {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2,
                                   'sticky': tk.NSEW}),
 
             'frame_partida': ('frame_principal', 'Partida:',

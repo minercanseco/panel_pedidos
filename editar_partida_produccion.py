@@ -8,7 +8,7 @@ class EditarPartidaProduccion:
         self._utilerias = utilerias
         self._ventanas = Ventanas(self._master)
 
-        self.valores_partida = valores_partida
+        self.valores_partida = list(valores_partida)
         self.actualizar_cantidad = False
 
         self._cargar_componentes()

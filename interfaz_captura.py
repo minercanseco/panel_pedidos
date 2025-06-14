@@ -342,10 +342,10 @@ class InterfazCaptura:
             'cbx_tipo_busqueda': ('frame_cbx_buscar_manual', None, 'Tipo:', None),
             'tbx_buscar_manual': ('frame_tbx_buscar_manual', None, 'Buscar:', None),
 
-            'tbx_cantidad_manual': ('frame_cantidades_manual', 10, 'Cantidad:', None),
+            'tbx_cantidad_manual': ('frame_cantidades_manual', 10, 'Cant:', None),
             'tbx_equivalencia_manual': ('frame_cantidades_manual',
                                  {'row': 2, 'column': 3, 'pady': 5, 'padx': 5, 'sticky': tk.W},
-                                 'Equivalencia:', None),
+                                 'Equi:', None),
 
             'txt_comentario_manual': ('frame_txt_comentario_manual', None, ' ', None),
             'txt_portapapeles_manual': ('frame_txt_portapapeles_manual', None, ' ', None),

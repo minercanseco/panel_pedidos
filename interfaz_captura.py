@@ -27,7 +27,7 @@ class InterfazCaptura:
         self._cargar_componentes_manual()
 
     def _cargar_frames(self):
-
+        nombre_frame_anuncio = 'Anuncios' if self._modulo_id not in [1687] else 'Captura manual'
         frames = {
 
             'frame_principal': ('master', None,
@@ -59,7 +59,7 @@ class InterfazCaptura:
                              {'row': 5, 'column': 0, 'columnspan': 2, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}
                              ),
 
-            'frame_anuncio': ('frame_principal', None,
+            'frame_anuncio': ('frame_principal', nombre_frame_anuncio,
                               {'row': 2, 'rowspan': 4, 'column': 2, 'columnspan': 4, 'pady': 5, 'padx': 5,
                                'sticky': tk.NSEW}),
         }

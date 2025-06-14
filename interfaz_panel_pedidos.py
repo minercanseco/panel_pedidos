@@ -8,7 +8,7 @@ class InterfazPanelPedidos:
         self.ventanas = Ventanas(self.master)
         self._cargar_frames()
         self._cargar_componentes_forma()
-        self.ventanas.configurar_ventana_ttkbootstrap(titulo='Panel captura', master=self.master)
+        self.ventanas.configurar_ventana_ttkbootstrap(titulo='Panel captura', master=self.master, bloquar=False)
 
     def _cargar_frames(self):
         frames = {

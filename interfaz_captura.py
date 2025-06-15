@@ -357,6 +357,20 @@ class InterfazCaptura:
         tamano_fuente = 8 if ancho <= 1367 else 12
         alto_comentarios = 3 if ancho <= 1367 else 4
 
+        def atajos_botones(ancho, nombre_boton):
+
+            if ancho <= 1367:
+               return None
+
+            atajos_botones = {
+                'btn_agregar_manual': '[F8]',
+                'btn_especificaciones_manual': '[Ctrl+E]',
+                'btn_ofertas_manual': '[F9]',
+                'btn_copiar_manual': '[F12]',
+            }
+
+            return atajos_botones[nombre_boton]
+
         componentes = {
             'cbx_tipo_busqueda': ('frame_cbx_buscar_manual', None, 'Tipo:', None),
             'tbx_buscar_manual': ('frame_tbx_buscar_manual', None, 'Buscar:', None),
@@ -420,10 +434,14 @@ class InterfazCaptura:
                           'Monto', None),
 
             'tvw_productos_manual': ('frame_tabla_manual', self._crear_columnas_tabla_manual(), 5, None),
-            'btn_agregar_manual': ('frame_botones_manual', 'success', 'Agregar', '[F8]'),
-            'btn_especificaciones_manual': ('frame_botones_manual', 'primary', 'Especificación', '[Ctrl+E]'),
-            'btn_ofertas_manual': ('frame_botones_manual', 'info', 'Ofertas', '[F9]'),
-            'btn_copiar_manual': ('frame_botones_manual', 'warning', 'Copiar', '[F12]'),
+            'btn_agregar_manual': ('frame_botones_manual', 'success', 'Agregar', 'Agregar',
+                                   atajos_botones(ancho, 'btn_agregar_manual')),
+            'btn_especificaciones_manual': ('frame_botones_manual', 'primary', 'Especificación',
+                                            atajos_botones(ancho, 'btn_especificaciones_manual')),
+            'btn_ofertas_manual': ('frame_botones_manual', 'info', 'Ofertas',
+                                   atajos_botones(ancho, 'btn_ofertas_manual')),
+            'btn_copiar_manual': ('frame_botones_manual', 'warning', 'Copiar',
+                                  atajos_botones(ancho, 'btn_copiar_manual')),
 
         }
 

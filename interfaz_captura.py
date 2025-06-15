@@ -19,12 +19,10 @@ class InterfazCaptura:
         self._cargar_frames()
         self._cargar_componentes_forma()
         self._ajustar_componentes_forma()
-        #self._cargar_imagen_publicitaria()
+        self._cargar_imagen_publicitaria()
         self._cargar_componentes_frame_totales()
         self._agregar_validaciones()
-
-        self._cargar_frames_manual()
-        self._cargar_componentes_manual()
+        self._cargar_captura_manual()
 
     def _cargar_frames(self):
         nombre_frame_anuncio = 'Anuncios' if self._modulo_id not in [1687] else 'Captura manual'
@@ -213,6 +211,10 @@ class InterfazCaptura:
         return ruta_windows
 
     def _cargar_imagen_publicitaria(self):
+
+        if self._modulo_id  in [1687]:
+            return
+
         if not os.path.exists(self._PATH_IMAGENES_PUBLICITARIAS):
             print("Ruta inválida")
             return
@@ -248,6 +250,11 @@ class InterfazCaptura:
         self.ventanas.ajustar_componente_en_frame('tbx_comentario', 'frame_cliente')
         self.ventanas.ajustar_componente_en_frame('txt_comentario_documento', 'frame_comentario')
         self.ventanas.ajustar_label_en_frame('lbl_anuncio', 'frame_anuncio')
+
+    def _cargar_captura_manual(self):
+        if self._modulo_id  in [1687]:
+            self._cargar_frames_manual()
+            self._cargar_componentes_manual()
 
     def crear_columnas_tabla(self):
 

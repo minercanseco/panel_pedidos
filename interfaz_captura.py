@@ -75,12 +75,14 @@ class InterfazCaptura:
 
     def _cargar_componentes_forma(self):
 
+        filas_tabla_producto = 25 if self._modulo_id not in [1687] else 20
+
         componentes = {
             'tbx_cliente': ('frame_cliente', None, 'Cliente:', None),
             'tbx_direccion': ('frame_cliente', None, 'Dirección:', None),
             'tbx_comentario': ('frame_cliente', None, 'Comentario:', None),
             'tbx_clave': ('frame_clave', None, None, None),
-            'tvw_productos': ('frame_tabla', self.crear_columnas_tabla(), 15, None),
+            'tvw_productos': ('frame_tabla', self.crear_columnas_tabla(), filas_tabla_producto, None),
             'txt_comentario_documento': ('frame_comentario', None,'Comentarios:', None),
 
         }
@@ -296,37 +298,41 @@ class InterfazCaptura:
                                 {'row': 0, 'column': 0, 'sticky': tk.NSEW}),
 
             'frame_buscar_manual' : ('frame_anuncio', 'Búsqueda',
-                       {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+                       {'row': 0, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
 
             'frame_tbx_buscar_manual' : ('frame_buscar_manual', None,
-                                       {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+                                       {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NS}),
 
             'frame_cbx_buscar_manual' : ('frame_buscar_manual', None,
-                                       {'row': 0, 'column': 3, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+                                       {'row': 0, 'column': 3, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NS}),
 
             'frame_partida_manual' : ('frame_anuncio', 'Partida:',
                                     {'row': 2, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
 
 
-            'frame_cantidades_manual' : ('frame_partida_manual', None,
-                                       {'row': 0, 'column': 0, 'rowspan': 2, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.W}),
 
-            'frame_controles_y_totales_manual': ('frame_partida_manual', None,
-                                        {'row': 3, 'column': 0, 'rowspan': 2, 'columnspan': 2, 'pady': 2, 'padx': 2,
+            'frame_detalles_partida_manual' : ('frame_partida_manual', 'Detalles:',
+                                       {'row': 0, 'column': 0,  'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+
+
+
+            'frame_cantida_y_equivalencia': ('frame_detalles_partida_manual', 'Cantidad:',
+                                        {'row': 0, 'column': 0,  'columnspan': 2, 'pady': 2, 'padx': 2,
                                          'sticky': tk.W}),
 
-            'frame_controles_manual' : ('frame_controles_y_totales_manual', None,
-                                      {'row': 0, 'column': 0, 'rowspan': 2,  'pady': 2, 'padx': 50, 'sticky': tk.W}),
+            'frame_totales_manual': ('frame_detalles_partida_manual', 'Total pieza:',
+                                     {'row': 0, 'column': 2, 'columnspan': 2, 'rowspan': 2, 'pady': 2, 'padx': 2,
+                                      'sticky': tk.NSEW}),
 
-            'frame_totales_manual' : ('frame_controles_y_totales_manual', None,
-                                    {'row': 0, 'column': 1, 'rowspan': 2,  'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
 
+            'frame_controles_manual' : ('frame_detalles_partida_manual', None,
+                                      {'row': 1, 'column': 0,  'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
 
             'frame_txt_comentario_manual' : ('frame_partida_manual', 'Especificación:',
-                                           {'row': 6, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+                                           {'row': 6, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
 
             'frame_txt_portapapeles_manual' : ('frame_partida_manual', 'Portapapeles:',
-                                             {'row': 7, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+                                             {'row': 7, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
 
             'frame_botones_manual' : ('frame_partida_manual', None,
                                     {'row': 11, 'column': 1, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
@@ -342,8 +348,8 @@ class InterfazCaptura:
             'cbx_tipo_busqueda': ('frame_cbx_buscar_manual', None, 'Tipo:', None),
             'tbx_buscar_manual': ('frame_tbx_buscar_manual', None, 'Buscar:', None),
 
-            'tbx_cantidad_manual': ('frame_cantidades_manual', 10, 'Cant:', None),
-            'tbx_equivalencia_manual': ('frame_cantidades_manual',
+            'tbx_cantidad_manual': ('frame_cantida_y_equivalencia', 6, 'Cant:', None),
+            'tbx_equivalencia_manual': ('frame_cantida_y_equivalencia',
                                  {'row': 2, 'column': 3, 'pady': 5, 'padx': 5, 'sticky': tk.W},
                                  'Equi:', None),
 
@@ -351,48 +357,54 @@ class InterfazCaptura:
             'txt_portapapeles_manual': ('frame_txt_portapapeles_manual', None, ' ', None),
 
             'lbl_monto_texto_manual': ('frame_totales_manual',
-                                {'width': 10, 'text': 'TOTAL:', 'style': 'inverse-danger', 'anchor': 'e',
-                                 'font': ('Consolas', 10, 'bold')},
+                                { 'text': 'TOTAL:', 'style': 'inverse-danger', 'anchor': 'e',
+                                 'font': ('Consolas', 12, 'bold')},
                                 {'row': 0, 'column': 0, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
                                 None),
 
             'lbl_monto_manual': ('frame_totales_manual',
-                          {'width': 10, 'text': '$0.00', 'style': 'inverse-danger', 'anchor': 'e',
-                           'font': ('Consolas', 10, 'bold')},
+                          {'width':10, 'text': '$0.00', 'style': 'inverse-danger', 'anchor': 'e',
+                           'font': ('Consolas', 12, 'bold')},
                           {'row': 0, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
                           None),
 
             'lbl_cantidad_texto_manual': ('frame_totales_manual',
-                                   {'width': 10, 'text': 'CANTIDAD:', 'style': 'inverse-danger', 'anchor': 'e',
-                                    'font': ('Consolas', 10, 'bold')},
+                                   { 'text': 'CANTIDAD:', 'style': 'inverse-danger', 'anchor': 'e',
+                                    'font': ('Consolas', 12, 'bold')},
                                    {'row': 1, 'column': 0, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
                                    None),
 
             'lbl_cantidad_manual': ('frame_totales_manual',
-                             {'width': 10, 'text': '0.00', 'style': 'inverse-danger', 'anchor': 'e',
-                              'font': ('Consolas', 10, 'bold')},
+                             { 'text': '0.00', 'style': 'inverse-danger', 'anchor': 'e',
+                              'font': ('Consolas', 12, 'bold')},
                              {'row': 1, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
                              None),
 
             'lbl_existencia_texto_manual': ('frame_totales_manual',
-                                     {'width': 10, 'text': 'EXISTENCIA:', 'style': 'inverse-danger', 'anchor': 'e',
-                                      'font': ('Consolas', 10, 'bold')},
+                                     { 'text': 'EXISTENCIA:', 'style': 'inverse-danger', 'anchor': 'e',
+                                      'font': ('Consolas', 12, 'bold')},
                                      {'row': 2, 'column': 0, 'padx': 0, 'sticky': tk.NSEW},
                                      None),
 
             'lbl_existencia_manual': ('frame_totales_manual',
-                               {'width': 10, 'text': '0.00', 'style': 'inverse-danger', 'anchor': 'e',
-                                'font': ('Consolas', 10, 'bold')},
+                               { 'text': '0.00', 'style': 'inverse-danger', 'anchor': 'e',
+                                'font': ('Consolas', 12, 'bold')},
                                {'row': 2, 'column': 1, 'padx': 0, 'sticky': tk.NSEW},
                                None),
 
+            'lbl_clave_manual': ('frame_totales_manual',
+                                      {'text': '000000', 'style': 'inverse-danger', 'anchor': 'w',
+                                       'font': ('Consolas', 12, 'bold')},
+                                      {'row': 3, 'columnspan': 2, 'column': 0, 'padx': 0, 'sticky': tk.NSEW},
+                                      None),
+
             'chk_pieza_manual': ('frame_controles_manual',
                           {'row': 0, 'column': 3, 'pady': 5, 'padx': 5, 'sticky': tk.W},
-                          'Pieza', '[F1]'),
+                          'Pieza', None),
 
             'chk_monto_manual': ('frame_controles_manual',
                           {'row': 0, 'column': 5, 'pady': 5, 'padx': 5, 'sticky': tk.W},
-                          'Monto', '[F4]'),
+                          'Monto', None),
 
             'tvw_productos_manual': ('frame_tabla_manual', self._crear_columnas_tabla_manual(), 5, None),
             'btn_agregar_manual': ('frame_botones_manual', 'success', 'Agregar', '[F8]'),
@@ -405,7 +417,7 @@ class InterfazCaptura:
         self.ventanas.crear_componentes(componentes)
         self.ventanas.ajustar_ancho_componente('cbx_tipo_busqueda',15)
         self.ventanas.ajustar_ancho_componente('tbx_buscar_manual', 15)
-        self.ventanas.ajustar_ancho_componente('tbx_equivalencia_manual', 10)
+        self.ventanas.ajustar_ancho_componente('tbx_equivalencia_manual', 6)
 
         self.ventanas.ajustar_componente_en_frame('txt_comentario_manual', 'frame_txt_comentario_manual')
         self.ventanas.ajustar_componente_en_frame('txt_portapapeles_manual', 'frame_txt_portapapeles_manual')
@@ -419,7 +431,7 @@ class InterfazCaptura:
             {"text": "Descripción", "stretch": False, 'width': 390, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},
             {"text": "Precio", "stretch": False, 'width': 70, 'column_anchor': tk.E,
-             'heading_anchor': tk.W, 'hide': 1},
+             'heading_anchor': tk.W, 'hide': 0},
             {"text": "ProductID", "stretch": False, 'width': 0, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 1},
             {"text": "ClaveUnidad", "stretch": False, 'width': 0, 'column_anchor': tk.W,

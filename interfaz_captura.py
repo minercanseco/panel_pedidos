@@ -72,8 +72,8 @@ class InterfazCaptura:
         self.ventanas.crear_frames(frames)
 
     def _cargar_componentes_forma(self):
-
-        filas_tabla_producto = 20 if self._modulo_id not in [1687] else 20
+        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
+        filas_tabla_producto = 15 if ancho <= 1367 else 20
 
         componentes = {
             'tbx_cliente': ('frame_cliente', None, 'Cliente:', None),

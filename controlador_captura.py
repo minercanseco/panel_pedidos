@@ -68,7 +68,6 @@ class ControladorCaptura:
         self._configurar_pedido()
         self._inicializar_captura_manual()
 
-
     def _inicializar_captura_manual(self):
         if self._interfaz.modulo_id not in [1687]:
             return
@@ -109,7 +108,8 @@ class ControladorCaptura:
             # eventos captura manual
             'btn_ofertas_manual': lambda: self._buscar_ofertas(),
             'btn_especificaciones_manual': lambda: self._agregar_especicificaciones(),
-            'tbx_buscar_manual': lambda event: self._buscar_productos_manualmente()
+            'tbx_buscar_manual': lambda event: self._buscar_productos_manualmente(),
+            'btn_copiar_manual': lambda: self._copiar_productos()
 
         }
         self._ventanas.cargar_eventos(eventos)
@@ -611,12 +611,14 @@ class ControladorCaptura:
         tabla = self._ventanas.componentes_forma['tvw_productos_manual']
 
         for producto in consulta_productos:
+
             _producto = {
                 'ProductKey': producto['ProductKey'],
                 'ProductName': producto['ProductName'],
                 'SalePriceWithTaxes': producto['SalePriceWithTaxes'],
                 'ProductID': producto['ProductID'],
                 'ClaveUnidad': producto['ClaveUnidad'],
+                'Category1': producto['Category1']
             }
 
             registros_tabla.append(_producto)
@@ -695,3 +697,36 @@ class ControladorCaptura:
         self._ventanas.bloquear_componente('tbx_equivalencia_manual')
 
         self._ventanas.insertar_input_componente('txt_portapapeles_manual', self._copiar_portapapeles())
+
+    def _copiar_productos(self):
+        filas = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos_manual')
+        datos_tabla = []
+        for fila in filas:
+            valores_fila = self._ventanas.obtener_valores_fila_treeview('tvw_productos_manual', fila)
+
+            valores = [valores_fila[1], valores_fila[2], valores_fila[5]] #producto, precio linea
+            datos_tabla.append(valores)
+
+        tabla = self._crear_tabla_texto(datos_tabla)
+        pyperclip.copy(tabla)
+
+    def _crear_tabla_texto(self, datos):
+        def obtener_icono(linea):
+            iconos = {
+                'POLLO': '🍗',
+                'RES': '🐄',
+                'CERDO': '🐖',
+                'VERDURAS': '🥑',
+                'ABARROTES': '🛒',
+                'IMPORTADOS': '🥩'
+            }
+            return iconos.get(linea.upper(), '🛒')  # Icono por defecto si no coincide
+
+        tabla = []
+        for fila in datos:
+            producto, precio, linea = fila
+            icono = obtener_icono(linea)
+            texto = f"{icono} {producto} 💲 {precio}"
+            tabla.append(texto)
+
+        return "\n".join(tabla)

@@ -7,7 +7,7 @@ from cayal.actualizador_de_paquetes import ActualizadorDePaquetes
 from cayal.login import Login
 
 def si_acceso_exitoso(parametros=None, master=None):
-    #master.grab_release()
+    #xmaster.grab_release()
     llamar_instancia_principal(master, parametros)
 
 def llamar_instancia_principal(ventana, parametros):

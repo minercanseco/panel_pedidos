@@ -319,6 +319,7 @@ class AgregarPartidaManualmente:
                 'SalePriceWithTaxes': producto['SalePriceWithTaxes'],
                 'ProductID': producto['ProductID'],
                 'ClaveUnidad': producto['ClaveUnidad'],
+                'Category1': producto['Category1']
             }
 
             registros_tabla.append(_producto)
@@ -622,20 +623,30 @@ class AgregarPartidaManualmente:
         datos_tabla = []
         for fila in filas:
             valores_fila = self._ventanas.obtener_valores_fila_treeview('tvw_productos', fila)
-            valores = [valores_fila[1], valores_fila[2]]
+            valores = [valores_fila[1], valores_fila[2], valores_fila[5]] #producto, precio linea
             datos_tabla.append(valores)
 
         tabla = self._crear_tabla_texto(datos_tabla)
         pyperclip.copy(tabla)
 
     def _crear_tabla_texto(self, datos):
-        # Formatear la tabla
-        tabla = []
+        def obtener_icono(linea):
+            iconos = {
+                'POLLO': '🍗',
+                'RES': '🐄',
+                'CERDO': '🐖',
+                'VERDURAS': '🥑',
+                'ABARROTES': '🛒',
+                'IMPORTADOS': '🥩'
+            }
+            return iconos.get(linea.upper(), '🛒')  # Icono por defecto si no coincide
 
-        # Agregar filas de datos
+        tabla = []
         for fila in datos:
-            # Formatear cada fila sin considerar el tamaño de columnas
-            tabla.append(" 💲 ".join(str(fila[i]) for i in range(len(fila))) + "  ")
+            producto, precio, linea = fila
+            icono = obtener_icono(linea)
+            texto = f"{icono} {producto} 💲 {precio}"
+            tabla.append(texto)
 
         return "\n".join(tabla)
 

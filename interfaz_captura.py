@@ -73,7 +73,7 @@ class InterfazCaptura:
 
     def _cargar_componentes_forma(self):
 
-        filas_tabla_producto = 25 if self._modulo_id not in [1687] else 20
+        filas_tabla_producto = 20 if self._modulo_id not in [1687] else 20
 
         componentes = {
             'tbx_cliente': ('frame_cliente', None, 'Cliente:', None),
@@ -355,7 +355,7 @@ class InterfazCaptura:
 
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
         tamano_fuente = 8 if ancho <= 1367 else 12
-        alto_comentarios = 3 if ancho <= 1367 else 4
+        alto_comentarios = 2 if ancho <= 1367 else 4
 
         def atajos_botones(ancho, nombre_boton):
 

@@ -126,8 +126,8 @@ class InterfazCaptura:
     def _cargar_componentes_frame_totales(self):
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
 
-        tamano_fuente_titulo_1 = 16 if ancho > 1366 else 13
-        tamano_fuente_titulo_2 = 29 if ancho > 1366 else 26
+        tamano_fuente_titulo_1 = 16 if ancho > 1366 else 11
+        tamano_fuente_titulo_2 = 29 if ancho > 1366 else 24
 
         estilo_auxiliar = {
             'foreground': 'white',
@@ -351,6 +351,10 @@ class InterfazCaptura:
 
     def _cargar_componentes_manual(self):
 
+        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
+        tamano_fuente = 8 if ancho <= 1367 else 12
+        alto_comentarios = 2 if ancho <= 1367 else 4
+
         componentes = {
             'cbx_tipo_busqueda': ('frame_cbx_buscar_manual', None, 'Tipo:', None),
             'tbx_buscar_manual': ('frame_tbx_buscar_manual', None, 'Buscar:', None),
@@ -365,43 +369,43 @@ class InterfazCaptura:
 
             'lbl_monto_texto_manual': ('frame_totales_manual',
                                 { 'text': 'TOTAL:', 'style': 'inverse-danger', 'anchor': 'e',
-                                 'font': ('Consolas', 12, 'bold')},
+                                 'font': ('Consolas', tamano_fuente, 'bold')},
                                 {'row': 0, 'column': 0, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
                                 None),
 
             'lbl_monto_manual': ('frame_totales_manual',
                           {'width':10, 'text': '$0.00', 'style': 'inverse-danger', 'anchor': 'e',
-                           'font': ('Consolas', 12, 'bold')},
+                           'font': ('Consolas', tamano_fuente, 'bold')},
                           {'row': 0, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
                           None),
 
             'lbl_cantidad_texto_manual': ('frame_totales_manual',
                                    { 'text': 'CANTIDAD:', 'style': 'inverse-danger', 'anchor': 'e',
-                                    'font': ('Consolas', 12, 'bold')},
+                                    'font': ('Consolas', tamano_fuente, 'bold')},
                                    {'row': 1, 'column': 0, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
                                    None),
 
             'lbl_cantidad_manual': ('frame_totales_manual',
                              { 'text': '0.00', 'style': 'inverse-danger', 'anchor': 'e',
-                              'font': ('Consolas', 12, 'bold')},
+                              'font': ('Consolas', tamano_fuente, 'bold')},
                              {'row': 1, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
                              None),
 
             'lbl_existencia_texto_manual': ('frame_totales_manual',
                                      { 'text': 'EXISTENCIA:', 'style': 'inverse-danger', 'anchor': 'e',
-                                      'font': ('Consolas', 12, 'bold')},
+                                      'font': ('Consolas', tamano_fuente, 'bold')},
                                      {'row': 2, 'column': 0, 'padx': 0, 'sticky': tk.NSEW},
                                      None),
 
             'lbl_existencia_manual': ('frame_totales_manual',
                                { 'text': '0.00', 'style': 'inverse-danger', 'anchor': 'e',
-                                'font': ('Consolas', 12, 'bold')},
+                                'font': ('Consolas', tamano_fuente, 'bold')},
                                {'row': 2, 'column': 1, 'padx': 0, 'sticky': tk.NSEW},
                                None),
 
             'lbl_clave_manual': ('frame_totales_manual',
-                                      {'text': '000000', 'style': 'inverse-danger', 'anchor': 'w',
-                                       'font': ('Consolas', 12, 'bold')},
+                                      {'text': 'CLAVE 000000', 'style': 'inverse-danger', 'anchor': 'center',
+                                       'font': ('Consolas', tamano_fuente, 'bold')},
                                       {'row': 3, 'columnspan': 2, 'column': 0, 'padx': 0, 'sticky': tk.NSEW},
                                       None),
 
@@ -428,14 +432,18 @@ class InterfazCaptura:
 
         self.ventanas.ajustar_componente_en_frame('txt_comentario_manual', 'frame_txt_comentario_manual')
         self.ventanas.ajustar_componente_en_frame('txt_portapapeles_manual', 'frame_txt_portapapeles_manual')
-        self.ventanas.ajustar_alto_componente('txt_comentario_manual', 4)
-        self.ventanas.ajustar_alto_componente('txt_portapapeles_manual', 4)
+        self.ventanas.ajustar_alto_componente('txt_comentario_manual', alto_comentarios)
+        self.ventanas.ajustar_alto_componente('txt_portapapeles_manual', alto_comentarios)
 
     def _crear_columnas_tabla_manual(self):
+
+        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
+        ancho_descripcion = 300 if ancho <= 1367 else 390
+
         return [
             {"text": "Código", "stretch": False, 'width': 130, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 1},
-            {"text": "Descripción", "stretch": False, 'width': 390, 'column_anchor': tk.W,
+            {"text": "Descripción", "stretch": False, 'width': ancho_descripcion, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},
             {"text": "Precio", "stretch": False, 'width': 70, 'column_anchor': tk.E,
              'heading_anchor': tk.W, 'hide': 0},

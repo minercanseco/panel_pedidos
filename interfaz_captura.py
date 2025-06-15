@@ -355,7 +355,7 @@ class InterfazCaptura:
 
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
         tamano_fuente = 8 if ancho <= 1367 else 12
-        alto_comentarios = 2 if ancho <= 1367 else 4
+        alto_comentarios = 3 if ancho <= 1367 else 4
 
         componentes = {
             'cbx_tipo_busqueda': ('frame_cbx_buscar_manual', None, 'Tipo:', None),

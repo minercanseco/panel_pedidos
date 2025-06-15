@@ -257,6 +257,8 @@ class InterfazCaptura:
             self._cargar_componentes_manual()
 
     def crear_columnas_tabla(self):
+        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
+        ancho_descripcion = 180 if ancho <= 1367 else 230
 
         return [
             {"text": "Cantidad", "stretch": False, 'width': 70, 'column_anchor': tk.W,
@@ -265,7 +267,7 @@ class InterfazCaptura:
              'heading_anchor': tk.W, 'hide': 0},
             {"text": "Código", "stretch": False, 'width': 110, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},
-            {"text": "Descripción", "stretch": False, 'width': 230, 'column_anchor': tk.W,
+            {"text": "Descripción", "stretch": False, 'width': ancho_descripcion, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},
             {"text": "Unidad", "stretch": False, 'width': 70, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},

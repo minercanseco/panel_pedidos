@@ -12,7 +12,7 @@ from cayal.ventanas import Ventanas
 class InterfazCaptura:
     def __init__(self, master, modulo_id):
         self.master = master
-        self._modulo_id = modulo_id
+        self.modulo_id = modulo_id
         self.ventanas = Ventanas(self.master)
         self._PATH_IMAGENES_PUBLICITARIAS = self._obtener_ruta_imagenes_publitarias()
 
@@ -24,8 +24,10 @@ class InterfazCaptura:
         self._agregar_validaciones()
         self._cargar_captura_manual()
 
+        self.ventanas.configurar_ventana_ttkbootstrap(titulo='Captura manual')
+
     def _cargar_frames(self):
-        nombre_frame_anuncio = 'Anuncios' if self._modulo_id not in [1687] else 'Captura manual'
+        nombre_frame_anuncio = 'Anuncios' if self.modulo_id not in [1687] else 'Captura manual'
         frames = {
 
             'frame_principal': ('master', None,
@@ -62,7 +64,7 @@ class InterfazCaptura:
                                'sticky': tk.NSEW}),
         }
 
-        if self._modulo_id not in [1687]:
+        if self.modulo_id not in [1687]:
             frames.update({
                 'frame_fiscal': ('frame_principal', 'Parametros Fiscales:',
                                  {'row': 6, 'column': 0, 'columnspan': 5, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}
@@ -85,7 +87,7 @@ class InterfazCaptura:
 
         }
 
-        if self._modulo_id not in [1687]:
+        if self.modulo_id not in [1687]:
             componentes.update({
                 'lbl_anuncio': ('frame_anuncio',
                                 {'text': '', 'style': 'inverse-danger'},
@@ -212,7 +214,7 @@ class InterfazCaptura:
 
     def _cargar_imagen_publicitaria(self):
 
-        if self._modulo_id  in [1687]:
+        if self.modulo_id  in [1687]:
             return
 
         if not os.path.exists(self._PATH_IMAGENES_PUBLICITARIAS):
@@ -252,7 +254,7 @@ class InterfazCaptura:
         self.ventanas.ajustar_label_en_frame('lbl_anuncio', 'frame_anuncio')
 
     def _cargar_captura_manual(self):
-        if self._modulo_id  in [1687]:
+        if self.modulo_id  in [1687]:
             self._cargar_frames_manual()
             self._cargar_componentes_manual()
 
@@ -372,7 +374,7 @@ class InterfazCaptura:
             return _atajos_botones[nombre_boton]
 
         componentes = {
-            'cbx_tipo_busqueda': ('frame_cbx_buscar_manual', None, 'Tipo:', None),
+            'cbx_tipo_busqueda_manual': ('frame_cbx_buscar_manual', None, 'Tipo:', None),
             'tbx_buscar_manual': ('frame_tbx_buscar_manual', None, 'Buscar:', None),
 
             'tbx_cantidad_manual': ('frame_cantida_y_equivalencia', 6, 'Cant:', None),
@@ -433,7 +435,7 @@ class InterfazCaptura:
                           {'row': 0, 'column': 5, 'pady': 5, 'padx': 5, 'sticky': tk.W},
                           'Monto', None),
 
-            'tvw_productos_manual': ('frame_tabla_manual', self._crear_columnas_tabla_manual(), 5, None),
+            'tvw_productos_manual': ('frame_tabla_manual', self.crear_columnas_tabla_manual(), 5, None),
             'btn_agregar_manual': ('frame_botones_manual', 'success', 'Agregar',
                                    atajos_botones(ancho, 'btn_agregar_manual')),
             'btn_especificaciones_manual': ('frame_botones_manual', 'primary', 'Especificación',
@@ -455,7 +457,7 @@ class InterfazCaptura:
         self.ventanas.ajustar_alto_componente('txt_comentario_manual', alto_comentarios)
         self.ventanas.ajustar_alto_componente('txt_portapapeles_manual', alto_comentarios)
 
-    def _crear_columnas_tabla_manual(self):
+    def crear_columnas_tabla_manual(self):
 
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
         ancho_descripcion = 300 if ancho <= 1367 else 390

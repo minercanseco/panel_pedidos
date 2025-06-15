@@ -4,6 +4,7 @@ import datetime
 import pyperclip
 import logging
 
+from agregar_epecificaciones import AgregarEspecificaciones
 from configurar_pedido import ConfigurarPedido
 from agregar_manualmente import AgregarPartidaManualmente
 from direccion_cliente import DireccionCliente
@@ -65,6 +66,13 @@ class ControladorCaptura:
 
         self._ventanas.enfocar_componente('tbx_clave')
         self._configurar_pedido()
+        self._inicializar_captura_manual()
+
+
+    def _inicializar_captura_manual(self):
+        if self._interfaz.modulo_id not in [1687]:
+            return
+        self._rellenar_componentes_manual()
 
     def _es_documento_bloqueado(self):
         status_id = 0
@@ -98,6 +106,11 @@ class ControladorCaptura:
         eventos = {
             'tbx_clave': lambda event: self._agregar_partida(),
             'tvw_productos': (lambda event: self._editar_partida(), 'doble_click'),
+            # eventos captura manual
+            'btn_ofertas_manual': lambda: self._buscar_ofertas(),
+            'btn_especificaciones_manual': lambda: self._agregar_especicificaciones(),
+            'tbx_buscar_manual': lambda event: self._buscar_productos_manualmente()
+
         }
         self._ventanas.cargar_eventos(eventos)
 
@@ -588,3 +601,97 @@ class ControladorCaptura:
         self.etiquetas_barra_herramientas = self.elementos_barra_herramientas[2]
         self.hotkeys_barra_herramientas = self.elementos_barra_herramientas[1]
 
+    def _buscar_ofertas(self):
+        if not self._modelo.consulta_productos_ofertados:
+            consulta_procesada = self._modelo.buscar_productos_ofertados_cliente()
+            self._rellenar_tabla_productos_manual(consulta_procesada)
+
+    def _rellenar_tabla_productos_manual(self, consulta_productos):
+        registros_tabla = []
+        tabla = self._ventanas.componentes_forma['tvw_productos_manual']
+
+        for producto in consulta_productos:
+            _producto = {
+                'ProductKey': producto['ProductKey'],
+                'ProductName': producto['ProductName'],
+                'SalePriceWithTaxes': producto['SalePriceWithTaxes'],
+                'ProductID': producto['ProductID'],
+                'ClaveUnidad': producto['ClaveUnidad'],
+            }
+
+            registros_tabla.append(_producto)
+
+        self._ventanas.rellenar_treeview(tabla, self._interfaz.crear_columnas_tabla_manual(), registros_tabla)
+
+        if self._ventanas.numero_filas_treeview('tvw_productos_manual') == 1:
+            self._ventanas.seleccionar_fila_treeview('tvw_productos_manual', 1)
+
+    def _agregar_especicificaciones(self):
+        ventana = self._ventanas.crear_popup_ttkbootstrap(titulo='Agregar especificacion')
+        instancia = AgregarEspecificaciones(ventana, self._modelo.base_de_datos)
+        ventana.wait_window()
+        especificaciones = instancia.especificaciones_texto
+        if especificaciones:
+            comentario_original = self._ventanas.obtener_input_componente('txt_comentario_manual')
+            nuevo_comentario = ''
+
+            if comentario_original != '':
+
+                nuevo_comentario = f'{comentario_original}' \
+                                   f'{especificaciones}'
+
+            if comentario_original == '':
+                nuevo_comentario = f'{especificaciones}'
+                nuevo_comentario = nuevo_comentario.strip()
+
+            self._ventanas.insertar_input_componente('txt_comentario_manual', nuevo_comentario)
+
+    def _buscar_productos_manualmente(self, event=None):
+
+        tipo_busqueda = self._ventanas.obtener_input_componente('cbx_tipo_busqueda_manual')
+        termino_buscado = self._ventanas.obtener_input_componente('tbx_buscar_manual')
+
+        consulta = self._modelo.buscar_productos(termino_buscado, tipo_busqueda)
+
+        if not consulta:
+            self._modelo.mensajes_de_error(6, self._master)
+            self._limpiar_controles_forma_manual()
+            self._ventanas.enfocar_componente('tbx_buscar_manual')
+            self._ventanas.insertar_input_componente('tbx_cantidad_manual', 1.00)
+            return
+
+        ids_productos = self._modelo.obtener_product_ids_consulta(consulta)
+        consulta_productos = self._modelo.buscar_info_productos_por_ids(ids_productos)
+
+        consulta_productos_impuestos = self._modelo.agregar_impuestos_productos(consulta_productos)
+
+        self._modelo.consulta_productos = consulta_productos_impuestos
+        self._rellenar_tabla_productos_manual(consulta_productos_impuestos)
+
+    def _limpiar_controles_forma_manual(self):
+        componentes = [
+            'tbx_equivalencia_manual',
+            'lbl_existencia_manual',
+            'lbl_monto_manual',
+            'chk_pieza_manual',
+            'chk_monto_manual',
+            'txt_comentario_manual',
+            'tvw_productos_manual',
+            'tbx_cantidad_manual'
+        ]
+        self._ventanas.limpiar_componentes(componentes)
+        self._ventanas.enfocar_componente('tbx_buscar_manual')
+
+    def _rellenar_componentes_manual(self):
+
+        # 0 por clave o termino /// 1 por linea
+        tipo_busqueda = ['Término', 'Línea']
+        self._ventanas.rellenar_cbx('cbx_tipo_busqueda_manual', tipo_busqueda, 'Sin seleccione')
+        cbx_tipo_busqueda = self._ventanas.componentes_forma['cbx_tipo_busqueda_manual']
+        cbx_tipo_busqueda.set('Término')
+
+        self._ventanas.insertar_input_componente('tbx_cantidad_manual', 1)
+        self._ventanas.insertar_input_componente('tbx_equivalencia_manual', 0.0)
+        self._ventanas.bloquear_componente('tbx_equivalencia_manual')
+
+        self._ventanas.insertar_input_componente('txt_portapapeles_manual', self._copiar_portapapeles())

@@ -362,14 +362,14 @@ class InterfazCaptura:
             if ancho <= 1367:
                return None
 
-            atajos_botones = {
+            _atajos_botones = {
                 'btn_agregar_manual': '[F8]',
                 'btn_especificaciones_manual': '[Ctrl+E]',
                 'btn_ofertas_manual': '[F9]',
                 'btn_copiar_manual': '[F12]',
             }
 
-            return atajos_botones[nombre_boton]
+            return _atajos_botones[nombre_boton]
 
         componentes = {
             'cbx_tipo_busqueda': ('frame_cbx_buscar_manual', None, 'Tipo:', None),
@@ -434,7 +434,7 @@ class InterfazCaptura:
                           'Monto', None),
 
             'tvw_productos_manual': ('frame_tabla_manual', self._crear_columnas_tabla_manual(), 5, None),
-            'btn_agregar_manual': ('frame_botones_manual', 'success', 'Agregar', 'Agregar',
+            'btn_agregar_manual': ('frame_botones_manual', 'success', 'Agregar',
                                    atajos_botones(ancho, 'btn_agregar_manual')),
             'btn_especificaciones_manual': ('frame_botones_manual', 'primary', 'Especificación',
                                             atajos_botones(ancho, 'btn_especificaciones_manual')),

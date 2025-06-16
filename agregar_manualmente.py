@@ -573,7 +573,9 @@ class AgregarPartidaManualmente:
     def _buscar_ofertas(self, rellenar_tabla=True):
         if not self._modelo.consulta_productos_ofertados:
             self._modelo.buscar_productos_ofertados_cliente()
+
         if rellenar_tabla:
+            self._modelo.consulta_productos = self._modelo.consulta_productos_ofertados_btn
             self._rellenar_tabla_productos(self._modelo.consulta_productos)
             self._colorear_productos_ofertados()
 

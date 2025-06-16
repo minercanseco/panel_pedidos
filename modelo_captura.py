@@ -19,6 +19,7 @@ class ModeloCaptura:
 
         self.consulta_productos = []
         self.consulta_productos_ofertados = []
+        self.consulta_productos_ofertados_btn = []
         self.products_ids_ofertados = []
 
         self._customer_type_id = self.cliente.customer_type_id
@@ -103,6 +104,7 @@ class ModeloCaptura:
         consulta_procesada = self.agregar_impuestos_productos(consulta_productos)
         self.consulta_productos_ofertados = consulta_productos_ofertados
         self.consulta_productos = consulta_procesada
+        self.consulta_productos_ofertados_btn = consulta_procesada
         self.products_ids_ofertados = productos_ids
 
         return consulta_procesada

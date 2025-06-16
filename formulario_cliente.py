@@ -243,12 +243,7 @@ class FormularioCliente:
                 cbx_ruta.set(rutas_cbx[idx_ruta])
 
     def _actualizar_tbx_domicilios(self, numero_direcciones):
-        numero_direcciones += 1
-        tbx_domicilios = self._componentes_forma['tbx_domicilios']
-        tbx_domicilios.config(state='enabled')
-        tbx_domicilios.delete(0, tk.END)
-        tbx_domicilios.insert(0, numero_direcciones)
-        tbx_domicilios.config(state='disabled')
+        self._ventanas.insertar_input_componente('tbx_domicilios', numero_direcciones)
 
     def _validar_cliente_con_adicionales(self):
 
@@ -256,12 +251,13 @@ class FormularioCliente:
         # dentro del popup realizar cualquier crud
         ventana = self._ventanas.crear_popup_ttkbootstrap()
 
-        if self._cliente.depots > 0 or self._cliente.addresses > 1 or self._direcciones_adicionales:
+        if int(self._cliente.depots) > 0 or int(self._cliente.addresses) > 1 or self._direcciones_adicionales:
 
             instancia = PanelDirecciones(ventana, self._parametros, self._cliente)
             ventana.wait_window()
 
             self._actualizar_tbx_domicilios(instancia.numero_direcciones)
+
         else:
 
             instancia = DireccionesAdicionales(ventana,

@@ -319,6 +319,6 @@ class PanelDirecciones:
                                 self._cliente.business_entity_id,
                                 self._parametros.id_usuario,)
 
-        self.numero_direcciones = int(numero_direcciones)
+        self.numero_direcciones = numero_direcciones
 
         self._master.destroy()

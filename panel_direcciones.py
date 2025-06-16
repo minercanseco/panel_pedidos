@@ -115,21 +115,15 @@ class PanelDirecciones:
             self._ventanas.componentes_forma[nombre] = componente
 
     def _cargar_eventos_componentes_forma(self):
+        eventos = {
+            'btn_borrar': self._borrar_direccion_adicional,
+            'btn_editar': self._editar_direccion_adicional,
+            'tvw_direcciones':(lambda event: self._editar_direccion_adicional(), 'doble_click'),
+            'btn_agregar': self._agregar_direccion_adicional,
+            'btn_guardar': self._actualizar_direcciones_en_base_de_datos
+        }
 
-        btn_borrar = self._ventanas.componentes_forma['btn_borrar']
-        btn_borrar.config(command=lambda: self._borrar_direccion_adicional())
-
-        btn_editar = self._ventanas.componentes_forma['btn_editar']
-        btn_editar.config(command=lambda: self._editar_direccion_adicional())
-
-        tabla_diracciones = self._ventanas.componentes_forma['tvw_direcciones']
-        tabla_diracciones.bind('<Double-1>', lambda event: self._editar_direccion_adicional())
-
-        btn_agregar = self._ventanas.componentes_forma['btn_agregar']
-        btn_agregar.config(command=lambda: self._agregar_direccion_adicional())
-
-        btn_guardar = self._ventanas.componentes_forma['btn_guardar']
-        btn_guardar.config(command=lambda: self._actualizar_direcciones_en_base_de_datos())
+        self._ventanas.cargar_eventos(eventos)
 
     def _procesar_consulta_direcciones(self):
         if not self._consulta_direcciones_adicionales:

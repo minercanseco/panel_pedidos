@@ -327,7 +327,7 @@ class EditarPedido:
         for partida in self._partidas_a_eliminar:
 
             document_item_id = int(partida['DocumentItemID'])
-            print('eliminando', document_item_id)
+
             info_producto = self._base_de_datos.fetchall('SELECT * FROM [dbo].[zvwBuscarPartidaPedidoCayal-DocumentItemID](?)',
                                          (document_item_id,))[0]
 

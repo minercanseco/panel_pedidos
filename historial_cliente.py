@@ -35,8 +35,12 @@ class HistorialCliente:
                                     {'row': 3, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2,
                                      'sticky': tk.NSEW}),
 
+            'frame_comentarios_especificaciones': ('frame_principal', 'Especificaciones: ',
+                                    {'row': 6, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2,
+                                     'sticky': tk.NSEW}),
+
             'frame_botones': ('frame_principal', None,
-                              {'row': 4, 'column': 1, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
+                              {'row': 9, 'column': 1, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
         }
         self._ventanas.crear_frames(frames)
 
@@ -45,11 +49,14 @@ class HistorialCliente:
             'tvw_documentos': ('frame_tabla', self._crear_columnas_tabla(), 10, None),
             'tvw_detalle': ('frame_tabla_detalle', self._crear_columnas_tabla_detalle(), 10, 'Danger'),
             'txt_comentario_documento':('frame_comentarios', None, ' ', None ),
-            'txt_especificacion':('frame_comentarios', None, ' ', None ),
+            'txt_especificacion':('frame_comentarios_especificaciones', None, ' ', None ),
             'btn_aceptar': ('frame_botones', None, 'Aceptar', None),
             'btn_cancelar': ('frame_botones', 'Danger', 'Cancelar', None),
         }
         self._ventanas.crear_componentes(componentes)
+        self._ventanas.ajustar_componente_en_frame('txt_comentario_documento', 'frame_comentarios')
+        self._ventanas.ajustar_componente_en_frame('txt_especificacion', 'frame_comentarios_especificaciones')
+
         self._ventanas.ajustar_ancho_componente('txt_comentario_documento',65)
         self._ventanas.ajustar_ancho_componente('txt_especificacion', 65)
 

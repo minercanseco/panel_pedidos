@@ -45,7 +45,7 @@ class InterfazCaptura:
                                'sticky': tk.NE}),
 
             'frame_captura': ('frame_principal', 'Captura',
-                              {'row': 4, 'columnspan': 2, 'column': 0, 'pady': 5, 'padx': 5,
+                              {'row': 5, 'columnspan': 2, 'column': 0, 'pady': 5, 'padx': 5,
                                'sticky': tk.NSEW}),
 
             'frame_clave': ('frame_captura', None,

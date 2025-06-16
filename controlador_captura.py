@@ -116,7 +116,7 @@ class ControladorCaptura:
             'btn_especificaciones_manual': lambda: self._agregar_especicificaciones(),
             'tbx_buscar_manual': lambda event: self._buscar_productos_manualmente(),
             'btn_copiar_manual': lambda: self._copiar_productos(),
-            'tbx_cantidad': lambda event: self._selecionar_producto_tabla_manual(),
+            'tbx_cantidad_manual': lambda event: self._selecionar_producto_tabla_manual(),
             'chk_monto': lambda *args: self._selecionar_producto_tabla_manual(),
             'chk_pieza': lambda *args: self._selecionar_producto_tabla_manual(),
             'tvw_productos_manual': (lambda event: self._selecionar_producto_tabla_manual(configurar_forma=True), 'seleccion'),
@@ -654,10 +654,13 @@ class ControladorCaptura:
             tipo_impuesto_id=tax_type_id,
             cantidad=cantidad
         )
-        producto = re.sub(r"\s*\(OFE\).*", "", producto)
+        producto = self._remover_texto_oferta(producto)
         sale_price_before_with_taxes = totales_partida.get('total', sale_price_before)
         nombre_producto = f"{producto} (OFE) {sale_price_before_with_taxes}"
         return nombre_producto
+
+    def _remover_texto_oferta(self, producto):
+        return re.sub(r"\s*\(OFE\).*", "", producto)
 
     def _rellenar_tabla_productos_manual(self, consulta_productos):
         registros_tabla = []
@@ -768,7 +771,7 @@ class ControladorCaptura:
         def obtener_icono(linea):
             iconos = {
                 'POLLO': '🍗',
-                'RES': '🐄',
+                'RES LOCAL': '🐄',
                 'CERDO': '🐖',
                 'VERDURAS': '🥑',
                 'ABARROTES': '🛒',
@@ -780,7 +783,15 @@ class ControladorCaptura:
         for fila in datos:
             producto, precio, linea = fila
             icono = obtener_icono(linea)
-            texto = f"{icono} {producto} 💲 {precio}"
+
+            if '(OFE)' in producto:
+                limite = producto.find('(OFE)')
+                precio_sin_oferta = producto[limite + len('(OFE)'):].strip()
+                producto_sin_oferta = producto[:limite].strip()
+                texto = f"🏷️ {producto_sin_oferta} (OFERTA)💲 {precio} - (ANTES)💲 {precio_sin_oferta}"
+            else:
+                texto = f"{icono} {producto} 💲 {precio}"
+
             tabla.append(texto)
 
         return "\n".join(tabla)

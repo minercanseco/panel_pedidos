@@ -611,10 +611,13 @@ class AgregarPartidaManualmente:
             tipo_impuesto_id=tax_type_id,
             cantidad=cantidad
         )
-        producto = re.sub(r"\s*\(OFE\).*", "", producto)
+        producto = self._remover_texto_oferta(producto)
         sale_price_before_with_taxes = totales_partida.get('total', sale_price_before)
         nombre_producto = f"{producto} (OFE) {sale_price_before_with_taxes}"
         return nombre_producto
+
+    def _remover_texto_oferta(self, producto):
+        return re.sub(r"\s*\(OFE\).*", "", producto)
 
     def _agregar_partida(self):
         if not self._tabla_con_seleccion_valida():
@@ -675,7 +678,7 @@ class AgregarPartidaManualmente:
         def obtener_icono(linea):
             iconos = {
                 'POLLO': '🍗',
-                'RES': '🐄',
+                'RES LOCAL': '🐄',
                 'CERDO': '🐖',
                 'VERDURAS': '🥑',
                 'ABARROTES': '🛒',
@@ -687,7 +690,15 @@ class AgregarPartidaManualmente:
         for fila in datos:
             producto, precio, linea = fila
             icono = obtener_icono(linea)
-            texto = f"{icono} {producto} 💲 {precio}"
+
+            if '(OFE)' in producto:
+                limite = producto.find('(OFE)')
+                precio_sin_oferta = producto[limite + len('(OFE)'):].strip()
+                producto_sin_oferta = producto[:limite].strip()
+                texto = f"🏷️ {producto_sin_oferta} (OFERTA)💲 {precio} - (ANTES)💲 {precio_sin_oferta}"
+            else:
+                texto = f"{icono} {producto} 💲 {precio}"
+
             tabla.append(texto)
 
         return "\n".join(tabla)

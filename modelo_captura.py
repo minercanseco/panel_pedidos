@@ -182,8 +182,6 @@ class ModeloCaptura:
             finally:
                 self._agregando_partida = False
 
-
-
     def agregar_partida_items_documento(self, partida):
         self.documento.items.append(partida)
 

@@ -213,7 +213,7 @@ class EditarPedido:
 
 
         # eliminar de partidas a insertar
-        if document_item_id != 0:
+        if int(document_item_id) != 0:
             partida_eliminada = [partida for partida in self._consulta_partidas
                                  if document_item_id == int(partida['DocumentItemID'])][0]
 
@@ -326,7 +326,8 @@ class EditarPedido:
     def _eliminar_partidas_tabla_base_datos(self):
         for partida in self._partidas_a_eliminar:
 
-            document_item_id = partida['DocumentItemID']
+            document_item_id = int(partida['DocumentItemID'])
+            print('eliminando', document_item_id)
             info_producto = self._base_de_datos.fetchall('SELECT * FROM [dbo].[zvwBuscarPartidaPedidoCayal-DocumentItemID](?)',
                                          (document_item_id,))[0]
 

@@ -72,6 +72,9 @@ class ControladorCaptura:
         if self._interfaz.modulo_id not in [1687]:
             return
 
+        if self._es_documento_bloqueado():
+            return
+
         self._procesando_seleccion = False
         self._info_partida_seleccionada = {}
         self._agregando_producto = False

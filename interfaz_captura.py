@@ -247,9 +247,10 @@ class InterfazCaptura:
         self.label_imagen.configure(image=self.imagen_publicitaria)
 
     def _ajustar_componentes_forma(self):
-        self.ventanas.ajustar_componente_en_frame('tbx_cliente', 'frame_cliente', expandir=True)
-        self.ventanas.ajustar_componente_en_frame('tbx_direccion', 'frame_cliente', expandir=True)
-        self.ventanas.ajustar_componente_en_frame('tbx_comentario', 'frame_cliente', expandir=True)
+        self.ventanas.ajustar_ancho_componente('tbx_cliente', 80)
+        self.ventanas.ajustar_ancho_componente('tbx_direccion', 80)
+        self.ventanas.ajustar_ancho_componente('tbx_comentario', 80)
+
         self.ventanas.ajustar_componente_en_frame('txt_comentario_documento', 'frame_comentario')
         self.ventanas.ajustar_label_en_frame('lbl_anuncio', 'frame_anuncio')
 

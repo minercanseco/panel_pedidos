@@ -6,7 +6,6 @@ import pyperclip
 import logging
 
 from agregar_epecificaciones import AgregarEspecificaciones
-from configurar_pedido import ConfigurarPedido
 from agregar_manualmente import AgregarPartidaManualmente
 from direccion_cliente import DireccionCliente
 from direcciones_adicionales import DireccionesAdicionales
@@ -75,6 +74,7 @@ class ControladorCaptura:
 
         self._procesando_seleccion = False
         self._info_partida_seleccionada = {}
+        self._agregando_producto = False
 
         self._rellenar_componentes_manual()
         self._buscar_ofertas(rellenar_tabla=False)
@@ -113,6 +113,7 @@ class ControladorCaptura:
             'tvw_productos': (lambda event: self._editar_partida(), 'doble_click'),
             # eventos captura manual
             'btn_ofertas_manual': lambda: self._buscar_ofertas(rellenar_tabla=True),
+            'btn_agregar_manual': lambda: self._agregar_partida_manualmente(),
             'btn_especificaciones_manual': lambda: self._agregar_especicificaciones(),
             'tbx_buscar_manual': lambda event: self._buscar_productos_manualmente(),
             'btn_copiar_manual': lambda: self._copiar_productos(),
@@ -143,7 +144,7 @@ class ControladorCaptura:
 
     def _agregar_atajos(self):
         eventos = {
-            'F1': lambda: self._agregar_partida_manualmente(),
+            'F1': lambda: self._agregar_partida_manualmente_popup(),
             'F4': lambda: self._editar_partida(),
             'F8': lambda: self._verificador_precios(),
             'F9': lambda: self._editar_direccion(),
@@ -386,7 +387,7 @@ class ControladorCaptura:
         clave = self._ventanas.obtener_input_componente('tbx_clave')
         self._agregar_partida_por_clave_producto(clave)
 
-    def _agregar_partida_manualmente(self):
+    def _agregar_partida_manualmente_popup(self):
         ventana = self._ventanas.crear_popup_ttkbootstrap(master=self._master, titulo='Captura Manual')
         portapapeles = self._copiar_portapapeles()
         instancia = AgregarPartidaManualmente(ventana,
@@ -397,6 +398,48 @@ class ControladorCaptura:
                                               )
         ventana.wait_window()
         self.documento = instancia.documento
+
+    def _agregar_partida_manualmente(self):
+        if not self._tabla_manual_con_seleccion_valida():
+            return
+
+        cantidad_control = self._obtener_cantidad_partida_manual()
+
+        if cantidad_control <= 0:
+            return
+
+        if not self._agregando_producto:
+
+            try:
+                self._agregando_producto = True
+                info_partida_seleccionada = copy.deepcopy(self._info_partida_seleccionada)
+                valores_partida = self._calcular_valores_partida(info_partida_seleccionada)
+
+                cantidad = valores_partida['cantidad']
+
+                partida = self._utilerias.crear_partida(info_partida_seleccionada, cantidad)
+
+                chk_pieza = self._ventanas.obtener_input_componente('chk_pieza')
+                chk_monto = self._ventanas.obtener_input_componente('chk_monto')
+                comentarios = self._ventanas.obtener_input_componente('txt_comentario_manual')
+
+                partida['Comments'] = comentarios
+
+                if chk_pieza == 1 and partida['CayalPiece'] % 1 != 0:
+                    self._ventanas.mostrar_mensaje('La cantidad de piezas deben ser valores no fraccionarios.')
+                    return
+
+                self._modelo.agregar_partida_tabla(partida, document_item_id=0, tipo_captura=1, unidad_cayal=chk_pieza,
+                                                   monto_cayal=chk_monto)
+
+                self._ventanas.insertar_input_componente('tbx_cantidad_manual', 1)
+                self._ventanas.limpiar_componentes('txt_comentario_manual')
+                self._ventanas.limpiar_componentes('tbx_buscar_manual')
+                self._ventanas.enfocar_componente('tbx_buscar_manual')
+
+
+            finally:
+                self._agregando_producto = False
 
     def _editar_direccion(self):
 
@@ -581,7 +624,7 @@ class ControladorCaptura:
         if self._parametros_contpaqi.id_modulo == 1687:
             self.barra_herramientas_pedido = [
                 {'nombre_icono': 'Product32.ico', 'etiqueta': 'C.Manual', 'nombre': 'captura_manual',
-                 'hotkey': '[F1]', 'comando': self._agregar_partida_manualmente},
+                 'hotkey': '[F1]', 'comando': self._agregar_partida_manualmente_popup},
 
                 {'nombre_icono': 'ProductChange32.ico', 'etiqueta': 'Editar', 'nombre': 'editar_partida',
                  'hotkey': '[F4]', 'comando': self._editar_partida},

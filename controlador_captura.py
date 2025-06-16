@@ -146,14 +146,25 @@ class ControladorCaptura:
 
     def _agregar_atajos(self):
         eventos = {
-            'F1': lambda: self._agregar_partida_manualmente_popup(),
-            'F4': lambda: self._editar_partida(),
-            'F8': lambda: self._verificador_precios(),
-            'F9': lambda: self._editar_direccion(),
-            'F10': lambda: self._agregar_direccion(),
-            'F12': lambda: self._editar_cliente()
+            'F2': lambda: self._editar_partida(),
+            'F3': lambda: self._verificador_precios(),
+            'F4': lambda: self._editar_direccion(),
+            'F5': lambda: self._agregar_direccion(),
+            'F6': lambda: self._editar_cliente(),
+            'F7': lambda: self._historial_cliente,
+
+            'F8': lambda: self._agregar_partida_manualmente(),
+            'F9': lambda: self._copiar_productos(),
+            'F10': lambda: self._activar_chk_pieza(),
+            'F11': lambda: self._activar_chk_monto(),
+            'F12': lambda: self._buscar_ofertas(),
         }
         self._ventanas.agregar_hotkeys_forma(eventos)
+        if self._parametros_contpaqi.id_modulo != 1687:
+            evento_adicional = {
+                'F1': lambda: self._agregar_partida_manualmente_popup(),
+            }
+            self._ventanas.agregar_hotkeys_forma(evento_adicional)
 
     def _inicializar_variables_de_instancia(self):
         self._iconos_barra_herramientas = []
@@ -625,29 +636,29 @@ class ControladorCaptura:
         # herramientas de pedidos
         if self._parametros_contpaqi.id_modulo == 1687:
             self.barra_herramientas_pedido = [
-                {'nombre_icono': 'Product32.ico', 'etiqueta': 'C.Manual', 'nombre': 'captura_manual',
-                 'hotkey': '[F1]', 'comando': self._agregar_partida_manualmente_popup},
+                #{'nombre_icono': 'Product32.ico', 'etiqueta': 'C.Manual', 'nombre': 'captura_manual',
+                 #'hotkey': '[F1]', 'comando': self._agregar_partida_manualmente_popup},
 
                 {'nombre_icono': 'ProductChange32.ico', 'etiqueta': 'Editar', 'nombre': 'editar_partida',
-                 'hotkey': '[F4]', 'comando': self._editar_partida},
+                 'hotkey': '[F2]', 'comando': self._editar_partida},
 
                 {'nombre_icono': 'Cancelled32.ico', 'etiqueta': 'Eliminar', 'nombre': 'eliminar_partida',
                  'hotkey': '[SUPR]', 'comando': self._eliminar_partida},
 
                 {'nombre_icono': 'Barcode32.ico', 'etiqueta': 'V.Precios', 'nombre': 'verificador_precios',
-                 'hotkey': '[F8]', 'comando': self._verificador_precios},
+                 'hotkey': '[F3]', 'comando': self._verificador_precios},
 
                 {'nombre_icono': 'EditAddress32.ico', 'etiqueta': 'E.Dirección', 'nombre': 'editar_direccion',
-                 'hotkey': '[F9]', 'comando': self._editar_direccion},
+                 'hotkey': '[F4]', 'comando': self._editar_direccion},
 
                 {'nombre_icono': 'Address32.ico', 'etiqueta': 'A.Dirección', 'nombre': 'agregar_direccion',
-                 'hotkey': '[F10]', 'comando': self._agregar_direccion},
+                 'hotkey': '[F5]', 'comando': self._agregar_direccion},
 
                 {'nombre_icono': 'DocumentEdit32.ico', 'etiqueta': 'Editar Cliente', 'nombre': 'editar_cliente',
-                 'hotkey': '[F12]', 'comando': self._editar_cliente},
+                 'hotkey': '[F6]', 'comando': self._editar_cliente},
 
                 {'nombre_icono': 'CampaignFlow32.ico', 'etiqueta': 'H.Cliente', 'nombre': 'historial_cliente',
-                 'hotkey': None, 'comando': self._historial_cliente},
+                 'hotkey': '[F7]', 'comando': self._historial_cliente},
 
             ]
 

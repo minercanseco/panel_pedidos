@@ -1,5 +1,6 @@
 import copy
 import datetime
+from itertools import product
 
 import pyperclip
 import logging
@@ -71,7 +72,12 @@ class ControladorCaptura:
     def _inicializar_captura_manual(self):
         if self._interfaz.modulo_id not in [1687]:
             return
+
+        self._procesando_seleccion = False
+        self._info_partida_seleccionada = {}
+
         self._rellenar_componentes_manual()
+        self._buscar_ofertas(rellenar_tabla=False)
 
     def _es_documento_bloqueado(self):
         status_id = 0
@@ -106,12 +112,16 @@ class ControladorCaptura:
             'tbx_clave': lambda event: self._agregar_partida(),
             'tvw_productos': (lambda event: self._editar_partida(), 'doble_click'),
             # eventos captura manual
-            'btn_ofertas_manual': lambda: self._buscar_ofertas(),
+            'btn_ofertas_manual': lambda: self._buscar_ofertas(rellenar_tabla=True),
             'btn_especificaciones_manual': lambda: self._agregar_especicificaciones(),
             'tbx_buscar_manual': lambda event: self._buscar_productos_manualmente(),
-            'btn_copiar_manual': lambda: self._copiar_productos()
-
+            'btn_copiar_manual': lambda: self._copiar_productos(),
+            'tbx_cantidad': lambda event: self._selecionar_producto_tabla_manual(),
+            'chk_monto': lambda *args: self._selecionar_producto_tabla_manual(),
+            'chk_pieza': lambda *args: self._selecionar_producto_tabla_manual(),
+            'tvw_productos_manual': (lambda event: self._selecionar_producto_tabla_manual(configurar_forma=True), 'seleccion'),
         }
+
         self._ventanas.cargar_eventos(eventos)
 
         evento_adicional = {
@@ -129,6 +139,7 @@ class ControladorCaptura:
 
     def _agregar_validaciones(self):
         self._ventanas.agregar_validacion_tbx('tbx_clave', 'codigo_barras')
+        self._ventanas.agregar_validacion_tbx('tbx_cantidad_manual', 'cantidad')
 
     def _agregar_atajos(self):
         eventos = {
@@ -601,10 +612,22 @@ class ControladorCaptura:
         self.etiquetas_barra_herramientas = self.elementos_barra_herramientas[2]
         self.hotkeys_barra_herramientas = self.elementos_barra_herramientas[1]
 
-    def _buscar_ofertas(self):
+    def _buscar_ofertas(self, rellenar_tabla=True):
         if not self._modelo.consulta_productos_ofertados:
-            consulta_procesada = self._modelo.buscar_productos_ofertados_cliente()
-            self._rellenar_tabla_productos_manual(consulta_procesada)
+            self._modelo.buscar_productos_ofertados_cliente()
+        if rellenar_tabla:
+            self._rellenar_tabla_productos_manual(self._modelo.consulta_productos)
+            self._colorear_productos_ofertados()
+
+    def _colorear_productos_ofertados(self):
+        filas = self._ventanas.obtener_filas_treeview('tvw_productos_manual')
+        if not filas:
+            return
+        for fila in filas:
+            valores_fila = self._ventanas.procesar_fila_treeview('tvw_productos_manual',fila)
+            product_id = valores_fila['ProductID']
+            if product_id in self._modelo.products_ids_ofertados:
+                self._ventanas.colorear_fila_seleccionada_treeview('tvw_productos_manual', fila, color='warning')
 
     def _rellenar_tabla_productos_manual(self, consulta_productos):
         registros_tabla = []
@@ -624,7 +647,7 @@ class ControladorCaptura:
             registros_tabla.append(_producto)
 
         self._ventanas.rellenar_treeview(tabla, self._interfaz.crear_columnas_tabla_manual(), registros_tabla)
-
+        self._colorear_productos_ofertados()
         if self._ventanas.numero_filas_treeview('tvw_productos_manual') == 1:
             self._ventanas.seleccionar_fila_treeview('tvw_productos_manual', 1)
 
@@ -730,3 +753,248 @@ class ControladorCaptura:
             tabla.append(texto)
 
         return "\n".join(tabla)
+
+    def _activar_chk_pieza(self):
+        if self._tabla_manual_con_seleccion_valida():
+            self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
+            self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'seleccionado')
+            self._selecionar_producto_tabla_manual()
+
+    def _activar_chk_monto(self):
+        if self._tabla_manual_con_seleccion_valida():
+            self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'deseleccionado')
+            self._ventanas.cambiar_estado_checkbutton('chk_monto', 'seleccionado')
+
+            precio_unidad = self._info_partida_seleccionada.get('SalePriceWithTaxes', 10)
+            self._ventanas.insertar_input_componente('tbx_cantidad_manual', precio_unidad)
+
+            self._selecionar_producto_tabla_manual()
+
+    def _tabla_manual_con_seleccion_valida(self):
+        if self._ventanas.numero_filas_treeview('tvw_productos_manual') == 0:
+            return False
+
+        fila = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos_manual')
+
+        if len(fila) > 1 or len(fila) < 1:
+            return False
+
+        return fila
+
+    def _selecionar_producto_tabla_manual(self, configurar_forma=None):
+
+        if self._procesando_seleccion:
+            return
+
+        self._procesando_seleccion = True
+
+        try:
+            fila = self._tabla_manual_con_seleccion_valida()
+            if not fila:
+                return
+
+            valores = self._ventanas.obtener_valores_fila_treeview('tvw_productos_manual', fila)
+
+            product_id = int(valores[3])
+
+            info_producto = copy.deepcopy(self._modelo.buscar_informacion_producto(product_id))
+
+            if info_producto:
+                self._product_id = product_id
+
+                if configurar_forma:
+                    self._configurar_forma_manual_segun_producto(info_producto)
+
+                cantidad = self._obtener_cantidad_manual_partida()
+                self._ventanas.insertar_input_componente('tbx_cantidad_manual', cantidad)
+
+                self._product_id = product_id
+                self._calcular_valores_partida(info_producto)
+                self._info_partida_seleccionada = info_producto
+
+        finally:
+            self._procesando_seleccion = False
+
+    def _insertar_equivalencia(self, equivalencia):
+
+        equivalencia = str(equivalencia)
+        equivalencia_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
+
+        self._ventanas.desbloquear_componente('tbx_equivalencia_manual')
+        self._ventanas.insertar_input_componente('tbx_equivalencia_manual', equivalencia_decimal)
+        self._ventanas.bloquear_componente('tbx_equivalencia_manual')
+
+        return equivalencia_decimal
+
+    def _configurar_forma_manual_segun_producto(self, info_producto):
+
+        clave_unidad = info_producto.get('ClaveUnidad', 'H87')
+
+        equivalencia = info_producto.get('Equivalencia', 0.0)
+        equivalencia_decimal = self._insertar_equivalencia(equivalencia)
+
+        if equivalencia_decimal == 0:
+
+            if clave_unidad == 'KGM':
+                self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'deseleccionado')
+
+            if clave_unidad != 'KGM':
+                self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
+                self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'seleccionado')
+        else:
+            self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
+            self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'deseleccionado')
+
+    def _obtener_cantidad_manual_partida(self):
+        cantidad = self._ventanas.obtener_input_componente('tbx_cantidad_manual')
+
+        if not cantidad or not self._utilerias.es_cantidad(cantidad):
+            return self._utilerias.redondear_valor_cantidad_a_decimal(0)
+
+        cantidad_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(cantidad)
+
+        return self._utilerias.redondear_valor_cantidad_a_decimal(1) if cantidad_decimal <= 0 else cantidad_decimal
+
+    def _calcular_valores_partida(self, info_producto):
+
+        def calcular_cantidad_real(tipo_calculo, equivalencia, cantidad):
+
+            if tipo_calculo == 'Equivalencia':
+                return cantidad * equivalencia
+
+            if tipo_calculo in ('Unidad', 'Monto'):
+                return cantidad
+
+        tipo_calculo = self._determinar_tipo_calculo_partida_manual(info_producto)
+        cantidad_piezas = 0
+        total = 0
+        cantidad_real_decimal = 0
+
+        if tipo_calculo != 'Error':
+            valores_controles = self._obtener_valores_controles()
+
+            precio_con_impuestos = self._utilerias.redondear_valor_cantidad_a_decimal(info_producto.get('SalePriceWithTaxes', 0.0))
+
+            cantidad = valores_controles['cantidad']
+            cantidad_piezas = cantidad
+            cantidad_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(cantidad)
+
+            equivalencia = valores_controles['equivalencia']
+            equivalencia_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
+
+            cantidad_real_decimal = calcular_cantidad_real(tipo_calculo, equivalencia_decimal, cantidad_decimal)
+
+            if tipo_calculo == 'Equivalencia':
+                if not self._utilerias.es_numero_entero(cantidad_decimal):
+                    cantidad_decimal = self._utilerias.redondear_numero_a_entero(cantidad_decimal)
+                    self._ventanas.insertar_input_componente('tbx_cantidad_manual', cantidad_decimal)
+                total = cantidad_real_decimal * precio_con_impuestos
+
+            if tipo_calculo == 'Unidad':
+                total = cantidad_real_decimal * precio_con_impuestos
+
+            if tipo_calculo == 'Monto':
+                total = cantidad
+                cantidad = total / precio_con_impuestos
+
+                cantidad_real_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(cantidad)
+
+        self._actualizar_lbl_total_manual_moneda(total)
+        texto = self._modelo.crear_texto_existencia_producto(info_producto)
+        self._ventanas.insertar_input_componente('lbl_existencia_manual', texto)
+
+        unidad = info_producto.get('Unit', 'PIEZA')
+        product_id = int(info_producto.get('ProductID', 0))
+
+        texto_cantidad = self._modelo.crear_texto_cantidad_producto(cantidad_real_decimal, unidad, product_id)
+        self._ventanas.insertar_input_componente('lbl_cantidad_manual', texto_cantidad)
+        return {'cantidad': cantidad_real_decimal, 'cantidad_piezas': cantidad_piezas, 'total': total}
+
+    def _actualizar_lbl_total_manual_moneda(self, total_decimal):
+        total_moneda = self._utilerias.convertir_decimal_a_moneda(total_decimal)
+        self._ventanas.insertar_input_componente('lbl_monto_manual', total_moneda)
+
+    def _obtener_valores_controles(self):
+
+        equivalencia = self._ventanas.obtener_input_componente('tbx_equivalencia_manual')
+        equivalencia_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
+
+        return {
+            'valor_chk_monto': self._ventanas.obtener_input_componente('chk_monto'),
+            'valor_chk_pieza': self._ventanas.obtener_input_componente('chk_pieza'),
+            'cantidad': self._obtener_cantidad_partida_manual(),
+            'equivalencia': equivalencia_decimal
+        }
+
+    def _obtener_cantidad_partida_manual(self):
+        cantidad = self._ventanas.obtener_input_componente('tbx_cantidad_manual')
+
+        if not cantidad or not self._utilerias.es_cantidad(cantidad):
+            return self._utilerias.redondear_valor_cantidad_a_decimal(0)
+
+        cantidad_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(cantidad)
+
+        return self._utilerias.redondear_valor_cantidad_a_decimal(1) if cantidad_decimal <= 0 else cantidad_decimal
+
+    def _determinar_tipo_calculo_partida_manual(self, info_producto):
+
+        # devuelve el tipo de calculo que realizara la funcion calcular_valores_partida
+        # dado que la configuracion de los productos se toma en automatico o segun lo elejido por el usuario
+        # calculo por unidad, calculo por equivalencia, calculo por monto
+        valores_controles = self._obtener_valores_controles()
+
+        clave_unidad = info_producto.get('ClaveUnidad', 'H87')
+        valor_chk_monto = valores_controles['valor_chk_monto']
+        valor_chk_pieza = valores_controles['valor_chk_pieza']
+        cantidad = valores_controles['cantidad']
+        equivalencia = valores_controles['equivalencia']
+
+        if clave_unidad != 'KGM':  # todos las unidades que no sean kilo, es decir paquetes, piezas, litros, etc
+
+            if not self._utilerias.es_numero_entero(cantidad):
+                self._ventanas.insertar_input_componente('tbx_cantidad_manual', 1)
+
+            if valor_chk_pieza == 0:
+                self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'seleccionado')
+
+            if valor_chk_monto == 1:
+                self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
+                self._modelo.mensajes_de_error(4, self._master)
+
+            if equivalencia == 0:
+                return 'Unidad'
+
+            if equivalencia != 0:
+                return 'Equivalencia'
+
+        if clave_unidad == 'KGM':
+
+            if valor_chk_pieza == 1 and equivalencia == 0:
+                self._modelo.mensajes_de_error(3, self._master)
+                self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'deseleccionado')
+                return 'Error'
+
+            if valor_chk_monto == 1 and cantidad == 0:
+                self._modelo.mensajes_de_error(0, self._master)
+                self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
+                return 'Error'
+
+            if equivalencia != 0:
+                if valor_chk_monto == 1 and valor_chk_pieza == 1:
+                    self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
+                    self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'deseleccionado')
+                    return 'Unidad'
+
+            if valor_chk_monto == 0 and valor_chk_pieza == 0:
+                return 'Unidad'
+
+            if valor_chk_pieza == 1:
+                return 'Equivalencia'
+
+            if valor_chk_monto == 1 and cantidad <= 1:
+                self._modelo.mensajes_de_error(2, self._master)
+                return 'Error'
+
+            if valor_chk_monto == 1:
+                return 'Monto'
+        return 'Error'

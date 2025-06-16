@@ -325,7 +325,7 @@ class AgregarPartidaManualmente:
             registros_tabla.append(_producto)
 
         self._ventanas.rellenar_treeview(tabla, self._crear_columnas_tabla(), registros_tabla)
-
+        self._colorear_productos_ofertados()
         if self._ventanas.numero_filas_treeview('tvw_productos') == 1:
             self._ventanas.seleccionar_fila_treeview('tvw_productos', 1)
 
@@ -569,10 +569,22 @@ class AgregarPartidaManualmente:
         total_moneda = self._utilerias.convertir_decimal_a_moneda(total_decimal)
         self._ventanas.insertar_input_componente('lbl_monto', total_moneda)
 
-    def _buscar_ofertas(self):
+    def _buscar_ofertas(self, rellenar_tabla=True):
         if not self._modelo.consulta_productos_ofertados:
-            consulta_procesada = self._modelo.buscar_productos_ofertados_cliente()
-            self._rellenar_tabla_productos(consulta_procesada)
+            self._modelo.buscar_productos_ofertados_cliente()
+        if rellenar_tabla:
+            self._rellenar_tabla_productos(self._modelo.consulta_productos)
+            self._colorear_productos_ofertados()
+
+    def _colorear_productos_ofertados(self):
+        filas = self._ventanas.obtener_filas_treeview('tvw_productos')
+        if not filas:
+            return
+        for fila in filas:
+            valores_fila = self._ventanas.procesar_fila_treeview('tvw_productos',fila)
+            product_id = valores_fila['ProductID']
+            if product_id in self._modelo.products_ids_ofertados:
+                self._ventanas.colorear_fila_seleccionada_treeview('tvw_productos', fila, color='warning')
 
     def _agregar_partida(self):
         if not self._tabla_con_seleccion_valida():

@@ -19,6 +19,7 @@ class ModeloCaptura:
 
         self.consulta_productos = []
         self.consulta_productos_ofertados = []
+        self.products_ids_ofertados = []
 
         self._customer_type_id = self.cliente.customer_type_id
         self.costo_servicio_a_domicilio = self.utilerias.redondear_valor_cantidad_a_decimal(20)
@@ -97,12 +98,12 @@ class ModeloCaptura:
     def buscar_productos_ofertados_cliente(self):
 
         consulta_productos_ofertados = self.base_de_datos.buscar_productos_en_oferta(self._customer_type_id)
-        productos_ids = [producto['ProductID'] for producto in consulta_productos_ofertados]
-
+        productos_ids = [reg['ProductID'] for reg in consulta_productos_ofertados]
         consulta_productos = self.buscar_info_productos_por_ids(productos_ids)
         consulta_procesada = self.agregar_impuestos_productos(consulta_productos)
         self.consulta_productos_ofertados = consulta_productos_ofertados
         self.consulta_productos = consulta_procesada
+        self.products_ids_ofertados = productos_ids
 
         return consulta_procesada
 

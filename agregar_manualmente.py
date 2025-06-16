@@ -46,7 +46,7 @@ class AgregarPartidaManualmente:
                                 {'row': 0, 'column': 0, 'sticky': tk.NSEW}),
 
             'frame_buscar': ('frame_principal', 'Buscar',
-                             {'row': 0, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2,
+                             {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2,
                               'sticky': tk.NSEW}),
 
             'frame_tbx_buscar': ('frame_buscar', None,
@@ -54,7 +54,7 @@ class AgregarPartidaManualmente:
                                   'sticky': tk.NSEW}),
 
             'frame_cbx_buscar': ('frame_buscar', None,
-                                 {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2,
+                                 {'row': 0, 'column': 3, 'columnspan': 2, 'pady': 2, 'padx': 2,
                                   'sticky': tk.NSEW}),
 
             'frame_partida': ('frame_principal', 'Partida:',
@@ -191,6 +191,8 @@ class AgregarPartidaManualmente:
             {"text": "ProductID", "stretch": False, 'width': 0, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 1},
             {"text": "ClaveUnidad", "stretch": False, 'width': 0, 'column_anchor': tk.W,
+             'heading_anchor': tk.W, 'hide': 1},
+            {"text": "Category1", "stretch": False, 'width': 0, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 1},
         ]
 
@@ -583,7 +585,11 @@ class AgregarPartidaManualmente:
         filas = self._ventanas.obtener_filas_treeview('tvw_productos')
         if not filas:
             return
+
         for fila in filas:
+            if not fila:
+                continue
+
             valores_fila = self._ventanas.procesar_fila_treeview('tvw_productos',fila)
             product_id = valores_fila['ProductID']
             producto = str(valores_fila['Descripción'])

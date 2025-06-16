@@ -670,6 +670,9 @@ class ControladorCaptura:
             return
 
         for fila in filas:
+            if not fila:
+                continue
+
             valores_fila = self._ventanas.procesar_fila_treeview('tvw_productos_manual',fila)
             product_id = valores_fila['ProductID']
             producto = str(valores_fila['Descripción'])

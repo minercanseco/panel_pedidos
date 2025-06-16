@@ -56,7 +56,7 @@ class InterfazCaptura:
                              'sticky': tk.NSEW}),
 
             'frame_comentario': ('frame_principal', None,
-                             {'row': 5, 'column': 0, 'columnspan': 2, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}
+                             {'row': 6, 'column': 0, 'columnspan': 2, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}
                              ),
 
             'frame_anuncio': ('frame_principal', nombre_frame_anuncio,

@@ -114,10 +114,12 @@ class ControladorCaptura:
             # eventos captura manual
             'btn_ofertas_manual': lambda: self._buscar_ofertas(rellenar_tabla=True),
             'btn_agregar_manual': lambda: self._agregar_partida_manualmente(),
-            'btn_especificaciones_manual': lambda: self._agregar_especicificaciones(),
-            'tbx_buscar_manual': lambda event: self._buscar_productos_manualmente(),
             'btn_copiar_manual': lambda: self._copiar_productos(),
+            'btn_especificaciones_manual': lambda: self._agregar_especicificaciones(),
+
+            'tbx_buscar_manual': lambda event: self._buscar_productos_manualmente(),
             'tbx_cantidad_manual': lambda event: self._selecionar_producto_tabla_manual(),
+
             'chk_monto': lambda *args: self._selecionar_producto_tabla_manual(),
             'chk_pieza': lambda *args: self._selecionar_producto_tabla_manual(),
             'tvw_productos_manual': (lambda event: self._selecionar_producto_tabla_manual(configurar_forma=True), 'seleccion'),

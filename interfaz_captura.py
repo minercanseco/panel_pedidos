@@ -427,11 +427,11 @@ class InterfazCaptura:
                                       {'row': 3, 'columnspan': 2, 'column': 0, 'padx': 0, 'sticky': tk.NSEW},
                                       None),
 
-            'chk_pieza_manual': ('frame_controles_manual',
+            'chk_pieza': ('frame_controles_manual',
                           {'row': 0, 'column': 3, 'pady': 5, 'padx': 5, 'sticky': tk.W},
                           'Pieza', None),
 
-            'chk_monto_manual': ('frame_controles_manual',
+            'chk_monto': ('frame_controles_manual',
                           {'row': 0, 'column': 5, 'pady': 5, 'padx': 5, 'sticky': tk.W},
                           'Monto', None),
 

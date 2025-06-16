@@ -422,7 +422,7 @@ class InterfazCaptura:
                                None),
 
             'lbl_clave_manual': ('frame_totales_manual',
-                                      {'text': 'CLAVE 000000', 'style': 'inverse-danger', 'anchor': 'center',
+                                      {'text': 'CLAVE:', 'style': 'inverse-danger', 'anchor': 'center',
                                        'font': ('Consolas', tamano_fuente, 'bold')},
                                       {'row': 3, 'columnspan': 2, 'column': 0, 'padx': 0, 'sticky': tk.NSEW},
                                       None),

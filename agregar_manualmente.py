@@ -1,4 +1,5 @@
 import copy
+import re
 import tkinter as tk
 import pyperclip
 
@@ -583,8 +584,35 @@ class AgregarPartidaManualmente:
         for fila in filas:
             valores_fila = self._ventanas.procesar_fila_treeview('tvw_productos',fila)
             product_id = valores_fila['ProductID']
+            producto = str(valores_fila['Descripción'])
+
             if product_id in self._modelo.products_ids_ofertados:
+                producto_actualizado = self._actualizar_nombre_producto_ofertado(producto, product_id)
+                valores_fila['Descripción'] = producto_actualizado
+                self._ventanas.actualizar_fila_treeview_diccionario('tvw_productos', fila, valores_fila)
                 self._ventanas.colorear_fila_seleccionada_treeview('tvw_productos', fila, color='warning')
+
+    def _actualizar_nombre_producto_ofertado(self, producto, product_id):
+        # Buscar el producto ofertado por ID (copiando solo los campos necesarios)
+        for reg in self._modelo.consulta_productos_ofertados:
+            if int(reg['ProductID']) == int(product_id):
+                sale_price_before = self._utilerias.redondear_valor_cantidad_a_decimal(reg['SalePriceBefore'])  # Copia segura
+                tax_type_id = int(reg['TaxTypeID'])  # Copia segura
+                break
+        else:
+            return producto  # No encontrado
+
+        # Calcular totales sin modificar referencias originales
+        cantidad = 1
+        totales_partida = self._utilerias.calcular_totales_partida(
+            precio=sale_price_before,
+            tipo_impuesto_id=tax_type_id,
+            cantidad=cantidad
+        )
+        producto = re.sub(r"\s*\(OFE\).*", "", producto)
+        sale_price_before_with_taxes = totales_partida.get('total', sale_price_before)
+        nombre_producto = f"{producto} (OFE) {sale_price_before_with_taxes}"
+        return nombre_producto
 
     def _agregar_partida(self):
         if not self._tabla_con_seleccion_valida():

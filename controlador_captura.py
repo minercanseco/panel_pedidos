@@ -1,6 +1,6 @@
 import copy
 import datetime
-from itertools import product
+import re
 
 import pyperclip
 import logging
@@ -615,6 +615,7 @@ class ControladorCaptura:
     def _buscar_ofertas(self, rellenar_tabla=True):
         if not self._modelo.consulta_productos_ofertados:
             self._modelo.buscar_productos_ofertados_cliente()
+
         if rellenar_tabla:
             self._rellenar_tabla_productos_manual(self._modelo.consulta_productos)
             self._colorear_productos_ofertados()
@@ -623,11 +624,39 @@ class ControladorCaptura:
         filas = self._ventanas.obtener_filas_treeview('tvw_productos_manual')
         if not filas:
             return
+
         for fila in filas:
             valores_fila = self._ventanas.procesar_fila_treeview('tvw_productos_manual',fila)
             product_id = valores_fila['ProductID']
+            producto = str(valores_fila['Descripción'])
+
             if product_id in self._modelo.products_ids_ofertados:
+                producto_actualizado  = self._actualizar_nombre_producto_ofertado(producto, product_id)
+                valores_fila['Descripción'] = producto_actualizado
+                self._ventanas.actualizar_fila_treeview_diccionario('tvw_productos_manual', fila, valores_fila)
                 self._ventanas.colorear_fila_seleccionada_treeview('tvw_productos_manual', fila, color='warning')
+
+    def _actualizar_nombre_producto_ofertado(self, producto, product_id):
+        # Buscar el producto ofertado por ID (copiando solo los campos necesarios)
+        for reg in self._modelo.consulta_productos_ofertados:
+            if int(reg['ProductID']) == int(product_id):
+                sale_price_before = self._utilerias.redondear_valor_cantidad_a_decimal(reg['SalePriceBefore'])  # Copia segura
+                tax_type_id = int(reg['TaxTypeID'])  # Copia segura
+                break
+        else:
+            return producto  # No encontrado
+
+        # Calcular totales sin modificar referencias originales
+        cantidad = 1
+        totales_partida = self._utilerias.calcular_totales_partida(
+            precio=sale_price_before,
+            tipo_impuesto_id=tax_type_id,
+            cantidad=cantidad
+        )
+        producto = re.sub(r"\s*\(OFE\).*", "", producto)
+        sale_price_before_with_taxes = totales_partida.get('total', sale_price_before)
+        nombre_producto = f"{producto} (OFE) {sale_price_before_with_taxes}"
+        return nombre_producto
 
     def _rellenar_tabla_productos_manual(self, consulta_productos):
         registros_tabla = []
@@ -648,6 +677,7 @@ class ControladorCaptura:
 
         self._ventanas.rellenar_treeview(tabla, self._interfaz.crear_columnas_tabla_manual(), registros_tabla)
         self._colorear_productos_ofertados()
+
         if self._ventanas.numero_filas_treeview('tvw_productos_manual') == 1:
             self._ventanas.seleccionar_fila_treeview('tvw_productos_manual', 1)
 
@@ -908,7 +938,19 @@ class ControladorCaptura:
 
         texto_cantidad = self._modelo.crear_texto_cantidad_producto(cantidad_real_decimal, unidad, product_id)
         self._ventanas.insertar_input_componente('lbl_cantidad_manual', texto_cantidad)
+        self._actualizar_clave_producto_manual()
+
         return {'cantidad': cantidad_real_decimal, 'cantidad_piezas': cantidad_piezas, 'total': total}
+
+    def _actualizar_clave_producto_manual(self):
+        seleccion = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos_manual')
+        if not seleccion:
+            return
+
+        for fila in seleccion:
+            valores_fila = self._ventanas.procesar_fila_treeview('tvw_productos_manual', fila)
+            texto = f"CLAVE:{valores_fila['Código']}"
+            self._ventanas.insertar_input_componente('lbl_clave_manual', texto)
 
     def _actualizar_lbl_total_manual_moneda(self, total_decimal):
         total_moneda = self._utilerias.convertir_decimal_a_moneda(total_decimal)

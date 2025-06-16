@@ -38,7 +38,7 @@ class InterfazCaptura:
                                     'sticky': tk.NSEW}),
 
             'frame_cliente': ('frame_principal', 'Cliente',
-                              {'row': 1, 'column': 0, 'columnspan': 2, 'rowspan': 3, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}),
+                              {'row': 1, 'column': 0, 'columnspan': 2, 'rowspan': 4, 'pady': 5, 'padx': 5, 'sticky': tk.NSEW}),
 
             'frame_totales': ('frame_principal', None,
                               {'row': 0, 'column': 2, 'rowspan': 2, 'columnspan': 5, 'pady': 5, 'padx': 5,
@@ -247,9 +247,9 @@ class InterfazCaptura:
         self.label_imagen.configure(image=self.imagen_publicitaria)
 
     def _ajustar_componentes_forma(self):
-        self.ventanas.ajustar_ancho_componente('tbx_cliente', 110)
-        self.ventanas.ajustar_ancho_componente('tbx_direccion', 110)
-        self.ventanas.ajustar_ancho_componente('tbx_comentario', 110)
+        self.ventanas.ajustar_ancho_componente('tbx_cliente', 120)
+        self.ventanas.ajustar_ancho_componente('tbx_direccion', 120)
+        self.ventanas.ajustar_ancho_componente('tbx_comentario', 120)
 
         self.ventanas.ajustar_componente_en_frame('txt_comentario_documento', 'frame_comentario')
         self.ventanas.ajustar_label_en_frame('lbl_anuncio', 'frame_anuncio')

@@ -47,14 +47,13 @@ class ControladorPanelPedidos:
         self._parametros.nombre_usuario = self._user_name
         self._partidas_pedidos = {}
 
-
         self._crear_tabla_pedidos()
         self._actualizar_pedidos(self._fecha_seleccionada())
         self._crear_barra_herramientas()
 
         self._cargar_eventos()
-        self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Panel pedidos', bloquear=False)
         self._rellenar_operador()
+        self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Panel pedidos', bloquear=False)
 
     def _cargar_eventos(self):
         eventos = {

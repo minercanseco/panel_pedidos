@@ -431,12 +431,13 @@ class InterfazCaptura:
                                       None),
 
             'chk_pieza': ('frame_controles_manual',
-                          {'row': 0, 'column': 3, 'pady': 5, 'padx': 5, 'sticky': tk.W},
-                          'Pieza', '[F10]'),
+                          {'row': 0, 'column': 1, 'pady': 2, 'padx': 2, 'sticky': tk.W},
+                          'Pieza [F10]', None),
 
             'chk_monto': ('frame_controles_manual',
-                          {'row': 0, 'column': 5, 'pady': 5, 'padx': 5, 'sticky': tk.W},
-                          'Monto', '[F11]'),
+                          {'row': 0, 'column': 3, 'pady': 2, 'padx': 2, 'sticky': tk.W},
+                          'Monto [F11]', None),
+
 
             'tvw_productos_manual': ('frame_tabla_manual', self.crear_columnas_tabla_manual(), 5, None),
             'btn_agregar_manual': ('frame_botones_manual', 'success', 'Agregar',

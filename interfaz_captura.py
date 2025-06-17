@@ -38,14 +38,14 @@ class InterfazCaptura:
                                     'sticky': tk.NSEW}),
 
             'frame_cliente': ('frame_principal', 'Datos cliente:',
-                              {'row': 1, 'column': 0, 'columnspan': 2, 'rowspan': 3, 'pady': 5, 'padx': 2, 'sticky': tk.EW}),
+                              {'row': 1, 'column': 0, 'columnspan': 2,  'pady': 5, 'padx': 2, 'sticky': tk.NSEW}),
 
             'frame_totales': ('frame_principal', None,
-                              {'row': 0, 'column': 2, 'rowspan': 2, 'columnspan': 5, 'pady': 2, 'padx': 2,
+                              {'row': 0, 'column': 2,  'columnspan': 5, 'pady': 2, 'padx': 2,
                                'sticky': tk.NE}),
 
             'frame_captura': ('frame_principal', 'Captura',
-                              {'row': 4, 'columnspan': 2, 'column': 0, 'pady': 0, 'padx': 0,
+                              {'row': 2, 'columnspan': 2, 'column': 0, 'pady': 0, 'padx': 0,
                                'sticky': tk.NSEW}),
 
             'frame_clave': ('frame_captura', None,
@@ -56,13 +56,15 @@ class InterfazCaptura:
                              'sticky': tk.NSEW}),
 
             'frame_comentario': ('frame_principal', None,
-                             {'row': 5, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}
+                             {'row': 4, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}
                              ),
 
             'frame_anuncio': ('frame_principal', nombre_frame_anuncio,
-                              {'row': 2, 'rowspan': 4, 'column': 2, 'columnspan': 4, 'pady': 2, 'padx': 2,
+                              {'row': 1, 'rowspan': 4, 'column': 2, 'columnspan': 4, 'pady': 2, 'padx': 2,
                                'sticky': tk.NSEW}),
         }
+
+
 
         if self.modulo_id not in [1687]:
             frames.update({
@@ -78,12 +80,12 @@ class InterfazCaptura:
         filas_tabla_producto = 15 if ancho <= 1367 else 20
 
         componentes = {
-            'tbx_cliente': ('frame_cliente', {'row': 0, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.NW},
-                            'Cliente:', None),
-            'tbx_direccion': ('frame_cliente', {'row': 1, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.NW},
-                              'Dirección:', None),
-            'tbx_comentario': ('frame_cliente', {'row': 2, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.NW},
-                               'Comentario:', None),
+            'tbx_cliente': ('frame_cliente', {'row': 0, 'column': 1, 'pady': 2, 'padx': 0, 'sticky': tk.NSEW},
+                            ' ', None),
+            'tbx_direccion': ('frame_cliente', {'row': 1, 'column': 1, 'pady': 2, 'padx': 0, 'sticky': tk.NSEW},
+                              ' ', None),
+            'tbx_comentario': ('frame_cliente', {'row': 2, 'column': 1, 'pady': 2, 'padx': 0, 'sticky': tk.NSEW},
+                               ' ', None),
             'tbx_clave': ('frame_clave', None, None, None),
             'tvw_productos': ('frame_tabla', self.crear_columnas_tabla(), filas_tabla_producto, None),
             'txt_comentario_documento': ('frame_comentario', None,'Comentarios:', None),
@@ -249,9 +251,10 @@ class InterfazCaptura:
         self.label_imagen.configure(image=self.imagen_publicitaria)
 
     def _ajustar_componentes_forma(self):
-        self.ventanas.ajustar_ancho_componente('tbx_cliente', 120)
-        self.ventanas.ajustar_ancho_componente('tbx_direccion', 120)
-        self.ventanas.ajustar_ancho_componente('tbx_comentario', 120)
+        self.ventanas.ajustar_componente_en_frame('tbx_cliente', 'frame_cliente')
+        #self.ventanas.ajustar_ancho_componente('tbx_cliente', 120)
+        #self.ventanas.ajustar_ancho_componente('tbx_direccion', 120)
+        #self.ventanas.ajustar_ancho_componente('tbx_comentario', 120)
 
         self.ventanas.ajustar_componente_en_frame('txt_comentario_documento', 'frame_comentario')
         self.ventanas.ajustar_label_en_frame('lbl_anuncio', 'frame_anuncio')

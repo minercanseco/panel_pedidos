@@ -22,12 +22,13 @@ if __name__ == '__main__':
     ventana_login = ttk.Window()
     parametros_login = ParametrosContpaqi()
 
-    actualizador = ActualizadorDePaquetes('panel_pedidos_v49')
+    actualizador = ActualizadorDePaquetes('panel_pedidos_v53')
+    version_actualizada = actualizador.verificar_version_actualizada()
 
-    if actualizador.actualizar_paquete():
-        actualizador.actualizar_con_interfaz(ventana_login, on_terminado=ventana_login.destroy)
+    if version_actualizada:
+        actualizador.actualizar_con_interfaz(version_actualizada, ventana_login, on_terminado=ventana_login.destroy)
 
-    if not actualizador.actualizar_paquete():
+    if not version_actualizada:
         # valida si es en mac o windows
         if platform.system() == 'Darwin':
             # parametros de prueba

@@ -22,7 +22,7 @@ if __name__ == '__main__':
     parametros_login = ParametrosContpaqi()
 
     ventanas = Ventanas(ventana_login)
-    actualizar = ActualizadorDePaquetes('panel_pedidos_v46')
+    actualizar = ActualizadorDePaquetes('panel_pedidos_v47')
     if actualizar:
         ventanas.mostrar_mensaje('Se actualizará el paquete por favor espere.')
         ventana_login.destroy()

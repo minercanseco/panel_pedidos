@@ -8,13 +8,13 @@ from editar_partida_produccion import EditarPartidaProduccion
 
 
 class EditarPedido:
-    def __init__(self, master, documento, base_de_datos, utilerias, parametros, valores_fila):
+    def __init__(self, master, base_de_datos, utilerias, parametros, valores_fila):
         self._master = master
         self._base_de_datos = base_de_datos
         self._utilerias = utilerias
         self._ventanas = Ventanas(self._master)
         self._parametros = parametros
-        self._documento = documento
+
         self._valores_fila = valores_fila
         self._user_id = self._parametros.id_usuario
         self._user_name = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
@@ -371,7 +371,7 @@ class EditarPedido:
 
         numero_filas = self._ventanas.numero_filas_treeview('tvw_detalle')
         self._ventanas.insertar_input_componente('lbl_partidas', numero_filas)
-        self._documento.total = total
+
 
     def _agregar_partidas_adicionales_tabla_base_datos(self, order_document_id):
         # como seleccionar al pedido al cual agrega las partidas

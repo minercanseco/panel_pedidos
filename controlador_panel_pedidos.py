@@ -998,7 +998,7 @@ class ControladorPanelPedidos:
 
             if status_id == 3:
                 ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-                instancia = EditarPedido(ventana, self._modelo.documento, self._base_de_datos, self._utilerias, self._parametros, fila)
+                instancia = EditarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros, fila)
                 ventana.wait_window()
 
             if status_id > 3:

@@ -251,8 +251,9 @@ class GeneradorTicketCliente:
                 equivalencia_especial = self._utilerias.equivalencias_productos_especiales(producto['ProductID'])
                 if equivalencia_especial:
                     unidad = equivalencia_especial[0].upper()
-                    cantidad_especial = equivalencia_especial[1]
-                    total_producto = cantidad_especial * precio
+                    cantidad = self._utilerias.redondear_valor_cantidad_a_decimal(producto['cantidad'])
+                    cantidad_especial = self._utilerias.redondear_valor_cantidad_a_decimal(equivalencia_especial[1])
+                    total_producto = cantidad_especial * precio if cantidad == cantidad_especial else cantidad * precio
                     cantidad = piezas
                 else:
 
@@ -409,10 +410,10 @@ class GeneradorTicketCliente:
                 equivalencia_especial = self._utilerias.equivalencias_productos_especiales(producto['ProductID'])
                 if equivalencia_especial:
                     unidad = equivalencia_especial[0].upper()
-                    cantidad_especial = equivalencia_especial[1]
-                    total_producto = cantidad_especial * precio
+                    cantidad = self._utilerias.redondear_valor_cantidad_a_decimal(producto['cantidad'])
+                    cantidad_especial = self._utilerias.redondear_valor_cantidad_a_decimal(equivalencia_especial[1])
+                    total_producto = cantidad_especial * precio if cantidad == cantidad_especial else cantidad * precio
                     cantidad = piezas
-
                 else:
                     precio_pieza = precio * producto['Equivalencia']
                     cantidad = producto['CayalPiece']

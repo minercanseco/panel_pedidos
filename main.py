@@ -22,7 +22,7 @@ if __name__ == '__main__':
     ventana_login = ttk.Window()
     parametros_login = ParametrosContpaqi()
 
-    actualizador = ActualizadorDePaquetes('panel_pedidos_v48')
+    actualizador = ActualizadorDePaquetes('panel_pedidos_v49')
 
     if actualizador.actualizar_paquete():
         actualizador.actualizar_con_interfaz(ventana_login, on_terminado=ventana_login.destroy)

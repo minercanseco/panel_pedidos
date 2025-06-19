@@ -5,6 +5,7 @@ from modelo_panel_pedidos import ModeloPanelPedidos
 from controlador_panel_pedidos import ControladorPanelPedidos
 from cayal.actualizador_de_paquetes import ActualizadorDePaquetes
 from cayal.login import Login
+from cayal.ventanas import Ventanas
 
 def si_acceso_exitoso(parametros=None, master=None):
     #xmaster.grab_release()
@@ -20,7 +21,11 @@ if __name__ == '__main__':
     ventana_login = ttk.Window()
     parametros_login = ParametrosContpaqi()
 
+    ventanas = Ventanas(ventana_login)
     actualizar = ActualizadorDePaquetes('panel_pedidos_v46')
+    if actualizar:
+        ventanas.mostrar_mensaje('Se actualizará el paquete por favor espere.')
+
     if not actualizar.actualizar_paquete():
         # ------------------------------------------
         # parametros de prueba

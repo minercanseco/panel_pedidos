@@ -25,6 +25,7 @@ if __name__ == '__main__':
     actualizar = ActualizadorDePaquetes('panel_pedidos_v46')
     if actualizar:
         ventanas.mostrar_mensaje('Se actualizará el paquete por favor espere.')
+        ventana_login.destroy()
 
     if not actualizar.actualizar_paquete():
         # ------------------------------------------

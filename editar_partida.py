@@ -426,6 +426,13 @@ class EditarPartida:
 
             # respalda la partida extra para tratamiento despues del cierre del documento
             self._modelo.agregar_partida_items_documento_extra(partida_original, 'editar', comentario, uuid_partida)
+
+            if self._documento.total < 200:
+                self._modelo.agregar_servicio_a_domicilio(solo_agregar=True)
+
+            if self._documento.total >= 200:
+                self._modelo.remover_servicio_a_domicilio()
+
             self._master.destroy()
 
     def _procesar_producto(self, event=None):

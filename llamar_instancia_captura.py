@@ -5,7 +5,6 @@ from cayal.ventanas import Ventanas
 from controlador_captura import ControladorCaptura
 from interfaz_captura import InterfazCaptura
 from modelo_captura import ModeloCaptura
-from configurar_pedido import ConfigurarPedido
 
 
 class LlamarInstanciaCaptura:
@@ -230,6 +229,7 @@ class LlamarInstanciaCaptura:
     def _insertar_partidas_documento(self, document_id):
 
         if self._parametros_contpaqi.id_modulo == 1687:
+
             for partida in self._documento.items:
                 # Crear una copia profunda para evitar referencias compartidas
                 partida_copia = copy.deepcopy(partida)

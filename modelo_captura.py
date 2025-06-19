@@ -233,15 +233,33 @@ class ModeloCaptura:
 
     def remover_servicio_a_domicilio(self):
 
-        if self.documento.document_id > 0:
-            return
+        #if self.documento.document_id > 0:
+        #    return
 
         self.servicio_a_domicilio_agregado = False
         self.remover_partida_items_documento(5606)
         self.remover_product_id_tabla(5606)
         self.actualizar_totales_documento(self.partida_servicio_domicilio, decrementar=True)
 
-    def agregar_servicio_a_domicilio(self, partida_eliminada=None):
+    def agregar_servicio_a_domicilio(self, partida_eliminada=None, solo_agregar=None):
+
+        def insertar_partida_servicio_a_domicilio():
+
+            info_producto = self.buscar_info_productos_por_ids(5606, no_en_venta=True)
+
+            if info_producto:
+                info_producto = info_producto[0]
+
+                info_producto['SalePrice'] = delivery_cost
+
+                partida = self.utilerias.crear_partida(info_producto, cantidad=1)
+
+                self.partida_servicio_domicilio = partida
+                partida['Comments'] = ''
+                self.agregar_partida_tabla(partida, document_item_id=0, tipo_captura=2, unidad_cayal=1, monto_cayal=0)
+
+                self.servicio_a_domicilio_agregado = True
+
         if self._module_id != 1687:
             return
 
@@ -252,6 +270,8 @@ class ModeloCaptura:
             return
 
         if self.documento.document_id > 0 and not partida_eliminada:
+            if solo_agregar:
+                insertar_partida_servicio_a_domicilio()
             return
 
         if self._module_id == 1687:
@@ -264,20 +284,7 @@ class ModeloCaptura:
         self.costo_servicio_a_domicilio = self.utilerias.redondear_valor_cantidad_a_decimal(delivery_cost_iva)
         delivery_cost = self.utilerias.calcular_monto_sin_iva(delivery_cost_iva)
 
-        info_producto = self.buscar_info_productos_por_ids(5606, no_en_venta=True)
-
-        if info_producto:
-            info_producto = info_producto[0]
-
-            info_producto['SalePrice'] = delivery_cost
-
-            partida = self.utilerias.crear_partida(info_producto, cantidad=1)
-
-            self.partida_servicio_domicilio = partida
-            partida['Comments'] = ''
-            self.agregar_partida_tabla(partida, document_item_id=0, tipo_captura=2, unidad_cayal=1, monto_cayal=0)
-
-            self.servicio_a_domicilio_agregado = True
+        insertar_partida_servicio_a_domicilio()
 
     def remover_product_id_tabla(self, product_id):
         filas = self._ventanas.obtener_filas_treeview('tvw_productos')

@@ -998,7 +998,7 @@ class ControladorPanelPedidos:
 
             if status_id == 3:
                 ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-                instancia = EditarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros, fila)
+                instancia = EditarPedido(ventana, self._modelo.documento, self._base_de_datos, self._utilerias, self._parametros, fila)
                 ventana.wait_window()
 
             if status_id > 3:
@@ -1640,7 +1640,7 @@ class ControladorPanelPedidos:
             comentario = ", ".join(comentarios)
             return comentario
 
-    def _actualizar_totales_pedido(self, order_document_id):
+    def _actualizar_totales_pedido(self, order_document_id, sin_servicio_domicilio=True):
         consulta_partidas = self._modelo.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
             order_document_id, partidas_producidas=True)
 
@@ -1656,7 +1656,7 @@ class ControladorPanelPedidos:
             total = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(precio_con_impuestos * cantidad_decimal)
             product_id = producto['ProductID']
 
-            if product_id == 5606:
+            if product_id == 5606 and sin_servicio_domicilio:
                 continue
 
             subtotal += (precio * cantidad_decimal)

@@ -413,22 +413,29 @@ class EditarPartida:
                 # actualiza los totales de la nota para posteriores modificaciones
                 self._modelo.actualizar_totales_documento()
 
-                # si aplica remueve el servicio a domicilio
-                if self._module_id == 1687 and self._modelo.servicio_a_domicilio_agregado == True:
-                    if self._documento.total - self._modelo.costo_servicio_a_domicilio >= 200:
-                        self._modelo.remover_servicio_a_domicilio()
-
             # respalda la partida extra para tratamiento despues del cierre del documento
             self._modelo.agregar_partida_items_documento_extra(partida_original, 'editar', comentario, uuid_partida)
 
-            # segun sea el caso elimina o agrega el servicio a domicilio
-            if self._documento.total < 200:
-                self._modelo.agregar_servicio_a_domicilio()
+        # solo aplica para el modulo de perdidos
+        if self._module_id == 1687:
 
-            if self._documento.total >= 200:
-                self._modelo.remover_servicio_a_domicilio()
+            # significa que la nota hay que revalorizar el total menos el servicio a domicilio
+            if self._modelo.servicio_a_domicilio_agregado:
+                total_documento = self._documento.total - self._modelo.costo_servicio_a_domicilio
 
-            self._master.destroy()
+                if total_documento  >= 200:
+                    self._modelo.remover_servicio_a_domicilio()
+
+                if total_documento < 200:
+                    self._modelo.agregar_servicio_a_domicilio()
+            else:
+                if self._documento.total < 200:
+                    self._modelo.agregar_servicio_a_domicilio()
+
+                if self._documento.total >= 200:
+                    self._modelo.remover_servicio_a_domicilio()
+
+        self._master.destroy()
 
     def _procesar_producto(self, event=None):
 

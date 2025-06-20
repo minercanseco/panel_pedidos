@@ -416,24 +416,18 @@ class EditarPartida:
             # respalda la partida extra para tratamiento despues del cierre del documento
             self._modelo.agregar_partida_items_documento_extra(partida_original, 'editar', comentario, uuid_partida)
 
-        # solo aplica para el modulo de perdidos
+        # Solo aplica para el módulo de pedidos
         if self._module_id == 1687:
+            total_documento = self._documento.total
 
-            # significa que la nota hay que revalorizar el total menos el servicio a domicilio
             if self._modelo.servicio_a_domicilio_agregado:
-                total_documento = self._documento.total - self._modelo.costo_servicio_a_domicilio
+                total_sin_servicio = total_documento - self._modelo.costo_servicio_a_domicilio
 
-                if total_documento  >= 200:
+                if total_sin_servicio >= 200:
                     self._modelo.remover_servicio_a_domicilio()
-
+            else:
                 if total_documento < 200:
                     self._modelo.agregar_servicio_a_domicilio()
-            else:
-                if self._documento.total < 200:
-                    self._modelo.agregar_servicio_a_domicilio()
-
-                if self._documento.total >= 200:
-                    self._modelo.remover_servicio_a_domicilio()
 
         self._master.destroy()
 

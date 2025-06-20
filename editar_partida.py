@@ -421,6 +421,7 @@ class EditarPartida:
             # respalda la partida extra para tratamiento despues del cierre del documento
             self._modelo.agregar_partida_items_documento_extra(partida_original, 'editar', comentario, uuid_partida)
 
+            # segun sea el caso elimina o agrega el servicio a domicilio
             if self._documento.total < 200:
                 self._modelo.agregar_servicio_a_domicilio(solo_agregar=True)
 

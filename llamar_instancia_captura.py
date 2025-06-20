@@ -268,11 +268,10 @@ class LlamarInstanciaCaptura:
     def _insertar_partidas_extra_documento(self, document_id):
 
         def _buscar_document_item_id(uuid_partida):
-            return [
-                partida['DocumentItemID']
-                for partida in self._documento.items
-                if partida['uuid'] == uuid_partida
-            ][0]
+            for partida in self._documento.items:
+                if partida.get('uuid') == uuid_partida:
+                    return int(partida.get('DocumentItemID', 0))
+            return 0  # o puedes lanzar una excepción controlada si prefieres
 
 
         if not self._documento.items_extra:

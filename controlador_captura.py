@@ -591,14 +591,18 @@ class ControladorCaptura:
                 comentario = f'ELIMINADA POR {self._user_name}'
                 self._modelo.agregar_partida_items_documento_extra(partida_items, 'eliminar', comentario, identificador)
 
-                # si aplica agrega servicio a domicilio
-                if self.documento.total < 201:
-                    self._modelo.agregar_servicio_a_domicilio(partida_eliminada=True)
+                # Solo aplica para el módulo 1687 pedidos
+                if self._module_id == 1687:
+                    # Si el total es menor a 200 y no se ha agregado aún, lo agrega
+                    if self.documento.total < 200 and not self.servicio_a_domicilio_agregado:
+                        self._modelo.agregar_servicio_a_domicilio()
+                        self.servicio_a_domicilio_agregado = True
 
-                # si aplica remueve el servicio a domicilio
-                if self._module_id == 1687 and self.servicio_a_domicilio_agregado == True:
-                    if self.documento.total - self._costo_servicio_a_domicilio >= 200:
+                    # Si ya se agregó pero ahora el total (sin el servicio) es >= 200, lo remueve
+                    elif self.servicio_a_domicilio_agregado and (
+                            self.documento.total - self._costo_servicio_a_domicilio) >= 200:
                         self._modelo.remover_servicio_a_domicilio()
+                        self.servicio_a_domicilio_agregado = False
 
     def _editar_partida(self):
         fila = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos')

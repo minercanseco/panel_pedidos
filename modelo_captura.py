@@ -222,18 +222,17 @@ class ModeloCaptura:
             self._ventanas.insertar_input_componente('lbl_restante', disponible_moneda)
 
     def remover_servicio_a_domicilio(self):
-
-        #if self.documento.document_id > 0:
-        #    return
-
         self.servicio_a_domicilio_agregado = False
         self.remover_partida_items_documento(5606)
         self.remover_product_id_tabla(5606)
         self.actualizar_totales_documento()
 
-    def agregar_servicio_a_domicilio(self, partida_eliminada=None, solo_agregar=None):
+    def agregar_servicio_a_domicilio(self):
 
         def insertar_partida_servicio_a_domicilio():
+            delivery_cost_iva = self.base_de_datos.buscar_costo_servicio_domicilio(self.documento.address_detail_id)
+            self.costo_servicio_a_domicilio = self.utilerias.redondear_valor_cantidad_a_decimal(delivery_cost_iva)
+            delivery_cost = self.utilerias.calcular_monto_sin_iva(delivery_cost_iva)
 
             info_producto = self.buscar_info_productos_por_ids(5606, no_en_venta=True)
 
@@ -250,30 +249,27 @@ class ModeloCaptura:
 
                 self.servicio_a_domicilio_agregado = True
 
+        # servicio a domicilio solo aplica para pedidos
         if self._module_id != 1687:
             return
 
+        # servicio a domicilio no aplica para anexos o cambios 2 y 3 solo para pedidos 1
+        if self._module_id == 1687:
+            parametros_pedido = self.documento.order_parameters
+            order_type_id = int(parametros_pedido.get('OrderTypeID', 1))
+
+            # anexos o cambios 2 y 3
+            if order_type_id in (2,3):
+                return
+
+        # no se debe agregar mas de una partida de servicio a domicilio
         existe_servicio_a_domicilio = [producto for producto in self.documento.items
                                        if producto['ProductID'] == 5606]
 
         if existe_servicio_a_domicilio:
             return
 
-        if self.documento.document_id > 0 and not partida_eliminada:
-            if solo_agregar:
-                insertar_partida_servicio_a_domicilio()
-            return
-
-        if self._module_id == 1687:
-            parametros_pedido = self.documento.order_parameters
-            order_type_id = parametros_pedido.get('OrderTypeID', 1)
-            if order_type_id in (2,3):
-                return
-
-        delivery_cost_iva = self.base_de_datos.buscar_costo_servicio_domicilio(self.documento.address_detail_id)
-        self.costo_servicio_a_domicilio = self.utilerias.redondear_valor_cantidad_a_decimal(delivery_cost_iva)
-        delivery_cost = self.utilerias.calcular_monto_sin_iva(delivery_cost_iva)
-
+        # insertamos el servicio a domicilio
         insertar_partida_servicio_a_domicilio()
 
     def remover_product_id_tabla(self, product_id):

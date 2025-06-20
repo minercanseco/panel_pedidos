@@ -378,7 +378,8 @@ class ControladorCaptura:
 
         # rellena la informacion relativa a las partidas
         partidas = self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(self.documento.document_id,
-                                                                               partidas_producidas=True)
+                                                                           partidas_producidas=True)
+
         for partida in partidas:
             # Crear una copia profunda para evitar referencias pegadas
             partida_copia = copy.deepcopy(partida)
@@ -452,7 +453,6 @@ class ControladorCaptura:
                 self._ventanas.limpiar_componentes('txt_comentario_manual')
                 self._ventanas.limpiar_componentes('tbx_buscar_manual')
                 self._ventanas.enfocar_componente('tbx_buscar_manual')
-
 
             finally:
                 self._agregando_producto = False

@@ -114,6 +114,7 @@ class ModeloCaptura:
         if not self._agregando_partida:
             try:
                 self._agregando_partida = True
+
                 cantidad = self.utilerias.redondear_valor_cantidad_a_decimal(partida['cantidad'])
                 comments = partida.get('Comments', '')
                 producto = partida.get('ProductName', '')
@@ -168,6 +169,13 @@ class ModeloCaptura:
                                  comments,
                                  partida['CreatedBy']
                                  )
+
+                if int(partida['ProductID']) == 5606:
+                    if self.servicio_a_domicilio_agregado:
+                        return
+                    else:
+                        self.servicio_a_domicilio_agregado = True
+
                 # agregar tipo de captura
                 tabla_captura = self._ventanas.componentes_forma['tvw_productos']
                 self._ventanas.insertar_fila_treeview(tabla_captura, partida_tabla, al_principio=True)
@@ -181,6 +189,7 @@ class ModeloCaptura:
 
             finally:
                 self._agregando_partida = False
+
 
     def agregar_partida_items_documento(self, partida):
         self.documento.items.append(partida)
@@ -264,7 +273,7 @@ class ModeloCaptura:
 
         # no se debe agregar mas de una partida de servicio a domicilio
         existe_servicio_a_domicilio = [producto for producto in self.documento.items
-                                       if producto['ProductID'] == 5606]
+                                       if int(producto['ProductID']) == 5606]
 
         if existe_servicio_a_domicilio:
             return

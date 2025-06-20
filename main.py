@@ -26,7 +26,7 @@ if __name__ == '__main__':
     version_actualizada = actualizador.verificar_version_actualizada()
 
     if version_actualizada:
-        actualizador.actualizar_con_interfaz(ventana_login, version_actualizada)
+        actualizador.actualizar_con_interfaz(ventana_login)
 
     if not version_actualizada:
         # valida si es en mac o windows

@@ -366,7 +366,6 @@ class EditarPartida:
 
             # Crear partida original antes de cualquier modificación y hacer una copia profunda
             partida_original = self._utilerias.crear_partida(self._info_producto, cantidad_original)
-            partida_original_copia = copy.deepcopy(partida_original)  # Copia profunda
 
             for partida in self._documento.items:
                 uuid_partida_items = str(partida['uuid'])
@@ -381,6 +380,7 @@ class EditarPartida:
                     partida['ItemProductionStatusModified'] = 2 if document_item_id > 0 else 0
                     partida['cantidad'] = cantidad_nueva
                     partida['subtotal'] = partida_actualizada['subtotal']
+                    partida['total'] = partida_actualizada['total']
                     partida['CayalPiece'] = piezas #self._ventanas.obtener_input_componente('chk_pieza')
                     partida['monto_cayal'] = self._ventanas.obtener_input_componente('chk_monto')
                     partida['Comments'] = self._ventanas.obtener_input_componente('txt_comentario')
@@ -410,14 +410,8 @@ class EditarPartida:
                 comentario  = self._ventanas.obtener_input_componente('txt_comentario')
                 comentario = f'EDITADO POR {self._user_name}: {comentario}'
             else:
-                # Actualizar los totales del documento en función de la copia de partida original
-                self._modelo.actualizar_totales_documento(partida_original_copia, decrementar=True)
-
-                if cantidad_original < cantidad_nueva:
-                    self._modelo.actualizar_totales_documento(partida_actualizada, decrementar=False)
-
-                if cantidad_original > cantidad_nueva:
-                    self._modelo.actualizar_totales_documento(partida_actualizada, decrementar=False)
+                # actualiza los totales de la nota para posteriores modificaciones
+                self._modelo.actualizar_totales_documento()
 
                 # si aplica remueve el servicio a domicilio
                 if self._module_id == 1687 and self._modelo.servicio_a_domicilio_agregado == True:

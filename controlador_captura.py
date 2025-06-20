@@ -584,7 +584,7 @@ class ControladorCaptura:
 
                 # asignar los nuevos items sin el item que ha sido removido
                 self.documento.items = nuevas_partidas
-                self._modelo.actualizar_totales_documento(partida_items, decrementar=True)
+                self._modelo.actualizar_totales_documento()
                 # ----------------------------------------------------------------------------------
 
                 # respalda la partida extra para tratamiento despues del cierre del documento

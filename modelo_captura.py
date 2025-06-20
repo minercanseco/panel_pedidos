@@ -171,8 +171,8 @@ class ModeloCaptura:
                 # agregar tipo de captura
                 tabla_captura = self._ventanas.componentes_forma['tvw_productos']
                 self._ventanas.insertar_fila_treeview(tabla_captura, partida_tabla, al_principio=True)
-                self.actualizar_totales_documento(partida)
                 self.agregar_partida_items_documento(partida)
+                self.actualizar_totales_documento()
 
                 # si aplica remueve el servicio a domicilio
                 if self._module_id == 1687 and self.servicio_a_domicilio_agregado == True:
@@ -185,33 +185,23 @@ class ModeloCaptura:
     def agregar_partida_items_documento(self, partida):
         self.documento.items.append(partida)
 
-    def actualizar_totales_documento(self, partida, decrementar=None):
+    def actualizar_totales_documento(self):
 
-        subtotal_partida = partida.get('subtotal', 0)
-        subtotal_documento = self.utilerias.redondear_valor_cantidad_a_decimal(self.documento.subtotal)
+        impuestos_acumulado = 0
+        sub_total_acumulado = 0
+        total_acumulado = 0
 
-        total_partida = partida.get('total', 0)
-        total_documento = self.utilerias.redondear_valor_cantidad_a_decimal(self.documento.total)
+        for producto in self.documento.items:
+            impuestos_acumulado += producto.get('impuestos',0)
+            sub_total_acumulado += producto.get('subtotal', 0)
+            total_acumulado += producto.get('total', 0)
 
-        total_impuestos_partida = partida.get('impuestos', 0)
-        total_impuestos_documento = self.utilerias.redondear_valor_cantidad_a_decimal(self.documento.total_tax)
-
-        if decrementar:
-            subtotal_documento -= subtotal_partida
-            total_documento -= total_partida
-            total_impuestos_documento -= total_impuestos_partida
-
-        if not decrementar:
-            subtotal_documento += subtotal_partida
-            total_documento += total_partida
-            total_impuestos_documento += total_impuestos_partida
-
-        self.documento.total = total_documento
-        total_documento_moneda = self.utilerias.convertir_decimal_a_moneda(total_documento)
+        self.documento.total = total_acumulado
+        total_documento_moneda = self.utilerias.convertir_decimal_a_moneda(total_acumulado)
         self._ventanas.insertar_input_componente('lbl_total', total_documento_moneda)
 
-        self.documento.total_tax = total_impuestos_documento
-        self.documento.subtotal = subtotal_documento
+        self.documento.total_tax = impuestos_acumulado
+        self.documento.subtotal = sub_total_acumulado
 
         self._ventanas.insertar_input_componente('lbl_articulos',
                                                  self._ventanas.numero_filas_treeview('tvw_productos'))
@@ -220,14 +210,14 @@ class ModeloCaptura:
             debe = self.cliente.debt
             debe = self.utilerias.redondear_valor_cantidad_a_decimal(debe)
 
-            debe += total_documento
+            debe += total_acumulado
             debe_moneda = self.utilerias.convertir_decimal_a_moneda(debe)
             self._ventanas.insertar_input_componente('lbl_debe', debe_moneda)
 
             disponible = self.cliente.remaining_credit
             disponible = self.utilerias.redondear_valor_cantidad_a_decimal(disponible)
 
-            disponible = disponible - total_documento
+            disponible = disponible - total_acumulado
             disponible_moneda = self.utilerias.convertir_decimal_a_moneda(disponible)
             self._ventanas.insertar_input_componente('lbl_restante', disponible_moneda)
 
@@ -239,7 +229,7 @@ class ModeloCaptura:
         self.servicio_a_domicilio_agregado = False
         self.remover_partida_items_documento(5606)
         self.remover_product_id_tabla(5606)
-        self.actualizar_totales_documento(self.partida_servicio_domicilio, decrementar=True)
+        self.actualizar_totales_documento()
 
     def agregar_servicio_a_domicilio(self, partida_eliminada=None, solo_agregar=None):
 

@@ -423,7 +423,7 @@ class EditarPartida:
 
             # segun sea el caso elimina o agrega el servicio a domicilio
             if self._documento.total < 200:
-                self._modelo.agregar_servicio_a_domicilio(solo_agregar=True)
+                self._modelo.agregar_servicio_a_domicilio()
 
             if self._documento.total >= 200:
                 self._modelo.remover_servicio_a_domicilio()

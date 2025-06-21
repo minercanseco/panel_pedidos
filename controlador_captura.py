@@ -61,7 +61,7 @@ class ControladorCaptura:
         self._rellenar_desde_base_de_datos()
 
         self._master.lift()  # Traer al frente
-        #self._master.focus_force()  # Forzar el foco
+        self._master.focus_force()  # Forzar el foco
 
         self._configurar_pedido()
         self._ventanas.enfocar_componente('tbx_clave')

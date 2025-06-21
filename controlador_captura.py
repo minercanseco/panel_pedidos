@@ -897,6 +897,7 @@ class ControladorCaptura:
         fila = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos_manual')
 
         if len(fila) > 1 or len(fila) < 1:
+            print('no hay seleccion valida')
             return False
 
         return fila

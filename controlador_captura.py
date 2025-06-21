@@ -60,8 +60,8 @@ class ControladorCaptura:
 
         self._rellenar_desde_base_de_datos()
 
-        self._master.lift()  # Traer al frente
-        self._master.focus_force()  # Forzar el foco
+        #self._master.lift()  # Traer al frente
+        #self._master.focus_force()  # Forzar el foco
 
         self._configurar_pedido()
         self._ventanas.enfocar_componente('tbx_clave')
@@ -83,8 +83,8 @@ class ControladorCaptura:
         self._rellenar_componentes_manual()
         self._buscar_ofertas(rellenar_tabla=False)
 
-        self._master.lift()  # Traer al frente
-        self._master.focus_force()  # Forzar el foco
+        #self._master.lift()  # Traer al frente
+        #self._master.focus_force()  # Forzar el foco
         self._master.grab_release()
 
     def _es_documento_bloqueado(self):

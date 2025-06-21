@@ -83,6 +83,9 @@ class ControladorCaptura:
         self._rellenar_componentes_manual()
         self._buscar_ofertas(rellenar_tabla=False)
 
+        self._master.lift()  # Traer al frente
+        self._master.focus_force()  # Forzar el foco
+
     def _es_documento_bloqueado(self):
         status_id = 0
 

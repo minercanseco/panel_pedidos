@@ -72,7 +72,7 @@ class CapturadoVsProducido:
                                   ' ', None),
             'tvw_producido': ('frame_tabla2', self._crear_columnas_tabla(), 6, 'danger'),
 
-            'tvw_editado': ('frame_tabla2', self._crear_columnas_tabla(), 6, 'danger'),
+            'tvw_editado': ('frame_tabla3', self._crear_columnas_tabla(), 6, 'danger'),
         }
         self._ventanas.crear_componentes(componentes)
 
@@ -115,14 +115,14 @@ class CapturadoVsProducido:
 
         self._ventanas.rellenar_treeview(_treeview='tvw_producido',
                                          columnas=self._crear_columnas_tabla(),
-                                         consulta=self._procesar_partidas(self._partidas_capturadas),
+                                         consulta=self._procesar_partidas(self._partidas_producidas),
                                          variar_color_filas=False,
                                          valor_barra_desplazamiento=6
                                          )
 
         self._ventanas.rellenar_treeview(_treeview='tvw_editado',
                                          columnas=self._crear_columnas_tabla(),
-                                         consulta=self._procesar_partidas(self._partidas_capturadas),
+                                         consulta=self._procesar_partidas(self._partidas_editadas),
                                          variar_color_filas=False,
                                          valor_barra_desplazamiento=6
                                          )

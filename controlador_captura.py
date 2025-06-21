@@ -759,7 +759,7 @@ class ControladorCaptura:
         self._ventanas.rellenar_treeview(tabla, self._interfaz.crear_columnas_tabla_manual(), registros_tabla)
         self._colorear_productos_ofertados()
 
-        if registros_tabla:
+        if self._ventanas.numero_filas_treeview('tvw_productos_manual') == 1:
             self._ventanas.seleccionar_fila_treeview('tvw_productos_manual', 1)
 
     def _agregar_especicificaciones(self):
@@ -875,11 +875,9 @@ class ControladorCaptura:
 
     def _activar_chk_pieza(self):
         if self._tabla_manual_con_seleccion_valida():
-
+            self._ventanas.enfocar_componente('chk_pieza')
             self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
             self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'seleccionado')
-
-            print(self._ventanas.obtener_input_componente('chk_pieza'))
 
             self._selecionar_producto_tabla_manual()
 

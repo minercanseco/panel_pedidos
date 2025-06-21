@@ -102,20 +102,33 @@ class CapturadoVsProducido:
              'hide': 1}
         ]
 
+
+    def _rellenar_totales(self, tabla, partidas):
+        total_acumulado = 0
+        for partida in partidas:
+            total_acumulado += self._utilerias.redondear_valor_cantidad_a_decimal(partida['Total'])
+
+        total_acumulado_moneda = self._utilerias.convertir_decimal_a_moneda(total_acumulado)
+        tbx = 'tbx_total_pedido' if tabla =='tvw_pedido' else 'tbx_total_producido'
+        self._ventanas.insertar_input_componente(tbx, total_acumulado_moneda)
+
     def _rellenar_tablas(self):
         self._consultar_info_partidas()
 
-
+        partidas_capturadas = self._procesar_partidas(self._partidas_capturadas)
+        self._rellenar_totales('tvw_pedido', partidas_capturadas)
         self._ventanas.rellenar_treeview(_treeview='tvw_pedido',
                                          columnas=self._crear_columnas_tabla(),
-                                         consulta=self._procesar_partidas(self._partidas_capturadas),
+                                         consulta= partidas_capturadas,
                                          variar_color_filas=False,
                                          valor_barra_desplazamiento=6
                                          )
 
+        partidas_producidas = self._procesar_partidas(self._partidas_producidas)
+        self._rellenar_totales('tvw_producido', partidas_producidas)
         self._ventanas.rellenar_treeview(_treeview='tvw_producido',
                                          columnas=self._crear_columnas_tabla(),
-                                         consulta=self._procesar_partidas(self._partidas_producidas),
+                                         consulta=partidas_producidas,
                                          variar_color_filas=False,
                                          valor_barra_desplazamiento=6
                                          )

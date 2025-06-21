@@ -1023,7 +1023,7 @@ class ControladorPanelPedidos:
         status_id = int(fila['TypeStatusID'])
         order_document_id = int(fila['OrderDocumentID'])
 
-        if status_id in (2, 10, 16, 17, 18):
+        if status_id in (2, 16, 17, 18):
             self._interfaz.ventanas.mostrar_mensaje('El pedido aún no se ha terminado de producir')
             return
 

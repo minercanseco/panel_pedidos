@@ -33,7 +33,7 @@ class LlamarInstanciaCaptura:
         if not self.documento.cancelled_on:
 
             pregunta = '¿Desea guardar el documento?'
-            ventana = self._ventanas.crear_popup_ttkbootstrap_sin_bloqueo(master=self._master,
+            ventana = self._ventanas.crear_popup_ttkbootstrap(master=self._master,
                                                               titulo='Capturar pedido',
                                                               ocultar_master=True,
                                                               ejecutar_al_cierre=self._procesar_documento,
@@ -41,7 +41,7 @@ class LlamarInstanciaCaptura:
 
 
         if self.documento.cancelled_on:
-            ventana = self._ventanas.crear_popup_ttkbootstrap_sin_bloqueo(self._master,
+            ventana = self._ventanas.crear_popup_ttkbootstrap(self._master,
                                                               titulo='Capturar pedido',
                                                               ocultar_master=True,
                                                               ejecutar_al_cierre=self._procesar_documento)

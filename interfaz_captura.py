@@ -345,16 +345,16 @@ class InterfazCaptura:
             'frame_controles_manual' : ('frame_detalles_partida_manual', None,
                                       {'row': 1, 'column': 0,  'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
 
-            'frame_txt_comentario_manual' : ('frame_partida_manual', 'Especificación:',
+            'frame_txt_comentario_manual' : ('frame_partida_manual', 'Especificación [Ctrl+M]',
                                            {'row': 6, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
 
-            'frame_txt_portapapeles_manual' : ('frame_partida_manual', 'Portapapeles:',
+            'frame_txt_portapapeles_manual' : ('frame_partida_manual', 'Portapapeles [Ctrl+P]',
                                              {'row': 7, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
 
             'frame_botones_manual' : ('frame_partida_manual', None,
                                     {'row': 11, 'column': 1, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
 
-            'frame_tabla_manual': ('frame_anuncio', 'Productos ',
+            'frame_tabla_manual': ('frame_anuncio', 'Productos [Ctrl+T]',
                                    {'row': 3, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW})
         }
         self.ventanas.crear_frames(frames)

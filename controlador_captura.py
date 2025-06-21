@@ -60,13 +60,14 @@ class ControladorCaptura:
 
         self._rellenar_desde_base_de_datos()
 
-        self._master.lift()  # Traer al frente
-        self._master.focus_force()  # Forzar el foco
+        #self._master.lift()  # Traer al frente
+        #self._master.focus_force()  # Forzar el foco
 
-        self._ventanas.enfocar_componente('tbx_clave')
         self._configurar_pedido()
+        self._ventanas.enfocar_componente('tbx_clave')
         self._inicializar_captura_manual()
         self._ventanas.configurar_ventana_ttkbootstrap(titulo='Capturar documento')
+        self._ventanas.enfocar_componente('tbx_buscar_manual')
 
     def _inicializar_captura_manual(self):
         if self._interfaz.modulo_id not in [1687]:
@@ -161,6 +162,16 @@ class ControladorCaptura:
             'F10': lambda: self._activar_chk_pieza(),
             'F11': lambda: self._activar_chk_monto(),
             'F12': lambda: self._buscar_ofertas(),
+
+
+            'Ctrl+B': lambda: self._ventanas.enfocar_componente('tbx_buscar_manual'),
+            'Ctrl+C': lambda: self._ventanas.enfocar_componente('tbx_cantidad_manual'),
+            'Ctrl+F': lambda: self._ventanas.enfocar_componente('cbx_tipo_busqueda_manual'),
+            'Ctrl+M': lambda: self._ventanas.enfocar_componente('txt_comentario_manual'),
+            'Ctrl+T': lambda: self._ventanas.enfocar_componente('tvw_productos_manual'),
+            'Ctrl+P': lambda: self._ventanas.enfocar_componente('txt_portapapeles_manual'),
+            'Ctrl+E': lambda: self._agregar_especicificaciones(),
+
         }
         self._ventanas.agregar_hotkeys_forma(eventos)
         if self._parametros_contpaqi.id_modulo != 1687:

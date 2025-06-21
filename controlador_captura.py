@@ -875,9 +875,12 @@ class ControladorCaptura:
 
     def _activar_chk_pieza(self):
         if self._tabla_manual_con_seleccion_valida():
-            print('seleccion valida')
+
             self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
             self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'seleccionado')
+
+            print(self._ventanas.obtener_input_componente('chk_pieza'))
+
             self._selecionar_producto_tabla_manual()
 
     def _activar_chk_monto(self):
@@ -897,7 +900,7 @@ class ControladorCaptura:
         fila = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos_manual')
 
         if len(fila) > 1 or len(fila) < 1:
-            print('no hay seleccion valida')
+
             return False
 
         return fila

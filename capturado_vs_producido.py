@@ -11,6 +11,10 @@ class CapturadoVsProducido:
         self._utilerias = utilerias
         self._ventanas = Ventanas(self._master)
 
+        self._partidas_capturadas = []
+        self._partidas_editadas = []
+        self._partidas_producidas = []
+
         self._crear_frames()
         self._crear_componetes()
         self._rellenar_tablas()
@@ -58,18 +62,14 @@ class CapturadoVsProducido:
     def _crear_componetes(self):
         componentes = {
             'txt_comentario': ('frame_comentario', None, ' ', None),
-            'tbx_total_remision': ('frame_total1',
+            'tbx_total_pedido': ('frame_total1',
                                    {'row': 0, 'column': 1, 'pady': 2, 'padx': 2, 'sticky': tk.NE},
                                    ' ', None),
-            'tvw_remision': ('frame_tabla1', self._crear_columnas_tabla(), 10, None),
-            'tbx_total_factura': ('frame_total2',
+            'tvw_pedido': ('frame_tabla1', self._crear_columnas_tabla(), 10, None),
+            'tbx_total_producido': ('frame_total2',
                                   {'row': 0, 'column': 1, 'pady': 2, 'padx': 2, 'sticky': tk.NE},
                                   ' ', None),
-            'tvw_factura': ('frame_tabla2', self._crear_columnas_tabla(), 10, 'danger'),
-            'tbx_monto': ('frame_monto', None, 'Monto:', None),
-            'btn_dividir': ('frame_botones', None, 'Dividir', None),
-            'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', None),
-
+            'tvw_producido': ('frame_tabla2', self._crear_columnas_tabla(), 10, 'danger'),
         }
         self._ventanas.crear_componentes(componentes)
 
@@ -100,4 +100,23 @@ class CapturadoVsProducido:
         ]
 
     def _rellenar_tablas(self):
-        pass
+        self._consultar_info_partidas()
+
+        print(self._partidas_capturadas, self._partidas_editadas, self._partidas_producidas)
+
+    def _consultar_info_partidas(self):
+        self._partidas_capturadas = self._base_de_datos.fetchall("""
+                            DECLARE @OrderDocumentID INT = ?
+                            SELECT * FROM [dbo].[zvwBuscarPartidasPedidoCayal-DocumentID](@OrderDocumentID)
+                            """, (self._order_document_id,))
+
+        self._partidas_editadas = self._base_de_datos.fetchall("""
+                            DECLARE @OrderDocumentID INT = ?
+                            SELECT * FROM [dbo].[zvwBuscarPartidasPedidoCayalExtra-DocumentID](@OrderDocumentID)
+                            """, (self._order_document_id,))
+
+        self._partidas_producidas = self._base_de_datos.fetchall("""
+                            DECLARE @OrderDocumentID INT = ?
+                            SELECT * FROM [dbo].[zvwBuscarPartidasFinalizadasPedidoCayal-DocumentID](@OrderDocumentID)
+                            """, (self._order_document_id,))
+

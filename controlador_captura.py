@@ -433,11 +433,13 @@ class ControladorCaptura:
 
     def _agregar_partida_manualmente(self):
         if not self._tabla_manual_con_seleccion_valida():
+            print('no hay un producto seleccionable')
             return
 
         cantidad_control = self._obtener_cantidad_partida_manual()
 
         if cantidad_control <= 0:
+            print('cantidad es cero')
             return
 
         if not self._agregando_producto:

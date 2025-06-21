@@ -7,6 +7,7 @@ from datetime import datetime
 from buscar_pedido import BuscarPedido
 from cayal.login import Login
 from buscar_generales_cliente import BuscarGeneralesCliente
+from capturado_vs_producido import CapturadoVsProducido
 from editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from cayal.cobros import Cobros
 
@@ -1013,6 +1014,27 @@ class ControladorPanelPedidos:
         ventana.wait_window()
         self._parametros.id_principal = 0
 
+    def _capturado_vs_producido(self):
+        fila = self._validar_seleccion_una_fila()
+        if not fila:
+            self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar un pedido.')
+            return
+
+        status_id = int(fila['TypeStatusID'])
+        order_document_id = int(fila['OrderDocumentID'])
+
+        if status_id in (2, 10, 16, 17, 18):
+            self._interfaz.ventanas.mostrar_mensaje('El pedido aún no se ha terminado de producir')
+            return
+
+
+        self._parametros.id_principal = order_document_id
+
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Buscar pedido')
+        instancia = CapturadoVsProducido(ventana, self._parametros, self._base_de_datos, self._utilerias)
+        ventana.wait_window()
+        self._parametros.id_principal = 0
+
     def _rellenar_operador(self):
         operador_panel = self._modelo.buscar_nombre_usuario_operador_panel(self._parametros.id_usuario)
         texto = f'PANEL: pedidos OPERADOR: {operador_panel}'
@@ -1029,6 +1051,7 @@ class ControladorPanelPedidos:
         valores_fila = self._validar_seleccion_una_fila()
         if not valores_fila:
             return
+
         order_document_id = valores_fila['OrderDocumentID']
 
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Historial pedido')
@@ -1092,6 +1115,9 @@ class ControladorPanelPedidos:
 
             {'nombre_icono': 'Printer21.ico', 'etiqueta': 'Imprimir', 'nombre': 'imprimir_pedido',
              'hotkey': None, 'comando': self._imprimir},
+
+            {'nombre_icono': 'PrintSelectedItems.ico', 'etiqueta': 'Producido', 'nombre': 'capturado_vs_producido',
+             'hotkey': None, 'comando': self._capturado_vs_producido},
 
             {'nombre_icono': 'SwitchUser32.ico', 'etiqueta': 'C.Usuario', 'nombre': 'cambiar_usuario',
              'hotkey': None, 'comando': self._cambiar_usuario},

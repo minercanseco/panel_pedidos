@@ -759,7 +759,7 @@ class ControladorCaptura:
         self._ventanas.rellenar_treeview(tabla, self._interfaz.crear_columnas_tabla_manual(), registros_tabla)
         self._colorear_productos_ofertados()
 
-        if self._ventanas.numero_filas_treeview('tvw_productos_manual') == 1:
+        if registros_tabla:
             self._ventanas.seleccionar_fila_treeview('tvw_productos_manual', 1)
 
     def _agregar_especicificaciones(self):

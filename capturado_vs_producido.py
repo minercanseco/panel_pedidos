@@ -18,7 +18,7 @@ class CapturadoVsProducido:
 
         self._crear_frames()
         self._crear_componetes()
-        self._rellenar_tablas()
+        self._rellenar_componentes()
         self._ventanas.configurar_ventana_ttkbootstrap()
 
     def _crear_frames(self):
@@ -72,7 +72,7 @@ class CapturadoVsProducido:
                                   ' ', None),
             'tvw_producido': ('frame_tabla2', self._crear_columnas_tabla(), 6, 'danger'),
 
-            'tvw_editado': ('frame_tabla3', self._crear_columnas_tabla(), 6, 'danger'),
+            'tvw_editado': ('frame_tabla3', self._crear_columnas_tabla(), 6, 'warning'),
         }
         self._ventanas.crear_componentes(componentes)
 
@@ -102,7 +102,6 @@ class CapturadoVsProducido:
              'hide': 1}
         ]
 
-
     def _rellenar_totales(self, tabla, partidas):
         total_acumulado = 0
         for partida in partidas:
@@ -111,8 +110,9 @@ class CapturadoVsProducido:
         total_acumulado_moneda = self._utilerias.convertir_decimal_a_moneda(total_acumulado)
         tbx = 'tbx_total_pedido' if tabla =='tvw_pedido' else 'tbx_total_producido'
         self._ventanas.insertar_input_componente(tbx, total_acumulado_moneda)
+        self._ventanas.bloquear_componente(tbx)
 
-    def _rellenar_tablas(self):
+    def _rellenar_componentes(self):
         self._consultar_info_partidas()
 
         partidas_capturadas = self._procesar_partidas(self._partidas_capturadas)
@@ -139,6 +139,9 @@ class CapturadoVsProducido:
                                          variar_color_filas=False,
                                          valor_barra_desplazamiento=6
                                          )
+
+        self._ventanas.insertar_input_componente('txt_comentario', self._valores_fila['Comentarios'])
+        self._ventanas.bloquear_componente('txt_comentario')
 
     def _consultar_info_partidas(self):
         self._partidas_capturadas = self._base_de_datos.fetchall("""

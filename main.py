@@ -40,6 +40,7 @@ if __name__ == '__main__':
         # ------------------------------------------
         # modulo de pedidos
         parametros_login.id_modulo = 1687
+        ventana_login.grab_release()
 
         instancia_login = Login(ventana_login, parametros_login, si_acceso_exitoso)
         ventana_login.mainloop()

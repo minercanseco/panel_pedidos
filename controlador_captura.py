@@ -875,6 +875,7 @@ class ControladorCaptura:
 
     def _activar_chk_pieza(self):
         if self._tabla_manual_con_seleccion_valida():
+            print('seleccion valida')
             self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
             self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'seleccionado')
             self._selecionar_producto_tabla_manual()

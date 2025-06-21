@@ -1,6 +1,5 @@
 import os
 import random
-import time
 
 import tkinter as tk
 import ttkbootstrap as ttk
@@ -252,9 +251,6 @@ class InterfazCaptura:
 
     def _ajustar_componentes_forma(self):
         self.ventanas.ajustar_componente_en_frame('tbx_cliente', 'frame_cliente')
-        #self.ventanas.ajustar_ancho_componente('tbx_cliente', 120)
-        #self.ventanas.ajustar_ancho_componente('tbx_direccion', 120)
-        #self.ventanas.ajustar_ancho_componente('tbx_comentario', 120)
 
         self.ventanas.ajustar_componente_en_frame('txt_comentario_documento', 'frame_comentario')
         self.ventanas.ajustar_label_en_frame('lbl_anuncio', 'frame_anuncio')

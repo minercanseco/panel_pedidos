@@ -85,6 +85,7 @@ class ControladorCaptura:
 
         self._master.lift()  # Traer al frente
         self._master.focus_force()  # Forzar el foco
+        self._master.grab_release()
 
     def _es_documento_bloqueado(self):
         status_id = 0

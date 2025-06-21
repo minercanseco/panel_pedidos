@@ -2,10 +2,11 @@ import tkinter as tk
 from cayal.ventanas import Ventanas
 
 class CapturadoVsProducido:
-    def __init__(self, master, parametros, base_de_datos, utilerias):
+    def __init__(self, master, parametros, base_de_datos, utilerias, valores_fila):
         self._master = master
         self._parametros = parametros
         self._order_document_id = self._parametros.id_principal
+        self._valores_fila = valores_fila
 
         self._base_de_datos = base_de_datos
         self._utilerias = utilerias
@@ -33,19 +34,19 @@ class CapturadoVsProducido:
                                  {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2,
                                   'sticky': tk.NSEW}),
 
-            'frame_tabla1': ('frame_componentes', 'Remisión',
+            'frame_tabla1': ('frame_componentes', 'Capturado',
                              {'row': 1, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2,
                               'sticky': tk.NSEW}),
 
-            'frame_total1': ('frame_tabla1', 'Total Remisión',
+            'frame_total1': ('frame_tabla1', 'Total Capturado',
                              {'row': 1, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2,
                               'sticky': tk.NSEW}),
 
-            'frame_tabla2': ('frame_componentes', 'Factura',
+            'frame_tabla2': ('frame_componentes', 'Producido',
                              {'row': 2, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2,
                               'sticky': tk.NSEW}),
 
-            'frame_total2': ('frame_tabla2', 'Total Factura:',
+            'frame_total2': ('frame_tabla2', 'Total Producido:',
                              {'row': 1, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2,
                               'sticky': tk.NSEW}),
 
@@ -53,7 +54,7 @@ class CapturadoVsProducido:
                             {'row': 3, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2,
                              'sticky': tk.NSEW}),
 
-            'frame_botones': ('frame_monto', None,
+            'frame_tabla3': ('frame_monto', 'Editadas',
                               {'row': 5, 'column': 1, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
 
         }
@@ -65,11 +66,13 @@ class CapturadoVsProducido:
             'tbx_total_pedido': ('frame_total1',
                                    {'row': 0, 'column': 1, 'pady': 2, 'padx': 2, 'sticky': tk.NE},
                                    ' ', None),
-            'tvw_pedido': ('frame_tabla1', self._crear_columnas_tabla(), 10, None),
+            'tvw_pedido': ('frame_tabla1', self._crear_columnas_tabla(), 6, None),
             'tbx_total_producido': ('frame_total2',
                                   {'row': 0, 'column': 1, 'pady': 2, 'padx': 2, 'sticky': tk.NE},
                                   ' ', None),
-            'tvw_producido': ('frame_tabla2', self._crear_columnas_tabla(), 10, 'danger'),
+            'tvw_producido': ('frame_tabla2', self._crear_columnas_tabla(), 6, 'danger'),
+
+            'tvw_editado': ('frame_tabla2', self._crear_columnas_tabla(), 6, 'danger'),
         }
         self._ventanas.crear_componentes(componentes)
 
@@ -102,7 +105,27 @@ class CapturadoVsProducido:
     def _rellenar_tablas(self):
         self._consultar_info_partidas()
 
-        print(self._partidas_capturadas, self._partidas_editadas, self._partidas_producidas)
+
+        self._ventanas.rellenar_treeview(_treeview='tvw_pedido',
+                                         columnas=self._crear_columnas_tabla(),
+                                         consulta=self._procesar_partidas(self._partidas_capturadas),
+                                         variar_color_filas=False,
+                                         valor_barra_desplazamiento=6
+                                         )
+
+        self._ventanas.rellenar_treeview(_treeview='tvw_producido',
+                                         columnas=self._crear_columnas_tabla(),
+                                         consulta=self._procesar_partidas(self._partidas_capturadas),
+                                         variar_color_filas=False,
+                                         valor_barra_desplazamiento=6
+                                         )
+
+        self._ventanas.rellenar_treeview(_treeview='tvw_editado',
+                                         columnas=self._crear_columnas_tabla(),
+                                         consulta=self._procesar_partidas(self._partidas_capturadas),
+                                         variar_color_filas=False,
+                                         valor_barra_desplazamiento=6
+                                         )
 
     def _consultar_info_partidas(self):
         self._partidas_capturadas = self._base_de_datos.fetchall("""
@@ -120,3 +143,47 @@ class CapturadoVsProducido:
                             SELECT * FROM [dbo].[zvwBuscarPartidasFinalizadasPedidoCayal-DocumentID](@OrderDocumentID)
                             """, (self._order_document_id,))
 
+    def _procesar_partidas(self, partidas):
+
+        def buscar_precio(product_id, customer_type_id):
+            consulta = self._base_de_datos.buscar_precios_producto(product_id)
+            if not consulta:
+                return 0
+            return [reg['SalePrice'] for reg in consulta if reg['CustomerTypeID'] == customer_type_id][0]
+
+        business_entity_id = self._valores_fila['BusinessEntityID']
+        customer_type_id = self._base_de_datos.fetchone('SELECT CustomerTypeID FROM orgCustomer WHERE BusinessEntityID = ?',
+                                                        (business_entity_id,))
+
+        nuevas_partidas = []
+        for reg in partidas:
+            quantity = self._utilerias.redondear_valor_cantidad_a_decimal(reg['Quantity'])
+            product_id = reg['ProductID']
+            sale_price = self._utilerias.redondear_valor_cantidad_a_decimal(
+                buscar_precio(product_id, customer_type_id))
+            tax_type_id = reg['TaxTypeID']
+
+            valores_partida = self._utilerias.calcular_totales_partida(sale_price, quantity, tax_type_id)
+            sale_price = self._utilerias.redondear_valor_cantidad_a_decimal(valores_partida['precio'])
+            taxes = self._utilerias.redondear_valor_cantidad_a_decimal(valores_partida['impuestos'])
+            sub_total = self._utilerias.redondear_valor_cantidad_a_decimal(valores_partida['subtotal'])
+            total = self._utilerias.redondear_valor_cantidad_a_decimal(valores_partida['total'])
+
+            nuevas_partidas.append(
+                {
+                    'N': reg['N'],
+                    'Quantity': quantity,
+                    'ProductKey': reg['ProductKey'],
+                    'ProductName': reg['ProductName'],
+                    'SalePrice': sale_price,
+                    'Subtotal': sub_total,
+                    'TaxTypeID': tax_type_id,
+                    'ProductID': product_id,
+                    'ClaveUnidad': reg['ClaveUnidad'],
+                    'TotalTaxes': taxes,
+                    'Total': total,
+                    'DocumentItemID': reg['DocumentItemID']
+
+                }
+            )
+        return nuevas_partidas

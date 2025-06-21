@@ -1031,7 +1031,7 @@ class ControladorPanelPedidos:
         self._parametros.id_principal = order_document_id
 
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Buscar pedido')
-        instancia = CapturadoVsProducido(ventana, self._parametros, self._base_de_datos, self._utilerias)
+        instancia = CapturadoVsProducido(ventana, self._parametros, self._base_de_datos, self._utilerias, fila)
         ventana.wait_window()
         self._parametros.id_principal = 0
 

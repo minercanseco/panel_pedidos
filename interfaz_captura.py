@@ -333,7 +333,7 @@ class InterfazCaptura:
 
 
 
-            'frame_cantida_y_equivalencia': ('frame_detalles_partida_manual', 'Cantidad:',
+            'frame_cantida_y_equivalencia': ('frame_detalles_partida_manual', 'Cantidad [Ctrl+C]',
                                         {'row': 0, 'column': 0,  'columnspan': 2, 'pady': 2, 'padx': 2,
                                          'sticky': tk.W}),
 
@@ -375,13 +375,15 @@ class InterfazCaptura:
                 'btn_especificaciones_manual': '[Ctrl+E]',
                 'btn_ofertas_manual': '[F9]',
                 'btn_copiar_manual': '[F12]',
+                'tbx_buscar_manual': '[Ctrl+B]',
+                'cbx_tipo_busqueda_manual': 'Ctrl+F'
             }
 
             return _atajos_botones[nombre_boton]
 
         componentes = {
-            'cbx_tipo_busqueda_manual': ('frame_cbx_buscar_manual', None, 'Tipo:', None),
-            'tbx_buscar_manual': ('frame_tbx_buscar_manual', None, 'Buscar:', None),
+            'cbx_tipo_busqueda_manual': ('frame_cbx_buscar_manual', None, 'Tipo:', atajos_botones( ancho,'cbx_tipo_busqueda_manual')),
+            'tbx_buscar_manual': ('frame_tbx_buscar_manual', None, 'Buscar:', atajos_botones( ancho,'tbx_buscar_manual')),
 
             'tbx_cantidad_manual': ('frame_cantida_y_equivalencia', 6, 'Cant:', None),
             'tbx_equivalencia_manual': ('frame_cantida_y_equivalencia',

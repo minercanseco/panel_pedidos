@@ -64,7 +64,9 @@ class ControladorPanelPedidos:
             'cbx_capturista': lambda event: self._filtrar_por_capturados_por(),
             'cbx_status': lambda event: self._filtrar_por_status(),
             'cbx_horarios': lambda event: self._filtrar_por_horas(),
-            'chk_sin_procesar': lambda *args: self._filtrar_no_procesados()
+            'chk_sin_procesar': lambda *args: self._filtrar_no_procesados(),
+            'chk_sin_fecha': lambda *args: self._sin_fecha(),
+
 
         }
         self._interfaz.ventanas.cargar_eventos(eventos)
@@ -81,7 +83,7 @@ class ControladorPanelPedidos:
 
         valor_chk = self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar')
         if valor_chk == 1:
-
+            self._interfaz.ventanas.cambiar_estado_checkbutton('chk_sin_fecha', 'deseleccionado')
             self._actualizar_pedidos()
 
         if valor_chk == 0:
@@ -1825,3 +1827,16 @@ class ControladorPanelPedidos:
                 'UPDATE docDocumentOrderCayal SET ProductionPrintedOn=GETDATE(), ProductionPrintedBy=? WHERE OrderDocumentID = ?',
                 (self._user_id, order_document_id)
             )
+
+    def _sin_fecha(self):
+
+        valor_chk_fecha = self._interfaz.ventanas.obtener_input_componente('chk_sin_fecha')
+
+        if valor_chk_fecha == 1:
+
+            self._interfaz.ventanas.cambiar_estado_checkbutton('chk_sin_procesar', 'deseleccionado')
+
+            date_entry = self._interfaz.ventanas.componentes_forma['den_fecha']
+            date_entry.entry.delete(first=0, last=tk.END)
+        else:
+            self._interfaz.ventanas.insertar_input_componente('den_fecha', self._modelo.hoy)

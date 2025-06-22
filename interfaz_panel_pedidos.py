@@ -31,21 +31,29 @@ class InterfazPanelPedidos:
                               {'row': 2, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2,
                                'sticky': tk.NSEW}),
 
-            'frame_horarios': ('frame_filtros', None,
+            'frame_horarios': ('frame_filtros', 'Horas',
                                {'row': 0, 'column': 0, 'pady': 2, 'padx': 2,
-                                'sticky': tk.W}),
+                                'sticky': tk.NSEW}),
 
-            'frame_fecha': ('frame_filtros', None,
+            'frame_fecha': ('frame_filtros', 'Fecha',
                             {'row': 0, 'column': 1, 'pady': 2, 'padx': 2,
-                             'sticky': tk.W}),
+                             'sticky': tk.NSEW}),
 
-            'frame_capturista': ('frame_filtros', None,
+            'frame_den_fecha': ('frame_fecha', None,
+                            {'row': 0, 'column': 0, 'pady': 2, 'padx': 2,
+                             'sticky': tk.NSEW}),
+
+            'frame_chks': ('frame_fecha', None,
+                            {'row': 0, 'column': 1, 'pady': 2, 'padx': 2,
+                             'sticky': tk.NSEW}),
+
+            'frame_capturista': ('frame_filtros', 'Capturó',
                             {'row': 0, 'column': 3, 'pady': 2, 'padx': 2,
-                             'sticky': tk.W}),
+                             'sticky': tk.NSEW}),
 
-            'frame_status': ('frame_filtros', None,
+            'frame_status': ('frame_filtros', 'Status',
                                 {'row': 0, 'column': 5, 'pady': 2, 'padx': 2,
-                                 'sticky': tk.W}),
+                                 'sticky': tk.NSEW}),
 
             'frame_captura': ('frame_principal', 'Pedidos',
                               {'row': 3, 'columnspan': 2, 'column': 0, 'pady': 2, 'padx': 2,
@@ -67,19 +75,23 @@ class InterfazPanelPedidos:
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
         tamano_meters =  75 if ancho <= 1367 else None
         componentes = {
-            'cbx_horarios': ('frame_horarios', None, 'Horas:', None),
+            'cbx_horarios': ('frame_horarios', None, None, None),
 
-            'cbx_capturista': ('frame_capturista', None, 'Capturó:', None),
+            'cbx_capturista': ('frame_capturista', None, None, None),
 
-            'cbx_status': ('frame_status', None, 'Status:', None),
+            'cbx_status': ('frame_status', None, None, None),
 
-            'den_fecha': ('frame_fecha',
-                          'normal',   'Fecha:'
+            'den_fecha': ('frame_den_fecha',
+                          'normal',   None
                           , None),
 
-            'chk_sin_procesar': ('frame_filtros',
-                               {'row': 0, 'column': 4, 'pady': 2, 'padx': 2, 'sticky': tk.W},
+            'chk_sin_fecha': ('frame_chks',
+                                 {'row': 5, 'column': 1, 'pady': 2, 'padx': 2, 'sticky': tk.W},
+                                 'Sin fecha', None),
+            'chk_sin_procesar': ('frame_chks',
+                               {'row': 5, 'column': 3, 'pady': 2, 'padx': 2, 'sticky': tk.W},
                                'Sin procesar', None),
+
             'mtr_total': ('frame_meters', None, 'Total', tamano_meters),
             'mtr_en_tiempo': ('frame_meters', 'success', 'En tiempo', tamano_meters),
             'mtr_a_tiempo': ('frame_meters', 'warning', 'A tiempo', tamano_meters),

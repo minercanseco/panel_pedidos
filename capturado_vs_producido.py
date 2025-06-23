@@ -330,7 +330,25 @@ class CapturadoVsProducido:
 
         for fila in filas:
             valores_fila = self._ventanas.procesar_fila_treeview('tvw_editado', fila)
+            numero_fila = int(valores_fila['N'])
+            texto_adicional = ''
+
+            fila_respaldo = [reg for reg in self._partidas_editadas if reg['N'] == numero_fila]
+            if fila_respaldo:
+                info_fila = fila_respaldo[0]
+
+                item_production_status_modified = int(valores_fila['ItemProductionStatusModified'])
+                texto_adicional = ""
+                if item_production_status_modified == 3:
+                    user_name = self._base_de_datos.buscar_nombre_de_usuario(info_fila['DeletedBy'])
+                    texto_adicional = f"({user_name} {info_fila['DeletedOn']})"
+                if item_production_status_modified == 1:
+                    user_name = self._base_de_datos.buscar_nombre_de_usuario(info_fila['CreatedBy'])
+                    texto_adicional = f"({user_name} {info_fila['CreatedOn']})"
+
             comentario = valores_fila['Comments']
+            comentario = f"{comentario} {texto_adicional}".strip()
+
             if comentario:
                 self._ventanas.insertar_input_componente('txt_comentario_partida', comentario)
 

@@ -32,16 +32,24 @@ class InterfazCaptura:
             'frame_principal': ('master', None,
                                 {'row': 0, 'column': 0, 'sticky': tk.NSEW}),
 
-            'frame_herramientas': ('frame_principal', 'Herramientas',
+            'frame_herramientas': ('frame_principal', None,
                                    {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2,
                                     'sticky': tk.NSEW}),
 
             'frame_cliente': ('frame_principal', 'Datos cliente:',
                               {'row': 1, 'column': 0, 'columnspan': 2,  'pady': 5, 'padx': 2, 'sticky': tk.NSEW}),
 
-            'frame_totales': ('frame_principal', None,
+            'frame_derecho': ('frame_principal', None,
+                              {'row': 0, 'column': 2,  'rowspan':5, 'pady': 2, 'padx': 2,
+                               'sticky': tk.NSEW}),
+
+            'frame_totales': ('frame_derecho', None,
                               {'row': 0, 'column': 2,  'columnspan': 5, 'pady': 2, 'padx': 2,
                                'sticky': tk.NE}),
+
+            'frame_anuncio': ('frame_derecho', nombre_frame_anuncio,
+                              {'row': 2,  'column': 2, 'columnspan': 4, 'pady': 2, 'padx': 2,
+                               'sticky': tk.NSEW}),
 
             'frame_captura': ('frame_principal', 'Captura',
                               {'row': 2, 'columnspan': 2, 'column': 0, 'pady': 2, 'padx': 0,
@@ -58,9 +66,7 @@ class InterfazCaptura:
                              {'row': 4, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}
                              ),
 
-            'frame_anuncio': ('frame_principal', nombre_frame_anuncio,
-                              {'row': 1, 'rowspan': 4, 'column': 2, 'columnspan': 4, 'pady': 2, 'padx': 2,
-                               'sticky': tk.NSEW}),
+
         }
 
 
@@ -306,9 +312,6 @@ class InterfazCaptura:
     def _cargar_frames_manual(self):
 
         frames = {
-
-            'frame_anuncio': ('master', None,
-                                {'row': 0, 'column': 0, 'sticky': tk.NSEW}),
 
             'frame_buscar_manual' : ('frame_anuncio', 'Búsqueda',
                        {'row': 0, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),

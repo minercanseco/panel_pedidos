@@ -62,7 +62,7 @@ class InterfazCaptura:
                             {'row': 1, 'columnspan': 2, 'column': 0, 'pady': 0, 'padx': 0,
                              'sticky': tk.NSEW}),
 
-            'frame_comentario': ('frame_principal', None,
+            'frame_comentario': ('frame_principal', 'Comentarios:',
                              {'row': 4, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}
                              ),
 
@@ -93,7 +93,7 @@ class InterfazCaptura:
                                ' ', None),
             'tbx_clave': ('frame_clave', None, None, None),
             'tvw_productos': ('frame_tabla', self.crear_columnas_tabla(), filas_tabla_producto, None),
-            'txt_comentario_documento': ('frame_comentario', None,'Comentarios:', None),
+            'txt_comentario_documento': ('frame_comentario', None,' ', None),
         }
 
         if self.modulo_id not in [1687]:

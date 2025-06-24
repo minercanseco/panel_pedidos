@@ -88,7 +88,7 @@ class InterfazCaptura:
 
     def _cargar_componentes_forma(self):
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
-        filas_tabla_producto = 25 if ancho <= 1367 else 30
+        filas_tabla_producto = 20 if ancho <= 1367 else 25
 
         componentes = {
             'tbx_cliente': ('frame_cliente', {'row': 0, 'column': 1, 'pady': 2, 'padx': 0, 'sticky': tk.NSEW},

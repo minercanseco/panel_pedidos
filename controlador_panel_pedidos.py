@@ -596,6 +596,7 @@ class ControladorPanelPedidos:
             order_document_id =  fila['OrderDocumentID']
             address_detail_id = fila['AddressDetailID']
             business_entity_id = fila['BusinessEntityID']
+            ruta = fila['Ruta']
 
             info_documento = self._partidas_pedidos.get(order_document_id, None)
             if not info_documento:
@@ -608,11 +609,17 @@ class ControladorPanelPedidos:
 
             if not combinado:
                 tipo_documento = fila['DocumentTypeID']
+
                 document_id = self._crear_cabecera_documento(tipo_documento, fila)
                 self._insertar_partidas_documento(order_document_id, document_id, partidas, total_documento, address_detail_id)
 
                 # insertar comentarios desde el pedido
-                self._crear_comentario_documento([order_document_id], document_id, business_entity_id, total_documento)
+                self._crear_comentario_documento([order_document_id],
+                                                 document_id,
+                                                 business_entity_id,
+                                                 total_documento,
+                                                 ruta
+                                                 )
 
                 # relacionar documenrtosa con pedidos
                 self._actualizar_status_y_relacionar(document_id, order_document_id)
@@ -650,7 +657,12 @@ class ControladorPanelPedidos:
         self._insertar_partidas_documento(order_document_id, document_id, partidas_acumuladas, total_acumulado, address_detail_id)
 
         # insertar comentario de los pedidos
-        self._crear_comentario_documento(all_order_document_ids, document_id, business_entity_id, total_acumulado)
+        self._crear_comentario_documento(all_order_document_ids,
+                                         document_id,
+                                         business_entity_id,
+                                         total_acumulado,
+                                         filas[0]['Ruta']
+                                         )
 
         # relacionar pedidos con factura
         for order in all_order_document_ids:
@@ -1511,7 +1523,7 @@ class ControladorPanelPedidos:
 
         return comentario_filtrado
 
-    def _crear_comentario_documento(self, order_document_ids, document_id, business_entity_id, total_documento):
+    def _crear_comentario_documento(self, order_document_ids, document_id, business_entity_id, total_documento, ruta):
         comentarios_pedidos = []
         comentario_a_insertar = ''
         for order in order_document_ids:
@@ -1531,7 +1543,7 @@ class ControladorPanelPedidos:
         comentarios_forma_pago = self._crear_comentario_forma_pago(order_document_ids)
         comentarios_entrega = self._crear_comentario_entrega(order_document_ids)
 
-        comentario_a_insertar = f"{comentario_a_insertar}\n {comentarios_taras}\n {comentarios_horarios}\n {comentarios_forma_pago}\n {comentarios_entrega}".upper()
+        comentario_a_insertar = f"{ruta}\n {comentario_a_insertar}\n {comentarios_taras}\n {comentarios_horarios}\n {comentarios_forma_pago}\n {comentarios_entrega}".upper()
         comentario_a_insertar = self._validar_credito_documento_cliente(business_entity_id, comentario_a_insertar, total_documento)
 
         self._base_de_datos.command(

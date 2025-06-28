@@ -836,7 +836,7 @@ class ControladorCaptura:
         self._ventanas.insertar_input_componente('tbx_equivalencia_manual', 0.0)
         self._ventanas.bloquear_componente('tbx_equivalencia_manual')
 
-        self._ventanas.insertar_input_componente('txt_portapapeles_manual', self._copiar_portapapeles())
+        self._ventanas.insertar_input_componente('txt_portapapeles_manual', self._copiar_portapapeles(), con_saltos_de_linea=True)
 
     def _copiar_productos(self):
         filas = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos_manual')

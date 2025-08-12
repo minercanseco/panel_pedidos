@@ -211,7 +211,7 @@ class EditarCaracteristicasPedido:
             consulta = self._base_de_datos.buscar_numero_pedidos_por_horario(fecha_entrega)
 
             consulta_filtrada = [horario for horario in consulta
-                                 if horario['OrdersNumber'] < horario['Quantity']]
+                                 if int(horario['OrdersNumber']) < int(horario['Quantity'])]
 
             # remueve los horarios antes de la hora actual de la lista de consulta_horarios
             consulta_sin_hora_actual = self._filtrar_hora_actual(consulta_filtrada)

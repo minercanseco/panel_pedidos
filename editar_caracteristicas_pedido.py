@@ -307,7 +307,7 @@ class EditarCaracteristicasPedido:
         schedule_order_id = self.info_pedido['ScheduleID']
         if self._consulta_horarios:
             schedule_order = [tipo['Value'] for tipo in self._consulta_horarios
-                              if schedule_order_id == tipo['ScheduleID']][0]
+                              if int(schedule_order_id) == int(tipo['ScheduleID'])][0]
             if schedule_order:
                 self._ventanas.insertar_input_componente('cbx_horario', schedule_order)
 

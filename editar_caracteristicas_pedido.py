@@ -223,7 +223,7 @@ class EditarCaracteristicasPedido:
         # como opcion de captura del horario
         if self.info_pedido['DeliveryPromise'] and self._hoy == fecha_entrega:
             schedule_order_id = self.info_pedido['ScheduleID']
-            horario_pedido = [reg for reg in consulta_completa if reg['ScheduleID'] == schedule_order_id][0]
+            horario_pedido = [reg for reg in consulta_completa if int(reg['ScheduleID']) == int(schedule_order_id)][0]
             valores.insert(0, horario_pedido['Value'])
 
             # agrega el horario porque debe estar disponible para setteo o asignacion por el usuario

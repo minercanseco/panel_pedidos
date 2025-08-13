@@ -240,8 +240,8 @@ class ControladorPanelPedidos:
                 'FechaEntrega': fila['FechaEntrega'] if actualizar_meters else fila['F.Entrega'],
                 'HoraEntrega': fila['HoraCaptura'] if actualizar_meters else fila['H.Entrega'],
                 'StatusID': fila['TypeStatusID'],
-                'OrderDeliveryTypeID': fila['OrderDeliveryTypeID']
-
+                'OrderDeliveryTypeID': fila['OrderDeliveryTypeID'],
+                'PaymentConfirmedID': fila['PaymentConfirmedID']
 
             }
             status_pedido = self._utilerias.determinar_color_fila_respecto_entrega_pedido(valores_fila, ahora)

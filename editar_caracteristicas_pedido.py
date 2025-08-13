@@ -1,5 +1,6 @@
 import tkinter as tk
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+
 from cayal.ventanas import Ventanas
 
 
@@ -195,41 +196,57 @@ class EditarCaracteristicasPedido:
 
         return fecha_pedido
 
+    def _normalizar_a_date(self, f):
+        if f is None:
+            return None
+        if isinstance(f, date) and not isinstance(f, datetime):
+            return f
+        if isinstance(f, datetime):
+            return f.date()
+        if isinstance(f, str):
+            # Ajusta a tu utilería si ya tienes una
+            try:
+                # intenta formatos comunes
+                try:
+                    return datetime.strptime(f, "%Y-%m-%d").date()
+                except ValueError:
+                    return datetime.strptime(f, "%Y-%m-%d %H:%M:%S").date()
+            except ValueError:
+                # como último recurso
+                return self._utilerias.convertir_fecha_str_a_datetime(f)
+        return None
+
     def _filtrar_horario_disponibles(self, fecha):
-        # todos los horarios disponibles
+        # 1) Trae SIEMPRE la lista completa
         consulta_completa = self._base_de_datos.buscar_horarios_pedido_cayal()
 
-        # si fecha entrega es vacio se asume que esta recien capturado
-        fecha_entrega = self._validar_fecha_pedido() if not fecha else fecha
+        # 2) Normaliza la fecha recibida o usa la del control si no viene
+        fecha_entrega = self._normalizar_a_date(fecha) or self._validar_fecha_pedido() or self._hoy
 
+        # 3) Si NO es hoy -> todos los horarios (sin filtrar por disponibilidad del día ni hora actual)
         if fecha_entrega != self._hoy:
-            self._consulta_horarios = consulta_completa
-
-        if fecha_entrega == self._hoy:
-
-            # busca la disponibilidad de los horarios con base a la cuenta de pedidos capturados
+            self._consulta_horarios = list(consulta_completa)  # copia nueva
+        else:
+            # 4) Si ES hoy -> aplica disponibilidad y quita horas pasadas (según tu lógica)
             consulta = self._base_de_datos.buscar_numero_pedidos_por_horario(fecha_entrega)
+            disponibles = [h for h in consulta if int(h['OrdersNumber']) < int(h['Quantity'])]
+            self._consulta_horarios = self._filtrar_hora_actual(disponibles)
 
-            consulta_filtrada = [horario for horario in consulta
-                                 if int(horario['OrdersNumber']) < int(horario['Quantity'])]
-
-            # remueve los horarios antes de la hora actual de la lista de consulta_horarios
-            consulta_sin_hora_actual = self._filtrar_hora_actual(consulta_filtrada)
-            self._consulta_horarios = consulta_sin_hora_actual
-
+        # 5) Arma los valores a mostrar
         valores = [reg['Value'] for reg in self._consulta_horarios]
 
-        # si tiene fecha de entrega se asume que se debe settear el horario original por tanto se debe poner
-        # como opcion de captura del horario
-        if self.info_pedido['DeliveryPromise'] and self._hoy == fecha_entrega:
+        # 6) Si el pedido ya tenía horario y es HOY, anteponer el horario original para permitir conservarlo
+        if self.info_pedido.get('DeliveryPromise') and fecha_entrega == self._hoy:
             schedule_order_id = self.info_pedido['ScheduleID']
-            horario_pedido = [reg for reg in consulta_completa if int(reg['ScheduleID']) == int(schedule_order_id)][0]
-            valores.insert(0, horario_pedido['Value'])
+            try:
+                horario_pedido = next(r for r in consulta_completa if int(r['ScheduleID']) == int(schedule_order_id))
+                if horario_pedido['Value'] not in valores:
+                    valores.insert(0, horario_pedido['Value'])
+                    self._consulta_horarios.insert(0, horario_pedido)
+            except StopIteration:
+                pass
 
-            # agrega el horario porque debe estar disponible para setteo o asignacion por el usuario
-            self._consulta_horarios.insert(0, horario_pedido)
-
-        # agrega los valores que corresponden a las horas de los horarios dispobibles
+        # 7) Rellenar el combo SIEMPRE desde la lista recién construida
         self._ventanas.rellenar_cbx('cbx_horario', valores)
 
     def _settear_valores_pedido_desde_base_de_datos(self):
@@ -464,16 +481,16 @@ class EditarCaracteristicasPedido:
     def _validar_inputs_formulario(self):
         for nombre, componente in self._ventanas.componentes_forma.items():
 
-            tipo = nombre[0:3]
+            tipo = nombre[:3]  # 'den' o 'cbx'
 
             if tipo == 'den':
                 fecha_entrega = self._ventanas.obtener_input_componente('den_fecha')
-
-                if fecha_entrega < self._hoy:
+                # valida que exista y no sea menor a hoy
+                if not fecha_entrega or fecha_entrega < self._hoy:
                     self._ventanas.mostrar_mensaje('La fecha de entrega no puede ser menor a la fecha actual.')
                     return False
 
-            if tipo in 'cbx':
+            if tipo == 'cbx':
                 seleccion = self._ventanas.obtener_input_componente(nombre)
 
                 if nombre == 'cbx_documento' and seleccion == 'Seleccione':
@@ -489,24 +506,16 @@ class EditarCaracteristicasPedido:
                     return False
 
                 if nombre == 'cbx_tipo' and seleccion not in ('Seleccione', 'Pedido'):
-                    comentario = self._ventanas.obtener_input_componente('txt_comentario')
-                    if not comentario:
-                        self._ventanas.mostrar_mensaje('Para los anexos y cambios el comentario debe ser obligatorio.')
-                        return False
-
-                    if len(comentario) < 2:
-                        self._ventanas.mostrar_mensaje('Para los anexos y cambios el comentario debe ser obligatorio.')
-                        return False
-
+                    comentario = (self._ventanas.obtener_input_componente('txt_comentario') or '').strip()
                     if len(comentario) < 5:
-                        self._ventanas.mostrar_mensaje('Debe abundar en el texto del comentario')
+                        self._ventanas.mostrar_mensaje(
+                            'Para anexos y cambios el comentario es obligatorio (mínimo 5 caracteres).'
+                        )
                         return False
 
                 if seleccion == 'Seleccione':
-                    etiqueta = nombre[4::]
-                    etiqueta = etiqueta.capitalize()
-
-                    self._ventanas.mostrar_mensaje(f'Debe seleccionar una opción válida para {etiqueta}')
+                    etiqueta = nombre[4:].replace('_', ' ').capitalize()
+                    self._ventanas.mostrar_mensaje(f'Debe seleccionar una opción válida para {etiqueta}.')
                     return False
 
         if not self._validar_fecha_pedido():

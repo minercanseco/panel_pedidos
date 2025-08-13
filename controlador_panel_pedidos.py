@@ -231,7 +231,15 @@ class ControladorPanelPedidos:
             return
 
         # Definir colores
-        colores = { 1: 'green', 2: 'orange', 3: 'red',  4: 'blue'}
+        colores = {
+                1: 'green',  # Pedido a tiempo o programado para otro día
+                2: 'orange',  # Pedido próximo a la entrega (tiempo intermedio)
+                3: 'red',  # Urgente o con muy poco tiempo para entrega / cancelado
+                4: 'blue',  # Entregado o en ruta con poco tiempo para entrega
+                5: 'purple',  # Pago pendiente por confirmar
+                6: 'lightgreen',  # Transferencia confirmada
+                7: 'lightblue'  # En ruta, entregado o en cartera
+            }
 
         for i, fila in enumerate(filas):
             valores_fila = {

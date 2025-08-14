@@ -23,7 +23,6 @@ class InterfazCaptura:
         self._agregar_validaciones()
         self._cargar_captura_manual()
 
-        self.ventanas.centrar_ventana_ttkbootstrap(self.master)
 
     def _cargar_frames(self):
         nombre_frame_anuncio = 'Anuncios' if self.modulo_id not in [1687] else 'Captura manual'

@@ -642,25 +642,52 @@ class BuscarGeneralesCliente:
 
         if not self._instancia_llamada and self._documento_seleccionado():
 
-            # asignamos los parametros del cliente seleccionado a la instancia de cliente
+            # asignamos parámetros del cliente
             self._cliente.consulta = self._info_cliente_seleccionado
             self._cliente.settear_valores_consulta()
 
-            # asiganmos los parametros de cliente y los controles a la instancia de documento
+            # asignamos parámetros al documento
             self._asignar_parametros_a_documento()
 
             if self._parametros_contpaqi.id_principal == -1:
                 self._parametros_contpaqi.nombre_usuario = self._base_de_datos.buscar_nombre_de_usuario(
-                    self._parametros_contpaqi.id_usuario)
+                    self._parametros_contpaqi.id_usuario
+                )
 
-            ventana = self._ventanas.crear_popup_ttkbootstrap(ocultar_master=True)
-            instancia = LlamarInstanciaCaptura(self._cliente,
-                                               self._documento,
-                                               self._base_de_datos,
-                                               self._parametros_contpaqi,
-                                               self._utilerias,
-                                               ventana)
-            self._master.destroy()
+            # 1) usa SIEMPRE la raíz estable como padre del nuevo popup
+            raiz = getattr(self._ventanas, "_master", None) or self._master
+
+            ventana = self._ventanas.crear_popup_ttkbootstrap(
+                master=raiz,  # <- NO uses self._master si vas a destruirla
+                titulo="Capturar pedido",
+                ocultar_master=False,  # <- no ocultes la raíz
+                ejecutar_al_cierre=None,  # se manejará dentro del flujo de captura
+                preguntar=None
+            )
+
+            # 2) libera el grab del popup (para que no bloquee otras ventanas de captura)
+            try:
+                ventana.grab_release()
+            except Exception:
+                pass
+
+            # 3) destruye la ventana origen DESPUÉS de que el popup se muestre
+            #    (evita que el centrar/lift del popup “despierte” la ventana vieja)
+            try:
+                ventana.bind("<Map>", lambda e: self._master.after(0, self._master.destroy()), add="+")
+            except Exception:
+                # fallback, por si <Map> no dispara en algún WM
+                self._master.after(0, self._master.destroy)
+
+            # 4) instancia la UI de captura usando el nuevo popup como master
+            instancia = LlamarInstanciaCaptura(
+                self._cliente,
+                self._documento,
+                self._base_de_datos,
+                self._parametros_contpaqi,
+                self._utilerias,
+                ventana
+            )
 
 
     def _asignar_parametros_a_documento(self):

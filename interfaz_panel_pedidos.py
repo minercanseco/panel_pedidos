@@ -179,7 +179,7 @@ class InterfazPanelPedidos:
             {"text": "Pago", "stretch": False, "width": 0},
             {"text": "SubTotal", "stretch": False, "width": 0},
             {"text": "Impuestos", "stretch": False, "width": 0},
-            {"text": "Cancelled", "stretch": False, "width": 0},
+            {"text": "Cancelado", "stretch": False, "width": 0},
             {"text": "Total", "stretch": True, "width": 85},
             {"text": "T.Factura", "stretch": True, "width": 85},
             {"text": "Mensajes", "stretch": False, "width": 0},

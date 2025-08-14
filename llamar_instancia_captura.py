@@ -64,9 +64,6 @@ class LlamarInstanciaCaptura:
         controlador = ControladorCaptura(interfaz,
                                          modelo,
                                          )
-        #ventana.grab_release()
-        # esperamos la ventana para recibir las partidas
-        #ventana.wait_window()
 
         # asigna el valor del documento por posibles cambios que haya habido en el proceso de captura
         # y las partidas recien capturadas

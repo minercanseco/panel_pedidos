@@ -66,7 +66,7 @@ class ControladorCaptura:
         self._configurar_pedido()
         self._ventanas.enfocar_componente('tbx_clave')
         self._inicializar_captura_manual()
-        self._ventanas.configurar_ventana_ttkbootstrap(titulo='Capturar documento')
+        #self._ventanas.configurar_ventana_ttkbootstrap(titulo='Capturar documento')
         self._ventanas.enfocar_componente('tbx_buscar_manual')
 
     def _inicializar_captura_manual(self):

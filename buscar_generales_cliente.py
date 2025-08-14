@@ -660,6 +660,7 @@ class BuscarGeneralesCliente:
                                                self._parametros_contpaqi,
                                                self._utilerias,
                                                ventana)
+            self._master.destroy()
 
 
     def _asignar_parametros_a_documento(self):

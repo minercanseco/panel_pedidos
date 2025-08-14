@@ -413,7 +413,6 @@ class BuscarGeneralesCliente:
         if solo_apariencia_inicial:
             apariencia_inicial()
             self._ventanas.centrar_ventana_ttkbootstrap(self._master)
-            #self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
             return
 
         cbx_direccion = self._ventanas.componentes_forma['cbx_direccion']
@@ -437,7 +436,6 @@ class BuscarGeneralesCliente:
         self._seleccionar_direccion()
 
         self._ventanas.centrar_ventana_ttkbootstrap(self._master)
-        #self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
 
     def _rellenar_cbx_documento(self):
         if self._cliente.cayal_customer_type_id == 2:

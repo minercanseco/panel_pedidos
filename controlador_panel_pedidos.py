@@ -386,7 +386,7 @@ class ControladorPanelPedidos:
 
     def _capturar_nuevo(self):
 
-        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(ocultar_master=True)
 
         self._parametros.id_principal = -1
         instancia = BuscarGeneralesCliente(ventana, self._parametros)

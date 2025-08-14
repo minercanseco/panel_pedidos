@@ -412,6 +412,7 @@ class BuscarGeneralesCliente:
 
         if solo_apariencia_inicial:
             apariencia_inicial()
+            self._ventanas.centrar_ventana_ttkbootstrap(self._master)
             #self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
             return
 
@@ -435,6 +436,7 @@ class BuscarGeneralesCliente:
         self._rellenar_cbx_documento()
         self._seleccionar_direccion()
 
+        self._ventanas.centrar_ventana_ttkbootstrap(self._master)
         #self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
 
     def _rellenar_cbx_documento(self):

@@ -62,7 +62,6 @@ class ControladorCaptura:
         self._ventanas.enfocar_componente('tbx_clave')
         self._inicializar_captura_manual()
         self._ventanas.enfocar_componente('tbx_buscar_manual')
-        self._ventanas.centrar_ventana_ttkbootstrap()
 
     def _inicializar_captura_manual(self):
         if self._interfaz.modulo_id not in [1687]:

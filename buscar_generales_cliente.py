@@ -652,6 +652,7 @@ class BuscarGeneralesCliente:
             if self._parametros_contpaqi.id_principal == -1:
                 self._parametros_contpaqi.nombre_usuario = self._base_de_datos.buscar_nombre_de_usuario(
                     self._parametros_contpaqi.id_usuario)
+
             ventana = self._ventanas.crear_popup_ttkbootstrap(ocultar_master=True)
             instancia = LlamarInstanciaCaptura(self._cliente,
                                                self._documento,

@@ -47,7 +47,7 @@ class ControladorCaptura:
 
         self._termino_buscado = None
 
-        logging.basicConfig()
+        #logging.basicConfig()
 
         self._rellenar_controles_interfaz()
         self._cargar_eventos_componentes()
@@ -64,8 +64,9 @@ class ControladorCaptura:
         self._configurar_pedido()
         self._ventanas.enfocar_componente('tbx_clave')
         self._inicializar_captura_manual()
-        self._ventanas.centrar_ventana_ttkbootstrap(self._master)
         self._ventanas.enfocar_componente('tbx_buscar_manual')
+        self._ventanas.centrar_ventana_ttkbootstrap()
+
 
     def _inicializar_captura_manual(self):
         if self._interfaz.modulo_id not in [1687]:

@@ -386,12 +386,11 @@ class ControladorPanelPedidos:
 
     def _capturar_nuevo(self):
 
-        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap_sin_bloqueo()
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+
         self._parametros.id_principal = -1
-        self._interfaz.master.iconify()
         instancia = BuscarGeneralesCliente(ventana, self._parametros)
-        ventana.grab_release()
-        ventana.wait_window()
+
         self._parametros.id_principal = 0
         self._actualizar_pedidos(self._fecha_seleccionada())
 

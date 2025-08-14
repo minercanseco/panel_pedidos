@@ -660,6 +660,7 @@ class BuscarGeneralesCliente:
                                                self._utilerias,
                                                self._master)
 
+
     def _asignar_parametros_a_documento(self):
 
         # las propiedades  self._doc_type | self._cfd_type_id son aginadas por la funcion self._documento_seleccionado

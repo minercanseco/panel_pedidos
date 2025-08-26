@@ -76,11 +76,11 @@ class InterfazPanelPedidos:
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
         tamano_meters =  75 if ancho <= 1367 else None
         componentes = {
-            'cbx_horarios': ('frame_horarios', None, None, None),
+            'cbx_horarios': ('frame_horarios', None, 'Horas:', None),
 
-            'cbx_capturista': ('frame_capturista', None, None, None),
+            'cbx_capturista': ('frame_capturista', None, 'Captura:', None),
 
-            'cbx_status': ('frame_status', None, None, None),
+            'cbx_status': ('frame_status', None, 'Status:', None),
 
             'den_fecha': ('frame_den_fecha',
                           'normal',   None

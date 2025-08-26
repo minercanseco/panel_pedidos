@@ -4,6 +4,7 @@ import random
 import tkinter as tk
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
+import threading
 
 from cayal.ventanas import Ventanas
 
@@ -18,7 +19,7 @@ class InterfazCaptura:
         self._cargar_frames()
         self._cargar_componentes_forma()
         self._ajustar_componentes_forma()
-        self._cargar_imagen_publicitaria()
+        self._cargar_imagen_publicitaria_async()
         self._cargar_componentes_frame_totales()
         self._agregar_validaciones()
         self._cargar_captura_manual()
@@ -221,45 +222,51 @@ class InterfazCaptura:
 
     def _obtener_ruta_imagenes_publitarias(self):
         ruta_windows = r'\\ccayal\Users\Administrador\Pictures\ClienteVentas'
-        if not os.path.exists(ruta_windows):
-            RUTA_BASE =  os.path.dirname(os.path.abspath(__file__))
-            return os.path.join(RUTA_BASE, 'publicidad')
-        return ruta_windows
+        if os.path.exists(ruta_windows):
+            return ruta_windows
+        RUTA_BASE = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(RUTA_BASE, 'publicidad')
 
-    def _cargar_imagen_publicitaria(self):
+    def _lista_imagenes_publicitarias(self):
+        # cachea en la instancia
+        if not hasattr(self, '_cache_imgs'):
+            path = self._PATH_IMAGENES_PUBLICITARIAS
+            self._cache_imgs = []
+            if os.path.exists(path):
+                # scandir es más rápido que os.listdir
+                with os.scandir(path) as it:
+                    self._cache_imgs = [e.path for e in it if e.is_file() and e.name.lower().endswith('.png')]
+        return self._cache_imgs
 
-        if self.modulo_id  in [1687]:
+
+    def _cargar_imagen_publicitaria_async(self):
+        if self.modulo_id in [1687]:
             return
-
-        if not os.path.exists(self._PATH_IMAGENES_PUBLICITARIAS):
-            print("Ruta inválida")
-            return
-
-        archivos = [
-            f for f in os.listdir(self._PATH_IMAGENES_PUBLICITARIAS)
-            if f.lower().endswith('.png')
-        ]
+        archivos = self._lista_imagenes_publicitarias()
         if not archivos:
-            print("No hay imágenes")
             return
+        ruta = random.choice(archivos)
+        lbl = self.ventanas.componentes_forma['lbl_anuncio']
 
-        ruta = os.path.join(self._PATH_IMAGENES_PUBLICITARIAS, random.choice(archivos))
-        imagen = Image.open(ruta)
+        def worker():
+            try:
+                img = Image.open(ruta).convert('RGB')
+                lbl.update_idletasks()
+                w, h = lbl.winfo_width(), lbl.winfo_height()
+                if w <= 1 or h <= 1:
+                    return
+                img.thumbnail((w, h), Image.Resampling.LANCZOS)
+            except Exception:
+                return
 
-        self.label_imagen =  self.ventanas.componentes_forma['lbl_anuncio']
-        self.label_imagen.update_idletasks()  # Forzar cálculo de tamaño
-        largo = self.label_imagen.winfo_width()
-        alto = self.label_imagen.winfo_height()
+            # volver al hilo principal para PhotoImage y configurar
+            def apply():
+                self.imagen_publicitaria = ImageTk.PhotoImage(img)
+                lbl.configure(image=self.imagen_publicitaria)
 
-        if largo <= 1 or alto <= 1:
-            print(f"Tamaño inválido ({largo}x{alto}), reintentando...")
-            return
+            self.master.after(0, apply)
 
-        # Redimensionar y mostrar
-        imagen = imagen.resize((largo+100, alto), Image.Resampling.LANCZOS)
-        self.imagen_publicitaria = ImageTk.PhotoImage(imagen)
-        self.label_imagen.configure(image=self.imagen_publicitaria)
-
+        threading.Thread(target=worker, daemon=True).start()
     def _ajustar_componentes_forma(self):
         self.ventanas.ajustar_componente_en_frame('tbx_cliente', 'frame_cliente')
 

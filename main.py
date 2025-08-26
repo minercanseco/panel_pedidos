@@ -29,16 +29,6 @@ if __name__ == '__main__':
         actualizador.actualizar_con_interfaz(ventana_login)
 
     if not version_actualizada:
-        # valida si es en mac o windows
-        if platform.system() == 'Darwin':
-            # parametros de prueba
-            parametros_login.cadena_conexion = 'Mac'
-        else:
-            # parametros de produccion
-            parametros_login.base_de_datos = 'ComercialSP'
-
-        # ------------------------------------------
-        # modulo de pedidos
         parametros_login.id_modulo = 1687
 
         instancia_login = Login(ventana_login, parametros_login, si_acceso_exitoso)

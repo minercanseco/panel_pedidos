@@ -23,6 +23,8 @@ class BuscarGeneralesCliente:
         self._declarar_variables_globales()
         self._crear_instancias_de_clases()
 
+
+
         self._crear_frames()
         self._cargar_componentes_forma()
         self._cargar_eventos_componentes_forma()
@@ -642,6 +644,8 @@ class BuscarGeneralesCliente:
 
         if not self._instancia_llamada and self._documento_seleccionado():
 
+            self._instancia_llamada = True
+
             # asignamos parámetros del cliente
             self._cliente.consulta = self._info_cliente_seleccionado
             self._cliente.settear_valores_consulta()
@@ -660,7 +664,7 @@ class BuscarGeneralesCliente:
             ventana = self._ventanas.crear_popup_ttkbootstrap(
                 master=raiz,  # <- NO uses self._master si vas a destruirla
                 titulo="Capturar pedido",
-                ocultar_master=False,  # <- no ocultes la raíz
+                ocultar_master=True,  # <- no ocultes la raíz
                 ejecutar_al_cierre=None,  # se manejará dentro del flujo de captura
                 preguntar=None
             )

@@ -221,6 +221,9 @@ class InterfazCaptura:
         self.ventanas.agregar_validacion_tbx('tbx_clave', 'codigo_barras')
 
     def _obtener_ruta_imagenes_publitarias(self):
+        if self.modulo_id in [1687]:
+            return
+
         ruta_windows = r'\\ccayal\Users\Administrador\Pictures\ClienteVentas'
         if os.path.exists(ruta_windows):
             return ruta_windows
@@ -228,6 +231,8 @@ class InterfazCaptura:
         return os.path.join(RUTA_BASE, 'publicidad')
 
     def _lista_imagenes_publicitarias(self):
+        if self.modulo_id in [1687]:
+            return
         # cachea en la instancia
         if not hasattr(self, '_cache_imgs'):
             path = self._PATH_IMAGENES_PUBLICITARIAS

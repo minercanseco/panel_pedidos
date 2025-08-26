@@ -679,7 +679,6 @@ class BuscarGeneralesCliente:
                 ventana.transient(self._master)  # se comporta como diálogo
                 #ventana.grab_set()  # foco modal
                 ventana.focus_force()
-                ventana.place_window_center()
                 ventana.lift()
             except Exception:
                 pass

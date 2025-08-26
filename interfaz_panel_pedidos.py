@@ -10,6 +10,7 @@ class InterfazPanelPedidos:
         self._cargar_componentes_forma()
 
     def _cargar_frames(self):
+
         frames = {
 
             'frame_principal': ('master', None,
@@ -22,6 +23,7 @@ class InterfazPanelPedidos:
             'frame_totales': ('frame_principal', None,
                               {'row': 0, 'column': 1, 'pady': 2, 'padx': 2,
                                'sticky': tk.E}),
+
             'frame_meters': ('frame_totales', None,
                              {'row': 0, 'column': 0, 'pady': 2, 'padx': 2,
                               'sticky': tk.W}),
@@ -104,6 +106,9 @@ class InterfazPanelPedidos:
         frame_comentario = self.ventanas.componentes_forma['frame_comentarios']
         frame_comentario.columnconfigure(1, weight=1)  # Asegurar que la columna 1 se extienda
         frame_comentario.rowconfigure(0, weight=1)
+
+        if ancho <= 1367:
+            self.ventanas.ocultar_frame('frame_meters')
 
     def crear_columnas_tabla_detalle(self):
         columnas = [

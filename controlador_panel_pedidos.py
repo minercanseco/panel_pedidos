@@ -1097,7 +1097,7 @@ class ControladorPanelPedidos:
         try:
 
             if status_id < 3:
-                ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap_sin_bloqueo()
+                ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
                 cliente = Cliente()
                 documento = Documento()
 

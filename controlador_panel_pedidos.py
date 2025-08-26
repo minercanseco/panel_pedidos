@@ -1095,27 +1095,34 @@ class ControladorPanelPedidos:
         order_document_id = fila['OrderDocumentID']
 
         try:
-
             if status_id < 3:
-                ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+                # ⚠️ NO crear ventana aquí: LlamarInstanciaCaptura la crea internamente
                 cliente = Cliente()
                 documento = Documento()
-
                 self._parametros.id_principal = order_document_id
-                instancia = LlamarInstanciaCaptura(cliente,
-                                                   documento,
-                                                   self._base_de_datos,
-                                                   self._parametros,
-                                                   self._utilerias,
-                                                   ventana)
 
-            if status_id == 3:
+                instancia = LlamarInstanciaCaptura(
+                    cliente,
+                    documento,
+                    self._base_de_datos,
+                    self._parametros,
+                    self._utilerias,
+                    None  # ← evita doble ventana: no pases un Toplevel existente
+                )
+                # si LlamarInstanciaCaptura expone una ventana y quieres modal, podrías:
+                # if hasattr(instancia, "master") and instancia.master:
+                #     instancia.master.wait_window()
+
+            elif status_id == 3:
+                # Aquí sí creas el Toplevel y lo haces modal
                 ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
                 instancia = EditarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros, fila)
                 ventana.wait_window()
 
-            if status_id > 3:
-                self._interfaz.ventanas.mostrar_mensaje('No se pueden editar en este módulo documentos que no estén en status Por Timbrar.')
+            else:  # status_id > 3
+                self._interfaz.ventanas.mostrar_mensaje(
+                    'No se pueden editar en este módulo documentos que no estén en status Por Timbrar.'
+                )
         finally:
             self._actualizar_totales_pedido(order_document_id)
             self._actualizar_pedidos(self._fecha_seleccionada())

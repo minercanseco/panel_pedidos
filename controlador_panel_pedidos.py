@@ -260,9 +260,9 @@ class ControladorPanelPedidos:
             paginated=True,
             searchable=True,
             bootstyle=PRIMARY,
-            pagesize=19 if ancho  <= 1367 else 25,
+            pagesize=19 if ancho  <= 1367 else 24,
             stripecolor=None,  # (colors.light, None),
-            height=19 if ancho  <= 1367 else 25,
+            height=19 if ancho  <= 1367 else 24,
             autofit=False,
             callbacks=[self._colorear_filas_panel_horarios],
             callbacks_search = [self._buscar_pedidos_cliente_sin_fecha]

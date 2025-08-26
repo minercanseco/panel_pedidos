@@ -677,8 +677,9 @@ class BuscarGeneralesCliente:
             # 3) Configura el popup correctamente
             try:
                 ventana.transient(self._master)  # se comporta como diálogo
-                ventana.grab_set()  # foco modal
+                #ventana.grab_set()  # foco modal
                 ventana.focus_force()
+                ventana.place_window_center()
                 ventana.lift()
             except Exception:
                 pass

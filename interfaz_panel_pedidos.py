@@ -16,7 +16,7 @@ class InterfazPanelPedidos:
             'frame_principal': ('master', None,
                                 {'row': 0, 'column': 0, 'sticky': tk.NSEW}),
 
-            'frame_herramientas': ('frame_principal', 'Herramientas',
+            'frame_herramientas': ('frame_principal', None,
                                    {'row': 0, 'column': 0, 'pady': 2, 'padx': 2,
                                     'sticky': tk.W}),
 

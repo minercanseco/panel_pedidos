@@ -87,17 +87,17 @@ class InterfazPanelPedidos:
                           , None),
 
             'chk_sin_fecha': ('frame_chks',
-                                 {'row': 5, 'column': 1, 'pady': 2, 'padx': 2, 'sticky': tk.W},
+                                 {'row': 5, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.W},
                                  'Sin fecha', None),
             'chk_sin_procesar': ('frame_chks',
-                               {'row': 5, 'column': 3, 'pady': 2, 'padx': 2, 'sticky': tk.W},
+                               {'row': 5, 'column': 3, 'pady': 0, 'padx': 0, 'sticky': tk.W},
                                'Sin procesar', None),
 
             'mtr_total': ('frame_meters', None, 'Total', tamano_meters),
             'mtr_en_tiempo': ('frame_meters', 'success', 'En tiempo', tamano_meters),
             'mtr_a_tiempo': ('frame_meters', 'warning', 'A tiempo', tamano_meters),
             'mtr_retrasado': ('frame_meters', 'danger', 'Retrasos', tamano_meters),
-            'tbx_comentarios': ('frame_comentarios', {'row': 0, 'column': 1, 'pady': 5, 'padx': 2, 'sticky': tk.NSEW},
+            'tbx_comentarios': ('frame_comentarios', {'row': 0, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
                                 ' ', None),
             'tvw_detalle':('frame_detalle', self.crear_columnas_tabla_detalle(), 5, None)
         }

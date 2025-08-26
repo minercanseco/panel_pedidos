@@ -56,11 +56,11 @@ class InterfazPanelPedidos:
                                 {'row': 0, 'column': 5, 'pady': 2, 'padx': 2,
                                  'sticky': tk.NSEW}),
 
-            'frame_captura': ('frame_principal', 'Pedidos',
+            'frame_captura': ('frame_principal', None,
                               {'row': 3, 'columnspan': 2, 'column': 0, 'pady': 2, 'padx': 2,
                                'sticky': tk.NSEW}),
 
-            'frame_comentarios': ('frame_principal', 'Comentarios',
+            'frame_comentarios': ('frame_principal', None,
             {'row': 4, 'columnspan': 2, 'column': 0, 'pady': 2, 'padx': 2,
              'sticky': tk.NSEW}),
 

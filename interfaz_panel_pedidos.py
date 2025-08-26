@@ -17,47 +17,47 @@ class InterfazPanelPedidos:
                                 {'row': 0, 'column': 0, 'sticky': tk.NSEW}),
 
             'frame_herramientas': ('frame_principal', None,
-                                   {'row': 0, 'column': 0, 'pady': 0, 'padx': 0,
+                                   {'row': 0, 'column': 0, 'pady': 1, 'padx': 1,
                                     'sticky': tk.W}),
 
             'frame_totales': ('frame_principal', None,
-                              {'row': 0, 'column': 1, 'pady': 0, 'padx': 0,
+                              {'row': 0, 'column': 1, 'pady': 1, 'padx': 1,
                                'sticky': tk.E}),
 
             'frame_meters': ('frame_totales', None,
-                             {'row': 0, 'column': 0, 'pady': 0, 'padx': 0,
+                             {'row': 0, 'column': 0, 'pady': 1, 'padx': 1,
                               'sticky': tk.W}),
 
             'frame_filtros': ('frame_principal', None,
-                              {'row': 2, 'column': 0, 'columnspan': 0, 'pady': 2, 'padx': 0,
+                              {'row': 2, 'column': 0, 'columnspan': 0, 'pady': 1, 'padx': 1,
                                'sticky': tk.NSEW}),
 
             'frame_horarios': ('frame_filtros', None,
-                               {'row': 0, 'column': 0, 'pady': 0, 'padx': 0,
+                               {'row': 0, 'column': 0, 'pady': 1, 'padx': 1,
                                 'sticky': tk.NSEW}),
 
             'frame_fecha': ('frame_filtros', None,
-                            {'row': 0, 'column': 1, 'pady': 0, 'padx': 0,
+                            {'row': 0, 'column': 1, 'pady': 1, 'padx': 1,
                              'sticky': tk.NSEW}),
 
             'frame_den_fecha': ('frame_fecha', None,
-                            {'row': 0, 'column': 0, 'pady': 2, 'padx': 2,
+                            {'row': 0, 'column': 0, 'pady': 1, 'padx': 1,
                              'sticky': tk.NSEW}),
 
             'frame_chks': ('frame_fecha', None,
-                            {'row': 0, 'column': 1, 'pady': 0, 'padx': 0,
+                            {'row': 0, 'column': 1, 'pady': 1, 'padx': 1,
                              'sticky': tk.NSEW}),
 
             'frame_capturista': ('frame_filtros', None,
-                            {'row': 0, 'column': 3, 'pady': 0, 'padx': 0,
+                            {'row': 0, 'column': 3, 'pady': 1, 'padx': 1,
                              'sticky': tk.NSEW}),
 
             'frame_status': ('frame_filtros', None,
-                                {'row': 0, 'column': 5, 'pady': 0, 'padx': 0,
+                                {'row': 0, 'column': 5, 'pady': 1, 'padx': 1,
                                  'sticky': tk.NSEW}),
 
             'frame_captura': ('frame_principal', None,
-                              {'row': 3, 'columnspan': 2, 'column': 0, 'pady': 0, 'padx': 0,
+                              {'row': 3, 'columnspan': 2, 'column': 0, 'pady': 1, 'padx': 1,
                                'sticky': tk.NSEW}),
 
             'frame_comentarios': ('frame_principal', None,

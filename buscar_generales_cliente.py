@@ -658,32 +658,60 @@ class BuscarGeneralesCliente:
                     self._parametros_contpaqi.id_usuario
                 )
 
-            # 1) usa SIEMPRE la raíz estable como padre del nuevo popup
-            raiz = getattr(self._ventanas, "_master", None) or self._master
-
-            ventana = self._ventanas.crear_popup_ttkbootstrap(
-                master=raiz,  # <- NO uses self._master si vas a destruirla
-                titulo="Capturar pedido",
-                ocultar_master=True,  # <- no ocultes la raíz
-                ejecutar_al_cierre=None,  # se manejará dentro del flujo de captura
-                preguntar=None
-            )
-
-            # 2) libera el grab del popup (para que no bloquee otras ventanas de captura)
+            # 1) Oculta la ventana origen ANTES de crear el popup (evita parpadeos y ventanas “huérfanas”)
             try:
-                ventana.grab_release()
+                self._master.withdraw()
             except Exception:
                 pass
 
-            # 3) destruye la ventana origen DESPUÉS de que el popup se muestre
-            #    (evita que el centrar/lift del popup “despierte” la ventana vieja)
-            try:
-                ventana.bind("<Map>", lambda e: self._master.after(0, self._master.destroy()), add="+")
-            except Exception:
-                # fallback, por si <Map> no dispara en algún WM
-                self._master.after(0, self._master.destroy)
+            # 2) Crea el popup como hijo del master (NO crees una nueva raíz)
+            raiz = getattr(self._ventanas, "_master", None) or self._master
+            ventana = self._ventanas.crear_popup_ttkbootstrap(
+                master=raiz,
+                titulo="Capturar pedido",
+                ocultar_master=False,  # ⬅️ la raíz ya está withdraw
+                ejecutar_al_cierre=None,
+                preguntar=None
+            )
 
-            # 4) instancia la UI de captura usando el nuevo popup como master
+            # 3) Configura el popup correctamente
+            try:
+                ventana.transient(self._master)  # se comporta como diálogo
+                ventana.grab_set()  # foco modal
+                ventana.focus_force()
+                ventana.lift()
+            except Exception:
+                pass
+
+            # 4) Qué pasa al cerrar el popup:
+            #    Opción A: cerrar todo (popup + ventana de búsqueda)
+            def _cerrar_todo():
+                try:
+                    ventana.destroy()
+                finally:
+                    # si quieres matar la búsqueda al cerrar captura:
+                    try:
+                        self._master.destroy()
+                    except Exception:
+                        pass
+
+            #    Opción B (alternativa): restaurar la búsqueda en lugar de destruirla:
+            # def _cerrar_todo():
+            #     try:
+            #         ventana.destroy()
+            #     finally:
+            #         try:
+            #             self._master.deiconify()
+            #             self._ventanas.centrar_ventana_ttkbootstrap(self._master)
+            #         except Exception:
+            #             pass
+
+            try:
+                ventana.protocol("WM_DELETE_WINDOW", _cerrar_todo)
+            except Exception:
+                pass
+
+            # 5) Instancia la UI de captura usando el popup como master
             instancia = LlamarInstanciaCaptura(
                 self._cliente,
                 self._documento,
@@ -693,6 +721,9 @@ class BuscarGeneralesCliente:
                 ventana
             )
 
+            # 6) Si tu flujo necesita esperar a que cierre la captura para seguir:
+            # ventana.wait_window()
+            # _cerrar_todo()
 
     def _asignar_parametros_a_documento(self):
 

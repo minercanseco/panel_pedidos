@@ -28,15 +28,15 @@ class InterfazPanelPedidos:
                              {'row': 0, 'column': 0, 'pady': 2, 'padx': 2,
                               'sticky': tk.W}),
 
-            'frame_filtros': ('frame_principal', 'Filtros',
+            'frame_filtros': ('frame_principal', None,
                               {'row': 2, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2,
                                'sticky': tk.NSEW}),
 
-            'frame_horarios': ('frame_filtros', 'Horas',
+            'frame_horarios': ('frame_filtros', None,
                                {'row': 0, 'column': 0, 'pady': 2, 'padx': 2,
                                 'sticky': tk.NSEW}),
 
-            'frame_fecha': ('frame_filtros', 'Fecha',
+            'frame_fecha': ('frame_filtros', None,
                             {'row': 0, 'column': 1, 'pady': 2, 'padx': 2,
                              'sticky': tk.NSEW}),
 
@@ -48,11 +48,11 @@ class InterfazPanelPedidos:
                             {'row': 0, 'column': 1, 'pady': 2, 'padx': 2,
                              'sticky': tk.NSEW}),
 
-            'frame_capturista': ('frame_filtros', 'Capturó',
+            'frame_capturista': ('frame_filtros', None,
                             {'row': 0, 'column': 3, 'pady': 2, 'padx': 2,
                              'sticky': tk.NSEW}),
 
-            'frame_status': ('frame_filtros', 'Status',
+            'frame_status': ('frame_filtros', None,
                                 {'row': 0, 'column': 5, 'pady': 2, 'padx': 2,
                                  'sticky': tk.NSEW}),
 

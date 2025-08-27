@@ -393,15 +393,11 @@ class ControladorPanelPedidos:
         try:
             self._actualizando_tabla = True
 
-            # Limpia filtros (si corresponde)
+            # 1) Limpia filtros visuales si lo pides
             self._interfaz.ventanas.limpiar_filtros_table_view('tbv_pedidos', criteria)
 
-            # Siempre que:
-            # - pidas refresh explícito
-            # - o pases fecha
-            # - o no haya caché previo
-            # → vuelve a consultar
-            if refresh or (fecha is not None) or not self._modelo.consulta_pedidos:
+            # 2) Reconsulta si hay refresh, cambiaste fecha o no hay caché
+            if refresh or (fecha is not None) or not getattr(self._modelo, 'consulta_pedidos', None):
                 consulta = self._modelo.buscar_pedidos(fecha)
                 self._modelo.consulta_pedidos = consulta
             else:
@@ -411,21 +407,56 @@ class ControladorPanelPedidos:
                 self._limpiar_tabla()
                 return
 
-            # Guarda valores de filtros actuales (para restaurarlos tras el repintado)
-            valores_cbx_filtros = self._obtener_valores_cbx_filtros()
+            # 3) Guarda selección actual del usuario (antes de repoblar combos)
+            seleccion_previa = self._obtener_valores_cbx_filtros()
 
-            # Aplica filtros y repinta
-            consulta_filtrada = self._filtrar_consulta(consulta, valores_cbx_filtros)
+            # 4) Construye opciones de filtros desde la data FRESCA y repuebla combos
+            capturistas = {f['CapturadoPor'] for f in consulta}
+            horarios = {f['HoraEntrega'] for f in consulta}
+            status = {f['Status'] for f in consulta}
+
+            self._rellenar_cbx_captura(capturistas)
+            self._rellenar_cbx_horarios(horarios)
+            self._rellenar_cbx_status(status)
+
+            # 5) Restaura la selección del usuario SI sigue siendo válida; si no, “Seleccione”
+            self._settear_valores_cbx_filtros(seleccion_previa)
+
+            # 6) Aplica filtros según lo que haya en los combos AHORA
+            valores = self._obtener_valores_cbx_filtros()
+            consulta_filtrada = self._filtrar_consulta_sin_rellenar(consulta, valores)
+
+            # 7) Pinta la tabla
             self._interfaz.ventanas.rellenar_table_view(
-                'tbv_pedidos', self._interfaz.crear_columnas_tabla(), consulta_filtrada
+                'tbv_pedidos',
+                self._interfaz.crear_columnas_tabla(),
+                consulta_filtrada
             )
 
-            # Recolorea, etc.
             self._colorear_filas_panel_horarios(actualizar_meters=True)
-            self._settear_valores_cbx_filtros(valores_cbx_filtros)
 
         finally:
             self._actualizando_tabla = False
+
+    def _filtrar_consulta_sin_rellenar(self, consulta, valores):
+        """Sólo filtra; NO toca combos."""
+        if self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar') == 1:
+            self._interfaz.ventanas.limpiar_componentes('den_fecha')
+            return self._modelo.buscar_pedidos_sin_procesar()
+
+        vlr_cbx_captura = valores['cbx_capturista']
+        vlr_cbx_horarios = valores['cbx_horarios']
+        vlr_cbx_status = valores['cbx_status']
+
+        if vlr_cbx_captura and vlr_cbx_captura != 'Seleccione':
+            consulta = [f for f in consulta if f['CapturadoPor'] == vlr_cbx_captura]
+        if vlr_cbx_horarios and vlr_cbx_horarios != 'Seleccione':
+            consulta = [f for f in consulta if f['HoraEntrega'] == vlr_cbx_horarios]
+        if vlr_cbx_status and vlr_cbx_status != 'Seleccione':
+            consulta = [f for f in consulta if f['Status'] == vlr_cbx_status]
+
+        return consulta
+
 
     def _filtrar_consulta(self, consulta, valores_cbx_filtros):
         # Si el checkbox está activado, solo devolver los pedidos sin procesar
@@ -487,7 +518,7 @@ class ControladorPanelPedidos:
 
         finally:
             self._parametros.id_principal = 0
-            self._actualizar_pedidos(self._fecha_seleccionada())
+            self._actualizar_pedidos(fecha=self._fecha_seleccionada(), refresh=True)
             self._reanudar_autorefresco()
 
     def _editar_caracteristicas(self):

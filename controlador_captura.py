@@ -63,6 +63,7 @@ class ControladorCaptura:
         self._inicializar_captura_manual()
         self._ventanas.enfocar_componente('tbx_buscar_manual')
 
+        self._ventanas.centrar_ventana_ttkbootstrap()
         self._ventanas.situar_ventana_arriba(self._master)
 
     def _inicializar_captura_manual(self):
@@ -77,7 +78,6 @@ class ControladorCaptura:
         self._agregando_producto = False
 
         self._rellenar_componentes_manual()
-        #self._buscar_ofertas(rellenar_tabla=False)
 
     def _es_documento_bloqueado(self):
         status_id = 0

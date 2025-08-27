@@ -185,8 +185,8 @@ class InterfazCaptura:
 
         frame_totales = self.ventanas.componentes_forma['frame_totales']
 
-        tamano_fuente_titulo_2 = 16 if ancho > 1366 else 13
-        tamano_fuente_titulo_3 = 20 if ancho > 1366 else 17
+        tamano_fuente_titulo_2 = 14 if ancho > 1366 else 13
+        tamano_fuente_titulo_3 = 18 if ancho > 1366 else 17
 
 
         for nombre, (estilo, posicion, etiqueta) in etiqueta_totales.items():
@@ -272,6 +272,7 @@ class InterfazCaptura:
             self.master.after(0, apply)
 
         threading.Thread(target=worker, daemon=True).start()
+
     def _ajustar_componentes_forma(self):
         self.ventanas.ajustar_componente_en_frame('tbx_cliente', 'frame_cliente')
 

@@ -301,7 +301,7 @@ class PanelPrincipal:
             self._master.withdraw()
 
             informacion_captura = {'TipoCaptura': tipo_captura}
-            ventana = self._ventanas.crear_popup_ttkbootstrap_sin_bloqueo('Formulario cliente')
+            ventana = self._ventanas.crear_popup_ttkbootstrap('Formulario cliente')
             instancia = FormularioCliente(ventana, self._parametros, informacion_captura, self._cliente)
             ventana.wait_window()
             self._master.destroy()

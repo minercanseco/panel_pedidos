@@ -1103,6 +1103,7 @@ class ControladorPanelPedidos:
         return filas_filtradas
 
     def _editar_pedido(self):
+
         fila = self._validar_seleccion_una_fila()
         if not fila:
             self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar un pedido.')

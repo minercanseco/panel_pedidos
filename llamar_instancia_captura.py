@@ -69,11 +69,7 @@ class LlamarInstanciaCaptura:
                 ejecutar_al_cierre=_on_close
             )
 
-        # Red de seguridad: si cierran con la X, también ejecutar _on_close
-        try:
-            ventana.protocol("WM_DELETE_WINDOW", _on_close)
-        except Exception:
-            pass
+
 
         # ----- Resto de tu flujo intacto -----
         interfaz = InterfazCaptura(ventana, self._parametros_contpaqi.id_modulo)

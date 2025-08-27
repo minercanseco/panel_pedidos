@@ -71,7 +71,7 @@ class BuscarGeneralesCliente:
                                {'row': 0, 'column': 1,  'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
 
             'frame_cbx_documento': ('frame_cbxs', 'Documento:',
-                               {'row': 0, 'column': 3, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
+                               {'row': 0, 'column': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
 
             'frame_informacion': ('frame_data', 'Generales:',
                                   {'row': 1, 'column': 0, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
@@ -93,11 +93,11 @@ class BuscarGeneralesCliente:
             'cbx_resultados': ('frame_buscar', None, '  ', None),
 
             'cbx_direccion': ('frame_cbx_direccion',
-                              {'row': 0, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W},
-                              '[Ctrl+T]', None),
+                              {'row': 0, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.W},
+                              '  ', '[Ctrl+T]'),
             'cbx_documento': ('frame_cbx_documento',
-                              {'row': 0, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W},
-                              'Ctrl+D', None ),
+                              {'row': 0, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.W},
+                              '  ', 'Ctrl+D'),
             'btn_seleccionar': ('frame_botones', 'primary', 'Seleccionar', '[F1]'),
             'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', '[Esc]'),
 
@@ -223,7 +223,10 @@ class BuscarGeneralesCliente:
     def _cargar_hotkeys(self):
         hotkeys = {
             'F1': self._seleccionar_cliente,
-            'F4': self._copiar_informacion_direccion
+            'F4': self._copiar_informacion_direccion,
+            'Ctrl+T': self._ventanas.enfocar_componente('cbx_direccion'),
+            'Ctrl+D': self._ventanas.enfocar_componente('cbx_documento')
+
         }
 
         self._ventanas.agregar_hotkeys_forma(hotkeys)

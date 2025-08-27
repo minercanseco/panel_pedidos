@@ -33,7 +33,7 @@ class InterfazCaptura:
                                 {'row': 0, 'column': 0, 'sticky': tk.NSEW}),
 
             'frame_izquierdo': ('frame_principal', None,
-                              {'row': 0, 'column': 0,  'pady': 5, 'padx': 2, 'sticky': tk.NSEW}),
+                              {'row': 0, 'column': 0,  'pady': 0, 'padx': 0, 'sticky': tk.NSEW}),
 
             'frame_herramientas': ('frame_izquierdo', None,
                                    {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 0, 'padx': 0,
@@ -331,47 +331,47 @@ class InterfazCaptura:
         frames = {
 
             'frame_buscar_manual' : ('frame_anuncio', 'Búsqueda',
-                       {'row': 0, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+                       {'row': 0, 'column': 0, 'columnspan': 4, 'pady': 1, 'padx': 2, 'sticky': tk.NSEW}),
 
             'frame_tbx_buscar_manual' : ('frame_buscar_manual', None,
-                                       {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NS}),
+                                       {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 1, 'padx': 2, 'sticky': tk.NS}),
 
             'frame_cbx_buscar_manual' : ('frame_buscar_manual', None,
-                                       {'row': 0, 'column': 3, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NS}),
+                                       {'row': 0, 'column': 3, 'columnspan': 2, 'pady': 1, 'padx': 2, 'sticky': tk.NS}),
 
             'frame_partida_manual' : ('frame_anuncio', 'Partida:',
-                                    {'row': 2, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+                                    {'row': 2, 'column': 0, 'columnspan': 4, 'pady': 1, 'padx': 2, 'sticky': tk.NSEW}),
 
 
 
             'frame_detalles_partida_manual' : ('frame_partida_manual', 'Detalles:',
-                                       {'row': 0, 'column': 0,  'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+                                       {'row': 0, 'column': 0,  'columnspan': 4, 'pady': 1, 'padx': 2, 'sticky': tk.NSEW}),
 
 
 
             'frame_cantida_y_equivalencia': ('frame_detalles_partida_manual', 'Cantidad [Ctrl+C]',
-                                        {'row': 0, 'column': 0,  'columnspan': 2, 'pady': 2, 'padx': 2,
+                                        {'row': 0, 'column': 0,  'columnspan': 2, 'pady': 1, 'padx': 2,
                                          'sticky': tk.W}),
 
             'frame_totales_manual': ('frame_detalles_partida_manual', 'Total pieza:',
-                                     {'row': 0, 'column': 2, 'columnspan': 2, 'rowspan': 2, 'pady': 2, 'padx': 2,
+                                     {'row': 0, 'column': 2, 'columnspan': 2, 'rowspan': 2, 'pady': 1, 'padx': 2,
                                       'sticky': tk.NSEW}),
 
 
             'frame_controles_manual' : ('frame_detalles_partida_manual', None,
-                                      {'row': 1, 'column': 0,  'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+                                      {'row': 1, 'column': 0,  'columnspan': 2, 'pady': 1, 'padx': 2, 'sticky': tk.NSEW}),
 
             'frame_txt_comentario_manual' : ('frame_partida_manual', 'Especificación [Ctrl+M]',
-                                           {'row': 6, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+                                           {'row': 6, 'column': 0, 'columnspan': 4, 'pady': 1, 'padx': 2, 'sticky': tk.NSEW}),
 
             'frame_txt_portapapeles_manual' : ('frame_partida_manual', 'Portapapeles [Ctrl+P]',
-                                             {'row': 7, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}),
+                                             {'row': 7, 'column': 0, 'columnspan': 4, 'pady': 1, 'padx': 2, 'sticky': tk.NSEW}),
 
             'frame_botones_manual' : ('frame_partida_manual', None,
-                                    {'row': 11, 'column': 1, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
+                                    {'row': 11, 'column': 1, 'padx': 0, 'pady': 3, 'sticky': tk.W}),
 
             'frame_tabla_manual': ('frame_anuncio', 'Productos [Ctrl+T]',
-                                   {'row': 3, 'column': 0, 'columnspan': 4, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW})
+                                   {'row': 3, 'column': 0, 'columnspan': 4, 'pady': 1, 'padx': 2, 'sticky': tk.NSEW})
         }
         self.ventanas.crear_frames(frames)
 

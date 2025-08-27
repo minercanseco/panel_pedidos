@@ -36,14 +36,14 @@ class InterfazCaptura:
                               {'row': 0, 'column': 0,  'pady': 5, 'padx': 2, 'sticky': tk.NSEW}),
 
             'frame_herramientas': ('frame_izquierdo', None,
-                                   {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2,
+                                   {'row': 0, 'column': 0, 'columnspan': 2, 'pady': 0, 'padx': 0,
                                     'sticky': tk.NSEW}),
 
             'frame_cliente': ('frame_izquierdo', 'Datos cliente:',
-                              {'row': 1, 'column': 0, 'columnspan': 2, 'pady': 5, 'padx': 2, 'sticky': tk.NSEW}),
+                              {'row': 1, 'column': 0, 'columnspan': 2, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW}),
 
             'frame_captura': ('frame_izquierdo', 'Captura',
-                              {'row': 2, 'columnspan': 2, 'column': 0, 'pady': 2, 'padx': 0,
+                              {'row': 2, 'columnspan': 2, 'column': 0, 'pady': 0, 'padx': 0,
                                'sticky': tk.NSEW}),
 
             'frame_clave': ('frame_captura', None,
@@ -54,20 +54,20 @@ class InterfazCaptura:
                              'sticky': tk.NSEW}),
 
             'frame_comentario': ('frame_izquierdo', 'Comentarios:',
-                                 {'row': 4, 'column': 0, 'columnspan': 2, 'pady': 2, 'padx': 2, 'sticky': tk.NSEW}
+                                 {'row': 4, 'column': 0, 'columnspan': 2, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW}
                                  ),
 
 
             'frame_derecho': ('frame_principal', None,
-                              {'row': 0, 'column': 2,  'rowspan':5, 'pady': 2, 'padx': 2,
+                              {'row': 0, 'column': 2,  'rowspan':5, 'pady': 0, 'padx': 0,
                                'sticky': tk.NSEW}),
 
             'frame_totales': ('frame_derecho', None,
-                              {'row': 0, 'column': 2,  'columnspan': 5, 'pady': 2, 'padx': 2,
+                              {'row': 0, 'column': 2,  'columnspan': 5, 'pady': 0, 'padx': 0,
                                'sticky': tk.NE}),
 
             'frame_anuncio': ('frame_derecho', nombre_frame_anuncio,
-                              {'row': 2,  'column': 2, 'columnspan': 4, 'pady': 2, 'padx': 2,
+                              {'row': 2,  'column': 2, 'columnspan': 4, 'pady': 0, 'padx': 0,
                                'sticky': tk.NSEW}),
 
 

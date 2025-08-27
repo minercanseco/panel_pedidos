@@ -1,4 +1,3 @@
-import platform
 
 import ttkbootstrap as ttk
 from cayal.parametros_contpaqi import ParametrosContpaqi
@@ -22,7 +21,7 @@ if __name__ == '__main__':
     ventana_login = ttk.Window()
     parametros_login = ParametrosContpaqi()
 
-    actualizador = ActualizadorDePaquetes('panel_pedidos_v96')
+    actualizador = ActualizadorDePaquetes('panel_pedidos_v97')
     version_actualizada = actualizador.verificar_version_actualizada()
 
     if version_actualizada:

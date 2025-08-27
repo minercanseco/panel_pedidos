@@ -94,10 +94,10 @@ class BuscarGeneralesCliente:
 
             'cbx_direccion': ('frame_cbx_direccion',
                               {'row': 0, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.W},
-                              '  ', '[Ctrl+T]'),
+                              '[Ctrl+T]', None),
             'cbx_documento': ('frame_cbx_documento',
                               {'row': 0, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.W},
-                              '  ', 'Ctrl+D'),
+                              'Ctrl+D', None ),
             'btn_seleccionar': ('frame_botones', 'primary', 'Seleccionar', '[F1]'),
             'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', '[Esc]'),
 

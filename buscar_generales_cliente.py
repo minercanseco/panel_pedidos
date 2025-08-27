@@ -56,31 +56,31 @@ class BuscarGeneralesCliente:
                                 {'row': 0, 'column': 0, 'sticky': tk.NSEW}),
 
             'frame_buscar': ('frame_principal', 'Buscar cliente:',
-                                      {'row': 0, 'columnspan': 4, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
+                                      {'row': 0, 'columnspan': 4, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
 
             'frame_botones': ('frame_buscar', None,
                               {'row': 2, 'column': 1,  'pady': 5, 'sticky': tk.NSEW}),
 
             'frame_data': ('frame_principal', 'Información:',
-                           {'row': 3, 'column': 0, 'columnspan': 8, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
+                           {'row': 3, 'column': 0, 'columnspan': 8, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
 
             'frame_cbxs': ('frame_data', None,
-                              {'row': 0, 'column': 0,  'columnspan': 4, 'pady': 5, 'sticky': tk.W}),
+                              {'row': 0, 'column': 0,  'columnspan': 4, 'pady': 1, 'sticky': tk.W}),
 
             'frame_cbx_direccion': ('frame_cbxs', 'Dirección:',
-                               {'row': 0, 'column': 1,  'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
+                               {'row': 0, 'column': 1,  'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
 
             'frame_cbx_documento': ('frame_cbxs', 'Documento:',
-                               {'row': 0, 'column': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
+                               {'row': 0, 'column': 2, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
 
             'frame_informacion': ('frame_data', 'Generales:',
-                                  {'row': 1, 'column': 0, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
+                                  {'row': 1, 'column': 0, 'columnspan': 2, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
 
             'frame_direccion': ('frame_data', 'Detalles dirección:',
-                                {'row': 1, 'column': 2, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NS}),
+                                {'row': 1, 'column': 2, 'columnspan': 2, 'padx': 1, 'pady': 1, 'sticky': tk.NS}),
 
             'frame_copiar_direccion': ('frame_direccion', None,
-                                       {'row': 11, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}),
+                                       {'row': 11, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}),
 
         }
 

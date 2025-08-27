@@ -1113,6 +1113,7 @@ class ControladorPanelPedidos:
         status_id = fila['TypeStatusID']
         order_document_id = fila['OrderDocumentID']
 
+        self._pausar_autorefresco()
         try:
             if status_id < 3:
                 # ⚠️ NO crear ventana aquí: LlamarInstanciaCaptura la crea internamente
@@ -1145,12 +1146,17 @@ class ControladorPanelPedidos:
         finally:
             self._actualizar_totales_pedido(order_document_id)
             self._actualizar_pedidos(self._fecha_seleccionada())
+            self._reanudar_autorefresco()
 
     def _buscar_pedido(self):
-        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Buscar pedido')
-        instancia = BuscarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros)
-        ventana.wait_window()
-        self._parametros.id_principal = 0
+        self._pausar_autorefresco()
+        try:
+            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Buscar pedido')
+            instancia = BuscarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros)
+            ventana.wait_window()
+        finally:
+            self._parametros.id_principal = 0
+            self._reanudar_autorefresco()
 
     def _capturado_vs_producido(self):
         self._pausar_autorefresco()
@@ -1281,32 +1287,34 @@ class ControladorPanelPedidos:
         self.hotkeys_barra_herramientas = self.elementos_barra_herramientas[1]
 
     def _imprimir(self):
-
-        filas = None
-        seleccion_status = self._interfaz.ventanas.obtener_input_componente('cbx_status')
-        if seleccion_status == 'En Proceso':
-            respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
-                '¿Desea imprimir todos los pedidos en el status en proceso, que faltan por imprimir?')
-            if respuesta:
-                filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos')
-                filas = [
-                    fila for fila in filas
-                    if fila['TypeStatusID'] in (2, 16, 17, 18) and set(fila['PrintedStatus']) != set(
-                        fila['TipoProduccion'])
-                ]
+        self._pausar_autorefresco()
+        try:
+            filas = None
+            seleccion_status = self._interfaz.ventanas.obtener_input_componente('cbx_status')
+            if seleccion_status == 'En Proceso':
+                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                    '¿Desea imprimir todos los pedidos en el status en proceso, que faltan por imprimir?')
+                if respuesta:
+                    filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos')
+                    filas = [
+                        fila for fila in filas
+                        if fila['TypeStatusID'] in (2, 16, 17, 18) and set(fila['PrintedStatus']) != set(
+                            fila['TipoProduccion'])
+                    ]
+                else:
+                    filas =  self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
             else:
-                filas =  self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
-        else:
-            filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
+                filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
 
-        if not filas:
-            self._interfaz.ventanas.mostrar_mensaje('No hay pedidos que imprimir')
-            return
+            if not filas:
+                self._interfaz.ventanas.mostrar_mensaje('No hay pedidos que imprimir')
+                return
 
-        for fila in filas:
-            self._preparar_ticket_impresion(fila)
-
-        self._actualizar_pedidos(self._fecha_seleccionada())
+            for fila in filas:
+                self._preparar_ticket_impresion(fila)
+        finally:
+            self._actualizar_pedidos(self._fecha_seleccionada())
+            self._reanudar_autorefresco()
 
     def _preparar_ticket_impresion(self, fila):
         order_document_id = fila['OrderDocumentID']

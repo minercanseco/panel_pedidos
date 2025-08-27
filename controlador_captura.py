@@ -63,7 +63,7 @@ class ControladorCaptura:
         self._inicializar_captura_manual()
         self._ventanas.enfocar_componente('tbx_buscar_manual')
 
-        self._ventanas.centrar_ventana_ttkbootstrap()
+        self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Nuevo pedido', bloquear=False)
         self._ventanas.situar_ventana_arriba(self._master)
 
     def _inicializar_captura_manual(self):

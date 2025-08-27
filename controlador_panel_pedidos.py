@@ -511,10 +511,15 @@ class ControladorPanelPedidos:
     def _capturar_nuevo(self):
         self._pausar_autorefresco()
         try:
-            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(ocultar_master=True, master=self._interfaz.master)
+            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(
+                ocultar_master=True, master=self._interfaz.master
+            )
 
             self._parametros.id_principal = -1
             instancia = BuscarGeneralesCliente(ventana, self._parametros)
+
+            # ← Bloquea el hilo de UI hasta que cierren el popup
+            ventana.wait_window()
 
         finally:
             self._parametros.id_principal = 0

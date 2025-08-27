@@ -415,6 +415,7 @@ class BuscarGeneralesCliente:
 
         if solo_apariencia_inicial:
             apariencia_inicial()
+            self._master.place_window_center()
             #self._master.after_idle(lambda: self._ventanas.centrar_ventana_ttkbootstrap(self._master))
             return
 
@@ -437,6 +438,8 @@ class BuscarGeneralesCliente:
         )
         self._rellenar_cbx_documento()
         self._seleccionar_direccion()
+
+        self._master.place_window_center()
 
         #self._master.after_idle(lambda: self._ventanas.centrar_ventana_ttkbootstrap(self._master))
 

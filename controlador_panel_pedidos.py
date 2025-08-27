@@ -470,7 +470,7 @@ class ControladorPanelPedidos:
     def _capturar_nuevo_cliente(self):
         self._parametros.id_principal = -1
         self._interfaz.master.iconify()
-        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap_sin_bloqueo()
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
         instancia = PanelPrincipal(ventana, self._parametros, self._base_de_datos, self._utilerias)
         ventana.wait_window()
         self._parametros.id_principal = 0

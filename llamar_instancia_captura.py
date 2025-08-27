@@ -22,6 +22,10 @@ class LlamarInstanciaCaptura:
         self._editando_documento = False
         self._info_documento = {}
 
+        self._locked_doc_id = 0
+        self._locked_is_pedido = False
+        self._locked_active = False
+
         self._settear_valores_principales()
         self._determinar_si_se_inicia_captura_o_edicion()
 
@@ -30,51 +34,61 @@ class LlamarInstanciaCaptura:
         if self._parametros_contpaqi.id_principal not in (0, -1):
             self._rellenar_instancias_importadas()
 
+        # --- callback que SIEMPRE guarda (si procede) y DESMARCA el bloqueo ---
+        def _on_close():
+            try:
+                self._procesar_documento()
+            finally:
+                # usa helper si existe; si no, fallback directo
+                if hasattr(self, "_unmark_in_use"):
+                    self._unmark_in_use()
+                else:
+                    try:
+                        doc_id = int(getattr(self.documento, "document_id", 0) or 0)
+                        if doc_id > 0:
+                            pedido_flag = (self._module_id == 1687)
+                            self._base_de_datos.desmarcar_documento_en_uso(doc_id, pedido=pedido_flag)
+                    except Exception:
+                        pass
+
+        # --- crea el popup como antes, pero usando _on_close ---
         if not self.documento.cancelled_on:
-
             pregunta = '¿Desea guardar el documento?'
-            ventana = self._ventanas.crear_popup_ttkbootstrap(master=self._master,
-                                                              titulo='Capturar pedido',
-                                                              ocultar_master=True,
-                                                              ejecutar_al_cierre=self._procesar_documento,
-                                                              preguntar=pregunta)
+            ventana = self._ventanas.crear_popup_ttkbootstrap(
+                master=self._master,
+                titulo='Capturar pedido',
+                ocultar_master=True,
+                ejecutar_al_cierre=_on_close,
+                preguntar=pregunta
+            )
+        else:
+            ventana = self._ventanas.crear_popup_ttkbootstrap(
+                self._master,
+                titulo='Capturar pedido',
+                ocultar_master=True,
+                ejecutar_al_cierre=_on_close
+            )
 
+        # Red de seguridad: si cierran con la X, también ejecutar _on_close
+        try:
+            ventana.protocol("WM_DELETE_WINDOW", _on_close)
+        except Exception:
+            pass
 
-        if self.documento.cancelled_on:
-            ventana = self._ventanas.crear_popup_ttkbootstrap(self._master,
-                                                              titulo='Capturar pedido',
-                                                              ocultar_master=True,
-                                                              ejecutar_al_cierre=self._procesar_documento)
-
-
-        # llamamos a la instancia de la interfaz
-
+        # ----- Resto de tu flujo intacto -----
         interfaz = InterfazCaptura(ventana, self._parametros_contpaqi.id_modulo)
 
-        # llamos a la instancia del modelo
         modelo = ModeloCaptura(self._base_de_datos,
                                interfaz.ventanas,
                                self._utilerias,
                                self._cliente,
                                self._parametros_contpaqi,
-                               self.documento,
-                               )
+                               self.documento)
 
-        # llamamos a la instancia del controlador
-        controlador = ControladorCaptura(interfaz,
-                                         modelo,
-                                         )
+        controlador = ControladorCaptura(interfaz, modelo)
 
         # asigna el valor del documento por posibles cambios que haya habido en el proceso de captura
-        # y las partidas recien capturadas
         self.documento = controlador.documento
-
-        if self._module_id == 1687:
-            self._base_de_datos.desmarcar_documento_en_uso(self.documento.document_id,
-                                                           pedido=True)
-        if self._module_id != 1687:
-            self._base_de_datos.desmarcar_documento_en_uso(self.documento.document_id,
-                                                           pedido=False)
 
     def _solo_existe_servicio_domicilio_en_documento(self):
 
@@ -86,54 +100,88 @@ class LlamarInstanciaCaptura:
         return False
 
     def _procesar_documento(self):
-        if not self._procesando_documento:
-            # actualiza bandera de procesamiento
-            self._procesando_documento = True
+        if self._procesando_documento:
+            return  # ya se está procesando / se procesó
 
-            # nuevos documentos
-            if self.documento.document_id == 0:
-
+        self._procesando_documento = True
+        try:
+            # 1) Documento nuevo: crear cabecera si aplica
+            if int(self.documento.document_id or 0) == 0:
                 if self._parametros_contpaqi.id_modulo == 1687:
+                    # Si solo hay servicio a domicilio o no hay partidas, no hay nada que guardar
                     if self._solo_existe_servicio_domicilio_en_documento():
                         return
-
                     if not self.documento.items:
                         return
 
-                    self.documento.document_id = self._crear_cabecera_pedido_cayal()
+                    # Crear cabecera
+                    self.documento.document_id = int(self._crear_cabecera_pedido_cayal() or 0)
 
-            # el procedimiento almacenado es un merge preparado para actualizar o insertar segun sea el caso
+                    # Si se generó ID, opcionalmente marca en uso ahora para evitar colisiones
+                    if self.documento.document_id > 0:
+                        if hasattr(self, "_mark_in_use") and callable(self._mark_in_use):
+                            self._mark_in_use(self.documento.document_id, pedido=True)
+                        else:
+                            # Fallback directo si no tienes helper
+                            self._base_de_datos.marcar_documento_en_uso(self.documento.document_id,
+                                                                        self._user_id, pedido=True)
+                else:
+                    # Otros módulos (no 1687): deja el camino preparado por si agregas creación aquí
+                    pass
+
+            # Si después de la fase anterior seguimos sin ID, no se puede persistir nada
+            if int(self.documento.document_id or 0) == 0:
+                return
+
+            # 2) Insert/merge de partidas
             self._insertar_partidas_documento(self.documento.document_id)
             self._insertar_partidas_extra_documento(self.documento.document_id)
 
+            # 3) Totales
             self._actualizar_totales_documento(self.documento.document_id)
 
-            # si la nota se edita nuevamente valida el tipo de pedido es es decir que areas contiene
-            production_type_id = self._determinar_tipo_de_orden_produccion()
+            # 4) Actualizaciones finales en cabecera (ProductionType y campos editables)
+            production_type_id = int(self._determinar_tipo_de_orden_produccion() or 1)
+            comments = self.documento.comments or ''
+            address_detail_id = int(self.documento.address_detail_id or 0)
+            total = float(self.documento.total or 0)
+
             self._base_de_datos.command("""
-            DECLARE @ProductionTypeID INT = ?
-            DECLARE @CommentsOrder NVARCHAR(MAX) = ?
-            DECLARE @AddressDetailID INT = ?
-            DECLARE @Total FLOAT = ?
-            DECLARE @OrderDocumentID INT = ?
-            
-            DECLARE @StatusID INT = (SELECT StatusID
-                                    FROM docDocumentOrderCayal 
-                                    WHERE OrderDocumentID = @OrderDocumentID)
-                
-            IF @StatusID IN (1,2,3,4,11,12,16,17,18,13)
-            BEGIN
-                UPDATE docDocumentOrderCayal SET CommentsOrder = @CommentsOrder,
-                                                AddressDetailID = @AddressDetailID
+                DECLARE @ProductionTypeID INT = ?
+                DECLARE @CommentsOrder NVARCHAR(MAX) = ?
+                DECLARE @AddressDetailID INT = ?
+                DECLARE @Total FLOAT = ?
+                DECLARE @OrderDocumentID INT = ?
+
+                DECLARE @StatusID INT = (SELECT StatusID
+                                         FROM docDocumentOrderCayal 
+                                         WHERE OrderDocumentID = @OrderDocumentID)
+
+                IF @StatusID IN (1,2,3,4,11,12,16,17,18,13)
+                BEGIN
+                    UPDATE docDocumentOrderCayal 
+                    SET CommentsOrder = @CommentsOrder,
+                        AddressDetailID = @AddressDetailID
+                    WHERE OrderDocumentID = @OrderDocumentID
+                END
+
+                UPDATE docDocumentOrderCayal 
+                SET ProductionTypeID = @ProductionTypeID
                 WHERE OrderDocumentID = @OrderDocumentID
-            END
-                UPDATE docDocumentOrderCayal SET ProductionTypeID = @ProductionTypeID
-                                            WHERE OrderDocumentID = @OrderDocumentID
-                """, (production_type_id,
-                     self.documento.comments,
-                     self.documento.address_detail_id,
-                     self.documento.total,
-                     self.documento.document_id))
+            """, (production_type_id, comments, address_detail_id, total, self.documento.document_id))
+
+        except Exception as e:
+            # Log simple; evita romper el cierre de la ventana.
+            try:
+                print(f"[procesar_documento] Error: {e}")
+            except Exception:
+                pass
+            # Puedes relanzar si quieres que se vea arriba:
+            # raise
+        finally:
+            # NO desmarques aquí. El desmarcado debe suceder en el callback de cierre del popup
+            # (p.ej., _on_close) para garantizar que se libere incluso si hubo excepciones.
+            pass
 
     def _determinar_tipo_de_orden_produccion(self):
 
@@ -319,14 +367,14 @@ class LlamarInstanciaCaptura:
 
     def _rellenar_instancias_importadas(self):
 
-        # rellena la informacion relativa al cliente
+        # 1) Cliente
         busines_entity_id = self._buscar_business_entity_id(self.documento.document_id)
-        info_cliente = self._buscar_info_cliente(busines_entity_id)
-
+        info_cliente = self._buscar_info_cliente(busines_entity_id) or []
         self._cliente.consulta = info_cliente
         self._cliente.settear_valores_consulta()
 
-        info_pedido = self._info_documento
+        # 2) Datos del pedido/documento
+        info_pedido = self._info_documento or {}
 
         self.documento.depot_id = info_pedido.get('DepotID', 0)
         self.documento.depot_name = info_pedido.get('DepotName', '')
@@ -335,26 +383,34 @@ class LlamarInstanciaCaptura:
         self.documento.cancelled_on = info_pedido.get('CancelledOn', None)
         self.documento.docfolio = info_pedido.get('DocFolio', '')
         self.documento.comments = info_pedido.get('CommentsOrder', '')
-
-        direccion = self._base_de_datos.buscar_detalle_direccion_formateada(self.documento.address_detail_id)
-        self.documento.address_details = direccion
-
         self.documento.address_name = info_pedido.get('AddressName', '')
         self.documento.business_entity_id = self._cliente.business_entity_id
         self.documento.customer_type_id = self._cliente.cayal_customer_type_id
 
-        if self._module_id == 1687:
+        # 3) Dirección formateada (solo si hay ID válido)
+        if int(self.documento.address_detail_id or 0) > 0:
+            direccion = self._base_de_datos.buscar_detalle_direccion_formateada(self.documento.address_detail_id)
+        else:
+            direccion = {}
+        self.documento.address_details = direccion
 
-            self._base_de_datos.marcar_documento_en_uso(self.documento.document_id,
-                                                        self._user_id,
-                                                        pedido=True
-                                                        )
-        if self._module_id != 1687:
-            self._base_de_datos.marcar_documento_en_uso(self.documento.document_id,
-                                                        self._user_id,
-                                                        pedido=False
-                                                        )
+        # 4) Marcar en uso (solo si hay document_id > 0). Evita doble marcado en la misma instancia.
+        doc_id = int(self.documento.document_id or 0)
+        if doc_id > 0:
+            pedido_flag = (self._module_id == 1687)
 
+            # Si ya está marcado por esta misma instancia, no lo marques de nuevo
+            already_locked_same_doc = getattr(self, "_locked_active", False) and \
+                                      getattr(self, "_locked_doc_id", 0) == doc_id
+
+            if not already_locked_same_doc:
+                # Usa helper si existe; si no, usa la BD directamente
+                if hasattr(self, "_mark_in_use") and callable(self._mark_in_use):
+                    self._mark_in_use(doc_id, pedido=pedido_flag)
+                else:
+                    self._base_de_datos.marcar_documento_en_uso(doc_id, self._user_id, pedido=pedido_flag)
+
+        # 5) Bandera de estado
         self._editando_documento = True
 
     def _buscar_business_entity_id(self, document_id):
@@ -400,4 +456,21 @@ class LlamarInstanciaCaptura:
             self.documento.document_id = self._parametros_contpaqi.id_principal
             self._buscar_informacion_documento_existente()
 
+    def _mark_in_use(self, document_id, pedido: bool):
+        self._locked_doc_id = int(document_id or 0)
+        self._locked_is_pedido = bool(pedido)
+        self._locked_active = self._locked_doc_id > 0
+        if self._locked_active:
+            self._base_de_datos.marcar_documento_en_uso(self._locked_doc_id, self._user_id,
+                                                        pedido=self._locked_is_pedido)
+
+    def _unmark_in_use(self):
+        # idempotente, por si se llama más de una vez
+        if getattr(self, "_locked_active", False) and getattr(self, "_locked_doc_id", 0):
+            try:
+                self._base_de_datos.desmarcar_documento_en_uso(self._locked_doc_id, pedido=self._locked_is_pedido)
+            finally:
+                self._locked_active = False
+                self._locked_doc_id = 0
+                self._locked_is_pedido = False
 

@@ -225,11 +225,19 @@ class BuscarGeneralesCliente:
             'F1': self._seleccionar_cliente,
             'F4': self._copiar_informacion_direccion,
             'Ctrl+T': lambda  :self._ventanas.enfocar_componente('cbx_direccion'),
-            'Ctrl+D': lambda : self._ventanas.enfocar_componente('cbx_documento')
-
+            'Ctrl+R': lambda : self._enfocar_tipo_documento('Ctrl+R'),
+            'Ctrl+F': lambda: self._enfocar_tipo_documento('Ctrl+F')
         }
 
         self._ventanas.agregar_hotkeys_forma(hotkeys)
+
+    def _enfocar_tipo_documento(self, atajo):
+        if atajo == 'Ctrl+R':
+            self._ventanas.insertar_input_componente('cbx_documento','Remisión')
+
+        if atajo == 'Ctrl+F':
+            self._ventanas.insertar_input_componente('cbx_documento','Factura')
+
 
     def _copiar_informacion_direccion(self):
         business_entity_id = self._info_cliente_seleccionado[0]['BusinessEntityID']

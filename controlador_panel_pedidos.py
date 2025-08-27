@@ -56,6 +56,7 @@ class ControladorPanelPedidos:
         self._cargar_eventos()
         self._rellenar_operador()
         self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Panel pedidos', bloquear=False)
+        self._interfaz.ventanas.situar_ventana_arriba(self._interfaz.master)
 
         self._number_orders = -1
         self._number_transfer_payments = -1

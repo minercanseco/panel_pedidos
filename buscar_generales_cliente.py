@@ -23,8 +23,6 @@ class BuscarGeneralesCliente:
         self._declarar_variables_globales()
         self._crear_instancias_de_clases()
 
-
-
         self._crear_frames()
         self._cargar_componentes_forma()
         self._cargar_eventos_componentes_forma()
@@ -96,10 +94,10 @@ class BuscarGeneralesCliente:
 
             'cbx_direccion': ('frame_cbx_direccion',
                               {'row': 0, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.W},
-                              '  ', None),
+                              '  ', '[Ctrl+T]'),
             'cbx_documento': ('frame_cbx_documento',
                               {'row': 0, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.W},
-                              '  ', None),
+                              '  ', 'Ctrl+D'),
             'btn_seleccionar': ('frame_botones', 'primary', 'Seleccionar', '[F1]'),
             'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', '[Esc]'),
 

@@ -30,7 +30,6 @@ class BuscarGeneralesCliente:
         self._ajustar_componentes()
         self._actualizar_apariencia_forma(solo_apariencia_inicial=True)
         self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
-        self._ventanas.situar_ventana_arriba(self._master)
         self._ventanas.enfocar_componente('tbx_buscar')
 
     def _declarar_variables_globales(self):

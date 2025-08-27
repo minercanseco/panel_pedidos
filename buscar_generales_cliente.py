@@ -94,10 +94,10 @@ class BuscarGeneralesCliente:
 
             'cbx_direccion': ('frame_cbx_direccion',
                               {'row': 0, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.W},
-                              '  ', '[Ctrl+T]'),
+                              '  ', '[Ctrl+D]'),
             'cbx_documento': ('frame_cbx_documento',
                               {'row': 0, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.W},
-                              '  ', 'Ctrl+D'),
+                              '  ', '[Ctrl+R] ó [Ctrl+F]'),
             'btn_seleccionar': ('frame_botones', 'primary', 'Seleccionar', '[F1]'),
             'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', '[Esc]'),
 
@@ -224,7 +224,7 @@ class BuscarGeneralesCliente:
         hotkeys = {
             'F1': self._seleccionar_cliente,
             'F4': self._copiar_informacion_direccion,
-            'Ctrl+T': lambda  :self._ventanas.enfocar_componente('cbx_direccion'),
+            'Ctrl+D': lambda  :self._ventanas.enfocar_componente('cbx_direccion'),
             'Ctrl+R': lambda : self._enfocar_tipo_documento('Ctrl+R'),
             'Ctrl+F': lambda: self._enfocar_tipo_documento('Ctrl+F')
         }

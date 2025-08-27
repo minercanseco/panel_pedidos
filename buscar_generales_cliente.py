@@ -224,8 +224,8 @@ class BuscarGeneralesCliente:
         hotkeys = {
             'F1': self._seleccionar_cliente,
             'F4': self._copiar_informacion_direccion,
-            'Ctrl+T': self._ventanas.enfocar_componente('cbx_direccion'),
-            'Ctrl+D': self._ventanas.enfocar_componente('cbx_documento')
+            'Ctrl+T': lambda  :self._ventanas.enfocar_componente('cbx_direccion'),
+            'Ctrl+D': lambda : self._ventanas.enfocar_componente('cbx_documento')
 
         }
 

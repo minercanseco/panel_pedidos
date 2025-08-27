@@ -77,7 +77,7 @@ class ControladorCaptura:
         self._agregando_producto = False
 
         self._rellenar_componentes_manual()
-        self._buscar_ofertas(rellenar_tabla=False)
+        #self._buscar_ofertas(rellenar_tabla=False)
 
     def _es_documento_bloqueado(self):
         status_id = 0

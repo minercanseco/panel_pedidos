@@ -50,14 +50,3 @@ class ModeloPanelPedidos:
         if not consulta:
             return
         return consulta
-
-    def buscar_productos_ofertados_cliente(self):
-
-        consulta_productos_ofertados = self.base_de_datos.buscar_productos_en_oferta(self._customer_type_id)
-        productos_ids = [reg['ProductID'] for reg in consulta_productos_ofertados]
-        consulta_productos = self.buscar_info_productos_por_ids(productos_ids)
-        consulta_procesada = self.agregar_impuestos_productos(consulta_productos)
-        self.consulta_productos_ofertados = consulta_productos_ofertados
-        self.consulta_productos = consulta_procesada
-        self.consulta_productos_ofertados_btn = consulta_procesada
-        self.products_ids_ofertados = productos_ids

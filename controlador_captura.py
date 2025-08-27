@@ -18,7 +18,7 @@ from editar_partida import EditarPartida
 
 
 class ControladorCaptura:
-    def __init__(self, interfaz, modelo):
+    def __init__(self, interfaz, modelo, ofertas = None):
 
         self._interfaz = interfaz
         self._master = interfaz.master
@@ -685,6 +685,7 @@ class ControladorCaptura:
         self.hotkeys_barra_herramientas = self.elementos_barra_herramientas[1]
 
     def _buscar_ofertas(self, rellenar_tabla=True):
+
         if not self._modelo.consulta_productos_ofertados:
             self._modelo.buscar_productos_ofertados_cliente()
 

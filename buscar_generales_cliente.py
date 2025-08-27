@@ -287,6 +287,8 @@ class BuscarGeneralesCliente:
 
                 btn_seleccionar.config(state='enabled')
                 self._ventanas.enfocar_componente('cbx_resultados')
+                self._ventanas.enfocar_componente('btn_seleccionar')
+
 
     def _cambio_de_seleccion_cliente(self, event=None):
         seleccion = self._ventanas.obtener_input_componente('cbx_resultados')

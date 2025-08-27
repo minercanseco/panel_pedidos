@@ -71,7 +71,7 @@ class BuscarGeneralesCliente:
                                {'row': 0, 'column': 1,  'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
 
             'frame_cbx_documento': ('frame_cbxs', 'Documento:',
-                               {'row': 0, 'column': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
+                               {'row': 0, 'column': 3, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
 
             'frame_informacion': ('frame_data', 'Generales:',
                                   {'row': 1, 'column': 0, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),

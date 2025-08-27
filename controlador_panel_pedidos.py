@@ -386,45 +386,44 @@ class ControladorPanelPedidos:
         if vlr_cbx_status != 'Seleccione':
             self._interfaz.ventanas.insertar_input_componente('cbx_status', vlr_cbx_status)
 
-    def _actualizar_pedidos(self, fecha=None, criteria=True):
+    def _actualizar_pedidos(self, fecha=None, criteria=True, refresh=False):
         if self._actualizando_tabla:
-
             return
 
         try:
-
             self._actualizando_tabla = True
 
-            # limpia los filtroas antes de rellenar
+            # Limpia filtros (si corresponde)
             self._interfaz.ventanas.limpiar_filtros_table_view('tbv_pedidos', criteria)
 
-            # Obtener la consulta según la fecha o usar la última consulta almacenada
-            consulta = self._modelo.consulta_pedidos if not fecha and self._modelo.consulta_pedidos else self._modelo.buscar_pedidos(
-                fecha)
-
+            # Siempre que:
+            # - pidas refresh explícito
+            # - o pases fecha
+            # - o no haya caché previo
+            # → vuelve a consultar
+            if refresh or (fecha is not None) or not self._modelo.consulta_pedidos:
+                consulta = self._modelo.buscar_pedidos(fecha)
+                self._modelo.consulta_pedidos = consulta
+            else:
+                consulta = self._modelo.consulta_pedidos
 
             if not consulta:
                 self._limpiar_tabla()
-                self._actualizando_tabla = False
-
                 return
 
-            # Obtener valores actuales de los filtros
+            # Guarda valores de filtros actuales (para restaurarlos tras el repintado)
             valores_cbx_filtros = self._obtener_valores_cbx_filtros()
 
-            # Aplicar filtros
+            # Aplica filtros y repinta
             consulta_filtrada = self._filtrar_consulta(consulta, valores_cbx_filtros)
-
-            # Rellenar tabla con los datos filtrados
             self._interfaz.ventanas.rellenar_table_view(
-                'tbv_pedidos',
-                self._interfaz.crear_columnas_tabla(),
-                consulta_filtrada
+                'tbv_pedidos', self._interfaz.crear_columnas_tabla(), consulta_filtrada
             )
 
-            self._modelo.consulta_pedidos = consulta
+            # Recolorea, etc.
             self._colorear_filas_panel_horarios(actualizar_meters=True)
             self._settear_valores_cbx_filtros(valores_cbx_filtros)
+
         finally:
             self._actualizando_tabla = False
 
@@ -433,8 +432,6 @@ class ControladorPanelPedidos:
         if self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar') == 1:
             self._interfaz.ventanas.limpiar_componentes('den_fecha')
             return self._modelo.buscar_pedidos_sin_procesar()
-
-
 
         vlr_cbx_captura = valores_cbx_filtros['cbx_capturista']
         vlr_cbx_horarios = valores_cbx_filtros['cbx_horarios']

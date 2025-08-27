@@ -93,10 +93,10 @@ class BuscarGeneralesCliente:
             'cbx_resultados': ('frame_buscar', None, '  ', None),
 
             'cbx_direccion': ('frame_cbx_direccion',
-                              {'row': 0, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.W},
+                              {'row': 0, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W},
                               '  ', '[Ctrl+D]'),
             'cbx_documento': ('frame_cbx_documento',
-                              {'row': 0, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.W},
+                              {'row': 0, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W},
                               '  ', '[Ctrl+R] ó [Ctrl+F]'),
             'btn_seleccionar': ('frame_botones', 'primary', 'Seleccionar', '[F1]'),
             'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', '[Esc]'),
@@ -155,7 +155,6 @@ class BuscarGeneralesCliente:
         self._componentes_credito = {
             'lbl_txt_nombre': ('frame_informacion', None, 'Nombre:', None),
             'lbl_txt_rfc': ('frame_informacion', None, 'RFC:', None),
-            #'lbl_txt_ruta': ('frame_informacion', None, 'Ruta:', None),
             'lbl_txt_autorizado': ('frame_informacion', None, 'Autorizado:', None),
             'lbl_txt_debe': ('frame_informacion', None, 'Debe:', None),
             'lbl_txt_restante': ('frame_informacion', None, 'Restante:', None),
@@ -195,7 +194,7 @@ class BuscarGeneralesCliente:
 
             'lbl_minisuper': ('frame_informacion', {'font': ('Arial', 9, 'bold'),
                                                     'text': ''},
-                              {'row': 8, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.W}, None),
+                              {'row': 8, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
 
             'lbl_lista': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
                           {'row': 9, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),

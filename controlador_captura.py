@@ -61,10 +61,11 @@ class ControladorCaptura:
         self._configurar_pedido()
         self._ventanas.enfocar_componente('tbx_clave')
         self._inicializar_captura_manual()
-        self._ventanas.enfocar_componente('tbx_buscar_manual')
+
 
         self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Nuevo pedido', bloquear=False)
         self._ventanas.situar_ventana_arriba(self._master)
+        self._ventanas.enfocar_componente('tbx_buscar_manual')
 
     def _inicializar_captura_manual(self):
         if self._interfaz.modulo_id not in [1687]:

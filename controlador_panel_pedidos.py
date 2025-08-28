@@ -457,7 +457,6 @@ class ControladorPanelPedidos:
 
         return consulta
 
-
     def _filtrar_consulta(self, consulta, valores_cbx_filtros):
         # Si el checkbox está activado, solo devolver los pedidos sin procesar
         if self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar') == 1:
@@ -1877,7 +1876,7 @@ class ControladorPanelPedidos:
             total = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(precio_con_impuestos * cantidad_decimal)
             product_id = producto['ProductID']
 
-            if product_id == 5606 and sin_servicio_domicilio:
+            if int(product_id) == 5606 and sin_servicio_domicilio:
                 continue
 
             subtotal += (precio * cantidad_decimal)

@@ -17,6 +17,7 @@ def llamar_instancia_principal(ventana, parametros):
     controlador = ControladorPanelPedidos(modelo)
     ventana.mainloop()
 
+
 if __name__ == '__main__':
     ventana_login = ttk.Window()
     parametros_login = ParametrosContpaqi()

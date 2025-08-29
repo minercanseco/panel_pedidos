@@ -51,6 +51,8 @@ class LlamarInstanciaCaptura:
                     except Exception:
                         pass
 
+
+
         # --- crea el popup como antes, pero usando _on_close ---
         if not self.documento.cancelled_on:
             pregunta = '¿Desea guardar el documento?'

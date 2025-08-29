@@ -386,7 +386,7 @@ class ControladorPanelPedidos:
         if vlr_cbx_status != 'Seleccione':
             self._interfaz.ventanas.insertar_input_componente('cbx_status', vlr_cbx_status)
 
-    def _actualizar_pedidos(self, fecha=None, criteria=True, refresh=False):
+    def _actualizar_pedidos(self, fecha=None, criteria=True, refresh=False, despues_de_capturar_pedido = False):
         if self._actualizando_tabla:
             return
 
@@ -419,12 +419,22 @@ class ControladorPanelPedidos:
             self._rellenar_cbx_horarios(horarios)
             self._rellenar_cbx_status(status)
 
-            # 5) Restaura la selección del usuario SI sigue siendo válida; si no, “Seleccione”
-            self._settear_valores_cbx_filtros(seleccion_previa)
+            # 5) Restaura selección previa o aplica "prefiltro post-captura"
+            if despues_de_capturar_pedido:
+                # Fuerza la vista a "lo recién capturado por mí" y en "Abierto"
+                self._interfaz.ventanas.insertar_input_componente('cbx_capturista',
+                                                                  self._user_name if self._user_name in capturistas else 'Seleccione')
+                # Solo fija 'Abierto' si existe como opción en los datos
+                self._interfaz.ventanas.insertar_input_componente('cbx_status',
+                                                                  'Abierto' if 'Abierto' in status else 'Seleccione')
+                self._interfaz.ventanas.insertar_input_componente('cbx_horarios', 'Seleccione')
+            else:
+                self._settear_valores_cbx_filtros(seleccion_previa)
 
             # 6) Aplica filtros según lo que haya en los combos AHORA
             valores = self._obtener_valores_cbx_filtros()
-            consulta_filtrada = self._filtrar_consulta_sin_rellenar(consulta, valores)
+            consulta_filtrada = self._filtrar_consulta_sin_rellenar(consulta, valores,
+                                                                    despues_de_captura=despues_de_capturar_pedido)
 
             # 7) Pinta la tabla
             self._interfaz.ventanas.rellenar_table_view(
@@ -438,25 +448,41 @@ class ControladorPanelPedidos:
         finally:
             self._actualizando_tabla = False
 
-    def _filtrar_consulta_sin_rellenar(self, consulta, valores):
-        """Sólo filtra; NO toca combos."""
+    def _filtrar_consulta_sin_rellenar(self, consulta, valores, despues_de_captura=False):
+        """Filtra en una sola pasada; NO toca combos."""
+        # Prioridad: "sin procesar"
         if self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar') == 1:
             self._interfaz.ventanas.limpiar_componentes('den_fecha')
             return self._modelo.buscar_pedidos_sin_procesar()
 
-        vlr_cbx_captura = valores['cbx_capturista']
-        vlr_cbx_horarios = valores['cbx_horarios']
-        vlr_cbx_status = valores['cbx_status']
+        if despues_de_captura:
+            usuario = self._user_name
+            return [f for f in consulta
+                    if f.get('CapturadoPor') == usuario and f.get('Status') == 'Abierto']
 
-        if vlr_cbx_captura and vlr_cbx_captura != 'Seleccione':
-            consulta = [f for f in consulta if f['CapturadoPor'] == vlr_cbx_captura]
-        if vlr_cbx_horarios and vlr_cbx_horarios != 'Seleccione':
-            consulta = [f for f in consulta if f['HoraEntrega'] == vlr_cbx_horarios]
-        if vlr_cbx_status and vlr_cbx_status != 'Seleccione':
-            consulta = [f for f in consulta if f['Status'] == vlr_cbx_status]
+        # Filtros normales desde combos
+        vlr_cbx_captura = valores.get('cbx_capturista')
+        vlr_cbx_horarios = valores.get('cbx_horarios')
+        vlr_cbx_status = valores.get('cbx_status')
 
-        return consulta
+        # Predicados solo si el usuario eligió algo distinto a 'Seleccione'
+        filtrar_captura = (vlr_cbx_captura and vlr_cbx_captura != 'Seleccione')
+        filtrar_horario = (vlr_cbx_horarios and vlr_cbx_horarios != 'Seleccione')
+        filtrar_status = (vlr_cbx_status and vlr_cbx_status != 'Seleccione')
 
+        if not (filtrar_captura or filtrar_horario or filtrar_status):
+            return consulta
+
+        def ok(f):
+            if filtrar_captura and f.get('CapturadoPor') != vlr_cbx_captura:
+                return False
+            if filtrar_horario and f.get('HoraEntrega') != vlr_cbx_horarios:
+                return False
+            if filtrar_status and f.get('Status') != vlr_cbx_status:
+                return False
+            return True
+
+        return [f for f in consulta if ok(f)]
     def _filtrar_consulta(self, consulta, valores_cbx_filtros):
         # Si el checkbox está activado, solo devolver los pedidos sin procesar
         if self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar') == 1:
@@ -509,7 +535,10 @@ class ControladorPanelPedidos:
 
     def _capturar_nuevo(self):
         self._pausar_autorefresco()
+
         try:
+            self._master.iconify()
+
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(
                 ocultar_master=True, master=self._interfaz.master
             )
@@ -522,7 +551,7 @@ class ControladorPanelPedidos:
 
         finally:
             self._parametros.id_principal = 0
-            self._actualizar_pedidos(fecha=self._fecha_seleccionada(), refresh=True)
+            self._actualizar_pedidos(fecha=self._fecha_seleccionada(), refresh=True, despues_de_capturar_pedido=True)
             self._reanudar_autorefresco()
 
     def _editar_caracteristicas(self):

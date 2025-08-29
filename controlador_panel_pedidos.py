@@ -419,13 +419,11 @@ class ControladorPanelPedidos:
             self._rellenar_cbx_horarios(horarios)
             self._rellenar_cbx_status(status)
 
-            if not refresh:
-                # 5) Restaura la selección del usuario SI sigue siendo válida; si no, “Seleccione”
-                self._settear_valores_cbx_filtros(seleccion_previa)
+            # 5) Restaura la selección del usuario SI sigue siendo válida; si no, “Seleccione”
+            self._settear_valores_cbx_filtros(seleccion_previa)
 
             # 6) Aplica filtros según lo que haya en los combos AHORA
-            valores_con_refresh = {'cbx_capturista': self._user_name, 'cbx_horarios':'Seleccione', 'cbx_status':'Abierto'}
-            valores = self._obtener_valores_cbx_filtros() if not refresh else valores_con_refresh
+            valores = self._obtener_valores_cbx_filtros()
             consulta_filtrada = self._filtrar_consulta_sin_rellenar(consulta, valores)
 
             # 7) Pinta la tabla
@@ -525,8 +523,6 @@ class ControladorPanelPedidos:
         finally:
             self._parametros.id_principal = 0
             self._actualizar_pedidos(fecha=self._fecha_seleccionada(), refresh=True)
-            self._filtrar_por_status()
-
             self._reanudar_autorefresco()
 
     def _editar_caracteristicas(self):

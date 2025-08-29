@@ -106,17 +106,38 @@ class BuscarGeneralesCliente:
 
         self._componentes_direccion = {
 
-            'lbl_txt_ncomercial': ('frame_direccion',  None, 'N.Comercial:', None),
-            'lbl_txt_ruta': ('frame_direccion', None, 'Ruta:', None),
-            'lbl_txt_telefono': ('frame_direccion', None, 'Teléfono:', None),
-            'lbl_txt_celular': ('frame_direccion', None, 'Celular:', None),
-            'lbl_txt_calle': ('frame_direccion', None, 'Calle:', None),
-            'lbl_txt_numero': ('frame_direccion', None, 'Número:', None),
-            'txt_comentario': ('frame_direccion', None, 'Comentario:', None),
-            'lbl_txt_cp': ('frame_direccion', None, 'C.P.', None),
-            'lbl_txt_colonia': ('frame_direccion', None, 'Colonia:', None),
-            'lbl_txt_estado': ('frame_direccion', None, 'Estado:', None),
-            'lbl_txt_municipio': ('frame_direccion', None, 'Municipio:', None),
+            'lbl_txt_ncomercial': ('frame_direccion',
+                                   {'font': ('Arial', 9, 'bold'), 'text': 'N.Comercial:'},
+                                   {'row': 0, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+            'lbl_txt_ruta': ('frame_direccion',
+                             {'font': ('Arial', 9, 'bold'), 'text': 'Ruta:'},
+                             {'row': 1, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+            'lbl_txt_telefono': ('frame_direccion',
+                                 {'font': ('Arial', 9, 'bold'), 'text': 'Teléfono:'},
+                                 {'row': 2, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W},  None),
+            'lbl_txt_celular': ('frame_direccion',
+                                {'font': ('Arial', 9, 'bold'), 'text': 'Celular:'},
+                                {'row': 3, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+            'lbl_txt_calle': ('frame_direccion',
+                              {'font': ('Arial', 9, 'bold'), 'text': 'Calle:'},
+                              {'row': 4, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+            'lbl_txt_numero': ('frame_direccion',
+                               {'font': ('Arial', 9, 'bold'), 'text': 'Número:'},
+                               {'row': 5, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W},  None),
+            'txt_comentario': ('frame_direccion',
+                               {'row': 6, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W}, ' ', None),
+            'lbl_txt_cp': ('frame_direccion',
+                           {'font': ('Arial', 9, 'bold'), 'text': 'C.P.'},
+                           {'row': 7, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+            'lbl_txt_colonia': ('frame_direccion',
+                                {'font': ('Arial', 9, 'bold'), 'text': 'Colonia:'},
+                                {'row': 8, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W},  None),
+            'lbl_txt_estado': ('frame_direccion',
+                               {'font': ('Arial', 9, 'bold'), 'text': 'Estado:'},
+                               {'row': 9, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+            'lbl_txt_municipio': ('frame_direccion',
+                                  {'font': ('Arial', 9, 'bold'), 'text': 'Municipio:'},
+                                  {'row': 10, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W},  None),
 
             'lbl_ncomercial': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
                                {'row': 0, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
@@ -235,7 +256,6 @@ class BuscarGeneralesCliente:
         if atajo == 'Ctrl+F':
             self._ventanas.insertar_input_componente('cbx_documento','Factura')
 
-
     def _copiar_informacion_direccion(self):
         business_entity_id = self._info_cliente_seleccionado[0]['BusinessEntityID']
         address_detail_id = self._documento.address_detail_id
@@ -285,7 +305,6 @@ class BuscarGeneralesCliente:
                 btn_seleccionar.config(state='enabled')
                 self._ventanas.enfocar_componente('cbx_resultados')
                 self._ventanas.enfocar_componente('btn_seleccionar')
-
 
     def _cambio_de_seleccion_cliente(self, event=None):
         seleccion = self._ventanas.obtener_input_componente('cbx_resultados')

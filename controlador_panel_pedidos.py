@@ -483,6 +483,7 @@ class ControladorPanelPedidos:
             return True
 
         return [f for f in consulta if ok(f)]
+
     def _filtrar_consulta(self, consulta, valores_cbx_filtros):
         # Si el checkbox está activado, solo devolver los pedidos sin procesar
         if self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar') == 1:

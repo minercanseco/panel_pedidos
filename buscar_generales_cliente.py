@@ -689,60 +689,29 @@ class BuscarGeneralesCliente:
                     self._parametros_contpaqi.id_usuario
                 )
 
-            # 1) Oculta la ventana origen ANTES de crear el popup (evita parpadeos y ventanas “huérfanas”)
+            # 1) Oculta la ventana de búsqueda (padre)
             try:
                 self._master.withdraw()
             except Exception:
                 pass
 
-            # 2) Crea el popup como hijo del master (NO crees una nueva raíz)
+            # 2) Crea el popup intermedio "Capturar pedido"
             raiz = getattr(self._ventanas, "_master", None) or self._master
             ventana = self._ventanas.crear_popup_ttkbootstrap(
                 master=raiz,
                 titulo="Capturar pedido",
-                ocultar_master=False,  # ⬅️ la raíz ya está withdraw
+                ocultar_master=True,
                 ejecutar_al_cierre=None,
                 preguntar=None
             )
-
-            # 3) Configura el popup correctamente
             try:
-                ventana.transient(self._master)  # se comporta como diálogo
-                #ventana.grab_set()  # foco modal
-                ventana.focus_force()
+                ventana.transient(self._master)
                 ventana.lift()
+                ventana.focus_force()
             except Exception:
                 pass
 
-            # 4) Qué pasa al cerrar el popup:
-            #    Opción A: cerrar todo (popup + ventana de búsqueda)
-            def _cerrar_todo():
-                try:
-                    ventana.destroy()
-                finally:
-                    # si quieres matar la búsqueda al cerrar captura:
-                    try:
-                        self._master.destroy()
-                    except Exception:
-                        pass
-
-            #    Opción B (alternativa): restaurar la búsqueda en lugar de destruirla:
-            # def _cerrar_todo():
-            #     try:
-            #         ventana.destroy()
-            #     finally:
-            #         try:
-            #             self._master.deiconify()
-            #             self._ventanas.centrar_ventana_ttkbootstrap(self._master)
-            #         except Exception:
-            #             pass
-
-            try:
-                ventana.protocol("WM_DELETE_WINDOW", _cerrar_todo)
-            except Exception:
-                pass
-
-            # 5) Instancia la UI de captura usando el popup como master
+            # 3) Instancia la UI de captura usando el popup como master (NO modal)
             instancia = LlamarInstanciaCaptura(
                 self._cliente,
                 self._documento,
@@ -752,9 +721,83 @@ class BuscarGeneralesCliente:
                 ventana
             )
 
-            # 6) Si tu flujo necesita esperar a que cierre la captura para seguir:
-            # ventana.wait_window()
-            # _cerrar_todo()
+            # 4) Detecta la ventana HIJA real de captura si existe
+            captura_win = None
+            for cand in (
+                    getattr(instancia, "master", None),
+                    getattr(instancia, "ventana", None),
+                    getattr(instancia, "toplevel", None)
+            ):
+                try:
+                    if cand is not None and int(cand.winfo_exists()):
+                        captura_win = cand
+                        break
+                except Exception:
+                    pass
+
+            # 5) Helper: cerrar TODO en cascada (hija -> popup -> búsqueda)
+            _cerrado = {"ok": False}
+
+            def _cerrar_todo(_evt=None):
+                if _cerrado["ok"]:
+                    return
+                _cerrado["ok"] = True
+                # cierra popup intermedio
+                try:
+                    if int(ventana.winfo_exists()):
+                        ventana.destroy()
+                except Exception:
+                    pass
+                # cierra ventana de búsqueda (libera wait_window del controlador)
+                try:
+                    if int(self._master.winfo_exists()):
+                        self._master.destroy()
+                except Exception:
+                    pass
+
+            # 6) Enlaces de cierre:
+            # 6a) si cierran el popup intermedio, cerrar todo
+            try:
+                ventana.protocol("WM_DELETE_WINDOW", _cerrar_todo)
+                ventana.bind("<Destroy>", _cerrar_todo)
+            except Exception:
+                pass
+
+            # 6b) si existe una HIJA (Toplevel de captura), engánchala también
+            if captura_win is not None:
+                def _cerrar_desde_hija(_=None):
+                    if _cerrado["ok"]:
+                        return
+                    # destruye la hija y luego el resto
+                    try:
+                        if int(captura_win.winfo_exists()):
+                            captura_win.destroy()
+                    except Exception:
+                        pass
+                    _cerrar_todo()
+
+                try:
+                    captura_win.protocol("WM_DELETE_WINDOW", _cerrar_desde_hija)
+                except Exception:
+                    pass
+                try:
+                    captura_win.bind("<Destroy>", _cerrar_desde_hija)
+                except Exception:
+                    pass
+
+                # da foco a la HIJA para que los controles queden activos
+                try:
+                    captura_win.lift()
+                    captura_win.focus_force()
+                except Exception:
+                    pass
+            else:
+                # no hay hija separada: el popup intermedio ES la captura; dale foco
+                try:
+                    ventana.lift()
+                    ventana.focus_force()
+                except Exception:
+                    pass
 
     def _asignar_parametros_a_documento(self):
 

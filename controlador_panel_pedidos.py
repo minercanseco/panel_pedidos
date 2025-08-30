@@ -49,6 +49,8 @@ class ControladorPanelPedidos:
         self._parametros.nombre_usuario = self._user_name
         self._partidas_pedidos = {}
 
+        self._capturando_nuevo_pedido = False
+
         self._crear_tabla_pedidos()
         self._actualizar_pedidos(self._fecha_seleccionada())
         self._crear_barra_herramientas()
@@ -109,6 +111,16 @@ class ControladorPanelPedidos:
             'tbv_pedidos': (lambda event: self._actualizar_comentario_pedido(), 'seleccion')
         }
         self._interfaz.ventanas.cargar_eventos(evento_adicional)
+
+        evento_adicional2 = {
+            'tbv_pedidos': (lambda event: self._pausar_autorefresco(), 'enfocar')
+        }
+        self._interfaz.ventanas.cargar_eventos(evento_adicional2)
+
+        evento_adicional3 = {
+            'tbv_pedidos': (lambda event: self._reanudar_autorefresco(), 'desenfocar')
+        }
+        self._interfaz.ventanas.cargar_eventos(evento_adicional3)
 
     def _filtrar_no_procesados(self):
         self._interfaz.ventanas.insertar_input_componente('cbx_capturista', 'Seleccione')
@@ -386,7 +398,7 @@ class ControladorPanelPedidos:
         if vlr_cbx_status != 'Seleccione':
             self._interfaz.ventanas.insertar_input_componente('cbx_status', vlr_cbx_status)
 
-    def _actualizar_pedidos(self, fecha=None, criteria=True, refresh=False, despues_de_capturar_pedido = False):
+    def _actualizar_pedidos(self, fecha=None, criteria=True, refresh=False, despues_de_capturar_pedido=False):
         if self._actualizando_tabla:
             return
 
@@ -411,30 +423,57 @@ class ControladorPanelPedidos:
             seleccion_previa = self._obtener_valores_cbx_filtros()
 
             # 4) Construye opciones de filtros desde la data FRESCA y repuebla combos
-            capturistas = {f['CapturadoPor'] for f in consulta}
-            horarios = {f['HoraEntrega'] for f in consulta}
-            status = {f['Status'] for f in consulta}
+            #    - limpia None, strip y de-duplica
+            def _norm_set(iterable):
+                vistos, res = set(), []
+                for v in iterable:
+                    if v is None:
+                        continue
+                    s = str(v).strip()
+                    if s and s not in vistos:
+                        vistos.add(s)
+                        res.append(s)
+                return sorted(res)
 
+            capturistas = _norm_set(f['CapturadoPor'] for f in consulta)
+            horarios = _norm_set(f['HoraEntrega'] for f in consulta)
+            status = _norm_set(f['Status'] for f in consulta)
+
+            # repoblar (usa tu Ventanas.rellenar_cbx(nombre_cbx, valores, sin_seleccione=None))
             self._rellenar_cbx_captura(capturistas)
             self._rellenar_cbx_horarios(horarios)
             self._rellenar_cbx_status(status)
 
             # 5) Restaura selección previa o aplica "prefiltro post-captura"
-            if despues_de_capturar_pedido:
-                # Fuerza la vista a "lo recién capturado por mí" y en "Abierto"
-                self._interfaz.ventanas.insertar_input_componente('cbx_capturista',
-                                                                  self._user_name if self._user_name in capturistas else 'Seleccione')
-                # Solo fija 'Abierto' si existe como opción en los datos
-                self._interfaz.ventanas.insertar_input_componente('cbx_status',
-                                                                  'Abierto' if 'Abierto' in status else 'Seleccione')
+            print(self._capturando_nuevo_pedido)
+            if self._capturando_nuevo_pedido:
+                # capturista = yo
+                self._interfaz.ventanas.insertar_input_componente('cbx_capturista', self._user_name)
+
+                # status = alguna variante de "abierto" si existe
+                abiertos_posibles = {'abierto', 'abierta', 'open'}
+                candidato_abierto = next((s for s in status if s.strip().lower() in abiertos_posibles), None)
+                self._interfaz.ventanas.insertar_input_componente('cbx_status', candidato_abierto or 'Seleccione')
+
+                # horario = 'Seleccione'
                 self._interfaz.ventanas.insertar_input_componente('cbx_horarios', 'Seleccione')
+                print('aqui debieramos filtrar abierto')
+                self._capturando_nuevo_pedido = False
             else:
-                self._settear_valores_cbx_filtros(seleccion_previa)
+                # restaura selección previa usando tu setter robusto
+                print('aqui no filtramos abiertos')
+                self._interfaz.ventanas.insertar_input_componente('cbx_capturista',
+                                                                  seleccion_previa.get('cbx_capturista', 'Seleccione'))
+                self._interfaz.ventanas.insertar_input_componente('cbx_horarios',
+                                                                  seleccion_previa.get('cbx_horarios', 'Seleccione'))
+                self._interfaz.ventanas.insertar_input_componente('cbx_status',
+                                                                  seleccion_previa.get('cbx_status', 'Seleccione'))
 
             # 6) Aplica filtros según lo que haya en los combos AHORA
             valores = self._obtener_valores_cbx_filtros()
-            consulta_filtrada = self._filtrar_consulta_sin_rellenar(consulta, valores,
-                                                                    despues_de_captura=despues_de_capturar_pedido)
+            consulta_filtrada = self._filtrar_consulta_sin_rellenar(
+                consulta, valores, despues_de_captura=despues_de_capturar_pedido
+            )
 
             # 7) Pinta la tabla
             self._interfaz.ventanas.rellenar_table_view(
@@ -534,25 +573,33 @@ class ControladorPanelPedidos:
             self._parametros.id_principal = 0
             self._reanudar_autorefresco()
 
-    def _capturar_nuevo(self):
+    def _capturar_nuevo_pedido(self):
         self._pausar_autorefresco()
 
         try:
+            self._capturando_nuevo_pedido = True
             self._master.iconify()
 
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(
-                ocultar_master=True, master=self._interfaz.master
+                ocultar_master=True,
+                master=self._interfaz.master
             )
 
             self._parametros.id_principal = -1
-            instancia = BuscarGeneralesCliente(ventana, self._parametros)
+            _ = BuscarGeneralesCliente(ventana, self._parametros)
 
-            # ← Bloquea el hilo de UI hasta que cierren el popup
+            # 👉 flujo modal y estable: espera a que CIERRA la búsqueda
             ventana.wait_window()
 
         finally:
             self._parametros.id_principal = 0
-            self._actualizar_pedidos(fecha=self._fecha_seleccionada(), refresh=True, despues_de_capturar_pedido=True)
+
+            # 👉 aquí SIEMPRE entras al cerrar captura (ver ajuste en BuscarGenerales abajo)
+            self._actualizar_pedidos(
+                fecha=self._fecha_seleccionada(),
+                refresh=True,
+                despues_de_capturar_pedido=True
+            )
             self._reanudar_autorefresco()
 
     def _editar_caracteristicas(self):
@@ -1302,7 +1349,7 @@ class ControladorPanelPedidos:
              'hotkey': None, 'comando': self._capturar_nuevo_cliente},
 
             {'nombre_icono': 'HeaderFooter32.ico', 'etiqueta': 'Nuevo', 'nombre': 'capturar_nuevo',
-             'hotkey': None, 'comando': self._capturar_nuevo},
+             'hotkey': None, 'comando': self._capturar_nuevo_pedido},
 
             {'nombre_icono': 'EditBusinessEntity32.ico', 'etiqueta': 'E.Caracteristicas', 'nombre': 'editar_caracteristicas',
              'hotkey': '', 'comando': self._editar_caracteristicas},
@@ -1337,6 +1384,9 @@ class ControladorPanelPedidos:
             {'nombre_icono': 'PrintSelectedItems.ico', 'etiqueta': 'Producido', 'nombre': 'capturado_vs_producido',
              'hotkey': None, 'comando': self._capturado_vs_producido},
 
+            {'nombre_icono': 'OtrosIngresos32.ico', 'etiqueta': 'C.Transferencia', 'nombre': 'confirmar_transferencia',
+             'hotkey': None, 'comando': self._confirmar_transferencia},
+
             {'nombre_icono': 'SwitchUser32.ico', 'etiqueta': 'C.Usuario', 'nombre': 'cambiar_usuario',
              'hotkey': None, 'comando': self._cambiar_usuario},
 
@@ -1347,6 +1397,46 @@ class ControladorPanelPedidos:
         self.iconos_barra_herramientas = self.elementos_barra_herramientas[0]
         self.etiquetas_barra_herramientas = self.elementos_barra_herramientas[2]
         self.hotkeys_barra_herramientas = self.elementos_barra_herramientas[1]
+
+    def _confirmar_transferencia(self):
+        filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos2', seleccionadas=True)
+        if not filas:
+            self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar un pedido.')
+            return
+
+        for fila in filas:
+            order_document_id = fila['OrderDocumentID']
+            payment_confirmend_id = fila['PaymentConfirmedID']
+
+            if payment_confirmend_id == 1:
+                self._interfaz.ventanas.mostrar_mensaje('El pedido seleccionado no es transferencia.')
+                return
+
+            if payment_confirmend_id == 3:
+                self._interfaz.ventanas.mostrar_mensaje('La transferencia ha sido confirmada con anterioridad.')
+                return
+
+            self._base_de_datos.command(
+                """
+                UPDATE docDocumentOrderCayal 
+                SET 
+                    PaymentConfirmedID = 3,
+                    PaymentConfirmedAt = GETDATE(),
+                    PaymentConfirmedBy = ?
+                WHERE OrderDocumentID = ?
+                """,
+                (self._user_id, order_document_id)
+            )
+
+            self._afectar_bitacora(order_document_id, self._user_name)
+
+    def _afectar_bitacora(self, order_document_id, user_name):
+
+        comentario = f"Transferencia confirmada por {user_name}"
+        self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=order_document_id,
+                                                               change_type_id=19,
+                                                               user_id=self._user_id,
+                                                               comments=comentario)
 
     def _imprimir(self):
         self._pausar_autorefresco()

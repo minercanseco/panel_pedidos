@@ -590,8 +590,6 @@ class ControladorPanelPedidos:
             self._parametros.id_principal = -1
             _ = BuscarGeneralesCliente(ventana, self._parametros)
 
-            # 👉 flujo modal y estable: espera a que CIERRA la búsqueda
-            ventana.wait_window()
 
         finally:
             self._parametros.id_principal = 0

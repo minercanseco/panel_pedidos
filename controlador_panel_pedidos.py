@@ -88,9 +88,11 @@ class ControladorPanelPedidos:
 
     def _pausar_autorefresco(self):
         self._bloquear_autorefresco = True
+        print('autorefresco pausado')
 
     def _reanudar_autorefresco(self):
         self._bloquear_autorefresco = False
+        print('autorefresco reanudado')
 
     def _cargar_eventos(self):
         eventos = {

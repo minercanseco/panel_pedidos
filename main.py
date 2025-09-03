@@ -6,6 +6,7 @@ from modelo_panel_pedidos import ModeloPanelPedidos
 from controlador_panel_pedidos import ControladorPanelPedidos
 from cayal.actualizador_de_paquetes import ActualizadorDePaquetes
 from cayal.login import Login
+from cayal.generar_contexto_ia import GenerarContextoIA
 
 
 def si_acceso_exitoso(parametros=None, master=None):
@@ -23,12 +24,18 @@ if __name__ == '__main__':
     parametros_login = ParametrosContpaqi()
 
     actualizador = ActualizadorDePaquetes('panel_pedidos_v103')
-    version_actualizada = actualizador.verificar_version_actualizada()
+    nueva_version = actualizador.verificar_version_actualizada()
+    solo_contexto = True
 
-    if version_actualizada:
+    if solo_contexto:
+        gen = GenerarContextoIA(root=".", out="contexto.md")
+        ruta = gen.build()
+        print("Contexto generado en:", ruta)
+
+    if nueva_version:
         actualizador.actualizar_con_interfaz(ventana_login)
 
-    if not version_actualizada:
+    if not nueva_version:
         parametros_login.id_modulo = 1687
 
         instancia_login = Login(ventana_login, parametros_login, si_acceso_exitoso)

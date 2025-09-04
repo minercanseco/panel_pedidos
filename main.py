@@ -25,7 +25,7 @@ if __name__ == '__main__':
 
     actualizador = ActualizadorDePaquetes('panel_pedidos_v103')
     nueva_version = actualizador.verificar_version_actualizada()
-    solo_contexto = True
+    solo_contexto = False
 
     if solo_contexto:
         gen = GenerarContextoIA(root=".", out="contexto.md")

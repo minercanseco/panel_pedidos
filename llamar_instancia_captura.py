@@ -8,9 +8,10 @@ from modelo_captura import ModeloCaptura
 
 
 class LlamarInstanciaCaptura:
-    def __init__(self, cliente, documento, base_de_datos, parametros, utilerias, master):
+    def __init__(self, cliente, documento, base_de_datos, parametros, utilerias, master, ofertas = None):
         self._master = master
         self._cliente = cliente
+        self._ofertas = ofertas
         self.documento = documento
         self._base_de_datos = base_de_datos
         self._parametros_contpaqi = parametros
@@ -81,7 +82,9 @@ class LlamarInstanciaCaptura:
                                self._utilerias,
                                self._cliente,
                                self._parametros_contpaqi,
-                               self.documento)
+                               self.documento,
+                               self._ofertas
+                               )
 
         controlador = ControladorCaptura(interfaz, modelo)
 

@@ -18,7 +18,7 @@ from editar_partida import EditarPartida
 
 
 class ControladorCaptura:
-    def __init__(self, interfaz, modelo, ofertas = None):
+    def __init__(self, interfaz, modelo):
 
         self._interfaz = interfaz
         self._master = interfaz.master
@@ -62,6 +62,7 @@ class ControladorCaptura:
         self._ventanas.enfocar_componente('tbx_clave')
         self._inicializar_captura_manual()
 
+        self._buscar_ofertas()
 
         self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Nuevo pedido', bloquear=False)
         self._ventanas.situar_ventana_arriba(self._master)

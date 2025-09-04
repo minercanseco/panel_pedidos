@@ -18,12 +18,41 @@ class InterfazCaptura:
 
         self._cargar_frames()
         self._cargar_componentes_forma()
+
+
         self._ajustar_componentes_forma()
         self._cargar_imagen_publicitaria_async()
         self._cargar_componentes_frame_totales()
         self._agregar_validaciones()
         self._cargar_captura_manual()
 
+    def _wire_hotkeys(self, master):
+        master.bind('<Return>', self._focus_next_widget)
+        master.bind('<Shift-Return>', self._focus_prev_widget)
+        master.bind('<Escape>', self._on_cancel)
+        master.bind('<Control-s>', self._on_guardar)
+        master.bind('<F2>', self._on_buscar_cliente)
+        master.bind('<F3>', self._on_buscar_producto)
+
+    def _focus_next_widget(self, event):
+        event.widget.tk_focusNext().focus_set()
+        return "break"
+
+    def _focus_prev_widget(self, event):
+        event.widget.tk_focusPrev().focus_set()
+        return "break"
+
+    def _on_cancel(self, event=None):
+        if hasattr(self, "_callback_cancelar"): self._callback_cancelar()
+
+    def _on_guardar(self, event=None):
+        if hasattr(self, "_callback_guardar"): self._callback_guardar()
+
+    def _on_buscar_cliente(self, event=None):
+        if hasattr(self, "_callback_buscar_cliente"): self._callback_buscar_cliente()
+
+    def _on_buscar_producto(self, event=None):
+        if hasattr(self, "_callback_buscar_producto"): self._callback_buscar_producto()
 
     def _cargar_frames(self):
         nombre_frame_anuncio = 'Anuncios' if self.modulo_id not in [1687] else 'Captura manual'

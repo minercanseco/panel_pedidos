@@ -15,11 +15,12 @@ from llamar_instancia_captura import LlamarInstanciaCaptura
 
 class BuscarGeneralesCliente:
 
-    def __init__(self, master, parametros):
+    def __init__(self, master, parametros, ofertas):
 
         self._parametros_contpaqi = parametros
 
         self._master = master
+        self._ofertas = ofertas
         self._declarar_variables_globales()
         self._crear_instancias_de_clases()
 
@@ -31,6 +32,7 @@ class BuscarGeneralesCliente:
         self._actualizar_apariencia_forma(solo_apariencia_inicial=True)
         self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
         self._ventanas.enfocar_componente('tbx_buscar')
+
 
     def _declarar_variables_globales(self):
         self._cadena_conexion = self._parametros_contpaqi.cadena_conexion
@@ -238,6 +240,14 @@ class BuscarGeneralesCliente:
 
         self._ventanas.cargar_eventos(eventos)
 
+    def _filtrar_ofertas(self):
+        # empaquetar ofertas del cliente
+        customer_type_id = self._info_cliente_seleccionado[0]['CustomerTypeID']
+
+        consulta_productos_ofertados = self._ofertas['consulta_productos_ofertados']
+        consulta_productos_ofertados = [reg for reg in consulta_productos_ofertados if reg['Lista'] == customer_type_id]
+        self._ofertas['consulta_productos_ofertados'] = consulta_productos_ofertados
+
     def _cargar_hotkeys(self):
         hotkeys = {
             'F1': self._seleccionar_cliente,
@@ -356,6 +366,7 @@ class BuscarGeneralesCliente:
                         proceder = False
 
             if proceder:
+                self._filtrar_ofertas()
                 self._llamar_instancia()
 
     def _documento_seleccionado(self):
@@ -680,6 +691,7 @@ class BuscarGeneralesCliente:
         self._cliente.consulta = self._info_cliente_seleccionado
         self._cliente.settear_valores_consulta()
         self._asignar_parametros_a_documento()
+
         if self._parametros_contpaqi.id_principal == -1:
             self._parametros_contpaqi.nombre_usuario = self._base_de_datos.buscar_nombre_de_usuario(
                 self._parametros_contpaqi.id_usuario
@@ -698,14 +710,15 @@ class BuscarGeneralesCliente:
         )
         try:
             popup.transient(self._master)
-            popup.lift();
+            popup.lift()
             popup.focus_force()
         except Exception:
             pass
 
         # instancia captura
         instancia = LlamarInstanciaCaptura(
-            self._cliente, self._documento, self._base_de_datos, self._parametros_contpaqi, self._utilerias, popup
+            self._cliente, self._documento, self._base_de_datos, self._parametros_contpaqi, self._utilerias, popup,
+            ofertas = self._ofertas
         )
 
         # detecta toplevel de captura (si existe); si no, usa el popup como captura

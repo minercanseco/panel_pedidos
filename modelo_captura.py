@@ -4,11 +4,12 @@ from datetime import datetime
 
 
 class ModeloCaptura:
-    def __init__(self, base_de_datos, ventanas, utilerias, cliente, parametros_contpaqi, documento):
+    def __init__(self, base_de_datos, ventanas, utilerias, cliente, parametros_contpaqi, documento, ofertas = None):
         self.base_de_datos = base_de_datos
         self._ventanas = ventanas
         self.utilerias = utilerias
         self.cliente = cliente
+        self._ofertas = ofertas
 
         self.parametros_contpaqi = parametros_contpaqi
         self._module_id = self.parametros_contpaqi.id_modulo
@@ -97,15 +98,11 @@ class ModeloCaptura:
         return info_producto[0] if info_producto else {}
 
     def buscar_productos_ofertados_cliente(self):
-
-        consulta_productos_ofertados = self.base_de_datos.buscar_productos_en_oferta(self._customer_type_id)
-        productos_ids = [reg['ProductID'] for reg in consulta_productos_ofertados]
-        consulta_productos = self.buscar_info_productos_por_ids(productos_ids)
-        consulta_procesada = self.agregar_impuestos_productos(consulta_productos)
-        self.consulta_productos_ofertados = consulta_productos_ofertados
+        consulta_procesada = self._ofertas['consulta_productos_ofertados']
+        self.consulta_productos_ofertados = consulta_procesada
         self.consulta_productos = consulta_procesada
-        self.consulta_productos_ofertados_btn = consulta_procesada
-        self.products_ids_ofertados = productos_ids
+        self.consulta_productos_ofertados_btn = self._ofertas['consulta_productos_ofertados_btn']
+        self.products_ids_ofertados = self._ofertas['products_ids_ofertados']
 
         return consulta_procesada
 
@@ -189,7 +186,6 @@ class ModeloCaptura:
 
             finally:
                 self._agregando_partida = False
-
 
     def agregar_partida_items_documento(self, partida):
         self.documento.items.append(partida)

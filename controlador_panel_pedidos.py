@@ -48,7 +48,6 @@ class ControladorPanelPedidos:
         self._user_name = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
         self._parametros.nombre_usuario = self._user_name
         self._partidas_pedidos = {}
-
         self._capturando_nuevo_pedido = False
 
         self._crear_tabla_pedidos()
@@ -59,6 +58,8 @@ class ControladorPanelPedidos:
         self._rellenar_operador()
         self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Panel pedidos', bloquear=False)
         self._interfaz.ventanas.situar_ventana_arriba(self._interfaz.master)
+
+        self._buscar_ofertas()
 
         self._number_orders = -1
         self._number_transfer_payments = -1
@@ -588,7 +589,15 @@ class ControladorPanelPedidos:
             )
 
             self._parametros.id_principal = -1
-            _ = BuscarGeneralesCliente(ventana, self._parametros)
+
+            # empaquetar ofertas del cliente
+            ofertas = {
+                'consulta_productos_ofertados': self._modelo.consulta_productos_ofertados,
+                'consulta_productos_ofertados_btn': self._modelo.consulta_productos_ofertados_btn,
+                'products_ids_ofertados': self._modelo.products_ids_ofertados
+            }
+
+            _ = BuscarGeneralesCliente(ventana, self._parametros, ofertas)
 
 
         finally:
@@ -2156,3 +2165,7 @@ class ControladorPanelPedidos:
             date_entry.entry.delete(first=0, last=tk.END)
         else:
             self._interfaz.ventanas.insertar_input_componente('den_fecha', self._modelo.hoy)
+
+    def _buscar_ofertas(self):
+        if not self._modelo.consulta_productos_ofertados:
+            self._modelo.buscar_productos_ofertados_cliente()

@@ -1,4 +1,7 @@
-import win32print
+import platform
+
+if platform.system() == 'Windows':
+    import win32print
 
 
 class CajonCobro:

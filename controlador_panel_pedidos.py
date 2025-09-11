@@ -23,7 +23,7 @@ from cayal.tableview_cayal import Tableview
 from editar_pedido import EditarPedido
 from cayal.cliente import Cliente
 from cayal.documento import Documento
-from buscar_generales_cliente_cartera import BuscarGeneralesClienteCartera
+from buscar_generales_cliente_cartera import BuscarGeneralesCliente
 from buscar_clientes import BuscarClientes
 from cancelar_pedido import CancelarPedido
 
@@ -726,7 +726,7 @@ class ControladorPanelPedidos:
         self._pausar_autorefresco()
         try:
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-            instancia = BuscarGeneralesClienteCartera(ventana, self._parametros)
+            instancia = BuscarGeneralesCliente(ventana, self._parametros)
             ventana.wait_window()
 
             fila = self._seleccionar_una_fila()

@@ -1,300 +1,786 @@
 import tkinter as tk
+import unicodedata
+import pyperclip
 import ttkbootstrap as ttk
 import ttkbootstrap.dialogs
-from cayal.datos import BaseDatos
-from cayal.util import Utilerias
+import re
+
+from cayal.comandos_base_datos import ComandosBaseDatos
 from cayal.cliente import Cliente
+from cayal.ventanas import Ventanas
+from cayal.documento import Documento
+from cayal.util import Utilerias
+
 from controlador_saldar_cartera import ControladorSaldarCartera
 from interfaz_saldar_cartera import InterfazSaldarCartera
-from cayal.ventanas import Ventanas
 
 
-class BuscarGeneralesClienteCartera:
+class BuscarGeneralesCliente:
 
     def __init__(self, master, parametros):
-        self._parametros = parametros
-        self._cadena_conexion = self._parametros.cadena_conexion
-        self._id_usuario = self._parametros.id_usuario
-        self._base_de_datos = BaseDatos(self._cadena_conexion)
-        self._utilerias = Utilerias()
+
+        self._parametros_contpaqi = parametros
+
+        self._master = master
+
+        self._declarar_variables_globales()
+        self._crear_instancias_de_clases()
+
+        self._crear_frames()
+        self._cargar_componentes_forma()
+        self._cargar_eventos_componentes_forma()
+        self._cargar_hotkeys()
+        self._ajustar_componentes()
+        self._actualizar_apariencia_forma(solo_apariencia_inicial=True)
+        self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
+        self._ventanas.enfocar_componente('tbx_buscar')
+
+
+    def _declarar_variables_globales(self):
+        self._cadena_conexion = self._parametros_contpaqi.cadena_conexion
+        self._termino_buscado = None
+        self._consulta_clientes = None
+        self._info_cliente_seleccionado = None
+        self._consulta_direcciones = None
+        self._instancia_llamada = False
+        self._consulta_sucursales = None
+        self._procesando_documento = False
+        self._tipo_documento = 0
+
+    def _crear_instancias_de_clases(self):
+        self._base_de_datos = ComandosBaseDatos(self._cadena_conexion)
         self._cliente = Cliente()
+        self._ventanas = Ventanas(self._master)
+        self._documento = Documento()
+        self._utilerias = Utilerias()
+
+    def _crear_frames(self):
+        frames = {
+            'frame_principal': ('master', None,
+                                {'row': 0, 'column': 0, 'sticky': tk.NSEW}),
+
+            'frame_buscar': ('frame_principal', 'Buscar cliente o folio de nota:',
+                                      {'row': 0, 'columnspan': 4, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
+
+            'frame_botones': ('frame_buscar', None,
+                              {'row': 2, 'column': 1,  'pady': 5, 'sticky': tk.NSEW}),
+
+            'frame_data': ('frame_principal', 'Información:',
+                           {'row': 3, 'column': 0, 'columnspan': 8, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
+
+            'frame_cbxs': ('frame_data', None,
+                              {'row': 0, 'column': 0,  'columnspan': 4, 'pady': 1, 'sticky': tk.W}),
+
+            'frame_cbx_direccion': ('frame_cbxs', 'Dirección:',
+                               {'row': 0, 'column': 1,  'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
 
 
-        self.master = master
-        self.master.geometry('352x185')
-        self.master.title('Cartera cliente')
-        self.master.place_window_center()
-        self.master.resizable(False, False)
-        self.master.bind("<Escape>", lambda event: self.master.destroy())
-        self.master.bind("<F1>", lambda event: self.llamar_saldar_cartera())
-        #self._utilerias.agregar_icono_ventana(self.master)
 
-        self.consulta_buscar_cliente = []
-        self.nombres_de_clientes = []
-        self.termino_buscado = None
-        self.business_entity_id = 0
+            'frame_informacion': ('frame_data', 'Generales:',
+                                  {'row': 3, 'column': 0, 'columnspan': 2, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
 
-        self.frame_principal =  ttk.LabelFrame(self.master, text='Buscar cliente:')
-        self.frame_principal.grid(row=0, column=0, sticky=tk.NSEW, pady=5, padx=5)
+            'frame_direccion': ('frame_data', 'Detalles dirección:',
+                                {'row': 3, 'column': 2, 'columnspan': 2, 'padx': 1, 'pady': 1, 'sticky': tk.NS}),
 
-        self.frame_buscar = ttk.Frame(self.frame_principal)
-        self.frame_buscar.grid(row=0, column=0, sticky=tk.NSEW, pady=5, padx=5)
+            'frame_copiar_direccion': ('frame_direccion', None,
+                                       {'row': 11, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}),
 
-        etq_buscar = ttk.Label(self.frame_buscar, text='Buscar:')
-        etq_buscar.grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        }
 
-        self.buscar = ttk.Entry(self.frame_buscar)
-        self.buscar.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
-        self.buscar.bind("<Return>", lambda event: self.buscar_cliente())
+        self._ventanas.crear_frames(frames)
 
-        self.cbx_resultados = ttk.Combobox(self.frame_buscar, width=40, state='disabled')
-        self.cbx_resultados.grid(row=1, column=1, pady=5, padx=5, sticky=tk.W)
-        self.cbx_resultados.bind('<<ComboboxSelected>>', lambda event: self.cambio_de_seleccion_cliente(event))
+    def _cargar_componentes_forma(self):
 
-        frame_botones = ttk.Frame(self.frame_buscar)
-        frame_botones.grid(row=3, column=1, pady=5, padx=3, sticky=tk.W)
+        componentes = {
+            'tbx_buscar': ('frame_buscar', None, 'Buscar:', None),
+            'cbx_resultados': ('frame_buscar', None, '  ', None),
+            'btn_seleccionar': ('frame_botones', 'primary', 'Seleccionar', '[F1]'),
+            'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', '[Esc]'),
+            'cbx_direccion': ('frame_cbx_direccion', None, '  ', None),
+        }
+        self._ventanas.crear_componentes(componentes)
 
-        self.btn_seleccionar = ttk.Button(frame_botones, text='Seleccionar', state='disabled',
-                                          command=lambda : self.llamar_saldar_cartera())
-        self.btn_seleccionar.grid(row=0, column=0, pady=5, padx=5, sticky=tk.W)
+        self._componentes_direccion = {
 
-        etq_seleccionar = ttk.Label(frame_botones, text='[F1]')
-        etq_seleccionar.grid(row=1, column=0,  padx=5, sticky=tk.W)
+            'lbl_txt_ncomercial': ('frame_direccion',
+                                   {'font': ('Arial', 9, 'bold'), 'text': 'N.Comercial:'},
+                                   {'row': 0, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+            'lbl_txt_ruta': ('frame_direccion',
+                             {'font': ('Arial', 9, 'bold'), 'text': 'Ruta:'},
+                             {'row': 1, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+            'lbl_txt_telefono': ('frame_direccion',
+                                 {'font': ('Arial', 9, 'bold'), 'text': 'Teléfono:'},
+                                 {'row': 2, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W},  None),
+            'lbl_txt_celular': ('frame_direccion',
+                                {'font': ('Arial', 9, 'bold'), 'text': 'Celular:'},
+                                {'row': 3, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+            'lbl_txt_calle': ('frame_direccion',
+                              {'font': ('Arial', 9, 'bold'), 'text': 'Calle:'},
+                              {'row': 4, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+            'lbl_txt_numero': ('frame_direccion',
+                               {'font': ('Arial', 9, 'bold'), 'text': 'Número:'},
+                               {'row': 5, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W},  None),
+            'txt_comentario': ('frame_direccion',
+                               {'row': 6, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W}, ' ', None),
+            'lbl_txt_cp': ('frame_direccion',
+                           {'font': ('Arial', 9, 'bold'), 'text': 'C.P.'},
+                           {'row': 7, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+            'lbl_txt_colonia': ('frame_direccion',
+                                {'font': ('Arial', 9, 'bold'), 'text': 'Colonia:'},
+                                {'row': 8, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W},  None),
+            'lbl_txt_estado': ('frame_direccion',
+                               {'font': ('Arial', 9, 'bold'), 'text': 'Estado:'},
+                               {'row': 9, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+            'lbl_txt_municipio': ('frame_direccion',
+                                  {'font': ('Arial', 9, 'bold'), 'text': 'Municipio:'},
+                                  {'row': 10, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W},  None),
 
-        self.btn_cancelar = ttk.Button(frame_botones, text='Cancelar',style='danger', command=lambda:self.master.destroy())
-        self.btn_cancelar.grid(row=0, column=1, padx=5, pady=5,sticky=tk.W)
+            'lbl_ncomercial': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                               {'row': 0, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
 
-        etq_cancelar = ttk.Label(frame_botones, text='[Esc]')
-        etq_cancelar.grid(row=1, column=1, padx=5, sticky=tk.W)
+            'lbl_ruta': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                         {'row': 1, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
 
-        self.buscar.focus()
+            'lbl_telefono': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                             {'row': 2, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
 
-        self._ventanas = Ventanas(self.master)
-        self._ventanas.configurar_ventana_ttkbootstrap()
+            'lbl_celular': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                            {'row': 3, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
 
-    def buscar_cliente(self, event=None):
+            'lbl_calle': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                          {'row': 4, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
 
-        termino_buscado_tbx = self.buscar.get()
+            'lbl_numero': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                           {'row': 5, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
 
-        if not termino_buscado_tbx:
-            ttkbootstrap.dialogs.Messagebox.show_error(parent=self.master,message='Debe introducir un termino a buscar')
-        elif len(termino_buscado_tbx)<5:
-            ttkbootstrap.dialogs.Messagebox.show_error(parent=self.master,message='Insuficientes letras en el termino a buscar')
-        elif termino_buscado_tbx != self.termino_buscado:
-            self.termino_buscado = self.buscar.get()
-            self.consulta_buscar_cliente = self._base_de_datos.fetchall("""
-                DECLARE @Valor NVARCHAR(255) = ?
-                SELECT E.BusinessEntityID,E.OfficialName
-                FROM orgCustomer C INNER JOIN
-                    orgBusinessEntity E ON C.BusinessEntityID=E.BusinessEntityID
-                WHERE E.OfficialName LIKE '%'+@Valor+'%' AND C.DeletedOn IS NULL
-                    AND E.DeletedOn IS NULL AND E.BusinessEntityID NOT IN(1,8179,9277)
-            """, (self.buscar.get()))
+            'lbl_cp': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                       {'row': 7, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
 
-            if not self.consulta_buscar_cliente:
-                ttk.dialogs.Messagebox.show_error(parent=self.master,message='El término de búsqueda no arrojó resultados.')
-                self.buscar.delete(0,tk.END)
+            'lbl_colonia': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                            {'row': 8, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+
+            'lbl_estado': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                           {'row': 9, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+
+            'lbl_municipio': ('frame_direccion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                              {'row': 10, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+
+            'btn_copiar': ('frame_copiar_direccion', 'warning', 'Copiar', '[F4]'),
+        }
+        self._ventanas.crear_componentes(self._componentes_direccion)
+
+        self._componentes_credito = {
+            'lbl_txt_nombre': ('frame_informacion', None, 'Nombre:', None),
+            'lbl_txt_rfc': ('frame_informacion', None, 'RFC:', None),
+            'lbl_txt_autorizado': ('frame_informacion', None, 'Autorizado:', None),
+            'lbl_txt_debe': ('frame_informacion', None, 'Debe:', None),
+            'lbl_txt_restante': ('frame_informacion', None, 'Restante:', None),
+            'lbl_txt_condicion': ('frame_informacion', None, 'Condición:', None),
+            'lbl_txt_pcompra': ('frame_informacion', None, 'P.Compra:', None),
+            'lbl_txt_comentario': ('frame_informacion', None, 'Comentario:', None),
+            'lbl_txt_minisuper': ('frame_informacion', None, 'Minisuper:', None),
+            'lbl_txt_lista': ('frame_informacion', None, 'Lista:', None),
+
+            'lbl_nombre': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                           {'row': 0, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+
+            'lbl_rfc': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                        {'row': 1, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+
+
+            'lbl_autorizado': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                               {'row': 2, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+
+            'lbl_debe': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                         {'row': 3, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+
+            'lbl_restante': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                             {'row': 4, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+
+            'lbl_condicion': (
+            'frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+            {'row': 5, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+
+            'lbl_pcompra': ('frame_informacion', {'font': ('Arial', 9, 'bold'),
+                                                  'text': ''},
+                            {'row': 6, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+
+            'lbl_comentario': ('frame_informacion', {'font': ('Arial', 9, 'bold'),
+                                                     'text': ''},
+                               {'row': 7, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+
+            'lbl_minisuper': ('frame_informacion', {'font': ('Arial', 9, 'bold'),
+                                                    'text': ''},
+                              {'row': 8, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+
+            'lbl_lista': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
+                          {'row': 9, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+        }
+        self._ventanas.crear_componentes(self._componentes_credito)
+
+    def _ajustar_componentes(self):
+        self._ventanas.ajustar_ancho_componente('cbx_resultados', 50)
+        self._ventanas.bloquear_componente('btn_seleccionar')
+
+    def _cargar_eventos_componentes_forma(self):
+        eventos = {
+            'btn_cancelar': self._master.destroy,
+            'btn_seleccionar': self._seleccionar_cliente,
+            'tbx_buscar': self._buscar_termino,
+            'cbx_resultados': self._cambio_de_seleccion_cliente,
+            'cbx_direccion': self._seleccionar_direccion,
+            'btn_copiar':self._copiar_informacion_direccion
+        }
+
+        self._ventanas.cargar_eventos(eventos)
+
+    def _cargar_hotkeys(self):
+        hotkeys = {
+            'F1': self._seleccionar_cliente,
+            'F4': self._copiar_informacion_direccion,
+            'Ctrl+D': lambda  :self._ventanas.enfocar_componente('cbx_direccion'),
+        }
+
+        self._ventanas.agregar_hotkeys_forma(hotkeys)
+
+    def _copiar_informacion_direccion(self):
+        business_entity_id = self._info_cliente_seleccionado[0]['BusinessEntityID']
+        address_detail_id = self._documento.address_detail_id
+
+        informacion = self._base_de_datos.buscar_informacion_direccion_whatsapp(address_detail_id, business_entity_id)
+        pyperclip.copy(informacion)
+        self._master.iconify()
+
+    def _validar_termino(self):
+        termino_buscado = self._ventanas.obtener_input_componente('tbx_buscar')
+
+        if not termino_buscado:
+            self._ventanas.mostrar_mensaje('Debe introducir un termino a buscar')
+            self._ventanas.bloquear_componente('btn_seleccionar')
+            return
+
+        if len(termino_buscado) < 5 and not termino_buscado.startswith(('FG', 'FM', 'FGR')):
+            self._ventanas.mostrar_mensaje('Insuficientes letras en el termino a buscar')
+            self._ventanas.bloquear_componente('btn_seleccionar')
+            return
+
+        return termino_buscado
+
+    def _buscar_termino(self, event=None):
+        termino_buscado = self._validar_termino()
+
+        if not termino_buscado:
+            return
+
+        termino_buscado = termino_buscado.upper().strip()
+
+        if termino_buscado != self._termino_buscado:
+            self._termino_buscado = termino_buscado
+
+        # determina si la busqueda sera manual y por folio
+        if termino_buscado.startswith(('FG', 'FM', 'FGR')):
+
+            info_documento = self._buscar_info_document_id(folio_documento=termino_buscado)
+            if not info_documento:
+
+                return
+            business_entity_id = info_documento['BusinessEntityID']
+            self._buscar_info_cliente_seleccionado(business_entity_id)
+            self._cliente.consulta = self._info_cliente_seleccionado
+            self._cliente.settear_valores_consulta()
+            self._llamar_instancia()
+
+        # si termino buscado no es numerico entonces es por nombre de clientee
+        if not self._utilerias.es_cantidad(termino_buscado):
+
+            self._consulta_clientes = self._base_de_datos.buscar_clientes_por_nombre_similar(self._termino_buscado)
+
+            nombres_clientes = [reg['OfficialName'] for reg in self._consulta_clientes]
+
+            if not nombres_clientes:
+                self._ventanas.bloquear_componente('btn_seleccionar')
+                self._ventanas.rellenar_cbx('cbx_resultados', None, 'sin seleccione')
+                self._ventanas.mostrar_mensaje('No se encontraron resultados.')
+
             else:
-                self.nombres_de_clientes = [cliente['OfficialName'] for cliente in self.consulta_buscar_cliente]
-                if len(self.nombres_de_clientes) > 1:
-                    self.nombres_de_clientes.insert(0, 'Seleccione')
-
-                self.cbx_resultados['values'] = self.nombres_de_clientes
-                self.cbx_resultados.set(self.nombres_de_clientes[0])
-
-
-                self.cbx_resultados.config(state='readonly')
-
-                if len(self.nombres_de_clientes) == 1:
-                    self.cambio_de_seleccion_cliente()
-                    self.btn_seleccionar.config(state='normal')
-                    self.btn_seleccionar.focus()
+                if len(nombres_clientes) > 1:
+                    self._ventanas.rellenar_cbx('cbx_resultados', nombres_clientes)
                 else:
-                    self.cbx_resultados.focus()
+                    self._ventanas.rellenar_cbx('cbx_resultados', nombres_clientes, 'sin seleccione')
+                    cliente = nombres_clientes[0]
+                    business_entity_id = self._buscar_busines_entity_id(cliente)
 
-                self.buscar.delete(0,tk.END)
+                    self._buscar_info_cliente_seleccionado(business_entity_id)
+                    self._cliente.consulta = self._info_cliente_seleccionado
+                    self._cliente.settear_valores_consulta()
+                    self._actualizar_apariencia_forma()
 
-    def cambio_de_seleccion_cliente(self, event = None):
-        if self.cbx_resultados.get() == 'Seleccione':
-            ttkbootstrap.dialogs.Messagebox.show_error(parent=self.master,message='Debe seleccionar un cliente de la lista')
-            self.btn_seleccionar.config(state='disabled')
-            if hasattr(self, 'frame_informacion') and self.frame_informacion.winfo_exists():
-                self.frame_informacion.destroy()
-                self.master.geometry('352x185')
-                self.master.place_window_center()
-        else:
-            cliente = self.cbx_resultados.get()
-            self.seleccionar_cliente(cliente)
-            self.buscar_info_cliente_seleccionado()
-            self.setear_valores_cliente_seleccionado()
-            self.actualizar_apariencia_segun_tipo_cliente()
-            self.btn_seleccionar.config(state='normal')
+            self._ventanas.desbloquear_componente('btn_seleccionar')
+            self._ventanas.enfocar_componente('cbx_resultados')
+            self._ventanas.enfocar_componente('btn_seleccionar')
 
-    def seleccionar_cliente(self, cliente):
-        business_entity_id = [valor['BusinessEntityID'] for valor in self.consulta_buscar_cliente if valor['OfficialName'] == cliente]
-        business_entity_id = business_entity_id[0]
-        self.business_entity_id = business_entity_id
+        # busqueda por codigo de barras
+        if self._utilerias.es_cantidad(termino_buscado):
 
-    def buscar_info_cliente_seleccionado(self):
-        self.consulta_buscar_cliente_seleccionado =self._base_de_datos.fetchall("""
-          SELECT * FROM [dbo].[zvwBuscarInfoCliente-BusinessEntityID](?)
-        """, (self.business_entity_id,))
+            if len(self._termino_buscado) < 12:
+                self._ventanas.mostrar_mensaje(f'El código {self._termino_buscado} es incorrecto.')
+                self._ventanas.enfocar_componente('tbx_buscar')
+                return
 
-    def setear_valores_cliente_seleccionado(self):
-        self._cliente.business_entity_id = self.business_entity_id
-        self._cliente.cayal_customer_type_ID = self.consulta_buscar_cliente_seleccionado[0]['CayalCustomerTypeID']
+            codigo = self._termino_buscado[0:11]
+            document_id = int(codigo.lstrip('0') or '0')
+            info_documento = self._buscar_info_document_id(document_id=document_id)
+            if not info_documento:
+                self._ventanas.mostrar_mensaje(f'La búsqueda del término {codigo} no devolvió resultados.')
+                return
 
-        nombre_cliente = self.consulta_buscar_cliente_seleccionado[0]['OfficialName']
-        nombre_cliente = self._utilerias.limitar_caracteres(nombre_cliente, 20)
-        self._cliente.official_name = nombre_cliente
+            business_entity_id = info_documento['BusinessEntityID']
+            self._buscar_info_cliente_seleccionado(business_entity_id)
+            self._cliente.consulta = self._info_cliente_seleccionado
+            self._cliente.settear_valores_consulta()
+            self._llamar_instancia()
 
-        ruta_cliente = self.consulta_buscar_cliente_seleccionado[0]['ZoneName']
-        ruta_cliente = self._utilerias.limitar_caracteres(ruta_cliente, 28)
-        self._cliente.zone_name = ruta_cliente
-        self._cliente.authorized_credit = self.consulta_buscar_cliente_seleccionado[0]['AuthorizedCredit']
-        self._cliente.debt = self.consulta_buscar_cliente_seleccionado[0]['Debt']
-        self._cliente.remaining_credit = self.consulta_buscar_cliente_seleccionado[0]['RemainingCredit']
-        self._cliente.payment_term_name = self.consulta_buscar_cliente_seleccionado[0]['PaymentTermName']
-        self._cliente.oldest_purchase_folio = self.consulta_buscar_cliente_seleccionado[0]['OldestPurchaseFolio']
-        self._cliente.oldest_purchase_days = self.consulta_buscar_cliente_seleccionado[0]['OldestPurchaseDays']
-        self._cliente.credit_comments = self.consulta_buscar_cliente_seleccionado[0]['CreditComments']
-        self._cliente.store_credit = self.consulta_buscar_cliente_seleccionado[0]['StoreCredit']
-        self._cliente.customer_type_id = self.consulta_buscar_cliente_seleccionado[0]['CustomerTypeID']
-        self._cliente.customer_type_name = self.consulta_buscar_cliente_seleccionado[0]['CustomerTypeName']
+    def _buscar_info_document_id(self, document_id=0, folio_documento=''):
+        consulta = []
+        info_documento ={}
 
-    def actualizar_apariencia_segun_tipo_cliente(self):
-
-        if hasattr(self, 'frame_informacion') and self.frame_informacion.winfo_exists():
-            self.frame_informacion.destroy()
-
-        self.frame_informacion = ttk.LabelFrame(self.frame_buscar, text='Detalles cliente:')
-        self.frame_informacion.grid(row=2, column=0, columnspan=2, sticky=tk.NSEW, pady=5, padx=5)
-
-        if self._cliente.cayal_customer_type_ID == 0:
-            self.master.geometry('352x300')
-            self.master.place_window_center()
-
-            etq_cliente = ttk.Label(self.frame_informacion, text='Nombre:')
-            etq_cliente.grid(row=0, column=0, pady=5, padx=5, sticky=tk.W)
-
-            cliente = ttk.Label(self.frame_informacion, text=self._cliente.official_name)
-            cliente.grid(row=0, column=1, pady=5, padx=5, sticky=tk.W)
-
-            etq_ruta_nombre = ttk.Label(self.frame_informacion, text='Ruta:')
-            etq_ruta_nombre.grid(row=1, column=0, pady=5, padx=5, sticky=tk.W)
-
-            ruta_nombre = ttk.Label(self.frame_informacion, text=self._cliente.zone_name)
-            ruta_nombre.grid(row=1, column=1, pady=5, padx=5, sticky=tk.W)
-
-            etq_lista_precio = ttk.Label(self.frame_informacion, text='Lista:')
-            etq_lista_precio.grid(row=2, column=0, pady=5, padx=5, sticky=tk.W)
-
-            lista_precio = ttk.Label(self.frame_informacion, text=self._cliente.customer_type_name)
-            lista_precio.grid(row=2, column=1, pady=5, padx=5, sticky=tk.W)
-
-        else:
-            self.master.geometry('352x473')
-            self.master.place_window_center()
-
-            etq_cliente = ttk.Label(self.frame_informacion, text='Nombre:')
-            etq_cliente.grid(row=0, column=0, pady=5, padx=5, sticky=tk.W)
-
-            cliente = ttk.Label(self.frame_informacion, text=self._cliente.official_name)
-            cliente.grid(row=0, column=1, pady=5, padx=5, sticky=tk.W)
-
-            etq_ruta_nombre = ttk.Label(self.frame_informacion, text='Ruta:')
-            etq_ruta_nombre.grid(row=1, column=0, pady=5, padx=5, sticky=tk.W)
-
-            ruta_nombre = ttk.Label(self.frame_informacion, text=self._cliente.zone_name)
-            ruta_nombre.grid(row=1, column=1, pady=5, padx=5, sticky=tk.W)
-
-            self.etq_autorizado = ttk.Label(self.frame_informacion, text='Autorizado:')
-            self.etq_autorizado.grid(row=2, column=0, pady=5, padx=5, sticky=tk.W)
-
-            autorizado = self._utilerias.redondear_valor_cantidad_a_decimal(self._cliente.authorized_credit)
-            autorizado = self._utilerias.convertir_decimal_a_moneda(autorizado)
-
-            self.autorizado = ttk.Label(self.frame_informacion, text=autorizado)
-            self.autorizado.grid(row=2, column=1, pady=5, padx=5, sticky=tk.W)
-
-            self.etq_debe = ttk.Label(self.frame_informacion, text='Debe:')
-            self.etq_debe.grid(row=3, column=0, pady=5, padx=5, sticky=tk.W)
-
-            debe = self._utilerias.redondear_valor_cantidad_a_decimal(self._cliente.debt)
-            debe = self._utilerias.convertir_decimal_a_moneda(debe)
-
-            self.debe = ttk.Label(self.frame_informacion, text=debe)
-            self.debe.grid(row=3, column=1, pady=5, padx=5, sticky=tk.W)
-
-            self.etq_restante = ttk.Label(self.frame_informacion, text='Restante:')
-            self.etq_restante.grid(row=4, column=0, pady=5, padx=5, sticky=tk.W)
-
-            restante = self._utilerias.redondear_valor_cantidad_a_decimal(self._cliente.remaining_credit)
-            restante = self._utilerias.convertir_decimal_a_moneda(restante)
-
-            self.restante = ttk.Label(self.frame_informacion, text=restante)
-            self.restante.grid(row=4, column=1, pady=5, padx=5, sticky=tk.W)
-
-            self.etq_condicion = ttk.Label(self.frame_informacion, text='Condición:')
-            self.etq_condicion.grid(row=5, column=0, pady=5, padx=5, sticky=tk.W)
-
-            self.condicion = ttk.Label(self.frame_informacion, text=self._cliente.payment_term_name)
-            self.condicion.grid(row=5, column=1, pady=5, padx=5, sticky=tk.W)
-
-            self.etq_compra_periodo = ttk.Label(self.frame_informacion, text='P.Compra:')
-            self.etq_compra_periodo.grid(row=6, column=0, pady=5, padx=5, sticky=tk.W)
-
-            if self._cliente.oldest_purchase_days == 0 and self._cliente.oldest_purchase_folio == '':
-                documento_mas_antiguo = 'No tiene compras en el periodo.'
-            else:
-                documento_mas_antiguo = f'Documento más antiguo: {self._cliente.oldest_purchase_days} días, {self._cliente.oldest_purchase_folio}.'
-
-            self.compra_periodo = ttk.Label(self.frame_informacion,text=documento_mas_antiguo)
-            self.compra_periodo.grid(row=6, column=1, pady=5, padx=5, sticky=tk.W)
-
-            self.etq_credito_super = ttk.Label(self.frame_informacion, text='Minisuper:')
-            self.etq_credito_super.grid(row=7, column=0, pady=5, padx=5, sticky=tk.W)
-
-            comentario_super = 'CRÉDITO EN SUPER AUTORIZADO' if self._cliente.store_credit == 1 else 'CRÉDITO EN SUPER NO PERMITIDO'
-
-            if self._cliente.store_credit == 1:
-                self.credito_super = ttk.Label(self.frame_informacion, text=comentario_super)
-            else:
-                self.credito_super = ttk.Label(self.frame_informacion, style='danger', text=comentario_super)
-
-            self.credito_super.grid(row=7, column=1, pady=5, padx=5, sticky=tk.W)
-
-            etq_lista_precio = ttk.Label(self.frame_informacion, text='Lista:')
-            etq_lista_precio.grid(row=8, column=0, pady=5, padx=5, sticky=tk.W)
-
-            lista_precio = ttk.Label(self.frame_informacion, text=self._cliente.customer_type_name)
-            lista_precio.grid(row=8, column=1, pady=5, padx=5, sticky=tk.W)
-
-    def llamar_saldar_cartera(self):
-        if self.business_entity_id != 0:
-            if self.buscar_documentos_en_cartera() == 0:
-                ttk.dialogs.Messagebox.show_error(parent=self.master,message='El cliente no tiene documentos en cartera.')
-            else:
-                self._parametros.id_principal = self.business_entity_id
-
-                nueva_ventana = self._ventanas.crear_popup_ttkbootstrap()
-                controlador =  ControladorSaldarCartera(self._parametros)
-                interfaz = InterfazSaldarCartera(nueva_ventana, controlador)
-                #self.master.withdraw()
-                nueva_ventana.wait_window()
-                self.master.destroy()
-
-    def buscar_documentos_en_cartera(self):
-        return self._base_de_datos.fetchone("""
-        SELECT COUNT(D.DocumentID) AS Documentos
+        if document_id != 0:
+            consulta = self._base_de_datos.fetchall("""
+                SELECT D.BusinessEntityID, E.OfficialName,
+                    ISNULL(D.FolioPrefix,'')+ISNULL(D.Folio,'') DocFolio,
+                    CASE WHEN D.CancelledOn IS NULL THEN 0 ELSE 1 END Cancelled,
+                    D.Balance, D.Total, D.TotalPaid, StatusPaidID
                 FROM docDocument D
-                    INNER JOIN docDocumentExtra X ON D.DocumentID=X.DocumentID
-                    LEFT OUTER JOIN orgDepot A ON X.BusinessEntityDepotID=A.DepotID
-                    INNER JOIN docDocumentCFD CFD ON D.DocumentID=CFD.DocumentID
-                    INNER JOIN vwcboAnexo20v33_FormaPago FP ON CFD.FormaPago=FP.Clave
-                    WHERE D.CancelledOn IS NULL
-                      AND D.StatusPaidID<>1
-                      AND D.BusinessEntityID=?
-                      AND D.ModuleID IN (21,1400,1319)
-                      AND D.Balance<>0
-        """, (self.business_entity_id,))
+                INNER JOIN orgBusinessEntity E ON D.BusinessEntityID = E.BusinessEntityID
+                WHERE D.DocumentID = ? 
+                AND D.ModuleID IN (21,1400,1319)
+            """, (document_id,))
+
+        if folio_documento != '':
+            # aqui obtenemos el folio que son los numeros despues de las letras del prefijo
+            folio = re.sub(r"\D", "", folio_documento)  # Reemplaza todo lo que no es dígito
+            prefijo = re.match(r"[A-Za-z]+", folio_documento).group()   # Solo letras al inicio
+
+            consulta =  self._base_de_datos.fetchall("""
+                SELECT D.BusinessEntityID, E.OfficialName,
+                    ISNULL(D.FolioPrefix,'')+ISNULL(D.Folio,'') DocFolio,
+                    CASE WHEN D.CancelledOn IS NULL THEN 0 ELSE 1 END Cancelled,
+                    D.Balance, D.Total, D.TotalPaid, StatusPaidID
+                FROM docDocument D
+                INNER JOIN orgBusinessEntity E ON D.BusinessEntityID = E.BusinessEntityID
+                WHERE D.FolioPrefix = ?
+                AND D.Folio = ?
+                AND D.ModuleID IN (21,1400,1319)
+            """,(prefijo, folio))
+
+        if consulta:
+            info_documento = consulta[0]
+
+            cancelado = info_documento['Cancelled']
+            status_paid_id = info_documento['StatusPaidID']
+            official_name= info_documento['OfficialName']
+            doc_folio = info_documento['DocFolio']
+
+            if cancelado == 1:
+                self._ventanas.mostrar_mensaje(f'El documento {doc_folio} del cliente {official_name} está cancelado.')
+                return
+
+            if status_paid_id == 1:
+                self._ventanas.mostrar_mensaje(f'El documento {doc_folio} del cliente {official_name} está saldado completamente.')
+                return
+
+        if not consulta:
+            if folio_documento != '':
+                self._ventanas.mostrar_mensaje(f'La búsqueda del término {folio_documento} no devolvió resultados.')
+            return
+
+        return info_documento
+
+    def _cambio_de_seleccion_cliente(self, event=None):
+        seleccion = self._ventanas.obtener_input_componente('cbx_resultados')
+
+        if seleccion == 'Seleccione':
+            self._cliente.reinicializar_atributos()
+            self._ventanas.mostrar_mensaje(mensaje= 'Debe seleccionar un cliente de la lista', master=self._master)
+            self._ventanas.bloquear_componente('btn_seleccionar')
+            return
+
+        self._ventanas.desbloquear_componente('btn_seleccionar')
+        business_entity_id = self._buscar_busines_entity_id(seleccion)
+        self._buscar_info_cliente_seleccionado(business_entity_id)
+        self._cliente.consulta = self._info_cliente_seleccionado
+        self._cliente.settear_valores_consulta()
+
+        self._actualizar_apariencia_forma()
+
+    def _buscar_busines_entity_id(self, cliente):
+        business_entity_id = [valor['BusinessEntityID'] for valor in self._consulta_clientes if valor['OfficialName'] == cliente]
+        business_entity_id = business_entity_id[0]
+
+        return business_entity_id if business_entity_id else 0
+
+    def _buscar_info_cliente_seleccionado(self, business_entity_id):
+        if business_entity_id != 0:
+            self._info_cliente_seleccionado = self._base_de_datos.fetchall("""
+              SELECT * FROM [dbo].[zvwBuscarInfoCliente-BusinessEntityID](?)
+            """, (business_entity_id,))
+
+    def _seleccionar_cliente(self):
+        seleccion = self._ventanas.obtener_input_componente('cbx_resultados')
+
+        if not seleccion:
+            self._ventanas.mostrar_mensaje(master =self._master, mensaje='Debe buscar y seleccionar un cliente.')
+        elif seleccion == 'Seleccione':
+            self._ventanas.mostrar_mensaje(master=self._master, mensaje='Debe seleccionar un cliente de la lista.')
+        else:
+            proceder = True
+
+            if self._cliente.depots > 0:
+                seleccion_direccion = self._ventanas.obtener_input_componente('cbx_direccion')
+                seleccion_direccion = seleccion_direccion.upper()
+
+                if seleccion_direccion == 'DIRECCIÓN FISCAL' or not seleccion_direccion:
+                    respuesta = ttk.dialogs.Messagebox.yesno(parent =self._master, message='El cliente tiene sucursales '
+                                                            '¿Desea proceder sin seleccionar una?')
+                    if respuesta == 'No':
+                        proceder = False
+
+            if proceder:
+                self._llamar_instancia()
+
+    def _documento_seleccionado(self):
+
+        def es_remision():
+            self._documento.cfd_type_id = 1
+            self._documento.doc_type = 'REMISIÓN'
+
+        def es_factura():
+            self._documento.cfd_type_id = 0
+            self._documento.doc_type = 'FACTURA'
+
+        if self._cliente.cayal_customer_type_id in (0, 1):
+            es_remision()
+            return True
+        else:
+            seleccion = self._ventanas.obtener_input_componente('cbx_documento')
+
+            if seleccion == 'Seleccione':
+                ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master, message='Debe seleccionar un tipo de documento.')
+                return False
+
+            es_factura() if seleccion == 'Factura' else es_remision()
+            return True
+
+    def _procesar_direccion_seleccionada(self):
+
+        def normalizar(texto):
+            """Elimina acentos y convierte a minúsculas."""
+            texto = unicodedata.normalize('NFD', texto)
+            texto = ''.join(c for c in texto if unicodedata.category(c) != 'Mn')
+            return texto.lower()
+
+        # Obtener nombre de dirección del componente
+        address_name = self._ventanas.obtener_input_componente('cbx_direccion')
+
+        # Normaliza el texto para comparación
+        address_name_normalizado = normalizar(address_name)
+
+        # Verifica si contiene "direccion fiscal"
+        if 'direccion fiscal' in address_name_normalizado:
+
+            address_fiscal_detail_id = self._info_cliente_seleccionado[0].get('AddressFiscalDetailID', 0)
+            address_selected = [reg for reg in self._consulta_direcciones
+                            if reg['AddressDetailID'] == address_fiscal_detail_id]
+
+            if address_selected:
+                self._seleccionar_direccion_fiscal(address_selected)
+
+                # esto pr
+                self._base_de_datos.homologar_direccion_fiscal(address_fiscal_detail_id)
+                return address_selected[0]
+
+        return self._base_de_datos.procesar_direccion_seleccionada_cbx(address_name, self._consulta_direcciones)
+
+    def _actualizar_apariencia_si_tiene_sucursales(self):
+
+        if self._cliente.depots == 0:
+            self._ventanas.ocultar_componente('cbx_sucursales')
+            self._consulta_sucursales = None
+        else:
+            frame_buscar = self._ventanas.componentes_forma['frame_buscar']
+            cbx_sucursales = ttk.Combobox(frame_buscar, state='readonly')
+            cbx_sucursales.grid(row=2,  column=1, padx=185, pady=5, sticky=tk.W)
+            self._ventanas.componentes_forma['cbx_sucursales'] = cbx_sucursales
+
+            self._consulta_sucursales = self._base_de_datos.fetchall("""
+                    SELECT A.DepotID,A.DepotName 
+            		FROM orgBusinessEntity E INNER JOIN
+            			orgDepot A ON E.BusinessEntityID=A.BusinessEntityID 
+            		WHERE E.BusinessEntityID = ? AND A.DeletedOn IS NULL
+                    """, (self._cliente.business_entity_id,))
+
+            nombres_sucursales = [sucursal['DepotName'] for sucursal in self._consulta_sucursales]
+
+            if self._consulta_sucursales:
+                self._ventanas.rellenar_cbx('cbx_sucursales', nombres_sucursales)
+
+    def _actualizar_apariencia_forma(self, solo_apariencia_inicial = False):
+
+        def apariencia_inicial():
+            self._ventanas.ocultar_frame('frame_data')
+
+
+        if solo_apariencia_inicial:
+            apariencia_inicial()
+            self._master.place_window_center()
+            #self.master.after_idle(lambda: self.ventanas.centrar_ventana_ttkbootstrap(self.master))
+            return
+
+        cbx_direccion = self._ventanas.componentes_forma['cbx_direccion']
+
+        if self._cliente.cayal_customer_type_id in (1, 2):
+            self._ventanas.posicionar_frame('frame_data')
+            self._ventanas.posicionar_frame('frame_informacion')
+            self._ventanas.posicionar_frame('frame_direccion')
+            self._cargar_info_credito()
+        else:
+            self._ventanas.posicionar_frame('frame_data')
+            self._ventanas.ocultar_frame('frame_informacion')
+            posicion = {'row': 1, 'column': 0, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}
+            self._ventanas.posicionar_frame('frame_direccion', posicion)
+
+        self._consulta_direcciones = self._base_de_datos.rellenar_cbx_direcciones(
+            self._cliente.business_entity_id,
+            cbx_direccion
+        )
+        self._seleccionar_direccion()
+
+        self._master.place_window_center()
+
+    def _seleccionar_direccion(self, event=None):
+        direccion = {}
+
+        self._ventanas.posicionar_frame('frame_cbxs')
+        self._ventanas.mostrar_componente('cbx_direccion')
+
+        if self._cliente.addresses == 1:
+            direccion = self._seleccionar_direccion_fiscal(direccion)
+        else:
+            datos_direccion = self._procesar_direccion_seleccionada()
+            address_detail_id = datos_direccion.get('address_detail_id', 0)
+            direccion = self._base_de_datos.buscar_detalle_direccion_formateada(address_detail_id)
+            direccion['celular'] = self._info_cliente_seleccionado[0]['CellPhone']
+
+        self._documento.address_details = direccion
+        self._documento.address_detail_id = direccion.get('address_detail_id', 0)
+        self._cargar_info_direccion(direccion)
+
+    def _seleccionar_direccion_fiscal(self, direccion):
+
+        if isinstance(direccion, list):
+            direccion = direccion[0]
+
+        direccion['address_detail_id'] = self._cliente.address_fiscal_detail_id
+        direccion['address_name'] = 'Dirección Fiscal'
+        direccion['depot_id'] = 0
+        direccion['telefono'] = self._cliente.phone
+        direccion['celular'] = self._cliente.cellphone
+        direccion['calle'] = self._cliente.address_fiscal_street
+        direccion['numero'] = self._cliente.address_fiscal_ext_number
+        direccion['comentario'] = self._cliente.address_fiscal_comments
+        direccion['cp'] = self._cliente.address_fiscal_zip_code
+        direccion['colonia'] = self._cliente.address_fiscal_city
+        direccion['estado'] = self._cliente.address_fiscal_state_province
+        direccion['municipio'] = self._cliente.address_fiscal_municipality
+
+        return direccion
+
+    def _cargar_info_direccion(self, info_direccion):
+        self._limpiar_direccion()
+        self._ventanas.posicionar_frame('frame_direccion')
+
+        informacion = {
+            'lbl_ncomercial': self._cliente.commercial_name,
+            'lbl_ruta': self._cliente.zone_name,
+            'lbl_telefono': info_direccion.get('telefono', ''),
+            'lbl_celular': info_direccion.get('celular', ''),
+            'lbl_calle': info_direccion.get('calle', ''),
+            'lbl_numero': info_direccion.get('numero', ''),
+            'lbl_cp': info_direccion.get('cp', ''),
+            'lbl_colonia': info_direccion.get('colonia', ''),
+            'lbl_estado': info_direccion.get('estado', ''),
+            'lbl_municipio': info_direccion.get('municipio', ''),
+            'txt_comentario': info_direccion.get('comentario','')
+        }
+
+        for nombre_componente, valores in self._componentes_direccion.items():
+            if '_txt' in nombre_componente:
+                continue
+
+            valor_direccion = informacion.get(nombre_componente, '')
+            self._ventanas.insertar_input_componente(nombre_componente, valor_direccion)
+
+    def _cargar_info_credito(self):
+        self._limpiar_formulario()
+        informacion = {
+            'lbl_nombre': self._cliente.official_name,
+            'lbl_rfc': self._cliente.official_number,
+            'lbl_ruta': self._cliente.zone_name,
+            'lbl_autorizado': self._credito_autorizado(),
+            'lbl_debe': self._documentos_en_cartera(),
+            'lbl_restante': self._credito_restante(),
+            'lbl_condicion': self._cliente.payment_term_name,
+            'lbl_pcompra': self._ultimo_documento_en_cartera(self._cliente.business_entity_id),
+            'lbl_comentario': self._cliente.credit_comments,
+            'lbl_minisuper': self._credito_en_super(),
+            'lbl_lista': self._cliente.customer_type_name,
+        }
+        for nombre_componente, valores in self._componentes_credito.items():
+            if '_txt' in nombre_componente:
+                continue
+
+            valor_direccion = informacion.get(nombre_componente, '')
+            self._ventanas.insertar_input_componente(nombre_componente, valor_direccion)
+
+    def _limpiar_formulario(self):
+        componentes = ['lbl_ncomercial','lbl_nombre',  'lbl_rfc', 'lbl_ruta', 'lbl_autorizado', 'lbl_debe', 'lbl_restante',
+                       'lbl_condicion','lbl_pcompra', 'lbl_comentario', 'lbl_minisuper', 'lbl_lista',
+                       'lbl_telefono', 'lbl_celular', 'lbl_calle', 'lbl_numero','lbl_cp',
+                       'lbl_estado','lbl_municipio'
+                       ]
+        self._ventanas.limpiar_componentes(componentes)
+
+    def _limpiar_direccion(self):
+        componentes = [ 'lbl_calle', 'lbl_numero', 'lbl_cp', 'lbl_telefono', 'lbl_celular',
+                       'lbl_estado', 'lbl_municipio', 'lbl_colonia', 'lbl_ncomercial'
+                       ]
+        self._ventanas.limpiar_componentes(componentes)
+
+    def _credito_en_super(self):
+        text = 'NO TIENE CRÉDITO EN MINISUPER'
+
+        if self._cliente.store_credit == 1:
+            if self._cliente.credit_block == 1:
+                text = 'NO TIENE CRÉDITO EN MINISUPER'
+
+            else:
+                text = 'CRÉDITO EN MINISUPER PERMITIDO'
+
+        return text
+
+    def _credito_autorizado(self):
+        text = f'${self._cliente.authorized_credit}'
+
+        if self._cliente.credit_block == 1:
+            text = '$0.00'
+        return text
+
+    def _credito_restante(self):
+        text = f'${self._cliente.remaining_credit}'
+
+        if self._cliente.credit_block == 1:
+            text = '$0.00'
+        return text
+
+    def _documentos_en_cartera(self):
+        texto = ''
+        if self._cliente.documents_with_balance > 0:
+            texto = f'Debe ${self._cliente.debt} en {self._cliente.documents_with_balance} documentos.'
+        else:
+            texto = f'${self._cliente.debt}'
+        return texto
+
+    def _ultimo_documento_en_cartera(self, business_entity_id):
+        info_ultimo_folio = self._base_de_datos.fetchall("""
+            WITH CTE AS (
+            SELECT 
+                D.DocumentID,
+                CAST(D.CreatedOn AS date) AS Fecha,
+                CASE WHEN D.chkCustom1 = 1 THEN 'Remisión' ELSE 'Factura' END AS TipoDocto,
+                ISNULL(D.FolioPrefix, '') + ISNULL(D.Folio, '') AS Folio,
+                CFD.FormaPago AS FP,
+                FORMAT(D.Total, 'C', 'es-MX') AS Total,
+                FORMAT(D.TotalPaid, 'C', 'es-MX') AS Pagado,
+                FORMAT(D.Balance, 'C', 'es-MX') AS Saldo,
+                CASE WHEN A.DepotName IS NULL THEN '' ELSE A.DepotName END AS Sucursal
+            FROM 
+                docDocument D
+                INNER JOIN docDocumentExtra X ON D.DocumentID = X.DocumentID
+                LEFT OUTER JOIN orgDepot A ON X.BusinessEntityDepotID = A.DepotID
+                INNER JOIN docDocumentCFD CFD ON D.DocumentID = CFD.DocumentID
+                INNER JOIN vwcboAnexo20v33_FormaPago FP ON CFD.FormaPago = FP.Clave
+            WHERE 
+                D.CancelledOn IS NULL
+                AND D.StatusPaidID <> 1
+                AND D.BusinessEntityID = ?
+                AND D.ModuleID IN (21, 1400, 1319)
+                AND D.Balance <> 0
+        )
+        SELECT 
+            MIN(D.DocumentID) AS DocumentID,
+            D.Fecha,
+            D.TipoDocto,
+            D.Folio,
+            D.FP,
+            D.Total,
+            D.Pagado,
+            D.Saldo,
+            D.Sucursal,
+            DATEDIFF(DAY, D.Fecha, GETDATE()) AS Dias  -- Calcula la diferencia en días
+        FROM 
+            CTE D
+        WHERE 
+            D.DocumentID = (SELECT MIN(DocumentID) FROM CTE)
+        GROUP BY 
+            D.Fecha, D.TipoDocto, D.Folio, D.FP, D.Total, D.Pagado, D.Saldo, D.Sucursal
+
+        """, (business_entity_id,))
+
+        texto = ''
+
+        if info_ultimo_folio:
+            info_ultimo_folio = info_ultimo_folio[0]
+            folio = info_ultimo_folio['Folio']
+            saldo = info_ultimo_folio['Saldo']
+            dias = info_ultimo_folio['Dias']
+
+            texto = f'{folio}, saldo: {saldo}, hace {dias} días.'
+
+
+        return texto
+
+    def _llamar_instancia(self):
+        if not self._instancia_llamada:
+            try:
+                self._instancia_llamada = True
+
+                if self._info_cliente_seleccionado[0]['Debt'] == 0:
+                    self._ventanas.mostrar_mensaje('El cliente no tiene documentos en cartera.')
+                    return
+
+                # prepara datos
+                self._cliente.consulta = self._info_cliente_seleccionado
+                self._cliente.settear_valores_consulta()
+
+
+
+
+                if self._parametros_contpaqi.id_principal == -1:
+                    self._parametros_contpaqi.nombre_usuario = self._base_de_datos.buscar_nombre_de_usuario(
+                        self._parametros_contpaqi.id_usuario
+                    )
+
+
+                popup = self._ventanas.crear_popup_ttkbootstrap(
+                    titulo="Saldar cartera", ocultar_master=True
+                )
+
+                interfaz = InterfazSaldarCartera(popup)
+                controlador = ControladorSaldarCartera(interfaz,
+                                                       self._base_de_datos,
+                                                       self._parametros_contpaqi,
+                                                       self._cliente)
+                popup.wait_window()
+                self._master.destroy()
+            finally:
+                self._instancia_llamada = False

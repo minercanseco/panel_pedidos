@@ -1,96 +1,95 @@
-import ttkbootstrap as ttk
-import tkinter as tk
-from cayal.util import Utilerias
+import datetime
 from cayal.cobros import Cobros
-import threading
-
+from cayal.ventanas import Ventanas
 
 class SaldarDocumentos:
 
-    def __init__(self, master, parametros_saldado, cadena_de_conexion, business_entity_id, usuario_id):
+    def __init__(self, master, parametros, base_de_datos, parametros_saldado):
+        self._parametros = parametros
+        self._user_id = self._parametros.id_usuario
 
-        self._cadena_de_conexion = cadena_de_conexion
         self._parametros_saldado = parametros_saldado
-        self._cobros = Cobros(self._cadena_de_conexion)
-        self._usuario_id = usuario_id
-        self._documentos_a_recalcular = []
-        self._business_entity_id = business_entity_id
+        self._inicializar_parametros_generales()
 
-        self._utilerias = Utilerias()
+        self._cobros = Cobros(self._parametros.cadena_conexion)
+        self._base_de_datos = base_de_datos
 
-        self.master = master
-        self.master.geometry('363x55')
-        self.master.title('Cartera cliente')
-        self.master.place_window_center()
-        self.master.resizable(False, False)
-        self.master.bind("<Escape>", lambda event: self.master.destroy())
-        #self._utilerias.agregar_icono_ventana(self.master)
-        self.master.focus()
-        self.master.grab_set()
+        self._master = master
+        self._ventanas = Ventanas(self._master)
 
-        frame_principal = ttk.LabelFrame(master=self.master, text='Cobrando:')
-        frame_principal.grid(row=0, column=0, padx=5, pady=5, sticky=tk.NSEW)
+        # Crear la barra de progreso
+        self._ventanas.crear_progressbar('pgb_barra', bootstyle='info')
+        self._ventanas.configurar_ventana_ttkbootstrap('Saldando cobros')
 
-        self.barra_progreso = ttk.Progressbar(master=frame_principal, bootstyle="danger-striped", length=342,
-                                              mode='determinate')
-        self.barra_progreso.grid(row=0, column=0, pady=5, padx=5)
+        # Iniciar procesamiento paso a paso
+        self._ventanas.procesar_con_barra(
+            nombre_barra='pgb_barra',
+            total_elementos=len(self._documents),
+            funcion_procesamiento=self.procesar_cobros,  # ← sin paréntesis
+            fin_callback= self._cerrar_ventana
+        )
 
-        # Iniciar el temporizador de 0 segundos
-        timer_thread = threading.Timer(0, self.procesar_saldados)
-        timer_thread.daemon = True  # Marcar el hilo como daemon
-        timer_thread.start()
+    def _inicializar_parametros_generales(self):
+        self._documents = self._parametros_saldado['Documentos']
+        self._official_name = self._parametros_saldado['OfficialName']
+        self._official_number = self._parametros_saldado['OfficalNumber']
+        self._business_entity_id = self._parametros_saldado['BusinessEntityID']
+        self._modalidad = self._parametros_saldado['Modalidad']
+        self._barcode =  self._parametros_saldado['Barcode']
+        self._afiliacion = self._parametros_saldado['Afiliacion']
+        self._financial_entity_id = self._parametros_saldado['BancoID']
+        self._payment_method_id = self._parametros_saldado['FormaCobro']
+        self._date_affectation = self._parametros_saldado['FechaAfectacion']
+        self._amount_total = 0
 
-    def procesar_saldados(self):
-        barcode = self._parametros_saldado['Barcode']
-        afiliacion = self._parametros_saldado['Afiliacion']
-        financial_entity_id = self._parametros_saldado['BancoID']
-        documentos = self._parametros_saldado['Documentos']
-        forma_cobro_id = self._parametros_saldado['FormaCobro']
-        fecha_afectacion = self._parametros_saldado['FechaAfectacion']
-        modalidad = self._parametros_saldado['Modalidad']
-        cantidad_documentos = len(documentos)
-        incremento_barra = 100 / cantidad_documentos
-        rfc = self._cobros.fetchone('SELECT OfficialNumber FROM orgBusinessEntityMainInfo WHERE BusinessEntityID = ?',
-                                    (self._business_entity_id,))
-        official_name = self._cobros.fetchone('SELECT OfficialName FROM orgBusinessEntity WHERE BusinessEntityID = ?',
-                                              (self._business_entity_id,))
+        if self._modalidad == 0: # agrupado
+            monto_total = [documento['Pagado'] for documento in self._documents]
+            monto_total = sum(monto_total)
+            self._amount_total = monto_total
 
-        monto_total = [documento['Cobrado'] for documento in documentos]
-        monto_total = sum(monto_total)
+    def _cerrar_ventana(self):
+        # aqui abrimos el cajon
+        self._master.destroy()
 
-        for documento in documentos:
-                self._cobros.modality = modalidad
-                self._cobros.total_amount =monto_total
-                self._cobros.barcode = barcode
-                self._cobros.document_id = documento['DocumentID']
-                self._cobros.payment_method_id = forma_cobro_id
-                self._cobros.amount = documento['Cobrado']
-                self._cobros.financial_entity_id = financial_entity_id
-                self._cobros.business_entity_id = self._business_entity_id
-                self._cobros.official_number = rfc
-                self._cobros.official_name = official_name
-                self._cobros.afiliacion = afiliacion
-                self._cobros.created_by = self._usuario_id
-                self._cobros.date_operation = fecha_afectacion
-                self._cobros.total = documento['Total']
-                self._cobros.total_paid = (documento['Total'] - documento['Saldo'])
-                self._cobros.create_payment()
+    def procesar_cobros(self, indice, continuar):
+        cobro = self._documents[indice]
 
-                self._documentos_a_recalcular.append(documento['DocumentID'])
-                self.incrementar_barra(incremento_barra)
+        self._insertar_cobro(cobro)
+        # Simulación de lógica que tarda (puedes reemplazar esto por tu lógica real)
 
-        self.insertar_documentos_a_recalcular()
-        self.master.destroy()
-        
-    def incrementar_barra(self, incremento):
-        valor = self.barra_progreso['value']
-        valor += incremento
-        self.barra_progreso['value'] = valor
+        def finalizar():
+            cobro['procesado'] = True  # ejemplo de modificación
+            continuar()
 
-    def insertar_documentos_a_recalcular(self):
+        self._master.after(300, finalizar)
 
-        # inserta los documentos que se recalcularan en contpaq cuando finalice la ejecucion del programa
-        for documento in self._documentos_a_recalcular:
-            self._cobros.exec_stored_procedure('zvwRecalcularDocumentos', (documento, 0))
+    def _insertar_cobro(self, cobro):
+
+        document_id = cobro['DocumentID']
+        pagado =  cobro['Pagado']
+
+        self._cobros.modality = self._modalidad
+
+        # si es un solo cobro todos los documentos aplia el self._amount_total si no el monto de cada cobro
+        self._cobros.total_amount = self._amount_total if self._modalidad == 0 else pagado
+        self._cobros.barcode = self._barcode
+        self._cobros.document_id = document_id
+        self._cobros.payment_method_id = self._payment_method_id
+        self._cobros.amount = pagado
+        self._cobros.financial_entity_id = self._financial_entity_id
+        self._cobros.business_entity_id = self._business_entity_id
+        self._cobros.official_number = self._official_number
+        self._cobros.official_name = self._official_name
+        self._cobros.afiliacion = self._afiliacion
+        self._cobros.created_by = self._user_id
+        self._cobros.date_operation = self._date_affectation
+        self._cobros.total = cobro['Total']
+        self._cobros.total_paid = (cobro['Total'] - cobro['Saldo'])
+        self._cobros.create_payment()
 
 
+        self._insertar_para_recalcular(document_id)
+
+    def _insertar_para_recalcular(self, document_id):
+        self._base_de_datos.exec_stored_procedure('zvwRecalcularDocumentos',
+                                                      (document_id, document_id))

@@ -111,3 +111,46 @@ class ModeloPanelPedidos:
                          if product_id == producto['ProductID']]
 
         return info_producto[0] if info_producto else {}
+
+    def confirmar_transferencia(self, user_id, order_document_id):
+        self.base_de_datos.command(
+            """
+            UPDATE docDocumentOrderCayal 
+            SET 
+                PaymentConfirmedID = 3,
+                PaymentConfirmedAt = GETDATE(),
+                PaymentConfirmedBy = ?
+            WHERE OrderDocumentID = ?
+            """,
+            (user_id, order_document_id)
+        )
+
+    def afectar_bitacora(self, order_document_id, user_id, comentario):
+
+        self.base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=order_document_id,
+                                                               change_type_id=19,
+                                                               user_id=user_id,
+                                                               comments=comentario)
+
+    def obtener_comentario_pedido(self, order_document_id):
+        return self.base_de_datos.fetchone(
+            'SELECT CommentsOrder FROM docDocumentOrderCayal WHERE OrderDocumentID = ?',
+            (order_document_id,))
+
+    def actualizar_comentario_document_id(self, comentario_a_insertar, document_id):
+        self.base_de_datos.command(
+            'UPDATE docDocument SET Comments = ?, UserID = NULL WHERE DocumentID =?',
+            (comentario_a_insertar, document_id)
+        )
+
+    def obtener_info_taras_pedido(self, order_document_id):
+        return self.base_de_datos.fetchall("""
+                        SELECT ISNULL(P.FolioPrefix,'') + ISNULL(P.Folio,'') AS PedFolio, 
+                               TP.Prefix AS TaraPrefix, 
+                               T.NumberTara
+                        FROM docDocumentOrderCayal P
+                        INNER JOIN docDocumentTarasOrdersCayal T ON P.OrderDocumentID = T.OrderDocumentID
+                        INNER JOIN OrderTarasCayal TP ON T.TaraTypeID = TP.TaraTypeID
+                        WHERE P.OrderDocumentID = ?
+                    """, (order_document_id,))
+

@@ -18,7 +18,6 @@ class FormularioCliente:
     def __init__(self, master, parametros, parametros_cliente, instancia_cliente):
 
         self._parametros = parametros
-        self._parametros_captura = parametros_cliente
         self._cliente = instancia_cliente
         self._master = master
 
@@ -172,6 +171,8 @@ class FormularioCliente:
         btn_domicilios = self._componentes_forma['btn_domicilios']
         btn_domicilios.config(command = lambda : self._validar_cliente_con_adicionales())
 
+
+
     def _cargar_info_por_cp(self):
         tbx_cp = self._componentes_forma['tbx_cp']
         cp = tbx_cp.get()
@@ -241,6 +242,8 @@ class FormularioCliente:
                 rutas_cbx = cbx_ruta['values']
                 idx_ruta = rutas_cbx.index(ruta)
                 cbx_ruta.set(rutas_cbx[idx_ruta])
+
+
 
     def _actualizar_tbx_domicilios(self, numero_direcciones):
         self._ventanas.insertar_input_componente('tbx_domicilios', numero_direcciones)
@@ -450,7 +453,7 @@ class FormularioCliente:
         cbx_ruta['values'] = rutas
 
         grupo_usuario = self._base_de_datos.fetchone(
-            'SELECT UserGroupID FROM engUser WHERE UserID = ?',(self._parametros.id_usuario))
+            'SELECT UserGroupID FROM engUser WHERE UserID = ?',(self._parametros.id_usuario,))
         ruta_id = 1033 if grupo_usuario == 4 else 1030
         ruta = [ruta['ZoneName'] for ruta in self._consulta_rutas if ruta['ZoneID'] == ruta_id][0]
         idx = rutas.index(ruta)

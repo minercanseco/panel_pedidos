@@ -8,6 +8,8 @@ from buscar_pedido import BuscarPedido
 from cayal.login import Login
 from buscar_generales_cliente import BuscarGeneralesCliente
 from capturado_vs_producido import CapturadoVsProducido
+from cliente.formulario_cliente_controlador import FormularioClienteControlador
+from cliente.formulario_cliente_modelo import FormularioClienteModelo
 from editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from cayal.cobros import Cobros
 
@@ -26,7 +28,7 @@ from cayal.documento import Documento
 from buscar_generales_cliente_cartera import BuscarGeneralesCliente
 from buscar_clientes import BuscarClientes
 from cancelar_pedido import CancelarPedido
-
+from cliente.formulario_cliente_interfaz import FormularioClienteInterfaz
 
 class ControladorPanelPedidos:
     def __init__(self, modelo):
@@ -567,11 +569,16 @@ class ControladorPanelPedidos:
     def _capturar_nuevo_cliente(self):
         self._pausar_autorefresco()
         try:
-            self._parametros.id_principal = -1
+            self._parametros.id_principal = 9760
             self._interfaz.master.iconify()
+
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-            instancia = PanelPrincipal(ventana, self._parametros, self._base_de_datos, self._utilerias)
+
+            interfaz = FormularioClienteInterfaz(ventana)
+            modelo = FormularioClienteModelo(self._parametros, self._utilerias, self._base_de_datos)
+            controlador = FormularioClienteControlador(interfaz, modelo)
             ventana.wait_window()
+
         finally:
             self._parametros.id_principal = 0
             self._reanudar_autorefresco()
@@ -1214,7 +1221,7 @@ class ControladorPanelPedidos:
         for fila in filas:
             status_id = fila['TypeStatusID']
             # pedido por timbrar es status 3
-            if status_id != 3:
+            if status_id < 3:
                 continue
 
             filas_filtradas.append(fila)
@@ -1425,27 +1432,10 @@ class ControladorPanelPedidos:
                 self._interfaz.ventanas.mostrar_mensaje('La transferencia ha sido confirmada con anterioridad.')
                 return
 
-            self._base_de_datos.command(
-                """
-                UPDATE docDocumentOrderCayal 
-                SET 
-                    PaymentConfirmedID = 3,
-                    PaymentConfirmedAt = GETDATE(),
-                    PaymentConfirmedBy = ?
-                WHERE OrderDocumentID = ?
-                """,
-                (self._user_id, order_document_id)
-            )
+            self._modelo.confirmar_transferencia(self._user_id, order_document_id)
+            comentario = f"Transferencia confirmada por {self._user_name}"
+            self._modelo.afectar_bitacora(order_document_id, self._user_id, comentario)
 
-            self._afectar_bitacora(order_document_id, self._user_name)
-
-    def _afectar_bitacora(self, order_document_id, user_name):
-
-        comentario = f"Transferencia confirmada por {user_name}"
-        self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=order_document_id,
-                                                               change_type_id=19,
-                                                               user_id=self._user_id,
-                                                               comments=comentario)
 
     def _imprimir(self):
         self._pausar_autorefresco()
@@ -1836,10 +1826,8 @@ class ControladorPanelPedidos:
         comentarios_pedidos = []
         comentario_a_insertar = ''
         for order in order_document_ids:
-            comentario = self._base_de_datos.fetchone(
-                'SELECT CommentsOrder FROM docDocumentOrderCayal WHERE OrderDocumentID = ?',
-                (order,)
-            )
+            comentario = self._modelo.obtener_comentario_pedido(order)
+
             if comentario:
                 comentarios_pedidos.append(comentario)
 
@@ -1855,24 +1843,13 @@ class ControladorPanelPedidos:
         comentario_a_insertar = f"{ruta}\n {comentario_a_insertar}\n {comentarios_taras}\n {comentarios_horarios}\n {comentarios_forma_pago}\n {comentarios_entrega}".upper()
         comentario_a_insertar = self._validar_credito_documento_cliente(business_entity_id, comentario_a_insertar, total_documento)
 
-        self._base_de_datos.command(
-            'UPDATE docDocument SET Comments = ?, UserID = NULL WHERE DocumentID =?',
-            (comentario_a_insertar, document_id)
-        )
+        self._modelo.actualizar_comentario_document_id(comentario_a_insertar, document_id)
 
     def _crear_comentario_taras(self, order_document_ids):
         comentario = ''
 
         for order in order_document_ids:
-            consulta = self._base_de_datos.fetchall("""
-                SELECT ISNULL(P.FolioPrefix,'') + ISNULL(P.Folio,'') AS PedFolio, 
-                       TP.Prefix AS TaraPrefix, 
-                       T.NumberTara
-                FROM docDocumentOrderCayal P
-                INNER JOIN docDocumentTarasOrdersCayal T ON P.OrderDocumentID = T.OrderDocumentID
-                INNER JOIN OrderTarasCayal TP ON T.TaraTypeID = TP.TaraTypeID
-                WHERE P.OrderDocumentID = ?
-            """, (order,))
+            consulta = self._modelo.obtener_info_taras_pedido(order)
 
             if not consulta:
                 continue

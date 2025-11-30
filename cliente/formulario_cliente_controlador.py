@@ -19,7 +19,7 @@ class FormularioClienteControlador:
             #'btn_guardar': self._validar_inputs_formulario,
             #'btn_copiar': self._copiar_info_formulario,
             #'btn_cif': self._actualizar_por_cif,
-            #'btn_domicilios': self._validar_cliente_con_adicionales
+            'btn_domicilios': self._agregar_direccion,
             'btn_cif_visual': self._visualizar_cif
         }
 
@@ -34,7 +34,6 @@ class FormularioClienteControlador:
             self._interfaz.ventanas.bloquear_componente('tbx_rfc')
 
         self._interfaz.ventanas.bloquear_componente('tbx_envio')
-
 
     def _visualizar_cif(self):
         cif = self._interfaz.ventanas.obtener_input_componente('tbx_cif')
@@ -55,6 +54,8 @@ class FormularioClienteControlador:
         if self._modelo.business_entity_id == 0:
             # se asume como nueva captura
             return
+
+        self._modelo.homologar_direccion_fiscal(self._modelo.cliente.business_entity_id)
 
         info_cliente = self._modelo.obtener_info_cliente(self._modelo.business_entity_id)
         info_cliente[0]['DeliveryCost'] = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(info_cliente[0]['DeliveryCost'])
@@ -131,3 +132,5 @@ class FormularioClienteControlador:
                                                               )
         # ------------------------------------------------------------------------
 
+    def _agregar_direccion(self):
+        self._interfaz.ventanas.aagregar_pestana_notebook('formulario_cliente')

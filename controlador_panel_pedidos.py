@@ -8,8 +8,12 @@ from buscar_pedido import BuscarPedido
 from cayal.login import Login
 from buscar_generales_cliente import BuscarGeneralesCliente
 from capturado_vs_producido import CapturadoVsProducido
+
 from cliente.formulario_cliente_controlador import FormularioClienteControlador
 from cliente.formulario_cliente_modelo import FormularioClienteModelo
+from cliente.formulario_cliente_interfaz import FormularioClienteInterfaz
+from cliente.notebook_cliente import NoteBookCliente
+
 from editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from cayal.cobros import Cobros
 
@@ -28,7 +32,7 @@ from cayal.documento import Documento
 from buscar_generales_cliente_cartera import BuscarGeneralesCliente
 from buscar_clientes import BuscarClientes
 from cancelar_pedido import CancelarPedido
-from cliente.formulario_cliente_interfaz import FormularioClienteInterfaz
+
 
 class ControladorPanelPedidos:
     def __init__(self, modelo):
@@ -573,10 +577,14 @@ class ControladorPanelPedidos:
             self._interfaz.master.iconify()
 
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+            NoteBookCliente(ventana,
+                            self._parametros,
+                            self._utilerias,
+                            self._base_de_datos)
 
-            interfaz = FormularioClienteInterfaz(ventana)
-            modelo = FormularioClienteModelo(self._parametros, self._utilerias, self._base_de_datos)
-            controlador = FormularioClienteControlador(interfaz, modelo)
+            #interfaz = FormularioClienteInterfaz(ventana)
+            #modelo = FormularioClienteModelo(self._parametros, self._utilerias, self._base_de_datos)
+            #controlador = FormularioClienteControlador(interfaz, modelo)
             ventana.wait_window()
 
         finally:
@@ -1435,7 +1443,6 @@ class ControladorPanelPedidos:
             self._modelo.confirmar_transferencia(self._user_id, order_document_id)
             comentario = f"Transferencia confirmada por {self._user_name}"
             self._modelo.afectar_bitacora(order_document_id, self._user_id, comentario)
-
 
     def _imprimir(self):
         self._pausar_autorefresco()

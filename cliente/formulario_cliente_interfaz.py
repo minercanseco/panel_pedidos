@@ -15,7 +15,7 @@ class FormularioClienteInterfaz:
             'frame_principal': ('master', None,
                                 {'row': 0, 'column': 0, 'sticky': tk.W}),
 
-            'frame_generales': ('frame_principal', 'Generales:',
+            'frame_generales': ('frame_principal', 'Dirección Fiscal:',
                                   {'row': 0, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.W}),
 
             'frame_lbl_estado': ('frame_generales', None,
@@ -41,6 +41,10 @@ class FormularioClienteInterfaz:
         self.ventanas.crear_frames(frames)
 
     def _cargar_componentes(self):
+
+
+
+
         estilo_label = {
             'foreground': 'black',
             'background': 'white',

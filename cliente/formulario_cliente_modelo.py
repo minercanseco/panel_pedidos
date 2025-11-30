@@ -148,5 +148,41 @@ class FormularioClienteModelo:
 
         return self.consulta_colonias
 
+    def homologar_direccion_fiscal(self, business_entity_id):
+        # esta funcion es deuda tecnica de la homologacion entre la direccion fiscal
+        # y orgbusinessentitymaininfo que es la tabla donde nace los parametros
+        # de la direccion fiscal del cliente, esto es necesario para coherencia en
+        # la información y la impresion de los formatos del cliente
+
+        self.base_de_datos.command("""
+           DECLARE @business_entity_id INT = ?
+           UPDATE ADT
+            SET
+                ADT.StateProvince      = EM.AddressFiscalStateProvince, 
+                ADT.City               = EM.AddressFiscalCity,
+                ADT.Municipality       = EM.AddressFiscalMunicipality,
+                ADT.Street             = EM.AddressFiscalStreet,
+                ADT.Comments           = EM.AddressFiscalComments,
+                ADT.CountryCode        = EM.AddressFiscalCountryCode,
+                ADT.CityCode           = EM.AddressFiscalCityCode, 
+                ADT.MunicipalityCode   = EM.AddressFiscalMunicipalityCode, 
+                ADT.Telefono           = EM.BusinessEntityPhone
+            FROM orgBusinessEntityMainInfo EM
+            INNER JOIN orgAddressDetail ADT ON EM.AddressFiscalDetailID = ADT.AddressDetailID
+            WHERE
+                ADT.AddressDetailID = (SELECT AddressFiscalDetailID from orgBusinessEntityMainInfo WHERE BusinessEntityID = @business_entity_id)
+                AND (
+                    ISNULL(ADT.StateProvince, '')       <> ISNULL(EM.AddressFiscalStateProvince, '') OR
+                    ISNULL(ADT.City, '')                <> ISNULL(EM.AddressFiscalCity, '') OR
+                    ISNULL(ADT.Municipality, '')        <> ISNULL(EM.AddressFiscalMunicipality, '') OR
+                    ISNULL(ADT.Street, '')              <> ISNULL(EM.AddressFiscalStreet, '') OR
+                    ISNULL(ADT.Comments, '')            <> ISNULL(EM.AddressFiscalComments, '') OR
+                    ISNULL(ADT.CountryCode, '')         <> ISNULL(EM.AddressFiscalCountryCode, '') OR
+                    ISNULL(ADT.CityCode, '')            <> ISNULL(EM.AddressFiscalCityCode, '') OR
+                    ISNULL(ADT.MunicipalityCode, '')    <> ISNULL(EM.AddressFiscalMunicipalityCode, '') OR
+                    ISNULL(ADT.Telefono, '')            <> ISNULL(EM.BusinessEntityPhone, '')
+                );
+
+        """,(business_entity_id,))
 
 

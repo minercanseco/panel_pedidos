@@ -578,13 +578,10 @@ class ControladorPanelPedidos:
 
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
             NoteBookCliente(ventana,
+                            self._base_de_datos,
                             self._parametros,
-                            self._utilerias,
-                            self._base_de_datos)
-
-            #interfaz = FormularioClienteInterfaz(ventana)
-            #modelo = FormularioClienteModelo(self._parametros, self._utilerias, self._base_de_datos)
-            #controlador = FormularioClienteControlador(interfaz, modelo)
+                            self._utilerias
+                            )
             ventana.wait_window()
 
         finally:

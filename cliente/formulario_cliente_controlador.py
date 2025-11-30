@@ -6,7 +6,6 @@ class FormularioClienteControlador:
         self._interfaz = interfaz
         self._modelo = modelo
 
-        self._settar_info_cliente()
         self._rellenar_componentes()
         self._bloqueos_iniciales()
         self._cargar_eventos()
@@ -49,18 +48,6 @@ class FormularioClienteControlador:
 
         url = f'https://siat.sat.gob.mx/app/qr/faces/pages/mobile/validadorqr.jsf?D1=10&D2=1&D3={cif}_{rfc}'
         webbrowser.open(url)
-
-    def _settar_info_cliente(self):
-        if self._modelo.business_entity_id == 0:
-            # se asume como nueva captura
-            return
-
-        self._modelo.homologar_direccion_fiscal(self._modelo.cliente.business_entity_id)
-
-        info_cliente = self._modelo.obtener_info_cliente(self._modelo.business_entity_id)
-        info_cliente[0]['DeliveryCost'] = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(info_cliente[0]['DeliveryCost'])
-        self._modelo.cliente.consulta = info_cliente
-        self._modelo.cliente.settear_valores_consulta()
 
     def _rellenar_componentes(self):
         MAPEO_COMPONENTES_CLIENTE = {
@@ -133,4 +120,4 @@ class FormularioClienteControlador:
         # ------------------------------------------------------------------------
 
     def _agregar_direccion(self):
-        self._interfaz.ventanas.aagregar_pestana_notebook('formulario_cliente')
+        self._interfaz.ventanas.agregar_pestana_notebook('formulario_cliente')

@@ -34,6 +34,7 @@ class FormularioClienteModelo:
         self.consulta_metodos_pago = []
         self.consulta_regimenes = []
         self.consulta_rutas = []
+        self.consulta_colonias = []
 
     def obtener_todas_las_rutas(self):
         if not self.consulta_rutas:
@@ -79,3 +80,73 @@ class FormularioClienteModelo:
                                 SELECT * FROM vwcboAnexo20v40_UsoCFDI WHERE ID NOT IN (12, 23) ORDER BY ID
                                 """, ())
         return self.consulta_uso_cfdi
+
+    def obtener_colonias(self, address_detail_id=0, zip_code=None):
+        consulta = []
+
+        if zip_code:
+            consulta = self.base_de_datos.fetchall("""
+                           SELECT 
+                                   CountryAddressID,
+                                   City,
+                                   Municipality,
+                                   ZipCode,
+                                   CountryCode,
+                                   CityCode,
+                                   MunicipalityCode,
+                                   ZoneID,
+                                   StateCode,
+                                   State
+                           FROM engRefCountryAddress
+                           WHERE ZipCode = ?
+                       """,(zip_code,))
+
+        if address_detail_id != 0:
+            consulta = self.base_de_datos.fetchall("""
+                    SELECT 
+                            CA.CountryAddressID,
+                            CA.City,
+                            CA.Municipality,
+                            CA.ZipCode,
+                            CA.CountryCode,
+                            CA.CityCode,
+                            CA.MunicipalityCode,
+                            CA.ZoneID,
+                            CA.StateCode,
+                            CA.State
+                    FROM engRefCountryAddress CA
+                        INNER JOIN orgAddressDetail AD ON CA.ZipCode = AD.ZipCode
+                    WHERE AD.AddressDetailID = ?
+            """,(address_detail_id,))
+
+            if consulta:
+                municipality = consulta[0]['Municipality']
+                if municipality.lower() == 'campeche':
+                    consulta = [reg for reg in consulta if reg['ZoneID']]
+
+
+        if address_detail_id == 0:
+            consulta = self.base_de_datos.fetchall("""
+                    SELECT 
+                            CountryAddressID,
+                            City,
+                            Municipality,
+                            ZipCode,
+                            CountryCode,
+                            CityCode,
+                            MunicipalityCode,
+                            ZoneID,
+                            StateCode,
+                            State
+                    FROM engRefCountryAddress
+                    WHERE ZoneID IS NOT NULL
+                """)
+
+
+
+        self.consulta_colonias = consulta
+
+        return self.consulta_colonias
+
+
+

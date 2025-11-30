@@ -8,6 +8,8 @@ class FormularioClienteControlador:
 
         self._settar_info_cliente()
         self._rellenar_componentes()
+        self._bloqueos_iniciales()
+        self._cargar_eventos()
 
     def _cargar_eventos(self):
         eventos = {
@@ -23,9 +25,20 @@ class FormularioClienteControlador:
 
         self._interfaz.ventanas.cargar_eventos(eventos)
 
+    def _bloqueos_iniciales(self):
+        es_cif = self._modelo.utilerias.es_cif(self._modelo.cliente.cif)
+        es_rfc = self._modelo.utilerias.es_rfc(self._modelo.cliente.official_number)
+
+        if es_rfc and es_cif:
+            self._interfaz.ventanas.bloquear_componente('tbx_cif')
+            self._interfaz.ventanas.bloquear_componente('tbx_rfc')
+
+        self._interfaz.ventanas.bloquear_componente('tbx_envio')
+
+
     def _visualizar_cif(self):
-        cif = 'tbx_cif'
-        rfc = 'tbx_rfc'
+        cif = self._interfaz.ventanas.obtener_input_componente('tbx_cif')
+        rfc = self._interfaz.ventanas.obtener_input_componente('tbx_rfc')
 
         if not self._modelo.utilerias.es_rfc(rfc):
             self._interfaz.ventanas.mostrar_mensaje('El RFC es inválido')
@@ -44,6 +57,7 @@ class FormularioClienteControlador:
             return
 
         info_cliente = self._modelo.obtener_info_cliente(self._modelo.business_entity_id)
+        info_cliente[0]['DeliveryCost'] = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(info_cliente[0]['DeliveryCost'])
         self._modelo.cliente.consulta = info_cliente
         self._modelo.cliente.settear_valores_consulta()
 
@@ -62,6 +76,7 @@ class FormularioClienteControlador:
             'txt_comentario': 'address_fiscal_comments',
             'tbx_cp': 'address_fiscal_zip_code',
             'txt_correo': 'email',
+            'tbx_envio': 'delivery_cost',
 
             'lbl_estado': 'address_fiscal_state_province',
             'lbl_municipio': 'address_fiscal_municipality',
@@ -85,18 +100,34 @@ class FormularioClienteControlador:
             valores = [reg['Value'] for reg in consulta]
             self._interfaz.ventanas.rellenar_cbx(componente, valores)
 
-            if componente == 'cbx_regimen':
-                valor_seleccion = [reg['Value'] for reg in consulta if reg['Value'] == atributo]
-            else:
-                valor_seleccion = [reg['Value'] for reg in consulta if reg['Clave'] == atributo]
+            if self._modelo.cliente.business_entity_id != 0:
+                if componente == 'cbx_regimen':
+                    valor_seleccion = [reg['Value'] for reg in consulta if reg['Value'] == atributo]
+                else:
+                    valor_seleccion = [reg['Value'] for reg in consulta if reg['Clave'] == atributo]
 
-            if valor_seleccion:
-                self._interfaz.ventanas.insertar_input_componente(componente, valor_seleccion[0])
+                if valor_seleccion:
+                    self._interfaz.ventanas.insertar_input_componente(componente, valor_seleccion[0])
 
         # ------------------------------------------------------------------------
         # rellenar cbx colonias
-        print(self._modelo.cliente.address_fiscal_detail_id)
+        info_colonias = self._modelo.obtener_colonias(self._modelo.cliente.address_fiscal_detail_id)
+        colonias = [reg['City'] for reg in info_colonias]
+        colonias = sorted(colonias)
+        self._interfaz.ventanas.rellenar_cbx('cbx_colonia', colonias)
+        if self._modelo.cliente.business_entity_id != 0:
+            self._interfaz.ventanas.insertar_input_componente('cbx_colonia',
+                                                              self._modelo.cliente.address_fiscal_city
+                                                              )
         # ------------------------------------------------------------------------
         # rellenar cbx rutas
-        print(self._modelo.cliente.zone_id)
+        info_rutas = self._modelo.obtener_todas_las_rutas()
+        rutas = [reg['ZoneName'] for reg in info_rutas]
+        rutas = sorted(rutas)
+        self._interfaz.ventanas.rellenar_cbx('cbx_ruta', rutas)
+        if self._modelo.business_entity_id != 0:
+            self._interfaz.ventanas.insertar_input_componente('cbx_ruta',
+                                                              self._modelo.cliente.zone_name
+                                                              )
         # ------------------------------------------------------------------------
+

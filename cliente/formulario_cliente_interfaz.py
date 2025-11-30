@@ -7,7 +7,7 @@ class FormularioClienteInterfaz:
         self.ventanas = Ventanas(self.master)
         self._crear_frames()
         self._cargar_componentes()
-        self._ajutar_ancho_componentes()
+        self._ajustar_ancho_componentes()
         self.ventanas.configurar_ventana_ttkbootstrap(titulo='Formulario Cliente')
 
     def _crear_frames(self):
@@ -45,12 +45,12 @@ class FormularioClienteInterfaz:
             'foreground': 'black',
             'background': 'white',
             'font': ('Consolas', 12, 'bold'),
-            'text': 'TEXTO',
-            'anchor': 'center'
+            'text': '',
+            'anchor': 'w'
         }
 
         posicion_label = {
-            'sticky': tk.NSEW, 'pady': 0, 'padx': 0,
+            'sticky': tk.W, 'pady': 0, 'padx': 0,
         }
 
         componentes = {
@@ -89,7 +89,7 @@ class FormularioClienteInterfaz:
 
         self.ventanas.crear_componentes(componentes)
 
-    def _ajutar_ancho_componentes(self):
+    def _ajustar_ancho_componentes(self):
         componentes = {
             # --- GENERALES ---
             'tbx_cliente':25,
@@ -101,19 +101,20 @@ class FormularioClienteInterfaz:
             'txt_comentario': 35,
             'tbx_cp': 10,
 
-            'tbx_envio': 10,
+            'tbx_envio': 5,
             'tbx_domicilios':5,
-            'cbx_ruta': 20,
+            'cbx_ruta': 30,
 
             # --- FISCAL ---
             'tbx_rfc': 0,
             'tbx_cif': 0,
             'btn_cif': 0,
 
-            'cbx_regimen': 20,
-            'cbx_formapago': 20,
-            'cbx_metodopago': 20,
-            'cbx_usocfdi': 20,
+            'cbx_colonia':30,
+            'cbx_regimen': 30,
+            'cbx_formapago': 30,
+            'cbx_metodopago': 30,
+            'cbx_usocfdi': 30,
 
             'txt_correo': 25,
         }

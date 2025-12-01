@@ -1,5 +1,8 @@
 import webbrowser
 
+from cliente.direccion_adicional import DireccionAdicional
+from cliente.nombre_direccion import NombreDireccion
+
 
 class FormularioClienteControlador:
     def __init__(self, interfaz, modelo):
@@ -127,13 +130,30 @@ class FormularioClienteControlador:
 
     def _agregar_direccion(self):
 
-        for clave, componente in self._interfaz.ventanas.componentes_forma.items():
-            print(clave)
-        texto_pestana = f"Nueva dirección"
-        tab = texto_pestana.replace(' ', '_').lower()
-        tab = f"tab_direccion_{tab}"
+        popup = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+        instancia = NombreDireccion(popup)
+        popup.wait_window()
 
-        self._interfaz.ventanas.agregar_pestana_notebook('nb_formulario_cliente',
-                                                        tab,
-                                                         texto_pestana
-                                                         )
+        if instancia.nombre_direccion:
+            texto_pestana = instancia.nombre_direccion
+            tab = texto_pestana.replace(' ', '_').lower()
+            tab = f"tab_direccion_{tab}"
+
+            nombre_base = tab.replace('tab_', '')
+
+            frame_widget = self._interfaz.ventanas.agregar_pestana_notebook(
+                'nb_formulario_cliente',
+                nombre_base,
+                texto_pestana
+            )
+
+            info_direccion = {
+                'AddressDetailID': 0,
+                'AddressName': texto_pestana,
+                'OfficialName': self._modelo.cliente.official_name,
+                'ComercialName': self._modelo.cliente.commercial_name,
+                'OfficialNumber': self._modelo.cliente.official_number,
+                'CIF': self._modelo.cliente.cif,
+            }
+
+            _ = DireccionAdicional(frame_widget, self._modelo, info_direccion)

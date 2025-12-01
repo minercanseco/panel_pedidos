@@ -113,7 +113,7 @@ class NoteBookCliente:
 
                         frame_name = tab.replace('tab_', 'frm_')
                         frame_widget = self._ventanas.componentes_forma[frame_name]
-                        _ = DireccionAdicional(frame_widget, self._modelo, info_direccion)
+                        DireccionAdicional(frame_widget, self._modelo, info_direccion)
 
     def _buscar_info_cliente(self):
         return self._base_de_datos.fetchall("""

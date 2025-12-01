@@ -2,7 +2,6 @@ import tkinter as tk
 from cayal.ventanas import Ventanas
 from cayal.cliente import Cliente
 
-from cliente.formulario_cliente import FormularioCliente
 
 
 class BuscarClientes:

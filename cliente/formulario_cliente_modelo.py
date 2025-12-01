@@ -2,18 +2,7 @@
 
 class FormularioClienteModelo:
     def __init__(self, parametros, utilerias=None, base_de_datos=None, cliente = None):
-        """
-        Modelo para el formulario de clientes.
 
-        Parámetros
-        ----------
-        parametros : Any
-            Parámetros de contexto (usuario, sucursal, etc.).
-        utilerias : Utilerias, opcional
-            Instancia de utilerías; si no se proporciona, se crea una nueva.
-        base_de_datos : ComandosBaseDatos, opcional
-            Instancia de acceso a base de datos; si no se proporciona, se crea una nueva.
-        """
         # Importar aquí evita dependencias circulares al importar el módulo
         from cayal.comandos_base_datos import ComandosBaseDatos
         from cayal.util import Utilerias
@@ -127,7 +116,7 @@ class FormularioClienteModelo:
                         Z.ZoneName
                 FROM engRefCountryAddress CA
                     LEFT OUTER JOIN orgZone Z ON CA.ZoneID = Z.ZoneID
-                WHERE ZipCode = ?
+                WHERE CA.ZipCode = ?
             """, (zip_code,))
 
         # 3) Sin address_detail_id ni zip_code → todas las colonias con ZoneID
@@ -147,7 +136,7 @@ class FormularioClienteModelo:
                         Z.ZoneName
                 FROM engRefCountryAddress CA
                     LEFT OUTER JOIN orgZone Z ON CA.ZoneID = Z.ZoneID
-                WHERE ZoneID IS NOT NULL
+                WHERE CA.ZoneID IS NOT NULL
             """)
 
         self.consulta_colonias = consulta
@@ -174,3 +163,15 @@ class FormularioClienteModelo:
 
         if consulta:
             return consulta[0]['State'], consulta[0]['Municipality']
+
+    def _buscar_tipo_ruta_id(self, nombre_ruta):
+        consulta = [ruta['TipoRutaID'] for ruta in self.consulta_rutas
+                    if nombre_ruta == ruta['ZoneName']]
+        # 1 = domicilio (por defecto si no la encuentra)
+        return consulta[0] if consulta else 1
+
+    def _buscar_ruta_id(self, nombre_ruta):
+        consulta = [ruta['ZoneID'] for ruta in self.consulta_rutas
+                    if nombre_ruta == ruta['ZoneName']]
+        # 0 = sin ruta encontrada
+        return consulta[0] if consulta else 0

@@ -3,7 +3,6 @@ import tkinter as tk
 import ttkbootstrap.dialogs
 
 from cliente.buscar_info_cif import BuscarInfoCif
-from formulario_cliente import FormularioCliente
 from cayal.cliente import Cliente
 from cayal.ventanas import Ventanas
 

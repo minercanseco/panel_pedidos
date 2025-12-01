@@ -226,6 +226,22 @@ class FormularioClienteControlador:
         self._interfaz.ventanas.insertar_input_componente('tbx_envio', monto_envio)
         self._interfaz.ventanas.bloquear_componente('tbx_envio')
 
+    def _settear_ruta_colonia(self):
+        colonia = self._interfaz.ventanas.obtener_input_componente('cbx_colonia')
+        if colonia == 'Seleccione':
+            return
+        ruta = self._interfaz.ventanas.obtener_input_componente('cbx_ruta')
+
+        # si el cliente fue previamente guardado entonces
+        if self._modelo.buscar_tipo_ruta_id(ruta) == 2:
+            return
+
+        consulta = self._modelo.consulta_colonias
+        consulta_ruta = [reg['ZoneName'] for reg in consulta if reg['City'] == colonia]
+        if consulta_ruta:
+            ruta = consulta_ruta[0]
+            self._interfaz.ventanas.insertar_input_componente('cbx_ruta', ruta)
+
     def _actualizar_municipio_y_estado(self):
         colonia = self._interfaz.ventanas.obtener_input_componente('cbx_colonia')
         if colonia == 'Seleccione':
@@ -238,6 +254,7 @@ class FormularioClienteControlador:
     def _eventos_cbx_colonia(self):
         self._rellenar_cbx_colonias_por_ruta()
         self._rellenar_costo_envio()
+        self._settear_ruta_colonia()
         self._actualizar_municipio_y_estado()
 
     # recupera los inputs del formulario
@@ -425,18 +442,6 @@ class FormularioClienteControlador:
 
     def _validar_reglas_de_ruta(self):
 
-        def _buscar_tipo_ruta_id(nombre_ruta):
-            consulta = [ruta['TipoRutaID'] for ruta in self._modelo.consulta_rutas
-                        if nombre_ruta == ruta['ZoneName']]
-            # 1 = domicilio (por defecto si no la encuentra)
-            return consulta[0] if consulta else 1
-
-        def _buscar_ruta_id(nombre_ruta):
-            consulta = [ruta['ZoneID'] for ruta in self._modelo.consulta_rutas
-                        if nombre_ruta == ruta['ZoneName']]
-            # 0 = sin ruta encontrada
-            return consulta[0] if consulta else 0
-
         def _validar_ruta(ruta_id, tipo_ruta_id):
             # Cliente nuevo y ruta R7 (1040)
             if ruta_id == 1040 and self._modelo.cliente.business_entity_id <= 0:
@@ -459,8 +464,8 @@ class FormularioClienteControlador:
         valores = self._obtener_inputs_usuario()
         ruta_seleccionada = valores['cbx_ruta']
 
-        tipo_ruta_id_sel = _buscar_tipo_ruta_id(ruta_seleccionada)
-        ruta_id_sel = _buscar_ruta_id(ruta_seleccionada)
+        tipo_ruta_id_sel = self._modelo.buscar_tipo_ruta_id(ruta_seleccionada)
+        ruta_id_sel = self._modelo.buscar_ruta_id(ruta_seleccionada)
 
         if not _validar_ruta(ruta_id_sel, tipo_ruta_id_sel):
             return
@@ -468,7 +473,7 @@ class FormularioClienteControlador:
         # Si ya tenía ruta guardada, asumimos que se pretende cambiar
         if self._modelo.cliente.zone_id != 0:
             ruta_guardada = self._modelo.cliente.zone_name
-            tipo_ruta_id_guardada = _buscar_tipo_ruta_id(ruta_guardada)
+            tipo_ruta_id_guardada = self._modelo.buscar_tipo_ruta_id(ruta_guardada)
             ruta_id_guardada = self._modelo.cliente.zone_id
 
             if not _validar_ruta(ruta_id_guardada, tipo_ruta_id_guardada):
@@ -476,8 +481,12 @@ class FormularioClienteControlador:
 
         return True
 
+
     def _guardar_o_actualizar_cliente(self):
         if not self._validar_reglas_de_negocio():
             return
+
+        # garantizar que exista colonia acorde a la ruta
+        self._settear_ruta_colonia()
 
         print('aqui actualizamos o guardamos')

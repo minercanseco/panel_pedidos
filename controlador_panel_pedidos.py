@@ -569,7 +569,7 @@ class ControladorPanelPedidos:
     def _capturar_nuevo_cliente(self):
         self._pausar_autorefresco()
         try:
-            self._parametros.id_principal = 9760
+            self._parametros.id_principal = 11135
             self._interfaz.master.iconify()
 
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()

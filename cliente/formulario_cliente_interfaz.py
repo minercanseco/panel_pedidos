@@ -2,12 +2,13 @@ import tkinter as tk
 from cayal.ventanas import Ventanas
 
 class FormularioClienteInterfaz:
-    def __init__(self, master):
+    def __init__(self, master, notebook):
         self.master = master
         self.ventanas = Ventanas(self.master)
         self._crear_frames()
         self._cargar_componentes()
         self._ajustar_ancho_componentes()
+        self.ventanas.componentes_forma['nb_formulario_cliente'] = notebook
 
     def _crear_frames(self):
         frames = {
@@ -82,7 +83,7 @@ class FormularioClienteInterfaz:
 
             'btn_guardar': ('frame_botones', 'success', 'Guardar', None),
             'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', None),
-            'btn_nueva_direccion': ('frame_botones', 'dark', 'N.Dirección', None),
+            'btn_nueva_direccion': ('frame_botones', 'dark', 'Nueva', None),
             'btn_copiar': ('frame_botones', 'warning', 'Copiar', None),
         }
 

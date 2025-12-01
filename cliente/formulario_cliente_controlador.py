@@ -18,6 +18,7 @@ class FormularioClienteControlador:
             #'btn_guardar': self._validar_inputs_formulario,
             #'btn_copiar': self._copiar_info_formulario,
             #'btn_cif': self._actualizar_por_cif,
+            'btn_nueva_direccion':self._agregar_direccion,
             'btn_domicilios': self._agregar_direccion,
             'btn_cif_visual': self._visualizar_cif
         }
@@ -125,4 +126,14 @@ class FormularioClienteControlador:
         # ------------------------------------------------------------------------
 
     def _agregar_direccion(self):
-        self._interfaz.ventanas.agregar_pestana_notebook('formulario_cliente')
+
+        for clave, componente in self._interfaz.ventanas.componentes_forma.items():
+            print(clave)
+        texto_pestana = f"Nueva dirección"
+        tab = texto_pestana.replace(' ', '_').lower()
+        tab = f"tab_direccion_{tab}"
+
+        self._interfaz.ventanas.agregar_pestana_notebook('nb_formulario_cliente',
+                                                        tab,
+                                                         texto_pestana
+                                                         )

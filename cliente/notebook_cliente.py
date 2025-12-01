@@ -55,7 +55,7 @@ class NoteBookCliente:
         if self._cliente.business_entity_id > 0 and self._cliente.addresses > 1:
             info_pestanas = self._crear_tabs_direcciones_adicionales(info_pestanas)
 
-        self._ventanas.crear_notebook(
+        note_book = self._ventanas.crear_notebook(
             nombre_notebook='nb_formulario_cliente',
             info_pestanas=info_pestanas,
             nombre_frame_padre='frame_notebook',
@@ -84,7 +84,7 @@ class NoteBookCliente:
         # ========== DIRECCIÓN FISCAL ==========
         frame_direccion_fiscal = self._ventanas.componentes_forma['frm_direccion_fiscal']
 
-        self._interfaz = FormularioClienteInterfaz(frame_direccion_fiscal)
+        self._interfaz = FormularioClienteInterfaz(frame_direccion_fiscal, note_book)
         self._modelo = FormularioClienteModelo(
             self._parametros,
             self._utilerias,

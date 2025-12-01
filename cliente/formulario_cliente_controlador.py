@@ -269,9 +269,8 @@ class FormularioClienteControlador:
             'txt_correo': '',
         }
 
-        for componente, valor in componentes.items():
-            valor = self._interfaz.ventanas.obtener_input_componente(componente)
-            componentes[componente] = valor
+        for nombre in componentes:
+            componentes[nombre] = self._interfaz.ventanas.obtener_input_componente(nombre)
 
         return componentes
 
@@ -291,17 +290,17 @@ class FormularioClienteControlador:
         valores = self._obtener_inputs_usuario()
 
         # valida la configuracion fiscal
-        forma_pago = valores['cbx_formapago']
-        metodo_pago = valores['cbx_metodopago']
-        uso_cfdi = valores['cbx_usocfdi']
-        regimen = valores['cbx_regimen']
-        rfc = valores['tbx_rfc']
-        cif = valores['tbx_cif']
-        email = valores['txt_correo']
+        forma_pago = valores['cbx_formapago'] or ''
+        metodo_pago = valores['cbx_metodopago'] or ''
+        uso_cfdi = valores['cbx_usocfdi'] or ''
+        regimen = valores['cbx_regimen'] or ''
+        rfc = (valores['tbx_rfc'] or '').strip().upper()
+        cif = valores['tbx_cif'] or ''
+        email = (valores['txt_correo'] or '').strip()
 
-        # caso remision
+        # === CASO REMISIÓN ===
         if 'S01' in uso_cfdi or rfc == 'XAXX010101000' or '616' in regimen:
-            if not('S01' in uso_cfdi and rfc == 'XAXX010101000' and '616' in regimen):
+            if not ('S01' in uso_cfdi and rfc == 'XAXX010101000' and '616' in regimen):
                 mensaje = (
                     "La configuración válida para un cliente que remisiona es la siguiente:\n"
                     "Forma de pago: 01, 04, 28\n"
@@ -313,47 +312,51 @@ class FormularioClienteControlador:
                 self._interfaz.ventanas.mostrar_mensaje(mensaje)
                 return
 
-        # caso 99 ppd
+        # === CASO 99 + PPD ===
         if '99' in forma_pago or 'PPD' in metodo_pago:
-
             if not ('99' in forma_pago and 'PPD' in metodo_pago):
                 mensaje = (
                     "La forma de pago: 99 - Por definir\n"
-                    "Debe configurarse solamente con \n"
+                    "debe configurarse solamente con:\n"
                     "El método de pago: PPD - Pago en parcialidades o diferido.\n"
                     "Favor de validar y corregir."
                 )
                 self._interfaz.ventanas.mostrar_mensaje(mensaje)
                 return
 
-        # caso cif
+        # === CASO CIF ===
         if rfc == 'XAXX010101000' and cif:
-            self._interfaz.ventanas.mostrar_mensaje('La captura del CIF sólo es válida para un cliente que factura.')
+            self._interfaz.ventanas.mostrar_mensaje(
+                'La captura del CIF sólo es válida para un cliente que factura.'
+            )
             return
 
-        # valida correos
-        if (not email or email == '') and rfc != 'XAXX010101000':
-            self._interfaz.ventanas.mostrar_mensaje('La captura de un email válido es obligatoria para un cliente'
-                                                    'que factura.')
+        # === VALIDACIÓN DE CORREO(S) ===
+        # Para clientes que facturan (RFC distinto de genérico) el correo es obligatorio
+        if not email and rfc != 'XAXX010101000':
+            self._interfaz.ventanas.mostrar_mensaje(
+                'La captura de un email válido es obligatoria para un cliente que factura.'
+            )
             return
 
         if email and rfc != 'XAXX010101000':
             if not self._modelo.utilerias.validar_cadena_correos(email):
-                self._interfaz.ventanas.mostrar_mensaje('La cadena de correos es inválida, favor de corregir'
-                                                        'inserte cada correo separado por una coma.')
+                self._interfaz.ventanas.mostrar_mensaje(
+                    'La cadena de correos es inválida, favor de corregir. '
+                    'Inserte cada correo separado por una coma.'
+                )
                 return
 
         return True
 
     def _validar_estructura_inputs(self):
-        # valida telefonos
         valores = self._obtener_inputs_usuario()
-        rfc = valores['tbx_rfc']
-        celular = valores['tbx_celular']
-        telefono = valores['tbx_telefono']
-        comentarios = valores['txt_comentario']
+        rfc = valores['tbx_rfc'] or ''
+        celular = valores['tbx_celular'] or ''
+        telefono = valores['tbx_telefono'] or ''
+        comentarios = valores['txt_comentario'] or ''
 
-        campos_obligatorios= [
+        campos_obligatorios = [
             'tbx_cliente',
             'tbx_calle',
             'tbx_numero',
@@ -361,7 +364,7 @@ class FormularioClienteControlador:
             'tbx_cp',
             'tbx_envio',
             'cbx_ruta',
-            # --- FISCA,
+            # --- FISCAL ---
             'tbx_rfc',
             'cbx_colonia',
             'cbx_regimen',
@@ -370,82 +373,99 @@ class FormularioClienteControlador:
             'cbx_usocfdi',
         ]
 
+        # === CAMPOS OBLIGATORIOS ===
         for componente, valor in valores.items():
             if componente in campos_obligatorios:
-                tipo = componente[0:3]
-                nombre = componente[4::].capitalize()
+                tipo = componente[0:3]  # tbx / cbx / txt
+                nombre = componente[4:].capitalize()  # cliente, calle, numero, ...
 
                 if tipo == 'tbx' and not valor:
-                    self._interfaz.ventanas.mostrar_mensaje(f'Debe agregar un valor al campo: {nombre}')
+                    self._interfaz.ventanas.mostrar_mensaje(
+                        f'Debe agregar un valor al campo: {nombre}'
+                    )
                     return
+
                 if tipo == 'cbx' and valor == 'Seleccione:':
-                    self._interfaz.ventanas.mostrar_mensaje(f'Debe agregar un valor al campo: {nombre}')
+                    self._interfaz.ventanas.mostrar_mensaje(
+                        f'Debe agregar un valor al campo: {nombre}'
+                    )
                     return
 
+        # === RFC ===
         if not self._modelo.utilerias.es_rfc(rfc):
-            self._interfaz.ventanas.mostrar_mensaje('El rfc es inválido.')
+            self._interfaz.ventanas.mostrar_mensaje('El RFC es inválido.')
             return
 
+        # === TELÉFONOS ===
+        # 1) Debe haber al menos uno capturado
         if not celular and not telefono:
-            self._interfaz.ventanas.mostrar_mensaje('Debe capturar por lo menos un número telefónico.')
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Debe capturar por lo menos un número telefónico.'
+            )
             return
 
-        if not self._modelo.utilerias.es_numero_de_telefono(celular) and self._modelo.utilerias.es_numero_de_telefono(telefono):
-            self._interfaz.ventanas.mostrar_mensaje('Debe capturar por lo menos un número telefónico.')
+        # 2) Debe haber al menos uno válido en formato
+        es_cel_valido = bool(celular) and self._modelo.utilerias.es_numero_de_telefono(celular)
+        es_tel_valido = bool(telefono) and self._modelo.utilerias.es_numero_de_telefono(telefono)
+
+        if not (es_cel_valido or es_tel_valido):
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Debe capturar por lo menos un número telefónico válido.'
+            )
             return
 
+        # === COMENTARIOS ===
         if not comentarios:
-            self._interfaz.ventanas.mostrar_mensaje('Debe abundar en los comentarios de la dirección del cliente.')
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Debe abundar en los comentarios de la dirección del cliente.'
+            )
             return
-
 
         return True
 
     def _validar_reglas_de_ruta(self):
 
         def _buscar_tipo_ruta_id(nombre_ruta):
-            consulta_ruta_id = [ruta['TipoRutaID'] for ruta in self._modelo.consulta_rutas
-                                if nombre_ruta == ruta['ZoneName']]
-            if not consulta_ruta_id:
-                return 1
-
-            if consulta_ruta_id:
-                return consulta_ruta_id[0]
+            consulta = [ruta['TipoRutaID'] for ruta in self._modelo.consulta_rutas
+                        if nombre_ruta == ruta['ZoneName']]
+            # 1 = domicilio (por defecto si no la encuentra)
+            return consulta[0] if consulta else 1
 
         def _buscar_ruta_id(nombre_ruta):
-            consulta_ruta_id = [ruta['ZoneID'] for ruta in self._modelo.consulta_rutas
-                                if nombre_ruta == ruta['ZoneName']]
-            if not consulta_ruta_id:
-                return 0
-
-            if consulta_ruta_id:
-                return consulta_ruta_id[0]
+            consulta = [ruta['ZoneID'] for ruta in self._modelo.consulta_rutas
+                        if nombre_ruta == ruta['ZoneName']]
+            # 0 = sin ruta encontrada
+            return consulta[0] if consulta else 0
 
         def _validar_ruta(ruta_id, tipo_ruta_id):
-            # para cliente nuevo asumiendo que recien se capturan
+            # Cliente nuevo y ruta R7 (1040)
             if ruta_id == 1040 and self._modelo.cliente.business_entity_id <= 0:
                 self._interfaz.ventanas.mostrar_mensaje(
-                    'No se puede hacer uso de la ruta R7 para clientes nuevos por este aplicativo.')
+                    'No se puede hacer uso de la ruta R7 para clientes nuevos por este aplicativo.'
+                )
                 return
 
-            if tipo_ruta_id == 2 and self._modelo.user_group_id == 11 and self._modelo.cliente.business_entity_id <= 0:
-                self._interfaz.ventanas.mostrar_mensaje('Las rutas de mayoreo no pueden ser establecidos por cajeros.')
+            # Mayoreo (tipo_ruta_id = 2) no permitida para cajeros (user_group_id = 11) en clientes nuevos
+            if (tipo_ruta_id == 2
+                    and self._modelo.user_group_id == 11
+                    and self._modelo.cliente.business_entity_id <= 0):
+                self._interfaz.ventanas.mostrar_mensaje(
+                    'Las rutas de mayoreo no pueden ser establecidas por cajeros.'
+                )
                 return
 
             return True
 
-
         valores = self._obtener_inputs_usuario()
         ruta_seleccionada = valores['cbx_ruta']
 
-        # 2 mayoreo 1 domicilio
-        tipo_ruta_id_seleccionada = _buscar_tipo_ruta_id(ruta_seleccionada)
-        ruta_id_seleccionada = _buscar_ruta_id(ruta_seleccionada)
+        tipo_ruta_id_sel = _buscar_tipo_ruta_id(ruta_seleccionada)
+        ruta_id_sel = _buscar_ruta_id(ruta_seleccionada)
 
-        if not _validar_ruta(ruta_id_seleccionada,tipo_ruta_id_seleccionada):
+        if not _validar_ruta(ruta_id_sel, tipo_ruta_id_sel):
             return
 
-        # asume que se pretende cambiar la ruta de un cliente:
+        # Si ya tenía ruta guardada, asumimos que se pretende cambiar
         if self._modelo.cliente.zone_id != 0:
             ruta_guardada = self._modelo.cliente.zone_name
             tipo_ruta_id_guardada = _buscar_tipo_ruta_id(ruta_guardada)

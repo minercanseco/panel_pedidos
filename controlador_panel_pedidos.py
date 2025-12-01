@@ -9,9 +9,6 @@ from cayal.login import Login
 from buscar_generales_cliente import BuscarGeneralesCliente
 from capturado_vs_producido import CapturadoVsProducido
 
-from cliente.formulario_cliente_controlador import FormularioClienteControlador
-from cliente.formulario_cliente_modelo import FormularioClienteModelo
-from cliente.formulario_cliente_interfaz import FormularioClienteInterfaz
 from cliente.notebook_cliente import NoteBookCliente
 
 from editar_caracteristicas_pedido import EditarCaracteristicasPedido
@@ -22,7 +19,6 @@ from historial_pedido import HistorialPedido
 from horario_acumulado import HorarioslAcumulados
 from llamar_instancia_captura import LlamarInstanciaCaptura
 from ticket_pedido_cliente import TicketPedidoCliente
-from panel_principal_cliente import PanelPrincipal
 from selector_tipo_documento import SelectorTipoDocumento
 from ttkbootstrap.constants import *
 from cayal.tableview_cayal import Tableview

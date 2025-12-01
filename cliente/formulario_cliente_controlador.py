@@ -1,5 +1,7 @@
 import webbrowser
 
+import pyperclip
+
 from cliente.direccion_adicional import DireccionAdicional
 from cliente.nombre_direccion import NombreDireccion
 
@@ -15,11 +17,11 @@ class FormularioClienteControlador:
 
     def _cargar_eventos(self):
         eventos = {
-            #'tbx_cp':  lambda event: self._cargar_info_por_cp(),
-            #'cbx_colonia':  lambda event: self._cargar_info_por_colonia(),
+            'tbx_cp':  lambda event: self._rellenar_cbx_colonias_por_cp(),
+            'cbx_colonia':  lambda event: self._rellenar_cbx_colonias_por_ruta(),
             'btn_cancelar': self._interfaz.master.destroy,
             #'btn_guardar': self._validar_inputs_formulario,
-            #'btn_copiar': self._copiar_info_formulario,
+            'btn_copiar': self._buscar_informacion_direccion_whatsapp,
             #'btn_cif': self._actualizar_por_cif,
             'btn_nueva_direccion':self._agregar_direccion,
             'btn_domicilios': self._agregar_direccion,
@@ -157,3 +159,50 @@ class FormularioClienteControlador:
             }
 
             _ = DireccionAdicional(frame_widget, self._modelo, info_direccion)
+
+    def _rellenar_cbx_colonias_por_cp(self):
+        cp = self._interfaz.ventanas.obtener_input_componente('tbx_cp')
+        if not self._modelo.utilerias.es_codigo_postal(cp):
+            return
+
+        consulta = self._modelo.obtener_colonias(zip_code=cp)
+        colonias = [reg['City'] for reg in consulta]
+        colonias = sorted(colonias)
+        self._interfaz.ventanas.rellenar_cbx('cbx_colonia', colonias)
+
+    def _rellenar_cbx_colonias_por_ruta(self):
+        if self._interfaz.ventanas.obtener_input_componente('cbx_colonia') != 'Seleccione':
+            return
+
+        consulta = self._modelo.obtener_colonias()
+        colonias = [reg['City'] for reg in consulta]
+        colonias = sorted(colonias)
+        self._interfaz.ventanas.rellenar_cbx('cbx_colonia', colonias)
+
+    def _buscar_informacion_direccion_whatsapp(self):
+
+        mensaje = (
+            f"📍 ¿Podría confirmar si los datos de su dirección son correctos?  \n\n"
+            f"👤 *Cliente:* {self._modelo.cliente.official_name}\n"
+            f"📍 *Dirección del cliente* ({'Dirección Fiscal'})\n"
+            f"🏠 *Calle:* {self._modelo.cliente.address_fiscal_street}\n"
+            f"🔢 *Número:* {self._modelo.cliente.address_fiscal_ext_number}\n"
+            f"📮 *C.P.:* {self._modelo.cliente.address_fiscal_zip_code}\n"
+            f"🏘️ *Colonia:* {self._modelo.cliente.address_fiscal_city}\n"
+            f"🏙️ *Municipio:* {self._modelo.cliente.address_fiscal_municipality}\n"
+            f"🌎 *Estado:* {self._modelo.address_fiscal_state_province}\n\n"
+            f"📞 *Teléfono:* {self._modelo.cliente.phone}\n"
+            f"📱 *Celular:* {self._modelo.cliente.cellphone}\n\n"
+            f"📝 *Comentarios:* {self._modelo.cliente.address_fiscal_comments}\n"
+            f"🚚💸 *Envío a domicilio:* ${self._modelo.cliente.delivery_cost} (En compras menores a 200)\n"
+        )
+        if self._modelo.cliente.cayal_customer_type_id == 2:
+            fiscales = (
+                f"\n📧 *Correo:* {self._modelo.cliente.email}\n"
+                f"🆔 *RFC:* {self._modelo.cliente.official_number}\n"
+                f"📄 *Uso CFDI:* {self._modelo.cliente.receptor_uso_cfdi}\n"
+            )
+            mensaje += fiscales
+        return mensaje.replace('None', '')
+
+

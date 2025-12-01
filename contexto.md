@@ -901,7 +901,7 @@ from historial_pedido import HistorialPedido
 from horario_acumulado import HorarioslAcumulados
 from llamar_instancia_captura import LlamarInstanciaCaptura
 from ticket_pedido_cliente import TicketPedidoCliente
-from panel_principal_cliente import PanelPrincipal
+from cliente.panel_principal_cliente import PanelPrincipal
 from selector_tipo_documento import SelectorTipoDocumento
 from ttkbootstrap.constants import *
 from cayal.tableview_cayal import Tableview
@@ -990,7 +990,6 @@ class ControladorPanelPedidos:
             'chk_sin_procesar': lambda *args: self._filtrar_no_procesados(),
             'chk_sin_fecha': lambda *args: self._sin_fecha(),
 
-
         }
         self._interfaz.ventanas.cargar_eventos(eventos)
 
@@ -1022,7 +1021,6 @@ class ControladorPanelPedidos:
         if valor_chk == 0:
             fecha = str(datetime.today().date())
             self._interfaz.ventanas.insertar_input_componente('den_fecha', fecha)
-
 
             self._actualizar_pedidos()
 
@@ -1056,7 +1054,7 @@ class ControladorPanelPedidos:
         self._interfaz.ventanas.limpiar_componentes(['tbx_comentarios', 'tvw_detalle'])
 
     def _buscar_nuevos_registros(self):
-            # Usa la fecha seleccionada si existe; si no, hoy
+        # Usa la fecha seleccionada si existe; si no, hoy
         fecha = self._fecha_seleccionada()
         hoy = datetime.now().date() if not fecha else datetime.strptime(fecha, "%Y-%m-%d").date()
         # 1) Pedidos en logística impresos (4,13 + PrintedOn not null)
@@ -1160,19 +1158,19 @@ class ControladorPanelPedidos:
             paginated=True,
             searchable=True,
             bootstyle=PRIMARY,
-            pagesize=19 if ancho  <= 1367 else 24,
+            pagesize=19 if ancho <= 1367 else 24,
             stripecolor=None,  # (colors.light, None),
-            height=19 if ancho  <= 1367 else 24,
+            height=19 if ancho <= 1367 else 24,
             autofit=False,
             callbacks=[self._colorear_filas_panel_horarios],
-            callbacks_search = [self._buscar_pedidos_cliente_sin_fecha]
+            callbacks_search=[self._buscar_pedidos_cliente_sin_fecha]
 
         )
 
         self._interfaz.ventanas.componentes_forma['tbv_pedidos'] = componente
         componente.grid(row=0, column=0, pady=5, padx=5, sticky=tk.NSEW)
 
-        #self._interfaz.ventanas.agregar_callback_table_view_al_actualizar('tbv_pedidos', self._colorear_filas_panel_horarios)
+        # self._interfaz.ventanas.agregar_callback_table_view_al_actualizar('tbv_pedidos', self._colorear_filas_panel_horarios)
 
     def _obtener_directorio_reportes(self):
 
@@ -1208,7 +1206,7 @@ class ControladorPanelPedidos:
         ahora = datetime.now()
 
         # Obtener filas a procesar
-        filas = self._modelo.consulta_pedidos if actualizar_meters else \
+        filas = self._modelo.consulta_pedidos if actualizar_meters else
             self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', visibles=True)
 
         # Reiniciar contadores si estamos actualizando meters
@@ -1223,14 +1221,14 @@ class ControladorPanelPedidos:
 
         # Definir colores
         colores = {
-                1: 'green',  # Pedido a tiempo o programado para otro día
-                2: 'orange',  # Pedido próximo a la entrega (tiempo intermedio)
-                3: 'red',  # Urgente o con muy poco tiempo para entrega / cancelado
-                4: 'blue',  # Entregado o en ruta con poco tiempo para entrega
-                5: 'purple',  # Pago pendiente por confirmar
-                6: 'lightgreen',  # Transferencia confirmada
-                7: 'lightblue'  # En ruta, entregado o en cartera
-            }
+            1: 'green',  # Pedido a tiempo o programado para otro día
+            2: 'orange',  # Pedido próximo a la entrega (tiempo intermedio)
+            3: 'red',  # Urgente o con muy poco tiempo para entrega / cancelado
+            4: 'blue',  # Entregado o en ruta con poco tiempo para entrega
+            5: 'purple',  # Pago pendiente por confirmar
+            6: 'lightgreen',  # Transferencia confirmada
+            7: 'lightblue'  # En ruta, entregado o en cartera
+        }
 
         for i, fila in enumerate(filas):
             valores_fila = {
@@ -1268,12 +1266,12 @@ class ControladorPanelPedidos:
         vlr_cbx_horarios = self._interfaz.ventanas.obtener_input_componente('cbx_horarios')
         vlr_cbx_status = self._interfaz.ventanas.obtener_input_componente('cbx_status')
 
-        return {'cbx_capturista': vlr_cbx_captura, 'cbx_horarios':vlr_cbx_horarios, 'cbx_status':vlr_cbx_status}
+        return {'cbx_capturista': vlr_cbx_captura, 'cbx_horarios': vlr_cbx_horarios, 'cbx_status': vlr_cbx_status}
 
     def _settear_valores_cbx_filtros(self, valores_cbx_filtros):
         vlr_cbx_captura = valores_cbx_filtros['cbx_capturista']
-        vlr_cbx_horarios =  valores_cbx_filtros['cbx_horarios']
-        vlr_cbx_status =  valores_cbx_filtros['cbx_status']
+        vlr_cbx_horarios = valores_cbx_filtros['cbx_horarios']
+        vlr_cbx_status = valores_cbx_filtros['cbx_status']
 
         # Aplicar filtros solo si el usuario ha seleccionado un valor específico
         if vlr_cbx_captura != 'Seleccione':
@@ -1501,7 +1499,8 @@ class ControladorPanelPedidos:
                 return
 
             elif status >= 4:
-                self._interfaz.ventanas.mostrar_mensaje('Sólo se pueden afectar las caracteristicas de un pedido hasta el status  Por timbrar.')
+                self._interfaz.ventanas.mostrar_mensaje(
+                    'Sólo se pueden afectar las caracteristicas de un pedido hasta el status  Por timbrar.')
                 return
             else:
                 order_document_id = fila[0]['OrderDocumentID']
@@ -1530,12 +1529,12 @@ class ControladorPanelPedidos:
                     DeliveryPromise FechaEntrega
                 FROM docDocumentOrderCayal 
                 WHERE OrderDocumentID = ?
-                """,(order_document_id,))
+                """, (order_document_id,))
             status_entrega = consulta[0]['StatusEntrega']
 
-
             if status_entrega == 0:
-                self._interfaz.ventanas.mostrar_mensaje('Debe definir la forma de pago del cliente antes de generar el ticket.')
+                self._interfaz.ventanas.mostrar_mensaje(
+                    'Debe definir la forma de pago del cliente antes de generar el ticket.')
                 return
             else:
                 fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(str(consulta[0]['FechaEntrega'])[0:10])
@@ -1570,7 +1569,7 @@ class ControladorPanelPedidos:
                     ISNULL(FolioPrefix,'')+ISNULL(Folio,'') DocFolio
                 FROM docDocumentOrderCayal 
                 WHERE OrderDocumentID = ?
-            """,(order_document_id,))
+            """, (order_document_id,))
 
             status = consulta[0]['StatusID']
             entrega = consulta[0]['Entrega']
@@ -1588,7 +1587,7 @@ class ControladorPanelPedidos:
                                                     StatusID = 2,
                                                     UserID = NULL
                     WHERE OrderDocumentID = ?
-                """,(self._user_id, order_document_id,))
+                """, (self._user_id, order_document_id,))
 
                 comentario = f'Enviado a producir por {self._user_name}.'
                 self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=order_document_id,
@@ -1634,7 +1633,7 @@ class ControladorPanelPedidos:
             self._interfaz.ventanas.mostrar_mensaje('No hay pedidos con un status válido para facturar')
             return
 
-        #--------------------------------------------------------------------------------------------------------------
+        # --------------------------------------------------------------------------------------------------------------
         # aqui comenzamos el procesamiento de las filas a facturar
         # si es una seleccion unica valida primero si no hay otros pendientes del mimsmo cliente
         if len(filas) == 1:
@@ -1644,8 +1643,9 @@ class ControladorPanelPedidos:
                 self._crear_documento(filas)
 
             if hay_pedidos_del_mismo_cliente:
-                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('Hay otro pedido del mismo cliente en proceso o por timbrar.'
-                                                                             '¿Desea continuar?')
+                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                    'Hay otro pedido del mismo cliente en proceso o por timbrar.'
+                    '¿Desea continuar?')
                 if respuesta:
                     self._crear_documento(filas)
             return
@@ -1672,7 +1672,7 @@ class ControladorPanelPedidos:
 
     def _crear_documento(self, filas, combinado=False, mismo_cliente=False):
 
-        tipo_documento = 1 # remision
+        tipo_documento = 1  # remision
 
         # determina el tipo de documento que se generará ya sea remision y/o factura
         if len(filas) > 1 and combinado:
@@ -1699,17 +1699,17 @@ import logging
 from agregar_epecificaciones import AgregarEspecificaciones
 from agregar_manualmente import AgregarPartidaManualmente
 from direccion_cliente import DireccionCliente
-from direcciones_adicionales import DireccionesAdicionales
+from cliente.direcciones_adicionales import DireccionesAdicionales
 from historial_cliente import HistorialCliente
-from panel_direcciones import PanelDirecciones
-from formulario_cliente import FormularioCliente
+from cliente.panel_direcciones import PanelDirecciones
+from cliente.formulario_cliente import FormularioCliente
 from interfaz_verificador import InterfazVerificador
 from controlador_verificador import ControladorVerificador
 from editar_partida import EditarPartida
 
 
 class ControladorCaptura:
-    def __init__(self, interfaz, modelo, ofertas = None):
+    def __init__(self, interfaz, modelo, ofertas=None):
 
         self._interfaz = interfaz
         self._master = interfaz.master
@@ -1752,7 +1752,6 @@ class ControladorCaptura:
         self._configurar_pedido()
         self._ventanas.enfocar_componente('tbx_clave')
         self._inicializar_captura_manual()
-
 
         self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Nuevo pedido', bloquear=False)
         self._ventanas.situar_ventana_arriba(self._master)
@@ -1814,7 +1813,8 @@ class ControladorCaptura:
 
             'chk_monto': lambda *args: self._selecionar_producto_tabla_manual(),
             'chk_pieza': lambda *args: self._selecionar_producto_tabla_manual(),
-            'tvw_productos_manual': (lambda event: self._selecionar_producto_tabla_manual(configurar_forma=True), 'seleccion'),
+            'tvw_productos_manual': (
+                lambda event: self._selecionar_producto_tabla_manual(configurar_forma=True), 'seleccion'),
         }
 
         self._ventanas.cargar_eventos(eventos)
@@ -1825,7 +1825,7 @@ class ControladorCaptura:
         self._ventanas.cargar_eventos(evento_adicional)
 
         txt_comentario_pedido = self._ventanas.componentes_forma['txt_comentario_documento']
-        txt_comentario_pedido.bind("<FocusOut>",lambda event:self._actualizar_comentario_pedido())
+        txt_comentario_pedido.bind("<FocusOut>", lambda event: self._actualizar_comentario_pedido())
 
     def _actualizar_comentario_pedido(self):
         comentario = self._ventanas.obtener_input_componente('txt_comentario_documento')
@@ -1850,7 +1850,6 @@ class ControladorCaptura:
             'F10': lambda: self._activar_chk_pieza(),
             'F11': lambda: self._activar_chk_monto(),
             'F12': lambda: self._buscar_ofertas(),
-
 
             'Ctrl+B': lambda: self._ventanas.enfocar_componente('tbx_buscar_manual'),
             'Ctrl+C': lambda: self._ventanas.enfocar_componente('tbx_cantidad_manual'),
@@ -2022,7 +2021,7 @@ class ControladorCaptura:
 
         partida = self._utilerias.crear_partida(info_producto[0], cantidad)
 
-        unidad_cayal = 0 if info_producto[0]['ClaveUnidad'] == 'KGM' else 1 # Del control de captura manual
+        unidad_cayal = 0 if info_producto[0]['ClaveUnidad'] == 'KGM' else 1  # Del control de captura manual
         partida['Comments'] = ''
 
         self._modelo.agregar_partida_tabla(partida, document_item_id=0, tipo_captura=0, unidad_cayal=unidad_cayal,
@@ -2077,7 +2076,7 @@ class ControladorCaptura:
 
         # rellena la informacion relativa a las partidas
         partidas = self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(self.documento.document_id,
-                                                                           partidas_producidas=True)
+                                                                               partidas_producidas=True)
 
         for partida in partidas:
             # Crear una copia profunda para evitar referencias pegadas
@@ -2096,7 +2095,8 @@ class ControladorCaptura:
             # Procesar la copia para evitar referencias compartidas
             partida_procesada = self._utilerias.crear_partida(partida_copia)
 
-            self._modelo.agregar_partida_tabla(partida_procesada, document_item_id=document_item_id, tipo_captura=tipo_captura,
+            self._modelo.agregar_partida_tabla(partida_procesada, document_item_id=document_item_id,
+                                               tipo_captura=tipo_captura,
                                                unidad_cayal=chk_pieza, monto_cayal=chk_monto)
 
     def _agregar_partida(self):
@@ -2273,12 +2273,12 @@ class ControladorCaptura:
                 # remover del treeview
                 self._ventanas.remover_fila_treeview('tvw_productos', fila)
 
-                #----------------------------------------------------------------------------------
+                # ----------------------------------------------------------------------------------
                 # remover la partida de los items del documento
 
                 # filtrar de los items del documento
                 partida_items = [partida for partida in self.documento.items
-                                   if str(identificador) == str(partida['uuid'])][0]
+                                 if str(identificador) == str(partida['uuid'])][0]
 
                 nuevas_partidas = [partida for partida in self.documento.items
                                    if str(identificador) != str(partida['uuid'])]
@@ -2322,7 +2322,8 @@ class ControladorCaptura:
             return
 
         ventana = self._ventanas.crear_popup_ttkbootstrap(self._master, 'Editar partida')
-        instancia = EditarPartida(ventana, self._interfaz, self._modelo, self._utilerias, self.base_de_datos, valores_fila)
+        instancia = EditarPartida(ventana, self._interfaz, self._modelo, self._utilerias, self.base_de_datos,
+                                  valores_fila)
         ventana.wait_window()
 
     def _verificador_precios(self):
@@ -2344,8 +2345,8 @@ class ControladorCaptura:
         # herramientas de pedidos
         if self._parametros_contpaqi.id_modulo == 1687:
             self.barra_herramientas_pedido = [
-                #{'nombre_icono': 'Product32.ico', 'etiqueta': 'C.Manual', 'nombre': 'captura_manual',
-                 #'hotkey': '[F1]', 'comando': self._agregar_partida_manualmente_popup},
+                # {'nombre_icono': 'Product32.ico', 'etiqueta': 'C.Manual', 'nombre': 'captura_manual',
+                # 'hotkey': '[F1]', 'comando': self._agregar_partida_manualmente_popup},
 
                 {'nombre_icono': 'ProductChange32.ico', 'etiqueta': 'Editar', 'nombre': 'editar_partida',
                  'hotkey': '[F2]', 'comando': self._editar_partida},
@@ -2371,7 +2372,7 @@ class ControladorCaptura:
             ]
 
         self.elementos_barra_herramientas = self._ventanas.crear_barra_herramientas(self.barra_herramientas_pedido,
-                                                                                   'frame_herramientas')
+                                                                                    'frame_herramientas')
         self.iconos_barra_herramientas = self.elementos_barra_herramientas[0]
         self.etiquetas_barra_herramientas = self.elementos_barra_herramientas[2]
         self.hotkeys_barra_herramientas = self.elementos_barra_herramientas[1]
@@ -2395,12 +2396,12 @@ class ControladorCaptura:
             if not fila:
                 continue
 
-            valores_fila = self._ventanas.procesar_fila_treeview('tvw_productos_manual',fila)
+            valores_fila = self._ventanas.procesar_fila_treeview('tvw_productos_manual', fila)
             product_id = valores_fila['ProductID']
             producto = str(valores_fila['Descripción'])
 
             if product_id in self._modelo.products_ids_ofertados:
-                producto_actualizado  = self._actualizar_nombre_producto_ofertado(producto, product_id)
+                producto_actualizado = self._actualizar_nombre_producto_ofertado(producto, product_id)
                 valores_fila['Descripción'] = producto_actualizado
                 self._ventanas.actualizar_fila_treeview_diccionario('tvw_productos_manual', fila, valores_fila)
                 self._ventanas.colorear_fila_seleccionada_treeview('tvw_productos_manual', fila, color='warning')
@@ -2409,7 +2410,8 @@ class ControladorCaptura:
         # Buscar el producto ofertado por ID (copiando solo los campos necesarios)
         for reg in self._modelo.consulta_productos_ofertados:
             if int(reg['ProductID']) == int(product_id):
-                sale_price_before = self._utilerias.redondear_valor_cantidad_a_decimal(reg['SalePriceBefore'])  # Copia segura
+                sale_price_before = self._utilerias.redondear_valor_cantidad_a_decimal(
+                    reg['SalePriceBefore'])  # Copia segura
                 tax_type_id = int(reg['TaxTypeID'])  # Copia segura
                 break
         else:
@@ -2435,7 +2437,6 @@ class ControladorCaptura:
         tabla = self._ventanas.componentes_forma['tvw_productos_manual']
 
         for producto in consulta_productos:
-
             _producto = {
                 'ProductKey': producto['ProductKey'],
                 'ProductName': producto['ProductName'],
@@ -2463,32 +2464,31 @@ class ControladorCaptura:
             nuevo_comentario = ''
 
             if comentario_original != '':
+                nuevo_comentario = f'{comentario_original}'
+                f'{especificaciones}'
 
-                nuevo_comentario = f'{comentario_original}' \
-                                   f'{especificaciones}'
+        if comentario_original == '':
+            nuevo_comentario = f'{especificaciones}'
+            nuevo_comentario = nuevo_comentario.strip()
 
-            if comentario_original == '':
-                nuevo_comentario = f'{especificaciones}'
-                nuevo_comentario = nuevo_comentario.strip()
+        self._ventanas.insertar_input_componente('txt_comentario_manual', nuevo_comentario)
 
-            self._ventanas.insertar_input_componente('txt_comentario_manual', nuevo_comentario)
 
-    def _buscar_productos_manualmente(self, event=None):
+def _buscar_productos_manualmente(self, event=None):
+    tipo_busqueda = self._ventanas.obtener_input_componente('cbx_tipo_busqueda_manual')
+    termino_buscado = self._ventanas.obtener_input_componente('tbx_buscar_manual')
 
-        tipo_busqueda = self._ventanas.obtener_input_componente('cbx_tipo_busqueda_manual')
-        termino_buscado = self._ventanas.obtener_input_componente('tbx_buscar_manual')
+    consulta = self._modelo.buscar_productos(termino_buscado, tipo_busqueda)
 
-        consulta = self._modelo.buscar_productos(termino_buscado, tipo_busqueda)
+    if not consulta:
+        self._modelo.mensajes_de_error(6, self._master)
+        self._limpiar_controles_forma_manual()
+        self._ventanas.enfocar_componente('tbx_buscar_manual')
+        self._ventanas.insertar_input_componente('tbx_cantidad_manual', 1.00)
+        return
 
-        if not consulta:
-            self._modelo.mensajes_de_error(6, self._master)
-            self._limpiar_controles_forma_manual()
-            self._ventanas.enfocar_componente('tbx_buscar_manual')
-            self._ventanas.insertar_input_componente('tbx_cantidad_manual', 1.00)
-            return
-
-        ids_productos = self._modelo.obtener_product_ids_consulta(consulta)
-        consulta_productos = self._modelo.buscar_info_productos_por_ids(ids_productos)
+    ids_productos = self._modelo.obtener_product_ids_consulta(consulta)
+    consulta_productos = self._modelo.buscar_info_productos_por_ids(ids_productos)
 ```
 
 
@@ -3547,10 +3547,11 @@ import ttkbootstrap as ttk
 import tkinter as tk
 import ttkbootstrap.dialogs
 
-from buscar_info_cif import BuscarInfoCif
-from formulario_cliente import FormularioCliente
+from cliente.buscar_info_cif import BuscarInfoCif
+from cliente.formulario_cliente import FormularioCliente
 from cayal.cliente import Cliente
 from cayal.ventanas import Ventanas
+
 
 class PanelPrincipal:
     def __init__(self, master, parametros, base_de_datos, utilerias):
@@ -3637,25 +3638,25 @@ class PanelPrincipal:
     def _cargar_eventos_componentes_forma(self):
 
         tbx_cif = self.componentes_forma['tbx_cif']
-        tbx_cif.config(validate = 'focus',
-                        validatecommand = (self._master.register(
-                                    lambda text: self._ventanas.validar_entry(tbx_cif, 'cif')), '%P'))
+        tbx_cif.config(validate='focus',
+                       validatecommand=(self._master.register(
+                           lambda text: self._ventanas.validar_entry(tbx_cif, 'cif')), '%P'))
 
         tbx_rfc = self.componentes_forma['tbx_rfc']
-        tbx_rfc.config(validate = 'focus',
-                        validatecommand = (self._master.register(
-                                    lambda text: self._ventanas.validar_entry(tbx_rfc, 'rfc')), '%P'))
+        tbx_rfc.config(validate='focus',
+                       validatecommand=(self._master.register(
+                           lambda text: self._ventanas.validar_entry(tbx_rfc, 'rfc')), '%P'))
 
         tbx_rfc2 = self.componentes_forma['tbx_rfc2']
         tbx_rfc2.config(validate='focus',
-                       validatecommand=(self._master.register(
-                           lambda text: self._ventanas.validar_entry(tbx_rfc2, 'rfc')), '%P'))
+                        validatecommand=(self._master.register(
+                            lambda text: self._ventanas.validar_entry(tbx_rfc2, 'rfc')), '%P'))
 
         btn_cancelar = self.componentes_forma['btn_cancelar']
-        btn_cancelar.config(command = lambda : self._master.destroy())
+        btn_cancelar.config(command=lambda: self._master.destroy())
 
-        cbx_tipo = self.componentes_forma ['cbx_tipo']
-        cbx_tipo.bind('<<ComboboxSelected>>', lambda event : self._cambiar_apariencia_forma())
+        cbx_tipo = self.componentes_forma['cbx_tipo']
+        cbx_tipo.bind('<<ComboboxSelected>>', lambda event: self._cambiar_apariencia_forma())
 
         cbx_documento = self.componentes_forma['cbx_documento']
         cbx_documento.bind('<<ComboboxSelected>>', lambda event: self._cambiar_apariencia_forma())
@@ -3712,11 +3713,13 @@ class PanelPrincipal:
         seleccion_documento = cbx_documento.get()
 
         if seleccion == 'Seleccione':
-            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='Debe seleccionar una opción válida.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,
+                                                       message='Debe seleccionar una opción válida.')
             return
 
         if seleccion_documento == 'Seleccione' and seleccion == 'Manual':
-            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='Debe seleccionar un documento preferente.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,
+                                                       message='Debe seleccionar un documento preferente.')
             return
 
         if seleccion == 'Manual':
@@ -3729,8 +3732,8 @@ class PanelPrincipal:
                 business_entity_id = self._base_de_datos.cliente_existente(cliente)
 
                 if business_entity_id > 0:
-                    validacion = ttkbootstrap.dialogs.Messagebox.yesno(parent=self._master,message=
-                        '¿El cliente ya existe en la base de datos desea continuar?')
+                    validacion = ttkbootstrap.dialogs.Messagebox.yesno(parent=self._master, message=
+                    '¿El cliente ya existe en la base de datos desea continuar?')
 
                     if validacion == 'No':
                         return
@@ -3739,8 +3742,8 @@ class PanelPrincipal:
                     business_entity_id = self._base_de_datos.cliente_borrado(cliente)
 
                     if business_entity_id > 0:
-                        validacion = ttkbootstrap.dialogs.Messagebox.yesno(parent=self._master,message=
-                            '¿El cliente ya existe en la base de datos pero esta borrado desea continuar?')
+                        validacion = ttkbootstrap.dialogs.Messagebox.yesno(parent=self._master, message=
+                        '¿El cliente ya existe en la base de datos pero esta borrado desea continuar?')
 
                         if validacion == 'No':
                             return
@@ -3779,8 +3782,8 @@ class PanelPrincipal:
             business_entity_id = self._base_de_datos.rfc_existente(rfc)
 
             if business_entity_id > 0:
-                validacion = ttkbootstrap.dialogs.Messagebox.yesno(parent=self._master,message=
-                    '¿El rfc ya existe en la base de datos desea continuar?')
+                validacion = ttkbootstrap.dialogs.Messagebox.yesno(parent=self._master, message=
+                '¿El rfc ya existe en la base de datos desea continuar?')
 
                 if validacion == 'No':
                     return False
@@ -3789,8 +3792,8 @@ class PanelPrincipal:
                 business_entity_id = self._base_de_datos.rfc_borrado(rfc)
 
                 if business_entity_id > 0:
-                    validacion = ttkbootstrap.dialogs.Messagebox.yesno(parent=self._master,message=
-                        '¿El rfc ya existe en la base de datos pero está borrado desea continuar?')
+                    validacion = ttkbootstrap.dialogs.Messagebox.yesno(parent=self._master, message=
+                    '¿El rfc ya existe en la base de datos pero está borrado desea continuar?')
 
                     if validacion == 'No':
                         return False
@@ -3799,11 +3802,12 @@ class PanelPrincipal:
 
     def _validar_cliente(self, cliente):
         if not cliente:
-            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='Debe agregar un nombre para el cliente.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,
+                                                       message='Debe agregar un nombre para el cliente.')
             return False
 
         if len(cliente) < 5:
-            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='Debe agregar un nombre más largo.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master, message='Debe agregar un nombre más largo.')
             return False
 
         return True
@@ -3811,11 +3815,13 @@ class PanelPrincipal:
     def _validar_cif(self, cif):
 
         if not cif:
-            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='Debe introducir información en los campos requeridos.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,
+                                                       message='Debe introducir información en los campos requeridos.')
             return False
 
         if not self._utilerias.es_cif(cif):
-            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='El cif es es inválido favor de validar.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,
+                                                       message='El cif es es inválido favor de validar.')
             return False
 
         return True
@@ -3823,11 +3829,13 @@ class PanelPrincipal:
     def _validar_rfc(self, rfc):
 
         if not rfc:
-            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='Debe introducir información en los campos requeridos.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,
+                                                       message='Debe introducir información en los campos requeridos.')
             return False
 
         if not self._utilerias.es_rfc(rfc):
-            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,message='El rfc es inválido favor de validar.')
+            ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master,
+                                                       message='El rfc es inválido favor de validar.')
             return False
 
         return True

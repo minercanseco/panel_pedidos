@@ -8,10 +8,10 @@ import logging
 from agregar_epecificaciones import AgregarEspecificaciones
 from agregar_manualmente import AgregarPartidaManualmente
 from direccion_cliente import DireccionCliente
-from direcciones_adicionales import DireccionesAdicionales
+from cliente.direcciones_adicionales import DireccionesAdicionales
 from historial_cliente import HistorialCliente
-from panel_direcciones import PanelDirecciones
-from formulario_cliente import FormularioCliente
+from cliente.panel_direcciones import PanelDirecciones
+from cliente.formulario_cliente import FormularioCliente
 from interfaz_verificador import InterfazVerificador
 from controlador_verificador import ControladorVerificador
 from editar_partida import EditarPartida

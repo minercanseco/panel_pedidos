@@ -79,68 +79,68 @@ class FormularioClienteModelo:
     def obtener_colonias(self, address_detail_id=0, zip_code=None):
         consulta = []
 
-        if zip_code:
-            consulta = self.base_de_datos.fetchall("""
-                           SELECT 
-                                   CountryAddressID,
-                                   City,
-                                   Municipality,
-                                   ZipCode,
-                                   CountryCode,
-                                   CityCode,
-                                   MunicipalityCode,
-                                   ZoneID,
-                                   StateCode,
-                                   State
-                           FROM engRefCountryAddress
-                           WHERE ZipCode = ?
-                       """,(zip_code,))
-
+        # 1) Si viene address_detail_id, tiene prioridad
         if address_detail_id != 0:
             consulta = self.base_de_datos.fetchall("""
-                    SELECT 
-                            CA.CountryAddressID,
-                            CA.City,
-                            CA.Municipality,
-                            CA.ZipCode,
-                            CA.CountryCode,
-                            CA.CityCode,
-                            CA.MunicipalityCode,
-                            CA.ZoneID,
-                            CA.StateCode,
-                            CA.State
-                    FROM engRefCountryAddress CA
-                        INNER JOIN orgAddressDetail AD ON CA.ZipCode = AD.ZipCode
-                    WHERE AD.AddressDetailID = ?
-            """,(address_detail_id,))
+                SELECT 
+                        CA.CountryAddressID,
+                        CA.City,
+                        CA.Municipality,
+                        CA.ZipCode,
+                        CA.CountryCode,
+                        CA.CityCode,
+                        CA.MunicipalityCode,
+                        CA.ZoneID,
+                        CA.StateCode,
+                        CA.State
+                FROM engRefCountryAddress CA
+                    INNER JOIN orgAddressDetail AD ON CA.ZipCode = AD.ZipCode
+                WHERE AD.AddressDetailID = ?
+            """, (address_detail_id,))
 
+            # Si es Campeche, filtrar solo las que tengan ZoneID (no nulo / no cero)
             if consulta:
                 municipality = consulta[0]['Municipality']
-                if municipality.lower() == 'campeche':
+                if municipality and municipality.lower() == 'campeche':
                     consulta = [reg for reg in consulta if reg['ZoneID']]
 
-
-        if address_detail_id == 0:
+        # 2) Si no hay address_detail_id pero sí zip_code → buscar por CP
+        elif zip_code:
             consulta = self.base_de_datos.fetchall("""
-                    SELECT 
-                            CountryAddressID,
-                            City,
-                            Municipality,
-                            ZipCode,
-                            CountryCode,
-                            CityCode,
-                            MunicipalityCode,
-                            ZoneID,
-                            StateCode,
-                            State
-                    FROM engRefCountryAddress
-                    WHERE ZoneID IS NOT NULL
-                """)
+                SELECT 
+                        CountryAddressID,
+                        City,
+                        Municipality,
+                        ZipCode,
+                        CountryCode,
+                        CityCode,
+                        MunicipalityCode,
+                        ZoneID,
+                        StateCode,
+                        State
+                FROM engRefCountryAddress
+                WHERE ZipCode = ?
+            """, (zip_code,))
 
-
+        # 3) Sin address_detail_id ni zip_code → todas las colonias con ZoneID
+        else:
+            consulta = self.base_de_datos.fetchall("""
+                SELECT 
+                        CountryAddressID,
+                        City,
+                        Municipality,
+                        ZipCode,
+                        CountryCode,
+                        CityCode,
+                        MunicipalityCode,
+                        ZoneID,
+                        StateCode,
+                        State
+                FROM engRefCountryAddress
+                WHERE ZoneID IS NOT NULL
+            """)
 
         self.consulta_colonias = consulta
-
         return self.consulta_colonias
 
 

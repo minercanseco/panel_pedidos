@@ -5,7 +5,7 @@ from cayal.comandos_base_datos import ComandosBaseDatos
 from cayal.util import Utilerias
 from cayal.ventanas import Ventanas
 
-from direcciones_adicionales import DireccionesAdicionales
+from cliente.direcciones_adicionales import DireccionesAdicionales
 
 
 class PanelDirecciones:

@@ -8,9 +8,9 @@ from cayal.comandos_base_datos import ComandosBaseDatos
 from cayal.cliente import Cliente
 from cayal.ventanas  import Ventanas
 
-from buscar_info_cif import BuscarInfoCif
-from direcciones_adicionales import DireccionesAdicionales
-from panel_direcciones import PanelDirecciones
+from cliente.buscar_info_cif import BuscarInfoCif
+from cliente.direcciones_adicionales import DireccionesAdicionales
+from cliente.panel_direcciones import PanelDirecciones
 
 
 class FormularioCliente:

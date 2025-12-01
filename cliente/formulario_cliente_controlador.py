@@ -34,6 +34,11 @@ class FormularioClienteControlador:
 
         self._interfaz.ventanas.bloquear_componente('tbx_envio')
 
+        if self._modelo.cliente.zone_id == 1040:
+            self._interfaz.ventanas.bloquear_componente('cbx_ruta')
+
+        self._interfaz.ventanas.bloquear_componente('tbx_cliente')
+
     def _visualizar_cif(self):
         cif = self._interfaz.ventanas.obtener_input_componente('tbx_cif')
         rfc = self._interfaz.ventanas.obtener_input_componente('tbx_rfc')

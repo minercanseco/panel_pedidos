@@ -41,9 +41,6 @@ class FormularioClienteInterfaz:
 
     def _cargar_componentes(self):
 
-
-
-
         estilo_label = {
             'foreground': 'black',
             'background': 'white',
@@ -85,6 +82,7 @@ class FormularioClienteInterfaz:
 
             'btn_guardar': ('frame_botones', 'success', 'Guardar', None),
             'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', None),
+            'btn_nueva_direccion': ('frame_botones', 'dark', 'N.Dirección', None),
             'btn_copiar': ('frame_botones', 'warning', 'Copiar', None),
         }
 

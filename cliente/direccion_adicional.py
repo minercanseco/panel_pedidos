@@ -18,6 +18,7 @@ class DireccionAdicional:
         self._ajustar_ancho_componentes()
         self._rellenar_componentes()
         self._bloquear_componentes()
+        self._cargar_eventos()
 
     def _crear_frames(self):
         frames = {
@@ -64,7 +65,7 @@ class DireccionAdicional:
         }
 
         componentes = {
-            'tbx_cliente': ('frame_generales', None, 'Cliente:', None),
+            'tbx_nombre': ('frame_generales', None, 'Dirección:', None),
             'tbx_ncomercial': ('frame_generales', None, 'N.Comercial:', None),
             'tbx_telefono': ('frame_generales', None, 'Teléfono:', None),
             'tbx_celular': ('frame_generales', None, 'Celular:', None),
@@ -88,9 +89,8 @@ class DireccionAdicional:
             'cbx_usocfdi': ('frame_fiscal', None, 'UsoCFDI:', None),
             'txt_correo': ('frame_fiscal', None, 'Email:', None),
 
-
             'btn_guardar': ('frame_botones', 'success', 'Guardar', None),
-            'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', None),
+            'btn_eliminar': ('frame_botones', 'danger', 'Eliminar', None),
             'btn_copiar': ('frame_botones', 'warning', 'Copiar', None),
         }
 
@@ -223,3 +223,17 @@ class DireccionAdicional:
         ]
         for componente in componentes:
             self._ventanas.bloquear_componente(componente)
+
+    def _cargar_eventos(self):
+        eventos = {
+            'btn_copiar': self._copiar_direccion,
+            'btn_eliminar': self._eliminar_direccion
+
+        }
+        self._ventanas.cargar_eventos(eventos)
+
+    def _copiar_direccion(self):
+        print(f'copiando direccion de {self._address_detail_id}')
+
+    def _eliminar_direccion(self):
+        print(f'eliminando direccion de {self._address_detail_id}')

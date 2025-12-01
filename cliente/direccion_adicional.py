@@ -163,6 +163,52 @@ class DireccionAdicional:
             valor = self._info_direccion.get(clave,'')
             self._ventanas.insertar_input_componente(componente, valor)
 
+        self._rellenar_componentes_fiscales()
+
+    def _rellenar_componentes_fiscales(self):
+        # ------------------------------------------------------------------------
+        consultas = {
+            'cbx_regimen': (self._modelo.obtener_regimenes_fiscales, self._modelo.cliente.company_type_name),
+            'cbx_formapago': (self._modelo.obtener_formas_pago, self._modelo.cliente.forma_pago),
+            'cbx_metodopago': (self._modelo.obtener_metodos_pago, self._modelo.cliente.metodo_pago),
+            'cbx_usocfdi': (self._modelo.obtener_uso_cfdi, self._modelo.cliente.receptor_uso_cfdi),
+        }
+
+        for componente, (funcion_consulta, atributo) in consultas.items():
+            consulta = funcion_consulta()
+            valores = [reg['Value'] for reg in consulta]
+            self._ventanas.rellenar_cbx(componente, valores)
+
+            if componente == 'cbx_regimen':
+                valor_seleccion = [reg['Value'] for reg in consulta if reg['Value'] == atributo]
+            else:
+                valor_seleccion = [reg['Value'] for reg in consulta if reg['Clave'] == atributo]
+
+            if valor_seleccion:
+                    self._ventanas.insertar_input_componente(componente, valor_seleccion[0])
+
+        # ------------------------------------------------------------------------
+        # rellenar cbx colonias
+        info_colonias = self._modelo.obtener_colonias(self._address_detail_id)
+        colonias = [reg['City'] for reg in info_colonias]
+        colonias = sorted(colonias)
+        self._ventanas.rellenar_cbx('cbx_colonia', colonias)
+        if self._modelo.cliente.business_entity_id != 0:
+            self._ventanas.insertar_input_componente('cbx_colonia',
+                                                              self._info_direccion.get('City','')
+                                                              )
+        # ------------------------------------------------------------------------
+        # rellenar cbx rutas
+        info_rutas = self._modelo.obtener_todas_las_rutas()
+        rutas = [reg['ZoneName'] for reg in info_rutas]
+        rutas = sorted(rutas)
+        self._ventanas.rellenar_cbx('cbx_ruta', rutas)
+        if self._modelo.business_entity_id != 0:
+            self._ventanas.insertar_input_componente('cbx_ruta',
+                                                              self._modelo.cliente.zone_name
+                                                              )
+        # ------------------------------------------------------------------------
+
     def _bloquear_componentes(self):
         componentes = [
             'tbx_ncomercial',

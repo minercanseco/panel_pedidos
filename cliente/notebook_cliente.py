@@ -4,7 +4,7 @@ from cayal.cliente import Cliente
 from cliente.formulario_cliente_interfaz import FormularioClienteInterfaz
 from cliente.formulario_cliente_modelo import FormularioClienteModelo
 from cliente.formulario_cliente_controlador import FormularioClienteControlador
-
+from cliente.direccion_adicional import DireccionAdicional
 
 class NoteBookCliente:
     def __init__(self, master, base_de_datos, parametros, utilerias):
@@ -17,6 +17,8 @@ class NoteBookCliente:
         self._utilerias = utilerias
 
         self._business_entity_id = self._parametros.id_principal
+        self._direcciones_adicionales = []
+
         self._homologar_direccion_fiscal(self._business_entity_id)
         self._settar_info_cliente()
 
@@ -29,13 +31,13 @@ class NoteBookCliente:
             'frame_principal': (
                 'master',
                 'Direcciones:',
-                {'row': 0, 'column': 0, 'sticky': tk.NSEW}
+                {'row': 0, 'column': 0, 'padx': 2, 'pady': 2, 'sticky': tk.NSEW}
             ),
 
             'frame_notebook': (
                 'frame_principal',
                 None,
-                {'row': 1, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}
+                {'row': 1, 'column': 0, 'padx': 2, 'pady': 2, 'sticky': tk.NSEW}
             ),
         }
         self._ventanas.crear_frames(frames)
@@ -45,13 +47,14 @@ class NoteBookCliente:
         frame_principal.columnconfigure(0, weight=1)
 
     def _cargar_componentes(self):
-        # 1) Definir pestañas del notebook
         info_pestanas = {
             # Texto de la pestaña con emoji de dirección fiscal
             'tab_direccion_fiscal': ('Dirección fiscal 🧾📍', None),
         }
 
-        # 2) Crear notebook dentro de frame_notebook
+        if self._cliente.business_entity_id > 0 and self._cliente.addresses > 1:
+            info_pestanas = self._crear_tabs_direcciones_adicionales(info_pestanas)
+
         self._ventanas.crear_notebook(
             nombre_notebook='nb_formulario_cliente',
             info_pestanas=info_pestanas,
@@ -66,34 +69,46 @@ class NoteBookCliente:
             }
         )
 
-        # 3) Crear frames internos por cada pestaña
-        frames_tabs = {
-            'frm_direccion_fiscal': (
-                'tab_direccion_fiscal',
+        frames_tabs = {}
+        for clave, valor in info_pestanas.items():
+            tab_name = clave  # p.ej. 'tab_direccion_fiscal'
+            frame_name = clave.replace('tab_', 'frm_')  # 'frm_direccion_fiscal'
+            frames_tabs[frame_name] = (
+                tab_name,
                 None,
                 {'row': 0, 'column': 0, 'sticky': tk.NSEW, 'padx': 5, 'pady': 5}
             )
-        }
 
         self._ventanas.crear_frames(frames_tabs)
 
-        # ============================================================
-        # 4) MONTAR CADA MÓDULO EN SU CORRESPONDIENTE PESTAÑA
-        # ============================================================
-
         # ========== DIRECCIÓN FISCAL ==========
-
         frame_direccion_fiscal = self._ventanas.componentes_forma['frm_direccion_fiscal']
-        self._interfaz = FormularioClienteInterfaz(frame_direccion_fiscal)
-        self._modelo = FormularioClienteModelo(self._parametros,
-                                               self._utilerias,
-                                               self._base_de_datos,
-                                               self._cliente)
 
+        self._interfaz = FormularioClienteInterfaz(frame_direccion_fiscal)
+        self._modelo = FormularioClienteModelo(
+            self._parametros,
+            self._utilerias,
+            self._base_de_datos,
+            self._cliente
+        )
         self._controlador = FormularioClienteControlador(
             self._interfaz,
             self._modelo
         )
+
+        # ========== DIRECCIONES ADICIONALES ==========
+        if self._cliente.addresses > 1:
+            for tab, (nombre, configuracion) in info_pestanas.items():
+                if tab != 'tab_direccion_fiscal':
+                    # Buscar la dirección correspondiente por nombre
+                    info_direccion = [
+                        reg for reg in self._direcciones_adicionales
+                        if reg['AddressName'] == nombre
+                    ]
+                    if info_direccion:
+                        frame_name = tab.replace('tab_', 'frm_')
+                        frame_widget = self._ventanas.componentes_forma[frame_name]
+                        _ = DireccionAdicional(frame_widget, self._modelo, info_direccion[0])
 
     def _buscar_info_cliente(self):
         return self._base_de_datos.fetchall("""
@@ -105,7 +120,6 @@ class NoteBookCliente:
             return
 
         info_cliente = self._buscar_info_cliente()
-
         info_cliente[0]['DeliveryCost'] = self._utilerias.redondear_valor_cantidad_a_decimal(info_cliente[0]['DeliveryCost'])
         self._cliente.consulta = info_cliente
         self._cliente.settear_valores_consulta()
@@ -148,3 +162,17 @@ class NoteBookCliente:
                 );
         """, (business_entity_id,))
 
+    def _buscar_direcciones_adicionales(self):
+        self._direcciones_adicionales = self._base_de_datos.buscar_direcciones_adicionales(self._business_entity_id)
+
+    def _crear_tabs_direcciones_adicionales(self, info_pestanas):
+        self._buscar_direcciones_adicionales()
+
+        for direccion in self._direcciones_adicionales:
+            nombre = direccion['AddressName']  # texto visible de la pestaña
+            tab = nombre.replace(' ', '_').lower()
+            tab = f"tab_direccion_{tab}"
+            # IMPORTANTE: debe ser (texto_pestana, opciones_extra)
+            info_pestanas[tab] = (nombre, None)
+
+        return info_pestanas

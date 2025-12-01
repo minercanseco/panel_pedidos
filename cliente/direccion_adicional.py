@@ -1,20 +1,29 @@
 import tkinter as tk
 from cayal.ventanas import Ventanas
 
-class FormularioClienteInterfaz:
-    def __init__(self, master):
+class DireccionAdicional:
+    def __init__(self, master,modelo, info_direccion):
         self.master = master
-        self.ventanas = Ventanas(self.master)
+
+        self._ventanas = Ventanas(self.master)
+        self._modelo = modelo
+
+        self._info_direccion =  info_direccion
+
+        self._nombre_direccion = self._info_direccion.get('AddressName', '')
+        self._address_detail_id = self._info_direccion['AddressDetailID']
+
         self._crear_frames()
         self._cargar_componentes()
         self._ajustar_ancho_componentes()
+        self._rellenar_componentes()
 
     def _crear_frames(self):
         frames = {
             'frame_principal': ('master', None,
                                 {'row': 0, 'column': 0, 'sticky': tk.W}),
 
-            'frame_generales': ('frame_principal', 'Dirección Fiscal:',
+            'frame_generales': ('frame_principal', f'Dirección {self._nombre_direccion}:',
                                   {'row': 0, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.W}),
 
             'frame_lbl_estado': ('frame_generales', None,
@@ -37,12 +46,9 @@ class FormularioClienteInterfaz:
 
         }
 
-        self.ventanas.crear_frames(frames)
+        self._ventanas.crear_frames(frames)
 
     def _cargar_componentes(self):
-
-
-
 
         estilo_label = {
             'foreground': 'black',
@@ -80,15 +86,14 @@ class FormularioClienteInterfaz:
             'cbx_metodopago': ('frame_fiscal', None, 'MétodoPago:', None),
             'cbx_usocfdi': ('frame_fiscal', None, 'UsoCFDI:', None),
             'txt_correo': ('frame_fiscal', None, 'Email:', None),
-            'btn_cif': ('frame_fiscal1', 'info', 'Validar CIF', None),
-            'btn_cif_visual': ('frame_fiscal1', 'info', 'Visualizar CIF', None),
+
 
             'btn_guardar': ('frame_botones', 'success', 'Guardar', None),
             'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', None),
             'btn_copiar': ('frame_botones', 'warning', 'Copiar', None),
         }
 
-        self.ventanas.crear_componentes(componentes)
+        self._ventanas.crear_componentes(componentes)
 
     def _ajustar_ancho_componentes(self):
         componentes = {
@@ -124,4 +129,37 @@ class FormularioClienteInterfaz:
             if valor == 0:
                 continue
 
-            self.ventanas.ajustar_ancho_componente(componente, valor)
+            self._ventanas.ajustar_ancho_componente(componente, valor)
+
+    def _rellenar_componentes(self):
+        componentes = {
+            'tbx_cliente': '',
+            'tbx_ncomercial': '',
+            'tbx_telefono': 'Telefono',
+            'tbx_celular': '',
+            'tbx_calle': 'Street',
+            'tbx_numero': 'ExtNumber',
+            'txt_comentario': 'Comments',
+            'tbx_cp': 'ZipCode',
+
+            'lbl_estado': 'StateProvince',
+            'lbl_municipio': 'Municipality',
+            'cbx_colonia': '',
+
+            'tbx_domicilios': '',
+            'tbx_envio': '',
+            'cbx_ruta': '',
+
+            'tbx_rfc': '',
+            'tbx_cif': '',
+            'cbx_regimen': '',
+            'cbx_formapago': '',
+            'cbx_metodopago': '',
+            'cbx_usocfdi': '',
+            'txt_correo': '',
+
+        }
+        for componente, clave in componentes.items():
+            valor = self._info_direccion.get(clave,'')
+            self._ventanas.insertar_input_componente(componente, valor)
+        print(self._info_direccion)

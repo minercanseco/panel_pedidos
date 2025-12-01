@@ -26,6 +26,10 @@ class FormularioClienteModelo:
         self.parametros = parametros
 
         self.user_id = self.parametros.id_usuario
+        self.user_group_id = self.base_de_datos.fetchone(
+            'SELECT UserGroupID FROM engUser WHERE UserID = ?',
+            (self.user_id,))
+
         self.business_entity_id = self.parametros.id_principal
         self.module_id = self.parametros.id_modulo
 
@@ -92,9 +96,11 @@ class FormularioClienteModelo:
                         CA.MunicipalityCode,
                         CA.ZoneID,
                         CA.StateCode,
-                        CA.State
+                        CA.State,
+                        Z.ZoneName
                 FROM engRefCountryAddress CA
                     INNER JOIN orgAddressDetail AD ON CA.ZipCode = AD.ZipCode
+                    LEFT OUTER JOIN orgZone Z ON CA.ZoneID = Z.ZoneID
                 WHERE AD.AddressDetailID = ?
             """, (address_detail_id,))
 
@@ -108,17 +114,19 @@ class FormularioClienteModelo:
         elif zip_code:
             consulta = self.base_de_datos.fetchall("""
                 SELECT 
-                        CountryAddressID,
-                        City,
-                        Municipality,
-                        ZipCode,
-                        CountryCode,
-                        CityCode,
-                        MunicipalityCode,
-                        ZoneID,
-                        StateCode,
-                        State
-                FROM engRefCountryAddress
+                        CA.CountryAddressID,
+                        CA.City,
+                        CA.Municipality,
+                        CA.ZipCode,
+                        CA.CountryCode,
+                        CA.CityCode,
+                        CA.MunicipalityCode,
+                        CA.ZoneID,
+                        CA.StateCode,
+                        CA.State,
+                        Z.ZoneName
+                FROM engRefCountryAddress CA
+                    LEFT OUTER JOIN orgZone Z ON CA.ZoneID = Z.ZoneID
                 WHERE ZipCode = ?
             """, (zip_code,))
 
@@ -126,21 +134,43 @@ class FormularioClienteModelo:
         else:
             consulta = self.base_de_datos.fetchall("""
                 SELECT 
-                        CountryAddressID,
-                        City,
-                        Municipality,
-                        ZipCode,
-                        CountryCode,
-                        CityCode,
-                        MunicipalityCode,
-                        ZoneID,
-                        StateCode,
-                        State
-                FROM engRefCountryAddress
+                        CA.CountryAddressID,
+                        CA.City,
+                        CA.Municipality,
+                        CA.ZipCode,
+                        CA.CountryCode,
+                        CA.CityCode,
+                        CA.MunicipalityCode,
+                        CA.ZoneID,
+                        CA.StateCode,
+                        CA.State,
+                        Z.ZoneName
+                FROM engRefCountryAddress CA
+                    LEFT OUTER JOIN orgZone Z ON CA.ZoneID = Z.ZoneID
                 WHERE ZoneID IS NOT NULL
             """)
 
         self.consulta_colonias = consulta
         return self.consulta_colonias
 
+    def obtener_envio_por_colonia(self, colonia):
+        consulta = self.base_de_datos.fetchall("""
+            SELECT TOP 1 ISNULL(Z.CargoEnvio, 20) AS DeliveryCost
+            FROM engRefCountryAddress EF
+                INNER JOIN orgZone Z ON EF.ZoneID = Z.ZoneID 
+            WHERE 
+                EF.State = 'Campeche'
+                AND EF.City = ?
+        """,(colonia,))
 
+        if not consulta:
+            return self.utilerias.redondear_valor_cantidad_a_decimal(20)
+
+        if consulta:
+            return self.utilerias.redondear_valor_cantidad_a_decimal(consulta[0]['DeliveryCost'])
+
+    def obtener_estado_y_municipio_colonia(self, colonia):
+        consulta = [reg for reg in self.consulta_colonias if reg['City'] == colonia]
+
+        if consulta:
+            return consulta[0]['State'], consulta[0]['Municipality']

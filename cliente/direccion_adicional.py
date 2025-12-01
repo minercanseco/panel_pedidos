@@ -1,4 +1,6 @@
 import tkinter as tk
+
+import pyperclip
 from cayal.ventanas import Ventanas
 
 class DireccionAdicional:
@@ -226,14 +228,62 @@ class DireccionAdicional:
 
     def _cargar_eventos(self):
         eventos = {
-            'btn_copiar': self._copiar_direccion,
-            'btn_eliminar': self._eliminar_direccion
+            'btn_copiar': self._copiar_info_direccion,
+            'btn_eliminar': self._eliminar_direccion,
+            'tbx_cp': lambda event: self._rellenar_cbx_colonias_por_cp(),
+            'cbx_colonia': lambda event: self._rellenar_cbx_colonias_por_ruta(),
 
         }
         self._ventanas.cargar_eventos(eventos)
 
-    def _copiar_direccion(self):
-        print(f'copiando direccion de {self._address_detail_id}')
-
     def _eliminar_direccion(self):
         print(f'eliminando direccion de {self._address_detail_id}')
+
+    def _buscar_informacion_direccion_whatsapp(self):
+        funcion = self._ventanas.obtener_input_componente
+        mensaje = (
+            f"📍 ¿Podría confirmar si los datos de su dirección son correctos?  \n\n"
+            f"👤 *Cliente:* {self._modelo.cliente.official_name}\n"
+            f"📍 *Dirección del cliente* ({funcion('tbx_nombre')})\n"
+            f"🏠 *Calle:* {funcion('tbx_calle')}\n"
+            f"🔢 *Número:* {funcion('tbx_numero')}\n"
+            f"📮 *C.P.:* {funcion('tbx_cp')}\n"
+            f"🏘️ *Colonia:* {funcion('cbx_colonia')}\n"
+            f"🏙️ *Municipio:* {funcion('lbl_municipio')}\n"
+            f"🌎 *Estado:* {funcion('lbl_estado')}\n\n"
+            f"📞 *Teléfono:* {funcion('tbx_telefono')}\n"
+            f"📱 *Celular:* {funcion('tbx_celular')}\n\n"
+            f"📝 *Comentarios:* {funcion('txt_comentario')}\n"
+            f"🚚💸 *Envío a domicilio:* ${funcion('tbx_envio')} (En compras menores a 200)\n"
+        )
+        if self._modelo.cliente.cayal_customer_type_id == 2:
+            fiscales = (
+                f"\n📧 *Correo:* {self._modelo.cliente.email}\n"
+                f"🆔 *RFC:* {self._modelo.cliente.official_number}\n"
+                f"📄 *Uso CFDI:* {self._modelo.cliente.receptor_uso_cfdi}\n"
+            )
+            mensaje += fiscales
+        return mensaje.replace('None', '')
+
+    def _copiar_info_direccion(self):
+        mensaje = self._buscar_informacion_direccion_whatsapp()
+        pyperclip.copy(mensaje)
+
+    def _rellenar_cbx_colonias_por_cp(self):
+        cp = self._ventanas.obtener_input_componente('tbx_cp')
+        if not self._modelo.utilerias.es_codigo_postal(cp):
+            return
+
+        consulta = self._modelo.obtener_colonias(zip_code=cp)
+        colonias = [reg['City'] for reg in consulta]
+        colonias = sorted(colonias)
+        self._ventanas.rellenar_cbx('cbx_colonia', colonias)
+
+    def _rellenar_cbx_colonias_por_ruta(self):
+        if self._ventanas.obtener_input_componente('cbx_colonia') != 'Seleccione':
+            return
+
+        consulta = self._modelo.obtener_colonias()
+        colonias = [reg['City'] for reg in consulta]
+        colonias = sorted(colonias)
+        self._ventanas.rellenar_cbx('cbx_colonia', colonias)

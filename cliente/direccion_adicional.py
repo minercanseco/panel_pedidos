@@ -17,6 +17,7 @@ class DireccionAdicional:
         self._cargar_componentes()
         self._ajustar_ancho_componentes()
         self._rellenar_componentes()
+        self._bloquear_componentes()
 
     def _crear_frames(self):
         frames = {
@@ -133,10 +134,10 @@ class DireccionAdicional:
 
     def _rellenar_componentes(self):
         componentes = {
-            'tbx_cliente': '',
-            'tbx_ncomercial': '',
+            'tbx_nombre': 'AddressName',
+            'tbx_ncomercial': 'ComercialName',
             'tbx_telefono': 'Telefono',
-            'tbx_celular': '',
+            'tbx_celular': 'Celular',
             'tbx_calle': 'Street',
             'tbx_numero': 'ExtNumber',
             'txt_comentario': 'Comments',
@@ -146,20 +147,33 @@ class DireccionAdicional:
             'lbl_municipio': 'Municipality',
             'cbx_colonia': '',
 
-            'tbx_domicilios': '',
-            'tbx_envio': '',
+            'tbx_envio': 'DeliveryCost',
             'cbx_ruta': '',
 
-            'tbx_rfc': '',
-            'tbx_cif': '',
+            'tbx_rfc': 'OfficialNumber',
+            'tbx_cif': 'CIF',
             'cbx_regimen': '',
             'cbx_formapago': '',
             'cbx_metodopago': '',
             'cbx_usocfdi': '',
-            'txt_correo': '',
+            'txt_correo': 'Correo',
 
         }
         for componente, clave in componentes.items():
             valor = self._info_direccion.get(clave,'')
             self._ventanas.insertar_input_componente(componente, valor)
-        print(self._info_direccion)
+
+    def _bloquear_componentes(self):
+        componentes = [
+            'tbx_ncomercial',
+            'tbx_envio',
+            'cbx_ruta',
+            'tbx_rfc',
+            'tbx_cif',
+            'cbx_regimen',
+            'cbx_formapago',
+            'cbx_metodopago',
+            'cbx_usocfdi'
+        ]
+        for componente in componentes:
+            self._ventanas.bloquear_componente(componente)

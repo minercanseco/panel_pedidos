@@ -101,14 +101,19 @@ class NoteBookCliente:
             for tab, (nombre, configuracion) in info_pestanas.items():
                 if tab != 'tab_direccion_fiscal':
                     # Buscar la dirección correspondiente por nombre
-                    info_direccion = [
+                    consulta_direccion = [
                         reg for reg in self._direcciones_adicionales
                         if reg['AddressName'] == nombre
                     ]
-                    if info_direccion:
+                    if consulta_direccion:
+                        info_direccion = consulta_direccion[0]
+
+                        # aqui se acompleta con valores predeterminados
+                        info_direccion =self._acompletar_valores_direccion(info_direccion)
+
                         frame_name = tab.replace('tab_', 'frm_')
                         frame_widget = self._ventanas.componentes_forma[frame_name]
-                        _ = DireccionAdicional(frame_widget, self._modelo, info_direccion[0])
+                        _ = DireccionAdicional(frame_widget, self._modelo, info_direccion)
 
     def _buscar_info_cliente(self):
         return self._base_de_datos.fetchall("""
@@ -176,3 +181,11 @@ class NoteBookCliente:
             info_pestanas[tab] = (nombre, None)
 
         return info_pestanas
+
+    def _acompletar_valores_direccion(self, info_direccion):
+        info_direccion['OfficialName'] = self._cliente.official_name
+        info_direccion['ComercialName'] = self._cliente.commercial_name
+        info_direccion['OfficialNumber'] = self._cliente.official_number
+        info_direccion['CIF'] = self._cliente.cif
+
+        return info_direccion

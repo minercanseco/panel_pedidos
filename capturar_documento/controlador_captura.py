@@ -5,17 +5,17 @@ import re
 import pyperclip
 import logging
 
-from agregar_epecificaciones import AgregarEspecificaciones
-from direccion_cliente import DireccionCliente
-from direcciones_adicionales import DireccionesAdicionales
-from historial_cliente import HistorialCliente
-from panel_direcciones import PanelDirecciones
-from formulario_cliente import FormularioCliente
+from capturar_documento.agregar_epecificaciones import AgregarEspecificaciones
+from capturar_documento.direccion_cliente import DireccionCliente
+from capturar_documento.direcciones_adicionales import DireccionesAdicionales
+from capturar_documento.historial_cliente import HistorialCliente
+from capturar_documento.panel_direcciones import PanelDirecciones
+#from formulario_cliente import FormularioCliente
 from verificador_precios.interfaz_verificador import InterfazVerificador
 from verificador_precios.controlador_verificador import ControladorVerificador
 from capturar_documento.editar_partida import EditarPartida
-from controlador_cobro_rapido import ControladorCobroRapido
-from interfaz_cobro_rapido import InterfazCobroRapido
+from cobro_rapido.controlador_cobro_rapido import ControladorCobroRapido
+from cobro_rapido.interfaz_cobro_rapido import InterfazCobroRapido
 
 
 class ControladorCaptura:

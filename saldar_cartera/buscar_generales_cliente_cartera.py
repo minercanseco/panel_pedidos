@@ -11,8 +11,8 @@ from cayal.ventanas import Ventanas
 from cayal.documento import Documento
 from cayal.util import Utilerias
 
-from controlador_saldar_cartera import ControladorSaldarCartera
-from interfaz_saldar_cartera import InterfazSaldarCartera
+from saldar_cartera.controlador_saldar_cartera import ControladorSaldarCartera
+from saldar_cartera.interfaz_saldar_cartera import InterfazSaldarCartera
 
 
 class BuscarGeneralesCliente:

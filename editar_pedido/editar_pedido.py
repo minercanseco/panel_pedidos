@@ -4,7 +4,7 @@ import uuid
 from cayal.ventanas import Ventanas
 
 from editar_pedido.agregar_partida_produccion import AgregarPartidaProduccion
-from editar_partida_produccion import EditarPartidaProduccion
+from editar_pedido.editar_partida_produccion import EditarPartidaProduccion
 
 
 class EditarPedido:

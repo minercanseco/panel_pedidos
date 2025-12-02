@@ -12,10 +12,9 @@ from cayal.documento import Documento
 from cayal.cliente import Cliente
 from cayal.comandos_base_datos import ComandosBaseDatos
 
-from controlador_captura import ControladorCaptura
-from interfaz_captura import InterfazCaptura
-from modelo_captura import ModeloCaptura
-from ticket_158 import Ticket158
+from capturar_documento.controlador_captura import ControladorCaptura
+from capturar_documento.interfaz_captura import InterfazCaptura
+from capturar_documento.modelo_captura import ModeloCaptura
 
 
 class LlamarInstanciaCaptura:

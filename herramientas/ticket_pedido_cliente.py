@@ -3,7 +3,7 @@ import os
 import platform
 import tempfile
 
-from generador_ticket_cliente import GeneradorTicketCliente
+from herramientas.generador_ticket_cliente import GeneradorTicketCliente
 
 
 class TicketPedidoCliente:

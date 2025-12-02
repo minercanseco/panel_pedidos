@@ -1,7 +1,7 @@
 import tkinter as tk
 import uuid
 
-from finalizar_surtido import FinalizarSurtido
+from editar_pedido.finalizar_surtido import FinalizarSurtido
 from cayal.ventanas import Ventanas
 
 

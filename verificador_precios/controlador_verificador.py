@@ -2,7 +2,7 @@ import pyperclip
 from cayal.util import Utilerias
 from cayal.comandos_base_datos import ComandosBaseDatos
 
-from herramientas.informacion_producto import InformacionProducto
+from verificador_precios.informacion_producto import InformacionProducto
 
 
 class ControladorVerificador:
@@ -12,7 +12,7 @@ class ControladorVerificador:
         # instancias a utilizar
         self._interfaz =  interfaz
         self._parametros = parametros
-        self._base_de_datos = ComandosBaseDatos(self._parametros.cadena_conexion)
+        self._base_de_datos = ComandosBaseDatos()
         self._utilerias = Utilerias()
         self._ventanas = interfaz.ventanas
         self._master = interfaz.master
@@ -221,7 +221,8 @@ class ControladorVerificador:
 
         tax_type_id = info_producto['TaxTypeID']
         cantidad = 1
-
+        clave_sat = info_producto['ClaveProdServ']
+        clave_unidad = info_producto['ClaveUnidad']
         ofertado = precios['ofertado']
 
         if ofertado:
@@ -229,8 +230,10 @@ class ControladorVerificador:
             precio_previo = precios['precio_previo']
             precio_oferta = precios['precio_oferta']
 
-            totales = self._utilerias.calcular_totales_partida(precio_previo, cantidad, tax_type_id)
-            totales_oferta = self._utilerias.calcular_totales_partida(precio_oferta, cantidad, tax_type_id)
+            totales = self._utilerias.calcular_totales_partida(
+                precio_previo, cantidad, tax_type_id, clave_unidad, clave_sat)
+            totales_oferta = self._utilerias.calcular_totales_partida(
+                precio_oferta, cantidad, tax_type_id, clave_unidad, clave_sat)
 
             info_producto['total'] = totales['total']
             info_producto['total_oferta'] = totales_oferta['total']
@@ -240,7 +243,7 @@ class ControladorVerificador:
             info_producto['tipo_oferta'] = precios['tipo_oferta']
             info_producto['ofertado'] = ofertado
         else:
-            totales = self._utilerias.calcular_totales_partida(precios['precio'], cantidad, tax_type_id)
+            totales = self._utilerias.calcular_totales_partida(precios['precio'], cantidad, tax_type_id, clave_unidad, clave_sat)
             info_producto['total'] = totales['total']
             info_producto['ofertado'] = ofertado
 
@@ -262,7 +265,8 @@ class ControladorVerificador:
 
             # Calcular y mostrar existencia con ajustes
             if 'existencia' in nombre_etiqueta:
-                existencia = info_producto['QtyPresent'] - info_producto['CantidadAjustes']
+                print(info_producto.get('QtyPresent',0),info_producto.get('CantidadAjustes',0) )
+                existencia = info_producto.get('QtyPresent',0) - info_producto.get('CantidadAjustes',0)
                 existencia = self._utilerias.redondear_valor_cantidad_a_decimal(existencia)
 
                 if info_producto['ProductID'] not in self._PRODUCTOS_ESPECIALES.keys():

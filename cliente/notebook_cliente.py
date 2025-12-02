@@ -1,17 +1,16 @@
 import tkinter as tk
 from cayal.ventanas import Ventanas
-from cayal.cliente import Cliente
 from cliente.formulario_cliente_interfaz import FormularioClienteInterfaz
 from cliente.formulario_cliente_modelo import FormularioClienteModelo
 from cliente.formulario_cliente_controlador import FormularioClienteControlador
 from cliente.direccion_adicional import DireccionAdicional
 
 class NoteBookCliente:
-    def __init__(self, master, base_de_datos, parametros, utilerias):
+    def __init__(self, master, base_de_datos, parametros, utilerias, cliente):
         self._master = master
         self._ventanas = Ventanas(self._master)
 
-        self._cliente = Cliente()
+        self._cliente = cliente
         self._base_de_datos = base_de_datos
         self._parametros = parametros
         self._utilerias = utilerias

@@ -102,16 +102,24 @@ class FormularioClienteControlador:
 
         for componente, (funcion_consulta, atributo) in consultas.items():
             consulta = funcion_consulta()
-            valores = [reg['Value'] for reg in consulta]
-            self._interfaz.ventanas.rellenar_cbx(componente, valores)
+            valores = []
+            # este if solo es valido cuando el cliente es nuevo y la captura es por CIF
+            if componente == 'cbx_regimen' and self._modelo.cliente.company_type_names:
+                valores = self._modelo.cliente.company_type_names
+            else:
+                valores = [reg['Value'] for reg in consulta]
 
-            if self._modelo.cliente.business_entity_id != 0:
-                if componente == 'cbx_regimen':
-                    valor_seleccion = [reg['Value'] for reg in consulta if reg['Value'] == atributo]
-                else:
-                    valor_seleccion = [reg['Value'] for reg in consulta if reg['Clave'] == atributo]
+            if len(valores) == 1:
+                self._interfaz.ventanas.rellenar_cbx(componente, valores, sin_seleccione=True)
+            else:
+                self._interfaz.ventanas.rellenar_cbx(componente, valores, sin_seleccione=False)
 
-                if valor_seleccion:
+            #if self._modelo.cliente.business_entity_id != 0:
+            if componente == 'cbx_regimen':
+                valor_seleccion = [reg['Value'] for reg in consulta if reg['Value'] == atributo]
+            else:
+                valor_seleccion = [reg['Value'] for reg in consulta if reg['Clave'] == atributo]
+            if valor_seleccion:
                     self._interfaz.ventanas.insertar_input_componente(componente, valor_seleccion[0])
 
         # ------------------------------------------------------------------------
@@ -480,7 +488,6 @@ class FormularioClienteControlador:
                 return
 
         return True
-
 
     def _guardar_o_actualizar_cliente(self):
         if not self._validar_reglas_de_negocio():

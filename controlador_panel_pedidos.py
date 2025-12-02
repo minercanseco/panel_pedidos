@@ -10,6 +10,7 @@ from buscar_generales_cliente import BuscarGeneralesCliente
 from capturado_vs_producido import CapturadoVsProducido
 
 from cliente.notebook_cliente import NoteBookCliente
+from cliente.cliente_nuevo import ClienteNuevo
 
 from editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from cayal.cobros import Cobros
@@ -28,6 +29,7 @@ from cayal.documento import Documento
 from buscar_generales_cliente_cartera import BuscarGeneralesCliente
 from buscar_clientes import BuscarClientes
 from cancelar_pedido import CancelarPedido
+
 
 
 class ControladorPanelPedidos:
@@ -569,15 +571,23 @@ class ControladorPanelPedidos:
     def _capturar_nuevo_cliente(self):
         self._pausar_autorefresco()
         try:
-            self._parametros.id_principal = 11135
-            self._interfaz.master.iconify()
+
+            #self._parametros.id_principal = 11135
 
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+            """""
             NoteBookCliente(ventana,
                             self._base_de_datos,
                             self._parametros,
                             self._utilerias
                             )
+            """
+            ClienteNuevo(ventana,
+                         self._parametros,
+                         self._base_de_datos,
+                         self._utilerias)
+            self._interfaz.master.iconify()
+
             ventana.wait_window()
 
         finally:

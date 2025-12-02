@@ -901,7 +901,7 @@ from historial_pedido import HistorialPedido
 from horario_acumulado import HorarioslAcumulados
 from llamar_instancia_captura import LlamarInstanciaCaptura
 from ticket_pedido_cliente import TicketPedidoCliente
-from cliente.panel_principal_cliente import PanelPrincipal
+from cliente.cliente_nuevo import PanelPrincipal
 from selector_tipo_documento import SelectorTipoDocumento
 from ttkbootstrap.constants import *
 from cayal.tableview_cayal import Tableview
@@ -1207,363 +1207,373 @@ class ControladorPanelPedidos:
 
         # Obtener filas a procesar
         filas = self._modelo.consulta_pedidos if actualizar_meters else
-            self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', visibles=True)
+        self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', visibles=True)
 
-        # Reiniciar contadores si estamos actualizando meters
-        if actualizar_meters:
-            self._modelo.pedidos_retrasados = 0
-            self._modelo.pedidos_en_tiempo = 0
-            self._modelo.pedidos_a_tiempo = 0
+    # Reiniciar contadores si estamos actualizando meters
+    if actualizar_meters:
+        self._modelo.pedidos_retrasados = 0
+        self._modelo.pedidos_en_tiempo = 0
+        self._modelo.pedidos_a_tiempo = 0
 
-        if not filas:
-            self._coloreando = False
-            return
-
-        # Definir colores
-        colores = {
-            1: 'green',  # Pedido a tiempo o programado para otro día
-            2: 'orange',  # Pedido próximo a la entrega (tiempo intermedio)
-            3: 'red',  # Urgente o con muy poco tiempo para entrega / cancelado
-            4: 'blue',  # Entregado o en ruta con poco tiempo para entrega
-            5: 'purple',  # Pago pendiente por confirmar
-            6: 'lightgreen',  # Transferencia confirmada
-            7: 'lightblue'  # En ruta, entregado o en cartera
-        }
-
-        for i, fila in enumerate(filas):
-            valores_fila = {
-                'PriorityID': fila['PriorityID'],
-                'Cancelled': fila['Cancelado'],
-                'FechaEntrega': fila['FechaEntrega'] if actualizar_meters else fila['F.Entrega'],
-                'HoraEntrega': fila['HoraCaptura'] if actualizar_meters else fila['H.Entrega'],
-                'StatusID': fila['TypeStatusID'],
-                'OrderDeliveryTypeID': fila['OrderDeliveryTypeID'],
-                'PaymentConfirmedID': fila['PaymentConfirmedID']
-
-            }
-            status_pedido = self._utilerias.determinar_color_fila_respecto_entrega_pedido(valores_fila, ahora)
-
-            color = colores[status_pedido]
-
-            if actualizar_meters:
-                if status_pedido in (1, 4):
-                    self._modelo.pedidos_en_tiempo += 1
-                elif status_pedido == 2:
-                    self._modelo.pedidos_a_tiempo += 1
-                elif status_pedido == 3:
-                    self._modelo.pedidos_retrasados += 1
-            else:
-                self._interfaz.ventanas.colorear_filas_table_view('tbv_pedidos', [i], color)
-
-        if actualizar_meters:
-            self._rellenar_meters()
-
+    if not filas:
         self._coloreando = False
+        return
 
-    def _obtener_valores_cbx_filtros(self):
-        # Obtener valores actuales de los filtros
-        vlr_cbx_captura = self._interfaz.ventanas.obtener_input_componente('cbx_capturista')
-        vlr_cbx_horarios = self._interfaz.ventanas.obtener_input_componente('cbx_horarios')
-        vlr_cbx_status = self._interfaz.ventanas.obtener_input_componente('cbx_status')
+    # Definir colores
+    colores = {
+        1: 'green',  # Pedido a tiempo o programado para otro día
+        2: 'orange',  # Pedido próximo a la entrega (tiempo intermedio)
+        3: 'red',  # Urgente o con muy poco tiempo para entrega / cancelado
+        4: 'blue',  # Entregado o en ruta con poco tiempo para entrega
+        5: 'purple',  # Pago pendiente por confirmar
+        6: 'lightgreen',  # Transferencia confirmada
+        7: 'lightblue'  # En ruta, entregado o en cartera
+    }
 
-        return {'cbx_capturista': vlr_cbx_captura, 'cbx_horarios': vlr_cbx_horarios, 'cbx_status': vlr_cbx_status}
+    for i, fila in enumerate(filas):
+        valores_fila = {
+            'PriorityID': fila['PriorityID'],
+            'Cancelled': fila['Cancelado'],
+            'FechaEntrega': fila['FechaEntrega'] if actualizar_meters else fila['F.Entrega'],
+            'HoraEntrega': fila['HoraCaptura'] if actualizar_meters else fila['H.Entrega'],
+            'StatusID': fila['TypeStatusID'],
+            'OrderDeliveryTypeID': fila['OrderDeliveryTypeID'],
+            'PaymentConfirmedID': fila['PaymentConfirmedID']
 
-    def _settear_valores_cbx_filtros(self, valores_cbx_filtros):
-        vlr_cbx_captura = valores_cbx_filtros['cbx_capturista']
-        vlr_cbx_horarios = valores_cbx_filtros['cbx_horarios']
-        vlr_cbx_status = valores_cbx_filtros['cbx_status']
+        }
+        status_pedido = self._utilerias.determinar_color_fila_respecto_entrega_pedido(valores_fila, ahora)
 
-        # Aplicar filtros solo si el usuario ha seleccionado un valor específico
-        if vlr_cbx_captura != 'Seleccione':
-            self._interfaz.ventanas.insertar_input_componente('cbx_capturista', vlr_cbx_captura)
+        color = colores[status_pedido]
 
-        if vlr_cbx_horarios != 'Seleccione':
-            self._interfaz.ventanas.insertar_input_componente('cbx_horarios', vlr_cbx_horarios)
+        if actualizar_meters:
+            if status_pedido in (1, 4):
+                self._modelo.pedidos_en_tiempo += 1
+            elif status_pedido == 2:
+                self._modelo.pedidos_a_tiempo += 1
+            elif status_pedido == 3:
+                self._modelo.pedidos_retrasados += 1
+        else:
+            self._interfaz.ventanas.colorear_filas_table_view('tbv_pedidos', [i], color)
 
-        if vlr_cbx_status != 'Seleccione':
-            self._interfaz.ventanas.insertar_input_componente('cbx_status', vlr_cbx_status)
+    if actualizar_meters:
+        self._rellenar_meters()
 
-    def _actualizar_pedidos(self, fecha=None, criteria=True, refresh=False, despues_de_capturar_pedido=False):
-        if self._actualizando_tabla:
+    self._coloreando = False
+
+
+def _obtener_valores_cbx_filtros(self):
+    # Obtener valores actuales de los filtros
+    vlr_cbx_captura = self._interfaz.ventanas.obtener_input_componente('cbx_capturista')
+    vlr_cbx_horarios = self._interfaz.ventanas.obtener_input_componente('cbx_horarios')
+    vlr_cbx_status = self._interfaz.ventanas.obtener_input_componente('cbx_status')
+
+    return {'cbx_capturista': vlr_cbx_captura, 'cbx_horarios': vlr_cbx_horarios, 'cbx_status': vlr_cbx_status}
+
+
+def _settear_valores_cbx_filtros(self, valores_cbx_filtros):
+    vlr_cbx_captura = valores_cbx_filtros['cbx_capturista']
+    vlr_cbx_horarios = valores_cbx_filtros['cbx_horarios']
+    vlr_cbx_status = valores_cbx_filtros['cbx_status']
+
+    # Aplicar filtros solo si el usuario ha seleccionado un valor específico
+    if vlr_cbx_captura != 'Seleccione':
+        self._interfaz.ventanas.insertar_input_componente('cbx_capturista', vlr_cbx_captura)
+
+    if vlr_cbx_horarios != 'Seleccione':
+        self._interfaz.ventanas.insertar_input_componente('cbx_horarios', vlr_cbx_horarios)
+
+    if vlr_cbx_status != 'Seleccione':
+        self._interfaz.ventanas.insertar_input_componente('cbx_status', vlr_cbx_status)
+
+
+def _actualizar_pedidos(self, fecha=None, criteria=True, refresh=False, despues_de_capturar_pedido=False):
+    if self._actualizando_tabla:
+        return
+
+    try:
+        self._actualizando_tabla = True
+
+        # 1) Limpia filtros visuales si lo pides
+        self._interfaz.ventanas.limpiar_filtros_table_view('tbv_pedidos', criteria)
+
+        # 2) Reconsulta si hay refresh, cambiaste fecha o no hay caché
+        if refresh or (fecha is not None) or not getattr(self._modelo, 'consulta_pedidos', None):
+            consulta = self._modelo.buscar_pedidos(fecha)
+            self._modelo.consulta_pedidos = consulta
+        else:
+            consulta = self._modelo.consulta_pedidos
+
+        if not consulta:
+            self._limpiar_tabla()
             return
 
-        try:
-            self._actualizando_tabla = True
+        # 3) Guarda selección actual del usuario (antes de repoblar combos)
+        seleccion_previa = self._obtener_valores_cbx_filtros()
 
-            # 1) Limpia filtros visuales si lo pides
-            self._interfaz.ventanas.limpiar_filtros_table_view('tbv_pedidos', criteria)
+        # 4) Construye opciones de filtros desde la data FRESCA y repuebla combos
+        #    - limpia None, strip y de-duplica
+        def _norm_set(iterable):
+            vistos, res = set(), []
+            for v in iterable:
+                if v is None:
+                    continue
+                s = str(v).strip()
+                if s and s not in vistos:
+                    vistos.add(s)
+                    res.append(s)
+            return sorted(res)
 
-            # 2) Reconsulta si hay refresh, cambiaste fecha o no hay caché
-            if refresh or (fecha is not None) or not getattr(self._modelo, 'consulta_pedidos', None):
-                consulta = self._modelo.buscar_pedidos(fecha)
-                self._modelo.consulta_pedidos = consulta
-            else:
-                consulta = self._modelo.consulta_pedidos
+        capturistas = _norm_set(f['CapturadoPor'] for f in consulta)
+        horarios = _norm_set(f['HoraEntrega'] for f in consulta)
+        status = _norm_set(f['Status'] for f in consulta)
 
-            if not consulta:
-                self._limpiar_tabla()
-                return
-
-            # 3) Guarda selección actual del usuario (antes de repoblar combos)
-            seleccion_previa = self._obtener_valores_cbx_filtros()
-
-            # 4) Construye opciones de filtros desde la data FRESCA y repuebla combos
-            #    - limpia None, strip y de-duplica
-            def _norm_set(iterable):
-                vistos, res = set(), []
-                for v in iterable:
-                    if v is None:
-                        continue
-                    s = str(v).strip()
-                    if s and s not in vistos:
-                        vistos.add(s)
-                        res.append(s)
-                return sorted(res)
-
-            capturistas = _norm_set(f['CapturadoPor'] for f in consulta)
-            horarios = _norm_set(f['HoraEntrega'] for f in consulta)
-            status = _norm_set(f['Status'] for f in consulta)
-
-            # repoblar (usa tu Ventanas.rellenar_cbx(nombre_cbx, valores, sin_seleccione=None))
-            self._rellenar_cbx_captura(capturistas)
-            self._rellenar_cbx_horarios(horarios)
-            self._rellenar_cbx_status(status)
-
-            # 5) Restaura selección previa o aplica "prefiltro post-captura"
-            print(self._capturando_nuevo_pedido)
-            if self._capturando_nuevo_pedido:
-                # capturista = yo
-                self._interfaz.ventanas.insertar_input_componente('cbx_capturista', self._user_name)
-
-                # status = alguna variante de "abierto" si existe
-                abiertos_posibles = {'abierto', 'abierta', 'open'}
-                candidato_abierto = next((s for s in status if s.strip().lower() in abiertos_posibles), None)
-                self._interfaz.ventanas.insertar_input_componente('cbx_status', candidato_abierto or 'Seleccione')
-
-                # horario = 'Seleccione'
-                self._interfaz.ventanas.insertar_input_componente('cbx_horarios', 'Seleccione')
-                print('aqui debieramos filtrar abierto')
-                self._capturando_nuevo_pedido = False
-            else:
-                # restaura selección previa usando tu setter robusto
-                print('aqui no filtramos abiertos')
-                self._interfaz.ventanas.insertar_input_componente('cbx_capturista',
-                                                                  seleccion_previa.get('cbx_capturista', 'Seleccione'))
-                self._interfaz.ventanas.insertar_input_componente('cbx_horarios',
-                                                                  seleccion_previa.get('cbx_horarios', 'Seleccione'))
-                self._interfaz.ventanas.insertar_input_componente('cbx_status',
-                                                                  seleccion_previa.get('cbx_status', 'Seleccione'))
-
-            # 6) Aplica filtros según lo que haya en los combos AHORA
-            valores = self._obtener_valores_cbx_filtros()
-            consulta_filtrada = self._filtrar_consulta_sin_rellenar(
-                consulta, valores, despues_de_captura=despues_de_capturar_pedido
-            )
-
-            # 7) Pinta la tabla
-            self._interfaz.ventanas.rellenar_table_view(
-                'tbv_pedidos',
-                self._interfaz.crear_columnas_tabla(),
-                consulta_filtrada
-            )
-
-            self._colorear_filas_panel_horarios(actualizar_meters=True)
-
-        finally:
-            self._actualizando_tabla = False
-
-    def _filtrar_consulta_sin_rellenar(self, consulta, valores, despues_de_captura=False):
-        """Filtra en una sola pasada; NO toca combos."""
-        # Prioridad: "sin procesar"
-        if self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar') == 1:
-            self._interfaz.ventanas.limpiar_componentes('den_fecha')
-            return self._modelo.buscar_pedidos_sin_procesar()
-
-        if despues_de_captura:
-            usuario = self._user_name
-            return [f for f in consulta
-                    if f.get('CapturadoPor') == usuario and f.get('Status') == 'Abierto']
-
-        # Filtros normales desde combos
-        vlr_cbx_captura = valores.get('cbx_capturista')
-        vlr_cbx_horarios = valores.get('cbx_horarios')
-        vlr_cbx_status = valores.get('cbx_status')
-
-        # Predicados solo si el usuario eligió algo distinto a 'Seleccione'
-        filtrar_captura = (vlr_cbx_captura and vlr_cbx_captura != 'Seleccione')
-        filtrar_horario = (vlr_cbx_horarios and vlr_cbx_horarios != 'Seleccione')
-        filtrar_status = (vlr_cbx_status and vlr_cbx_status != 'Seleccione')
-
-        if not (filtrar_captura or filtrar_horario or filtrar_status):
-            return consulta
-
-        def ok(f):
-            if filtrar_captura and f.get('CapturadoPor') != vlr_cbx_captura:
-                return False
-            if filtrar_horario and f.get('HoraEntrega') != vlr_cbx_horarios:
-                return False
-            if filtrar_status and f.get('Status') != vlr_cbx_status:
-                return False
-            return True
-
-        return [f for f in consulta if ok(f)]
-
-    def _filtrar_consulta(self, consulta, valores_cbx_filtros):
-        # Si el checkbox está activado, solo devolver los pedidos sin procesar
-        if self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar') == 1:
-            self._interfaz.ventanas.limpiar_componentes('den_fecha')
-            return self._modelo.buscar_pedidos_sin_procesar()
-
-        vlr_cbx_captura = valores_cbx_filtros['cbx_capturista']
-        vlr_cbx_horarios = valores_cbx_filtros['cbx_horarios']
-        vlr_cbx_status = valores_cbx_filtros['cbx_status']
-
-        # Extraer valores únicos de los campos para actualizar los filtros
-        capturistas = {fila['CapturadoPor'] for fila in consulta}
-        horarios = {fila['HoraEntrega'] for fila in consulta}
-        status = {fila['Status'] for fila in consulta}
-
-        self._rellenar_cbx_status(status)
-        self._rellenar_cbx_horarios(horarios)
+        # repoblar (usa tu Ventanas.rellenar_cbx(nombre_cbx, valores, sin_seleccione=None))
         self._rellenar_cbx_captura(capturistas)
+        self._rellenar_cbx_horarios(horarios)
+        self._rellenar_cbx_status(status)
 
-        # Aplicar filtros solo si el usuario ha seleccionado un valor específico
-        if vlr_cbx_captura and vlr_cbx_captura != 'Seleccione':
-            consulta = [fila for fila in consulta if fila['CapturadoPor'] == vlr_cbx_captura]
+        # 5) Restaura selección previa o aplica "prefiltro post-captura"
+        print(self._capturando_nuevo_pedido)
+        if self._capturando_nuevo_pedido:
+            # capturista = yo
+            self._interfaz.ventanas.insertar_input_componente('cbx_capturista', self._user_name)
 
-        if vlr_cbx_horarios and vlr_cbx_horarios != 'Seleccione':
-            consulta = [fila for fila in consulta if fila['HoraEntrega'] == vlr_cbx_horarios]
+            # status = alguna variante de "abierto" si existe
+            abiertos_posibles = {'abierto', 'abierta', 'open'}
+            candidato_abierto = next((s for s in status if s.strip().lower() in abiertos_posibles), None)
+            self._interfaz.ventanas.insertar_input_componente('cbx_status', candidato_abierto or 'Seleccione')
 
-        if vlr_cbx_status and vlr_cbx_status != 'Seleccione':
-            consulta = [fila for fila in consulta if fila['Status'] == vlr_cbx_status]
+            # horario = 'Seleccione'
+            self._interfaz.ventanas.insertar_input_componente('cbx_horarios', 'Seleccione')
+            print('aqui debieramos filtrar abierto')
+            self._capturando_nuevo_pedido = False
+        else:
+            # restaura selección previa usando tu setter robusto
+            print('aqui no filtramos abiertos')
+            self._interfaz.ventanas.insertar_input_componente('cbx_capturista',
+                                                              seleccion_previa.get('cbx_capturista', 'Seleccione'))
+            self._interfaz.ventanas.insertar_input_componente('cbx_horarios',
+                                                              seleccion_previa.get('cbx_horarios', 'Seleccione'))
+            self._interfaz.ventanas.insertar_input_componente('cbx_status',
+                                                              seleccion_previa.get('cbx_status', 'Seleccione'))
 
+        # 6) Aplica filtros según lo que haya en los combos AHORA
+        valores = self._obtener_valores_cbx_filtros()
+        consulta_filtrada = self._filtrar_consulta_sin_rellenar(
+            consulta, valores, despues_de_captura=despues_de_capturar_pedido
+        )
+
+        # 7) Pinta la tabla
+        self._interfaz.ventanas.rellenar_table_view(
+            'tbv_pedidos',
+            self._interfaz.crear_columnas_tabla(),
+            consulta_filtrada
+        )
+
+        self._colorear_filas_panel_horarios(actualizar_meters=True)
+
+    finally:
+        self._actualizando_tabla = False
+
+
+def _filtrar_consulta_sin_rellenar(self, consulta, valores, despues_de_captura=False):
+    """Filtra en una sola pasada; NO toca combos."""
+    # Prioridad: "sin procesar"
+    if self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar') == 1:
+        self._interfaz.ventanas.limpiar_componentes('den_fecha')
+        return self._modelo.buscar_pedidos_sin_procesar()
+
+    if despues_de_captura:
+        usuario = self._user_name
+        return [f for f in consulta
+                if f.get('CapturadoPor') == usuario and f.get('Status') == 'Abierto']
+
+    # Filtros normales desde combos
+    vlr_cbx_captura = valores.get('cbx_capturista')
+    vlr_cbx_horarios = valores.get('cbx_horarios')
+    vlr_cbx_status = valores.get('cbx_status')
+
+    # Predicados solo si el usuario eligió algo distinto a 'Seleccione'
+    filtrar_captura = (vlr_cbx_captura and vlr_cbx_captura != 'Seleccione')
+    filtrar_horario = (vlr_cbx_horarios and vlr_cbx_horarios != 'Seleccione')
+    filtrar_status = (vlr_cbx_status and vlr_cbx_status != 'Seleccione')
+
+    if not (filtrar_captura or filtrar_horario or filtrar_status):
         return consulta
 
-    def _limpiar_tabla(self):
-        """Limpia la tabla y restablece los contadores de métricas"""
-        tabla = self._interfaz.ventanas.componentes_forma['tbv_pedidos']
-        for campo in ['mtr_total', 'mtr_en_tiempo', 'mtr_a_tiempo', 'mtr_retrasado']:
-            self._interfaz.ventanas.insertar_input_componente(campo, (1, 0))
-        tabla.delete_rows()
+    def ok(f):
+        if filtrar_captura and f.get('CapturadoPor') != vlr_cbx_captura:
+            return False
+        if filtrar_horario and f.get('HoraEntrega') != vlr_cbx_horarios:
+            return False
+        if filtrar_status and f.get('Status') != vlr_cbx_status:
+            return False
+        return True
 
-    def _capturar_nuevo_cliente(self):
-        self._pausar_autorefresco()
-        try:
-            self._parametros.id_principal = -1
-            self._interfaz.master.iconify()
-            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-            instancia = PanelPrincipal(ventana, self._parametros, self._base_de_datos, self._utilerias)
-            ventana.wait_window()
-        finally:
-            self._parametros.id_principal = 0
-            self._reanudar_autorefresco()
-
-    def _capturar_nuevo_pedido(self):
-        self._pausar_autorefresco()
-
-        try:
-            self._capturando_nuevo_pedido = True
-            self._master.iconify()
-
-            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(
-                ocultar_master=True,
-                master=self._interfaz.master
-            )
-
-            self._parametros.id_principal = -1
-            _ = BuscarGeneralesCliente(ventana, self._parametros)
+    return [f for f in consulta if ok(f)]
 
 
-        finally:
-            self._parametros.id_principal = 0
+def _filtrar_consulta(self, consulta, valores_cbx_filtros):
+    # Si el checkbox está activado, solo devolver los pedidos sin procesar
+    if self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar') == 1:
+        self._interfaz.ventanas.limpiar_componentes('den_fecha')
+        return self._modelo.buscar_pedidos_sin_procesar()
 
-            # 👉 aquí SIEMPRE entras al cerrar captura (ver ajuste en BuscarGenerales abajo)
-            self._actualizar_pedidos(
-                fecha=self._fecha_seleccionada(),
-                refresh=True,
-                despues_de_capturar_pedido=True
-            )
-            self._reanudar_autorefresco()
+    vlr_cbx_captura = valores_cbx_filtros['cbx_capturista']
+    vlr_cbx_horarios = valores_cbx_filtros['cbx_horarios']
+    vlr_cbx_status = valores_cbx_filtros['cbx_status']
 
-    def _editar_caracteristicas(self):
-        self._pausar_autorefresco()
-        try:
-            fila = self._seleccionar_una_fila()
-            if not fila:
-                return
+    # Extraer valores únicos de los campos para actualizar los filtros
+    capturistas = {fila['CapturadoPor'] for fila in consulta}
+    horarios = {fila['HoraEntrega'] for fila in consulta}
+    status = {fila['Status'] for fila in consulta}
 
-            status = fila[0]['TypeStatusID']
+    self._rellenar_cbx_status(status)
+    self._rellenar_cbx_horarios(horarios)
+    self._rellenar_cbx_captura(capturistas)
 
-            if status == 10:
-                self._interfaz.ventanas.mostrar_mensaje('NO se pueden editar pedidos cancelados.')
-                return
+    # Aplicar filtros solo si el usuario ha seleccionado un valor específico
+    if vlr_cbx_captura and vlr_cbx_captura != 'Seleccione':
+        consulta = [fila for fila in consulta if fila['CapturadoPor'] == vlr_cbx_captura]
 
-            elif status >= 4:
-                self._interfaz.ventanas.mostrar_mensaje(
-                    'Sólo se pueden afectar las caracteristicas de un pedido hasta el status  Por timbrar.')
-                return
-            else:
-                order_document_id = fila[0]['OrderDocumentID']
-                self._parametros.id_principal = order_document_id
+    if vlr_cbx_horarios and vlr_cbx_horarios != 'Seleccione':
+        consulta = [fila for fila in consulta if fila['HoraEntrega'] == vlr_cbx_horarios]
 
-                ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-                instancia = EditarCaracteristicasPedido(ventana, self._parametros, self._base_de_datos, self._utilerias)
-                ventana.wait_window()
+    if vlr_cbx_status and vlr_cbx_status != 'Seleccione':
+        consulta = [fila for fila in consulta if fila['Status'] == vlr_cbx_status]
 
-                self._parametros.id_principal = 0
-                self._actualizar_pedidos(self._fecha_seleccionada())
-        finally:
-            self._reanudar_autorefresco()
+    return consulta
 
-    def _crear_ticket(self):
-        self._pausar_autorefresco()
-        try:
-            fila = self._seleccionar_una_fila()
-            if not fila:
-                return
 
+def _limpiar_tabla(self):
+    """Limpia la tabla y restablece los contadores de métricas"""
+    tabla = self._interfaz.ventanas.componentes_forma['tbv_pedidos']
+    for campo in ['mtr_total', 'mtr_en_tiempo', 'mtr_a_tiempo', 'mtr_retrasado']:
+        self._interfaz.ventanas.insertar_input_componente(campo, (1, 0))
+    tabla.delete_rows()
+
+
+def _capturar_nuevo_cliente(self):
+    self._pausar_autorefresco()
+    try:
+        self._parametros.id_principal = -1
+        self._interfaz.master.iconify()
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+        instancia = PanelPrincipal(ventana, self._parametros, self._base_de_datos, self._utilerias)
+        ventana.wait_window()
+    finally:
+        self._parametros.id_principal = 0
+        self._reanudar_autorefresco()
+
+
+def _capturar_nuevo_pedido(self):
+    self._pausar_autorefresco()
+
+    try:
+        self._capturando_nuevo_pedido = True
+        self._master.iconify()
+
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(
+            ocultar_master=True,
+            master=self._interfaz.master
+        )
+
+        self._parametros.id_principal = -1
+        _ = BuscarGeneralesCliente(ventana, self._parametros)
+
+
+    finally:
+        self._parametros.id_principal = 0
+
+        # 👉 aquí SIEMPRE entras al cerrar captura (ver ajuste en BuscarGenerales abajo)
+        self._actualizar_pedidos(
+            fecha=self._fecha_seleccionada(),
+            refresh=True,
+            despues_de_capturar_pedido=True
+        )
+        self._reanudar_autorefresco()
+
+
+def _editar_caracteristicas(self):
+    self._pausar_autorefresco()
+    try:
+        fila = self._seleccionar_una_fila()
+        if not fila:
+            return
+
+        status = fila[0]['TypeStatusID']
+
+        if status == 10:
+            self._interfaz.ventanas.mostrar_mensaje('NO se pueden editar pedidos cancelados.')
+            return
+
+        elif status >= 4:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Sólo se pueden afectar las caracteristicas de un pedido hasta el status  Por timbrar.')
+            return
+        else:
             order_document_id = fila[0]['OrderDocumentID']
-            consulta = self._base_de_datos.fetchall("""
+            self._parametros.id_principal = order_document_id
+
+            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+            instancia = EditarCaracteristicasPedido(ventana, self._parametros, self._base_de_datos, self._utilerias)
+            ventana.wait_window()
+
+            self._parametros.id_principal = 0
+            self._actualizar_pedidos(self._fecha_seleccionada())
+    finally:
+        self._reanudar_autorefresco()
+
+
+def _crear_ticket(self):
+    self._pausar_autorefresco()
+    try:
+        fila = self._seleccionar_una_fila()
+        if not fila:
+            return
+
+        order_document_id = fila[0]['OrderDocumentID']
+        consulta = self._base_de_datos.fetchall("""
                 SELECT
                  CASE WHEN DeliveryPromise IS NULL THEN 0 ELSE 1 END StatusEntrega,
                     DeliveryPromise FechaEntrega
                 FROM docDocumentOrderCayal 
                 WHERE OrderDocumentID = ?
                 """, (order_document_id,))
-            status_entrega = consulta[0]['StatusEntrega']
+        status_entrega = consulta[0]['StatusEntrega']
 
-            if status_entrega == 0:
-                self._interfaz.ventanas.mostrar_mensaje(
-                    'Debe definir la forma de pago del cliente antes de generar el ticket.')
-                return
-            else:
-                fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(str(consulta[0]['FechaEntrega'])[0:10])
-                if fecha_entrega > self._modelo.hoy:
-                    respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
-                        'EL pedido es para una fecha de entrega posterior, ¿Desea actualizar los precios antes de generar el ticket?')
-
-                    if respuesta:
-                        self._base_de_datos.actualizar_precios_pedido(order_document_id)
-
-                self._parametros.id_principal = order_document_id
-                instancia = TicketPedidoCliente(self._base_de_datos, self._utilerias, self._parametros)
-
-                self._parametros.id_principal = 0
-                self._interfaz.ventanas.mostrar_mensaje(master=self._interfaz.master,
-                                                        mensaje='Comprobante generado.', tipo='info')
-                self._interfaz.master.iconify()
-        finally:
-            self._reanudar_autorefresco()
-
-    def _mandar_a_producir(self):
-
-        filas = self._validar_seleccion_multiples_filas()
-        if not filas:
+        if status_entrega == 0:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Debe definir la forma de pago del cliente antes de generar el ticket.')
             return
+        else:
+            fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(str(consulta[0]['FechaEntrega'])[0:10])
+            if fecha_entrega > self._modelo.hoy:
+                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                    'EL pedido es para una fecha de entrega posterior, ¿Desea actualizar los precios antes de generar el ticket?')
 
-        for fila in filas:
-            order_document_id = fila['OrderDocumentID']
-            consulta = self._base_de_datos.fetchall("""
+                if respuesta:
+                    self._base_de_datos.actualizar_precios_pedido(order_document_id)
+
+            self._parametros.id_principal = order_document_id
+            instancia = TicketPedidoCliente(self._base_de_datos, self._utilerias, self._parametros)
+
+            self._parametros.id_principal = 0
+            self._interfaz.ventanas.mostrar_mensaje(master=self._interfaz.master,
+                                                    mensaje='Comprobante generado.', tipo='info')
+            self._interfaz.master.iconify()
+    finally:
+        self._reanudar_autorefresco()
+
+
+def _mandar_a_producir(self):
+    filas = self._validar_seleccion_multiples_filas()
+    if not filas:
+        return
+
+    for fila in filas:
+        order_document_id = fila['OrderDocumentID']
+        consulta = self._base_de_datos.fetchall("""
                 SELECT StatusID, 
                     CASE WHEN DeliveryPromise IS NULL THEN 0 ELSE 1 END Entrega,
                     ISNULL(FolioPrefix,'')+ISNULL(Folio,'') DocFolio
@@ -1571,17 +1581,17 @@ class ControladorPanelPedidos:
                 WHERE OrderDocumentID = ?
             """, (order_document_id,))
 
-            status = consulta[0]['StatusID']
-            entrega = consulta[0]['Entrega']
-            folio = consulta[0]['DocFolio']
+        status = consulta[0]['StatusID']
+        entrega = consulta[0]['Entrega']
+        folio = consulta[0]['DocFolio']
 
-            if entrega == 0:
-                self._interfaz.ventanas.mostrar_mensaje(
-                    f'Debe usar la herramienta de editar características para el pedido {folio}.')
-                continue
+        if entrega == 0:
+            self._interfaz.ventanas.mostrar_mensaje(
+                f'Debe usar la herramienta de editar características para el pedido {folio}.')
+            continue
 
-            if status == 1:
-                self._base_de_datos.command("""
+        if status == 1:
+            self._base_de_datos.command("""
                      UPDATE docDocumentOrderCayal SET SentToPrepare = GETDATE(),
                                                     SentToPrepareBy = ?,
                                                     StatusID = 2,
@@ -1589,100 +1599,102 @@ class ControladorPanelPedidos:
                     WHERE OrderDocumentID = ?
                 """, (self._user_id, order_document_id,))
 
-                comentario = f'Enviado a producir por {self._user_name}.'
-                self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=order_document_id,
-                                                                       change_type_id=2,
-                                                                       user_id=self._user_id,
-                                                                       comments=comentario)
+            comentario = f'Enviado a producir por {self._user_name}.'
+            self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=order_document_id,
+                                                                   change_type_id=2,
+                                                                   user_id=self._user_id,
+                                                                   comments=comentario)
 
+    self._actualizar_pedidos(self._fecha_seleccionada())
+
+
+def _cobrar_nota(self):
+    self._pausar_autorefresco()
+    try:
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+        instancia = BuscarGeneralesClienteCartera(ventana, self._parametros)
+        ventana.wait_window()
+
+        fila = self._seleccionar_una_fila()
+        if not fila:
+            return
+
+    finally:
+        self._reanudar_autorefresco()
+
+
+def _inciar_facturacion(self):
+    self._pausar_autorefresco()
+    try:
+        self._facturar()
+    finally:
         self._actualizar_pedidos(self._fecha_seleccionada())
+        self._reanudar_autorefresco()
 
-    def _cobrar_nota(self):
-        self._pausar_autorefresco()
-        try:
-            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-            instancia = BuscarGeneralesClienteCartera(ventana, self._parametros)
-            ventana.wait_window()
 
-            fila = self._seleccionar_una_fila()
-            if not fila:
-                return
+def _facturar(self):
+    filas = self._validar_seleccion_multiples_filas()
 
-        finally:
-            self._reanudar_autorefresco()
-
-    def _inciar_facturacion(self):
-        self._pausar_autorefresco()
-        try:
-            self._facturar()
-        finally:
-            self._actualizar_pedidos(self._fecha_seleccionada())
-            self._reanudar_autorefresco()
-
-    def _facturar(self):
-
-        filas = self._validar_seleccion_multiples_filas()
-
-        if not filas:
-            return
-
-        filas_filtradas_por_status = self._filtrar_filas_facturables_por_status(filas)
-
-        # filtra por status 3 que es por timbrar
-        if not filas_filtradas_por_status:
-            self._interfaz.ventanas.mostrar_mensaje('No hay pedidos con un status válido para facturar')
-            return
-
-        # --------------------------------------------------------------------------------------------------------------
-        # aqui comenzamos el procesamiento de las filas a facturar
-        # si es una seleccion unica valida primero si no hay otros pendientes del mimsmo cliente
-        if len(filas) == 1:
-            hay_pedidos_del_mismo_cliente = self._buscar_pedidos_en_proceso_del_mismo_cliente(filas)
-
-            if not hay_pedidos_del_mismo_cliente:
-                self._crear_documento(filas)
-
-            if hay_pedidos_del_mismo_cliente:
-                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
-                    'Hay otro pedido del mismo cliente en proceso o por timbrar.'
-                    '¿Desea continuar?')
-                if respuesta:
-                    self._crear_documento(filas)
-            return
-
-        # si hay mas de una fila primero valida que estas filas no tengan solo el mismo cliente
-        # si lo tuvieran hay que ofrecer combinarlas en un documento
-        tienen_el_mismo_cliente = self._validar_si_los_pedidos_son_del_mismo_cliente(filas)
-        if tienen_el_mismo_cliente:
-            respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('Los pedidos son del mismo cliente.'
-                                                                         '¿Desea combinarlos?')
-            if respuesta:
-                self._crear_documento(filas, combinado=True, mismo_cliente=True)
-                return
-
-        # del mismo modo que para una fila valida que no existan otras ordenes de un cliente en proceso
-        # si lo hay para un cliente ese cliente debe excluirse de la seleccion
-        filas_filtradas = self._excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(filas)
-        if not filas_filtradas:
-            return
-
-        self._crear_documento(filas_filtradas)
-        self._actualizar_pedidos(self._fecha_seleccionada())
+    if not filas:
         return
 
-    def _crear_documento(self, filas, combinado=False, mismo_cliente=False):
+    filas_filtradas_por_status = self._filtrar_filas_facturables_por_status(filas)
 
-        tipo_documento = 1  # remision
+    # filtra por status 3 que es por timbrar
+    if not filas_filtradas_por_status:
+        self._interfaz.ventanas.mostrar_mensaje('No hay pedidos con un status válido para facturar')
+        return
 
-        # determina el tipo de documento que se generará ya sea remision y/o factura
-        if len(filas) > 1 and combinado:
-            tipos_documento = list(set([fila['DocumentTypeID'] for fila in filas]))
-            if len(tipos_documento) == 1:
-                tipo_documento = tipos_documento[0]
-            else:
-                tipo_documento = -1
-                while tipo_documento == -1:
-                    ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+    # --------------------------------------------------------------------------------------------------------------
+    # aqui comenzamos el procesamiento de las filas a facturar
+    # si es una seleccion unica valida primero si no hay otros pendientes del mimsmo cliente
+    if len(filas) == 1:
+        hay_pedidos_del_mismo_cliente = self._buscar_pedidos_en_proceso_del_mismo_cliente(filas)
+
+        if not hay_pedidos_del_mismo_cliente:
+            self._crear_documento(filas)
+
+        if hay_pedidos_del_mismo_cliente:
+            respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                'Hay otro pedido del mismo cliente en proceso o por timbrar.'
+                '¿Desea continuar?')
+            if respuesta:
+                self._crear_documento(filas)
+        return
+
+    # si hay mas de una fila primero valida que estas filas no tengan solo el mismo cliente
+    # si lo tuvieran hay que ofrecer combinarlas en un documento
+    tienen_el_mismo_cliente = self._validar_si_los_pedidos_son_del_mismo_cliente(filas)
+    if tienen_el_mismo_cliente:
+        respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('Los pedidos son del mismo cliente.'
+                                                                     '¿Desea combinarlos?')
+        if respuesta:
+            self._crear_documento(filas, combinado=True, mismo_cliente=True)
+            return
+
+    # del mismo modo que para una fila valida que no existan otras ordenes de un cliente en proceso
+    # si lo hay para un cliente ese cliente debe excluirse de la seleccion
+    filas_filtradas = self._excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(filas)
+    if not filas_filtradas:
+        return
+
+    self._crear_documento(filas_filtradas)
+    self._actualizar_pedidos(self._fecha_seleccionada())
+    return
+
+
+def _crear_documento(self, filas, combinado=False, mismo_cliente=False):
+    tipo_documento = 1  # remision
+
+    # determina el tipo de documento que se generará ya sea remision y/o factura
+    if len(filas) > 1 and combinado:
+        tipos_documento = list(set([fila['DocumentTypeID'] for fila in filas]))
+        if len(tipos_documento) == 1:
+            tipo_documento = tipos_documento[0]
+        else:
+            tipo_documento = -1
+            while tipo_documento == -1:
+                ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
 ```
 
 

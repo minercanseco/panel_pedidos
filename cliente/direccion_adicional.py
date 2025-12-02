@@ -4,13 +4,15 @@ import pyperclip
 from cayal.ventanas import Ventanas
 
 class DireccionAdicional:
-    def __init__(self, master,modelo, info_direccion):
+    def __init__(self, master,modelo, info_direccion, info_notebook):
         self.master = master
 
         self._ventanas = Ventanas(self.master)
-        self._modelo = modelo
-
         self._info_direccion =  info_direccion
+        self.info_notebook = info_notebook
+
+
+        self._modelo = modelo
 
         self._nombre_direccion = self._info_direccion.get('AddressName', '')
         self._address_detail_id = self._info_direccion['AddressDetailID']
@@ -18,9 +20,27 @@ class DireccionAdicional:
         self._crear_frames()
         self._cargar_componentes()
         self._ajustar_ancho_componentes()
+        self._agregar_componentes_notebook_a_ventanas(info_notebook)
         self._rellenar_componentes()
         self._bloquear_componentes()
         self._cargar_eventos()
+
+    def _agregar_componentes_notebook_a_ventanas(self, info_notebook):
+        """
+        info_note_book = {
+            'note_book': note_book,
+            'tab_notebook': frame_widget,
+            'nombre_note_book': note_book,
+            'nombre_tab': tab
+        }
+        """
+        nombre_note_book = info_notebook['nombre_notebook']
+        nombre_tab = info_notebook['nombre_tab']
+
+        tab_notebook = info_notebook['tab_notebook']
+        notebook = info_notebook['notebook']
+        self._ventanas.componentes_forma[nombre_note_book] = notebook
+        self._ventanas.componentes_forma[nombre_tab] = tab_notebook
 
     def _crear_frames(self):
         frames = {
@@ -231,12 +251,21 @@ class DireccionAdicional:
             'btn_copiar': self._copiar_info_direccion,
             'btn_eliminar': self._eliminar_direccion,
             'tbx_cp': lambda event: self._rellenar_cbx_colonias_por_cp(),
-            'cbx_colonia': lambda event: self._rellenar_cbx_colonias_por_ruta(),
+            'cbx_colonia':  lambda event: self._eventos_cbx_colonia(),
 
         }
         self._ventanas.cargar_eventos(eventos)
 
     def _eliminar_direccion(self):
+        notebook = self.info_notebook['notebook']  # widget ttk.Notebook
+        frame_contenido = self.info_notebook['tab_notebook']  # frm_xxx (donde está la UI)
+
+        self._ventanas.eliminar_pestana_por_frame(notebook, frame_contenido)
+
+        # Si quieres, aquí podrías hacer algo extra:
+        # - si ya no hay pestañas: cerrar la ventana
+        # if not notebook.tabs():
+        #     notebook.winfo_toplevel().destroy()
         print(f'eliminando direccion de {self._address_detail_id}')
 
     def _buscar_informacion_direccion_whatsapp(self):
@@ -287,3 +316,40 @@ class DireccionAdicional:
         colonias = [reg['City'] for reg in consulta]
         colonias = sorted(colonias)
         self._ventanas.rellenar_cbx('cbx_colonia', colonias)
+
+    def _actualizar_municipio_y_estado(self):
+        colonia = self._ventanas.obtener_input_componente('cbx_colonia')
+        if colonia == 'Seleccione':
+            return
+
+        municipio, estado = self._modelo.obtener_estado_y_municipio_colonia(colonia)
+        self._ventanas.insertar_input_componente('lbl_estado', estado)
+        self._ventanas.insertar_input_componente('lbl_municipio', municipio)
+
+    def _rellenar_costo_envio(self):
+        colonia = self._ventanas.obtener_input_componente('cbx_colonia')
+        if colonia == 'Seleccione':
+            return
+
+        monto_envio = self._modelo.obtener_envio_por_colonia(colonia)
+        self._ventanas.insertar_input_componente('tbx_envio', monto_envio)
+        self._ventanas.bloquear_componente('tbx_envio')
+
+    def _rellenar_cp_por_colonia(self):
+        colonia = self._ventanas.obtener_input_componente('cbx_colonia')
+        if colonia == 'Seleccione':
+            return
+
+        municipio = self._ventanas.obtener_input_componente('lbl_municipio')
+        estado = self._ventanas.obtener_input_componente('lbl_estado')
+
+        cp = self._modelo.obtener_cp_por_colonia(colonia, estado, municipio)
+
+        self._ventanas.insertar_input_componente('tbx_cp', cp)
+
+    def _eventos_cbx_colonia(self):
+        self._rellenar_cbx_colonias_por_ruta()
+        self._rellenar_costo_envio()
+        self._rellenar_cp_por_colonia()
+        self._actualizar_municipio_y_estado()
+

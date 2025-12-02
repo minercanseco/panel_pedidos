@@ -19,12 +19,11 @@ class FormularioClienteControlador:
         eventos = {
             'tbx_cp':  lambda event: self._rellenar_cbx_colonias_por_cp(),
             'cbx_colonia':  lambda event: self._eventos_cbx_colonia(),
-            'btn_cancelar': self._interfaz.master.destroy,
+            'btn_cancelar': self._cerrar_notebook,
             'btn_guardar': self._guardar_o_actualizar_cliente,
             'btn_copiar': self._copiar_info_direccion,
             'btn_cif': self._actualizar_por_cif,
             'btn_nueva_direccion':self._agregar_direccion,
-            'btn_domicilios': self._agregar_direccion,
             'btn_cif_visual': self._visualizar_cif,
 
         }
@@ -158,9 +157,9 @@ class FormularioClienteControlador:
             nombre_base = tab.replace('tab_', '')
 
             frame_widget = self._interfaz.ventanas.agregar_pestana_notebook(
-                'nb_formulario_cliente',
+                'nbk_formulario_cliente',
                 nombre_base,
-                texto_pestana
+                f'{texto_pestana} 🏠'
             )
 
             info_direccion = {
@@ -170,9 +169,16 @@ class FormularioClienteControlador:
                 'ComercialName': self._modelo.cliente.commercial_name,
                 'OfficialNumber': self._modelo.cliente.official_number,
                 'CIF': self._modelo.cliente.cif,
+
             }
 
-            _ = DireccionAdicional(frame_widget, self._modelo, info_direccion)
+            info_notebook = {
+                'notebook': self._interfaz.info_notebook['notebook'],
+                'tab_notebook': frame_widget,
+                'nombre_notebook': self._interfaz.info_notebook['nombre_notebook'],
+                'nombre_tab': tab
+            }
+            _ = DireccionAdicional(frame_widget, self._modelo, info_direccion, info_notebook)
 
     def _buscar_informacion_direccion_whatsapp(self):
 
@@ -234,10 +240,23 @@ class FormularioClienteControlador:
         self._interfaz.ventanas.insertar_input_componente('tbx_envio', monto_envio)
         self._interfaz.ventanas.bloquear_componente('tbx_envio')
 
+    def _rellenar_cp_por_colonia(self):
+        colonia = self._interfaz.ventanas.obtener_input_componente('cbx_colonia')
+        if colonia == 'Seleccione':
+            return
+
+        municipio = self._interfaz.ventanas.obtener_input_componente('lbl_municipio')
+        estado = self._interfaz.ventanas.obtener_input_componente('lbl_estado')
+
+        cp = self._modelo.obtener_cp_por_colonia(colonia, estado, municipio)
+
+        self._interfaz.ventanas.insertar_input_componente('tbx_cp', cp)
+
     def _settear_ruta_colonia(self):
         colonia = self._interfaz.ventanas.obtener_input_componente('cbx_colonia')
         if colonia == 'Seleccione':
             return
+
         ruta = self._interfaz.ventanas.obtener_input_componente('cbx_ruta')
 
         # si el cliente fue previamente guardado entonces
@@ -262,6 +281,7 @@ class FormularioClienteControlador:
     def _eventos_cbx_colonia(self):
         self._rellenar_cbx_colonias_por_ruta()
         self._rellenar_costo_envio()
+        self._rellenar_cp_por_colonia()
         self._settear_ruta_colonia()
         self._actualizar_municipio_y_estado()
 
@@ -495,5 +515,10 @@ class FormularioClienteControlador:
 
         # garantizar que exista colonia acorde a la ruta
         self._settear_ruta_colonia()
+        self._rellenar_cp_por_colonia()
 
         print('aqui actualizamos o guardamos')
+
+    def _cerrar_notebook(self):
+        ventana = self._interfaz.master.winfo_toplevel()
+        ventana.destroy()

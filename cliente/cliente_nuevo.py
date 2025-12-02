@@ -199,9 +199,6 @@ class ClienteNuevo:
         self._cliente.cif = cif
 
     def _llamar_formulario_cliente(self):
-        for attr, valor in vars(self._cliente).items():
-            print(attr, "=", valor)
-
         nueva_ventana = self._ventanas.crear_popup_ttkbootstrap('Nuevo cliente', ocultar_master=True)
         NoteBookCliente(nueva_ventana,
                         self._base_de_datos,

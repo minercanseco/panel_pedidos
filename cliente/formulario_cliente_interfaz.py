@@ -2,13 +2,35 @@ import tkinter as tk
 from cayal.ventanas import Ventanas
 
 class FormularioClienteInterfaz:
-    def __init__(self, master, notebook):
+    def __init__(self, master, info_notebook):
         self.master = master
         self.ventanas = Ventanas(self.master)
+        self.info_notebook = info_notebook
+
+
         self._crear_frames()
         self._cargar_componentes()
+        self._agregar_componentes_notebook_a_ventanas(info_notebook)
+
         self._ajustar_ancho_componentes()
-        self.ventanas.componentes_forma['nb_formulario_cliente'] = notebook
+
+    def _agregar_componentes_notebook_a_ventanas(self, info_notebook):
+        """
+        info_note_book = {
+            'notebook': note_book,
+            'tab_notebook': frame_widget,
+            'nombre_notebook': notebook,
+            'nombre_tab': tab
+        }
+        """
+        nombre_note_book = info_notebook['nombre_notebook']
+        nombre_tab = info_notebook['nombre_tab']
+
+        tab_notebook = info_notebook['tab_notebook']
+        notebook = info_notebook['notebook']
+
+        self.ventanas.componentes_forma[nombre_note_book] = notebook
+        self.ventanas.componentes_forma[nombre_tab] = tab_notebook
 
     def _crear_frames(self):
         frames = {

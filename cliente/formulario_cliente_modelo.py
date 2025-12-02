@@ -158,19 +158,32 @@ class FormularioClienteModelo:
         if consulta:
             return self.utilerias.redondear_valor_cantidad_a_decimal(consulta[0]['DeliveryCost'])
 
+    def obtener_cp_por_colonia(self, colonia, estado, municipio):
+        consulta = self.base_de_datos.fetchall("""
+                    SELECT TOP 1 ZipCode
+                    FROM engRefCountryAddress EF
+                    WHERE 
+                        EF.State = ?
+                        AND EF.Municipality = ?
+                        AND EF.City = ?
+                """, (estado, municipio, colonia,))
+        if consulta:
+            return consulta[0]['ZipCode']
+
+
     def obtener_estado_y_municipio_colonia(self, colonia):
         consulta = [reg for reg in self.consulta_colonias if reg['City'] == colonia]
 
         if consulta:
             return consulta[0]['State'], consulta[0]['Municipality']
 
-    def _buscar_tipo_ruta_id(self, nombre_ruta):
+    def buscar_tipo_ruta_id(self, nombre_ruta):
         consulta = [ruta['TipoRutaID'] for ruta in self.consulta_rutas
                     if nombre_ruta == ruta['ZoneName']]
         # 1 = domicilio (por defecto si no la encuentra)
         return consulta[0] if consulta else 1
 
-    def _buscar_ruta_id(self, nombre_ruta):
+    def buscar_ruta_id(self, nombre_ruta):
         consulta = [ruta['ZoneID'] for ruta in self.consulta_rutas
                     if nombre_ruta == ruta['ZoneName']]
         # 0 = sin ruta encontrada

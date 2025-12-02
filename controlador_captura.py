@@ -8,7 +8,7 @@ import logging
 from agregar_epecificaciones import AgregarEspecificaciones
 from agregar_manualmente import AgregarPartidaManualmente
 from direccion_cliente import DireccionCliente
-from cliente.direcciones_adicionales import DireccionesAdicionales
+#from cliente.direcciones_adicionales import DireccionesAdicionales
 from historial_cliente import HistorialCliente
 from interfaz_verificador import InterfazVerificador
 from controlador_verificador import ControladorVerificador

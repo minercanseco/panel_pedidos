@@ -1,9 +1,9 @@
 
 import ttkbootstrap as ttk
 from cayal.parametros_contpaqi import ParametrosContpaqi
-from interfaz_panel_pedidos import InterfazPanelPedidos
-from modelo_panel_pedidos import ModeloPanelPedidos
-from controlador_panel_pedidos import ControladorPanelPedidos
+from panel.interfaz_panel_pedidos import InterfazPanelPedidos
+from panel.modelo_panel_pedidos import ModeloPanelPedidos
+from panel.controlador_panel_pedidos import ControladorPanelPedidos
 from cayal.actualizador_de_paquetes import ActualizadorDePaquetes
 from cayal.login import Login
 from cayal.generar_contexto_ia import GenerarContextoIA

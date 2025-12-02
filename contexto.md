@@ -58,9 +58,9 @@ Fecha: 2025-09-03 13:33:41
 
 import ttkbootstrap as ttk
 from cayal.parametros_contpaqi import ParametrosContpaqi
-from interfaz_panel_pedidos import InterfazPanelPedidos
-from modelo_panel_pedidos import ModeloPanelPedidos
-from controlador_panel_pedidos import ControladorPanelPedidos
+from panel.interfaz_panel_pedidos import InterfazPanelPedidos
+from panel.modelo_panel_pedidos import ModeloPanelPedidos
+from panel.controlador_panel_pedidos import ControladorPanelPedidos
 from cayal.actualizador_de_paquetes import ActualizadorDePaquetes
 from cayal.login import Login
 from cayal.generar_contexto_ia import GenerarContextoIA
@@ -68,6 +68,7 @@ from cayal.generar_contexto_ia import GenerarContextoIA
 
 def si_acceso_exitoso(parametros=None, master=None):
     llamar_instancia_principal(master, parametros)
+
 
 def llamar_instancia_principal(ventana, parametros):
     vista = InterfazPanelPedidos(ventana)
@@ -889,28 +890,28 @@ import re
 import tempfile
 import tkinter as tk
 from datetime import datetime
-from buscar_pedido import BuscarPedido
+from herramientas.buscar_pedido import BuscarPedido
 from cayal.login import Login
 from buscar_generales_cliente import BuscarGeneralesCliente
-from capturado_vs_producido import CapturadoVsProducido
-from editar_caracteristicas_pedido import EditarCaracteristicasPedido
+from herramientas.capturado_vs_producido import CapturadoVsProducido
+from herramientas.editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from cayal.cobros import Cobros
 
-from generador_ticket_produccion import GeneradorTicketProduccion
-from historial_pedido import HistorialPedido
-from horario_acumulado import HorarioslAcumulados
+from herramientas.generador_ticket_produccion import GeneradorTicketProduccion
+from herramientas.historial_pedido import HistorialPedido
+from herramientas.horario_acumulado import HorarioslAcumulados
 from llamar_instancia_captura import LlamarInstanciaCaptura
-from ticket_pedido_cliente import TicketPedidoCliente
+from herramientas.ticket_pedido_cliente import TicketPedidoCliente
 from cliente.cliente_nuevo import PanelPrincipal
-from selector_tipo_documento import SelectorTipoDocumento
+from herramientas.selector_tipo_documento import SelectorTipoDocumento
 from ttkbootstrap.constants import *
 from cayal.tableview_cayal import Tableview
-from editar_pedido import EditarPedido
+from editar_pedido.editar_pedido import EditarPedido
 from cayal.cliente import Cliente
 from cayal.documento import Documento
-from buscar_generales_cliente_cartera import BuscarGeneralesClienteCartera
-from buscar_clientes import BuscarClientes
-from cancelar_pedido import CancelarPedido
+from saldar_cartera.buscar_generales_cliente_cartera import BuscarGeneralesClienteCartera
+from cliente.buscar_clientes import BuscarClientes
+from herramientas.cancelar_pedido import CancelarPedido
 
 
 class ControladorPanelPedidos:
@@ -1708,15 +1709,15 @@ import re
 import pyperclip
 import logging
 
-from agregar_epecificaciones import AgregarEspecificaciones
-from agregar_manualmente import AgregarPartidaManualmente
+from editar_pedido.editar_pedido import AgregarEspecificaciones
+from editar_pedido.editar_pedido import AgregarPartidaManualmente
 from direccion_cliente import DireccionCliente
 from cliente.direcciones_adicionales import DireccionesAdicionales
 from historial_cliente import HistorialCliente
 from cliente.panel_direcciones import PanelDirecciones
 from cliente.formulario_cliente import FormularioCliente
-from interfaz_verificador import InterfazVerificador
-from controlador_verificador import ControladorVerificador
+from verificador_precios.interfaz_verificador import InterfazVerificador
+from verificador_precios.controlador_verificador import ControladorVerificador
 from editar_partida import EditarPartida
 
 

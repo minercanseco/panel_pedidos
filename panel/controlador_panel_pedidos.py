@@ -4,13 +4,15 @@ import re
 import tempfile
 import tkinter as tk
 from datetime import datetime
+
+from cliente.notebook_cliente import NoteBookCliente
 from herramientas.buscar_pedido import BuscarPedido
 from cayal.login import Login
 from capturar_documento.buscar_generales_cliente import BuscarGeneralesCliente
 from herramientas.capturado_vs_producido import CapturadoVsProducido
 
 from cliente.cliente_nuevo import ClienteNuevo
-
+from cayal.cliente import Cliente
 from herramientas.editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from cayal.cobros import Cobros
 
@@ -571,14 +573,16 @@ class ControladorPanelPedidos:
         self._pausar_autorefresco()
         try:
 
-            #self._parametros.id_principal = 11135
+            self._parametros.id_principal = 9760
 
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-            """""
+
+            cliente = Cliente()
             NoteBookCliente(ventana,
                             self._base_de_datos,
                             self._parametros,
-                            self._utilerias
+                            self._utilerias,
+                            cliente
                             )
             """
             ClienteNuevo(ventana,
@@ -586,7 +590,7 @@ class ControladorPanelPedidos:
                          self._base_de_datos,
                          self._utilerias)
             self._interfaz.master.iconify()
-
+            """
             ventana.wait_window()
 
         finally:

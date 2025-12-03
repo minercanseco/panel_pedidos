@@ -8,14 +8,15 @@ class DireccionAdicional:
         self.master = master
 
         self._ventanas = Ventanas(self.master)
-        self._info_direccion =  info_direccion
+        self.info_direccion =  info_direccion
         self.info_notebook = info_notebook
 
 
         self._modelo = modelo
+        self._modelo.cliente.register_additional_address_instance(self)
 
-        self._nombre_direccion = self._info_direccion.get('AddressName', '')
-        self._address_detail_id = self._info_direccion['AddressDetailID']
+        self._nombre_direccion = self.info_direccion.get('AddressName', '')
+        self._address_detail_id = self.info_direccion['AddressDetailID']
 
         self._crear_frames()
         self._cargar_componentes()
@@ -26,14 +27,7 @@ class DireccionAdicional:
         self._cargar_eventos()
 
     def _agregar_componentes_notebook_a_ventanas(self, info_notebook):
-        """
-        info_note_book = {
-            'note_book': note_book,
-            'tab_notebook': frame_widget,
-            'nombre_note_book': note_book,
-            'nombre_tab': tab
-        }
-        """
+
         nombre_note_book = info_notebook['nombre_notebook']
         nombre_tab = info_notebook['nombre_tab']
 
@@ -41,6 +35,19 @@ class DireccionAdicional:
         notebook = info_notebook['notebook']
         self._ventanas.componentes_forma[nombre_note_book] = notebook
         self._ventanas.componentes_forma[nombre_tab] = tab_notebook
+
+    def _registrar_en_ventanas(self, info_notebook):
+        """
+        Registra esta instancia de DireccionAdicional en Ventanas,
+        usando el nombre_tab como clave.
+        """
+        nombre_tab = info_notebook['nombre_tab']  # ej. 'tab_direccion_sucursal_1'
+
+        # Creamos el contenedor si no existe aún
+        if not hasattr(self._ventanas, "_direcciones_adicionales"):
+            self._ventanas._direcciones_adicionales = {}
+
+        self._ventanas._direcciones_adicionales[nombre_tab] = self
 
     def _crear_frames(self):
         frames = {
@@ -95,7 +102,6 @@ class DireccionAdicional:
             'tbx_numero': ('frame_generales', None, 'Número:', None),
             'txt_comentario': ('frame_generales', None, 'Comentarios:', None),
             'tbx_cp': ('frame_generales', None, 'CP:', None),
-
             'lbl_estado': ('frame_lbl_estado', estilo_label, posicion_label, None),
             'lbl_municipio': ('frame_lbl_estado', estilo_label, posicion_label, None),
             'cbx_colonia': ('frame_generales', None, 'Colonia:', None),
@@ -111,7 +117,6 @@ class DireccionAdicional:
             'cbx_usocfdi': ('frame_fiscal', None, 'UsoCFDI:', None),
             'txt_correo': ('frame_fiscal', None, 'Email:', None),
 
-            'btn_guardar': ('frame_botones', 'success', 'Guardar', None),
             'btn_eliminar': ('frame_botones', 'danger', 'Eliminar', None),
             'btn_copiar': ('frame_botones', 'warning', 'Copiar', None),
         }
@@ -182,7 +187,7 @@ class DireccionAdicional:
 
         }
         for componente, clave in componentes.items():
-            valor = self._info_direccion.get(clave,'')
+            valor = self.info_direccion.get(clave, '')
             self._ventanas.insertar_input_componente(componente, valor)
 
         self._rellenar_componentes_fiscales()
@@ -217,7 +222,7 @@ class DireccionAdicional:
         self._ventanas.rellenar_cbx('cbx_colonia', colonias)
         if self._modelo.cliente.business_entity_id != 0:
             self._ventanas.insertar_input_componente('cbx_colonia',
-                                                              self._info_direccion.get('City','')
+                                                              self.info_direccion.get('City', '')
                                                               )
         # ------------------------------------------------------------------------
         # rellenar cbx rutas
@@ -352,4 +357,34 @@ class DireccionAdicional:
         self._rellenar_costo_envio()
         self._rellenar_cp_por_colonia()
         self._actualizar_municipio_y_estado()
+
+    def _obtener_parametros_direccion_adicional(self):
+        self._rellenar_cp_por_colonia()
+
+        componentes = {
+            'tbx_nombre': 'AddressName',
+            'tbx_telefono': 'Telefono',
+            'tbx_celular': 'Celular',
+            'tbx_calle': 'Street',
+            'tbx_numero': 'ExtNumber',
+            'txt_comentario': 'Comments',
+            'tbx_cp': 'ZipCode',
+            'lbl_estado': 'StateProvince',
+            'lbl_municipio': 'Municipality',
+            'cbx_colonia': 'City',
+            'cbx_ruta': 'ZoneName',
+            'txt_correo': 'Correo',
+        }
+
+        for componente, clave in componentes.items():
+            if clave:
+                valor = self._ventanas.obtener_input_componente(componente)
+                self.info_direccion[clave] = valor
+
+        return self.info_direccion
+
+    def cargar_direccion_en_cliente(self):
+        info_procesada = self._obtener_parametros_direccion_adicional()
+        self._modelo.cliente.add_address_detail(info_procesada)
+
 

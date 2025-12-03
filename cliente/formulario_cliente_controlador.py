@@ -510,14 +510,139 @@ class FormularioClienteControlador:
         return True
 
     def _guardar_o_actualizar_cliente(self):
-        if not self._validar_reglas_de_negocio():
-            return
-
         # garantizar que exista colonia acorde a la ruta
         self._settear_ruta_colonia()
         self._rellenar_cp_por_colonia()
 
-        print('aqui actualizamos o guardamos')
+        # esto valida las reglas de negocio para la dirección fiscal
+        if not self._validar_reglas_de_negocio():
+            return
+
+        # aqui iniciamos el proceso de validación si existen de las direcciones adicionales
+        self._cargar_direcciones_adicionales_en_cliente()
+        for direccion in self._modelo.cliente.addresses_details:
+            if not self._validar_direccion_adicional(direccion):
+                return
+
+        # aqui guardamos al cliente o lo actualizamos, guardamos las direcciones adicionales o las actualizamos
+        print('aqui guardamos')
+
+        self._cerrar_notebook()
+
+    def _cargar_direcciones_adicionales_en_cliente(self):
+        """
+        Clears client.addresses_details and reloads them
+        from each DireccionAdicional instance.
+        """
+        client = self._modelo.cliente
+
+        # Limpiamos los detalles actuales para recargar desde la UI
+        client.addresses_details = []
+
+        for addr_instance in client.additional_address_instances:
+            addr_instance.cargar_direccion_en_cliente()
+
+    def _validar_direccion_adicional(self, info_direccion_adicional):
+        """
+        info_direccion_adicional ~
+        {
+            'AddressName': 'Monte verde',
+            'Street': 'Monteverde 4 ',
+            'ExtNumber': 'Mza 2 LT 2',
+            'Comments': 'Casa de dos pisos a dos casas de la esquina con garaje\n',
+            'ZipCode': '24038',
+            'City': 'Monte Verde',
+            'Municipality': 'Campeche',
+            'StateProvince': 'Campeche',
+            'Telefono': '9811140593',
+            'Celular': '',
+            'Correo': '\n',
+        }
+        """
+        componentes_validables = {
+            'AddressName': 'el nombre de la dirección',
+            'Street': 'la calle de la dirección',
+            'ExtNumber': 'el número de la dirección',
+            'Comments': 'los comentarios de la dirección',
+            'ZipCode': 'el código postal de la dirección',
+            'City': 'la colonia de la dirección',
+            'Municipality': 'el municipio de la dirección',
+            'StateProvince': 'el estado de la dirección',
+        }
+
+        nombre_direccion = info_direccion_adicional.get('AddressName', '').strip() or '(sin nombre)'
+
+        # -------------------------------------------------
+        # 1) Validar nulidad / longitud mínima de campos base
+        # -------------------------------------------------
+        for clave, etiqueta in componentes_validables.items():
+            valor = info_direccion_adicional.get(clave, '')
+
+            # Normalizar a string
+            if valor is None:
+                valor_str = ''
+            else:
+                valor_str = str(valor).strip()
+
+            if not valor_str:
+                mensaje = f"Debe capturar {etiqueta} para la dirección: {nombre_direccion}."
+                self._interfaz.ventanas.mostrar_mensaje(mensaje)
+                return
+
+            if len(valor_str) < 2:
+                mensaje = f"Debe abundar en {etiqueta} para la dirección: {nombre_direccion}."
+                self._interfaz.ventanas.mostrar_mensaje(mensaje)
+                return
+
+        # -------------------------------------------------
+        # 2) Validar que exista al menos un teléfono o celular
+        # -------------------------------------------------
+        telefono = (info_direccion_adicional.get('Telefono') or '').strip()
+        celular = (info_direccion_adicional.get('Celular') or '').strip()
+
+        if not telefono and not celular:
+            mensaje = (
+                f"Debe capturar por lo menos un teléfono o celular "
+                f"para la dirección: {nombre_direccion}."
+            )
+            self._interfaz.ventanas.mostrar_mensaje(mensaje)
+            return
+
+        # Si se capturó teléfono, validar formato (si tienes utilería)
+        if telefono and not self._modelo.utilerias.es_numero_de_telefono(telefono):
+            mensaje = (
+                f"El teléfono capturado para la dirección {nombre_direccion} es inválido. "
+                f"Favor de verificar."
+            )
+            self._interfaz.ventanas.mostrar_mensaje(mensaje)
+            return
+
+        # Si se capturó celular, validar formato
+        if celular and not self._modelo.utilerias.es_numero_de_telefono(celular):
+            mensaje = (
+                f"El celular capturado para la dirección {nombre_direccion} es inválido. "
+                f"Favor de verificar."
+            )
+            self._interfaz.ventanas.mostrar_mensaje(mensaje)
+            return
+
+        # -------------------------------------------------
+        # 3) Validar estructura del correo electrónico (si existe)
+        # -------------------------------------------------
+        correo = (info_direccion_adicional.get('Correo') or '').strip()
+
+        # En direcciones adicionales lo dejamos opcional: solo validamos si viene algo
+        if correo:
+            # Si usas cadena de correos separada por comas, mantén validar_cadena_correos:
+            if not self._modelo.utilerias.validar_cadena_correos(correo):
+                mensaje = (
+                    f"El correo capturado para la dirección {nombre_direccion} es inválido.\n"
+                    f"Si son varios, sepárelos con una coma."
+                )
+                self._interfaz.ventanas.mostrar_mensaje(mensaje)
+                return
+
+        return True
 
     def _cerrar_notebook(self):
         ventana = self._interfaz.master.winfo_toplevel()

@@ -539,6 +539,19 @@ class FormularioClienteControlador:
             'lbl_municipio': 'address_fiscal_municipality',
         }
 
+        # Campos que queremos en MAYÚSCULAS
+        upper_cases = [
+            'tbx_cliente',
+            'tbx_ncomercial',
+            'tbx_calle',
+            'tbx_numero',
+            'txt_comentario',
+            'tbx_rfc',  # RFC
+            'cbx_colonia',  # colonia / ciudad
+            'lbl_estado',  # estado
+            'lbl_municipio',  # municipio
+        ]
+
         for componente, atributo_cliente in atributos_equivalentes.items():
             if componente not in valores:
                 continue
@@ -548,6 +561,8 @@ class FormularioClienteControlador:
             # Normalización básica
             if isinstance(valor, str):
                 valor = valor.strip()
+                if componente in upper_cases and valor:
+                    valor = valor.upper()
 
             # Tratamientos especiales por tipo de dato
             if atributo_cliente == 'delivery_cost':
@@ -565,8 +580,7 @@ class FormularioClienteControlador:
             setattr(cliente, atributo_cliente, valor)
 
         # -----------------------------------------
-        # 2) Atributos fiscales: se asignan por CLAVE
-        #    (formas de pago, métodos de pago, uso CFDI)
+        # 2) Atributos fiscales (formas/ métodos / uso CFDI)
         # -----------------------------------------
         atributos_fiscales = {
             'cbx_formapago': (self._modelo.consulta_formas_pago, 'forma_pago'),
@@ -575,27 +589,25 @@ class FormularioClienteControlador:
         }
 
         for componente, (consulta, atributo_cliente) in atributos_fiscales.items():
-            seleccionado = valores.get(componente, '').strip()
+            seleccionado = valores.get(componente, '')
+            if isinstance(seleccionado, str):
+                seleccionado = seleccionado.strip()
 
-            # Si no hay nada seleccionado o es "Seleccione:", lo ignoramos
             if not seleccionado or seleccionado == 'Seleccione:':
                 continue
 
-            # Buscar en la consulta la fila cuyo 'Value' coincida con el texto del combo
             registro = next(
                 (reg for reg in consulta if reg['Value'] == seleccionado),
                 None
             )
-
             if not registro:
                 continue
 
-            # Tomar la clave fiscal (ej. "01") y asignarla al cliente
             clave = registro['Clave']
             setattr(cliente, atributo_cliente, clave)
 
         # -----------------------------------------
-        # 3) Códigos de país/estado/ciudad/municipio según colonia
+        # 3) Códigos SAT según colonia
         # -----------------------------------------
         info_colonia = self._modelo.obtener_info_colonia(
             valores.get('cbx_colonia', ''),
@@ -608,10 +620,19 @@ class FormularioClienteControlador:
         cliente.city_code = info_colonia.get('CityCode', '')
         cliente.municipality_code = info_colonia.get('MunicipalityCode', '')
 
+        # Agregar/actualizar dirección fiscal en addresses_details
         cliente.add_address_detail(self._crear_direccion_fiscal())
 
-        zone_id = [reg['ZoneID'] for reg in self._modelo.consulta_rutas
-                   if reg['ZoneName'] == valores['cbx_ruta']][0]
+        # -----------------------------------------
+        # 4) ZoneID según ruta
+        # -----------------------------------------
+        nombre_ruta = valores.get('cbx_ruta', '')
+
+        zone_id = next(
+            (reg['ZoneID'] for reg in self._modelo.consulta_rutas
+             if reg['ZoneName'] == nombre_ruta),
+            1030  # default si no se encuentra
+        )
 
         cliente.zone_id = zone_id
 

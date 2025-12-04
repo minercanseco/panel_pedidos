@@ -17,7 +17,7 @@ class FormularioClienteControlador:
         if self._modelo.cliente.business_entity_id != 0:
             direccion_fiscal = self._crear_direccion_fiscal()
             informacion_fiscal = self._crear_informacion_fiscal()
-
+            print(informacion_fiscal)
             self._modelo.cliente.add_fiscal_detail_backup(informacion_fiscal)
             self._modelo.cliente.add_address_detail_backup(direccion_fiscal)
 
@@ -669,6 +669,11 @@ class FormularioClienteControlador:
 
         self._modelo.base_de_datos.crear_cliente(self._modelo.cliente, self._modelo.user_id)
 
+        self._registrar_bitacora_cambios_cliente(self._modelo.cliente,
+                                                 self._modelo.user_id,
+                                                 self._modelo.user_name
+                                                 )
+
         self._cerrar_notebook()
 
     def _crear_direccion_fiscal(self):
@@ -969,10 +974,11 @@ class FormularioClienteControlador:
 
         return cambios
 
-    def _generar_bitacora_cambios_fiscales(self,cliente, usuario_id):
+    def _generar_bitacora_cambios_fiscales(self, cliente, usuario_id):
         """
-        Compara cliente.fiscal_detail_backup vs los valores actuales del cliente
-        y genera una lista de dicts con:
+        Compara los valores actuales del cliente vs los valores originales
+        en cliente.consulta (la fila que vino de BD) y genera una lista de
+        cambios para bitácora:
 
           - campo
           - valor_anterior
@@ -981,7 +987,7 @@ class FormularioClienteControlador:
           - motivo_id
           - usuario_id
 
-        Se basa en los motivos:
+        Motivos:
           11 RFC
           12 Régimen fiscal
           20 Ruta de entrega
@@ -992,70 +998,56 @@ class FormularioClienteControlador:
 
         cambios = []
 
-        backup_list = getattr(cliente, "fiscal_detail_backup", None) or []
-        if not backup_list:
+        # Si es un cliente nuevo (sin BusinessEntityID), no generamos bitácora fiscal
+        beid = getattr(cliente, "business_entity_id", 0) or 0
+        if beid == 0:
             return cambios
 
-        # Asumimos un solo registro de backup (el fiscal actual al cargar el formulario)
-        original = backup_list[0]
+        # Diccionario original tal como vino de BD
+        original = getattr(cliente, "consulta", None) or {}
+        if not original:
+            # Sin consulta original no tiene sentido comparar
+            return cambios
 
-        # Mapeo: clave_en_backup -> (attr_actual_en_cliente, motivo_id, motivo_texto)
-        campos_fiscales = {
-            'official_number': (
-                'official_number',
-                11,
-                'CAMBIO EN RFC'
-            ),
-            'company_type_name': (
-                'company_type_name',
-                12,
-                'CAMBIO EN RÉGIMEN FISCAL'
-            ),
-            'forma_pago': (
-                'forma_pago',
-                25,
-                'CAMBIO EN FORMA DE PAGO CFDI'
-            ),
-            'metodo_pago': (
-                'metodo_pago',
-                26,
-                'CAMBIO EN MÉTODO DE PAGO CFDI'
-            ),
-            'receptor_uso_cfdi': (
-                'receptor_uso_cfdi',
-                27,
-                'CAMBIO EN USO CFDI'
-            ),
-            'zone_name': (
-                'zone_name',
-                20,
-                'CAMBIO EN RUTA'
-            ),
-        }
+        # Mapeo: (clave_en_consulta, attr_actual_en_cliente, motivo_id, motivo_texto)
+        campos_fiscales = [
+            ("OfficialNumber", "official_number", 11, "CAMBIO EN RFC"),
+            ("CompanyTypeName", "company_type_name", 12, "CAMBIO EN RÉGIMEN FISCAL"),
+            ("FormaPago", "forma_pago", 25, "CAMBIO EN FORMA DE PAGO CFDI"),
+            ("MetodoPago", "metodo_pago", 26, "CAMBIO EN MÉTODO DE PAGO CFDI"),
+            ("ReceptorUsoCFDI", "receptor_uso_cfdi", 27, "CAMBIO EN USO CFDI"),
+            ("ZoneName", "zone_name", 20, "CAMBIO EN RUTA DE ENTREGA"),
+        ]
 
-        for backup_key, (attr_cliente, motivo_id, motivo_texto) in campos_fiscales.items():
-            valor_anterior = original.get(backup_key)
-            valor_nuevo = getattr(cliente, attr_cliente, None)
+        def _normalizar(v):
+            if v is None:
+                return ""
+            if isinstance(v, str):
+                return v.strip().upper()
+            return str(v).strip().upper()
 
-            # Normalización
-            if valor_anterior is None:
-                valor_anterior = ""
-            if valor_nuevo is None:
-                valor_nuevo = ""
+        for key_consulta, attr_cliente, motivo_id, motivo_texto in campos_fiscales:
+            raw_anterior = original.get(key_consulta, "")
+            raw_nuevo = getattr(cliente, attr_cliente, "")
 
-            if isinstance(valor_anterior, str):
-                valor_anterior = valor_anterior.strip()
-            if isinstance(valor_nuevo, str):
-                valor_nuevo = valor_nuevo.strip()
+            # normalizamos solo para comparar (evitar cambios por espacios/case)
+            anterior_norm = _normalizar(raw_anterior)
+            nuevo_norm = _normalizar(raw_nuevo)
 
             # Si no cambió, no registramos nada
-            if valor_anterior == valor_nuevo:
+            if anterior_norm == nuevo_norm:
                 continue
+
+            # Para guardar en bitácora, solo limpiamos espacios
+            if isinstance(raw_anterior, str):
+                raw_anterior = raw_anterior.strip()
+            if isinstance(raw_nuevo, str):
+                raw_nuevo = raw_nuevo.strip()
 
             cambios.append({
                 "campo": attr_cliente,
-                "valor_anterior": str(valor_anterior),
-                "valor_nuevo": str(valor_nuevo),
+                "valor_anterior": str(raw_anterior),
+                "valor_nuevo": str(raw_nuevo),
                 "motivo": motivo_texto,
                 "motivo_id": motivo_id,
                 "usuario_id": usuario_id,

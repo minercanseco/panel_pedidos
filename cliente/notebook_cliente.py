@@ -206,7 +206,7 @@ class NoteBookCliente:
 
     def _buscar_direcciones_adicionales(self):
         direcciones_adicionales = self._base_de_datos.buscar_direcciones_adicionales(self._business_entity_id)
-        self._cliente.self.addresses_details_backup = direcciones_adicionales
+        self._cliente.addresses_details_backup = direcciones_adicionales
         self._direcciones_adicionales = direcciones_adicionales
 
     def _crear_tabs_direcciones_adicionales(self, info_pestanas):

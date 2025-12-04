@@ -322,7 +322,7 @@ class DireccionAdicional:
         if colonia == 'Seleccione':
             return
 
-        municipio, estado = self._modelo.obtener_estado_y_municipio_colonia(colonia)
+        estado, municipio = self._modelo.obtener_estado_y_municipio_colonia(colonia)
         self._ventanas.insertar_input_componente('lbl_estado', estado)
         self._ventanas.insertar_input_componente('lbl_municipio', municipio)
 
@@ -340,18 +340,20 @@ class DireccionAdicional:
         if colonia == 'Seleccione':
             return
 
+        self._actualizar_municipio_y_estado()
         municipio = self._ventanas.obtener_input_componente('lbl_municipio')
+        municipio = 'Campeche' if not municipio else municipio.strip()
+
         estado = self._ventanas.obtener_input_componente('lbl_estado')
+        estado = 'Campeche' if not estado else estado.strip()
 
         cp = self._modelo.obtener_cp_por_colonia(colonia, estado, municipio)
-
         self._ventanas.insertar_input_componente('tbx_cp', cp)
 
     def _eventos_cbx_colonia(self):
         self._rellenar_cbx_colonias_por_ruta()
         self._rellenar_costo_envio()
         self._rellenar_cp_por_colonia()
-        self._actualizar_municipio_y_estado()
 
     def _obtener_parametros_direccion_adicional(self):
         self._rellenar_cp_por_colonia()

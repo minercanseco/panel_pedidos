@@ -591,6 +591,7 @@ class ControladorPanelPedidos:
                          self._base_de_datos,
                          self._utilerias)
             self._interfaz.master.iconify()
+            #"""
 
             ventana.wait_window()
 

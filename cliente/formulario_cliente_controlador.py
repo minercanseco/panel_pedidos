@@ -246,11 +246,14 @@ class FormularioClienteControlador:
         if colonia == 'Seleccione':
             return
 
+        self._actualizar_municipio_y_estado()
         municipio = self._interfaz.ventanas.obtener_input_componente('lbl_municipio')
+        municipio ='Campeche' if not municipio else municipio.strip()
+
         estado = self._interfaz.ventanas.obtener_input_componente('lbl_estado')
+        estado = 'Campeche' if not estado else estado.strip()
 
         cp = self._modelo.obtener_cp_por_colonia(colonia, estado, municipio)
-
         self._interfaz.ventanas.insertar_input_componente('tbx_cp', cp)
 
     def _settear_ruta_colonia(self):
@@ -275,7 +278,7 @@ class FormularioClienteControlador:
         if colonia == 'Seleccione':
             return
 
-        municipio, estado = self._modelo.obtener_estado_y_municipio_colonia(colonia)
+        estado, municipio = self._modelo.obtener_estado_y_municipio_colonia(colonia)
         self._interfaz.ventanas.insertar_input_componente('lbl_estado', estado)
         self._interfaz.ventanas.insertar_input_componente('lbl_municipio', municipio)
 
@@ -284,7 +287,6 @@ class FormularioClienteControlador:
         self._rellenar_costo_envio()
         self._rellenar_cp_por_colonia()
         self._settear_ruta_colonia()
-        self._actualizar_municipio_y_estado()
 
     # recupera los inputs del formulario
     def _obtener_inputs_usuario(self):
@@ -547,9 +549,6 @@ class FormularioClienteControlador:
             'tbx_numero',
             'txt_comentario',
             'tbx_rfc',  # RFC
-            'cbx_colonia',  # colonia / ciudad
-            'lbl_estado',  # estado
-            'lbl_municipio',  # municipio
         ]
 
         for componente, atributo_cliente in atributos_equivalentes.items():

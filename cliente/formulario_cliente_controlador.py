@@ -610,17 +610,15 @@ class FormularioClienteControlador:
 
         cliente.add_address_detail(self._crear_direccion_fiscal())
 
-        # Debug: imprime los atributos públicos del cliente
-        print({
-            attr: getattr(cliente, attr)
-            for attr in dir(cliente)
-            if not attr.startswith("_") and not callable(getattr(cliente, attr))
-        })
+        zone_id = [reg['ZoneID'] for reg in self._modelo.consulta_rutas
+                   if reg['ZoneName'] == valores['cbx_ruta']][0]
+
+        cliente.zone_id = zone_id
 
     def _guardar_o_actualizar_cliente(self):
         # garantizar que exista colonia acorde a la ruta
-        self._settear_ruta_colonia()
         self._rellenar_cp_por_colonia()
+        self._settear_ruta_colonia()
 
         # esto valida las reglas de negocio para la dirección fiscal
         if not self._validar_reglas_de_negocio():
@@ -633,13 +631,16 @@ class FormularioClienteControlador:
                 return
 
         # aqui guardamos al cliente o lo actualizamos, guardamos las direcciones adicionales o las actualizamos
-
         self._settear_valores_formulario_a_cliente()
-        #print('estas son las direcciones adicionales')
-        #print(self._modelo.cliente.addresses_details)
-        #print(f'direcciones eliminadas {self._modelo.cliente.deleted_addresses}')
 
-        #print('aqui afetamos la base de datos')
+        # borramos las direcciones que ya no sean validas
+        for address_detail_id in self._modelo.cliente.deleted_addresses:
+            if address_detail_id == 0:
+                continue
+            self._modelo.base_de_datos.borrar_direccion(address_detail_id, self._modelo.user_id)
+
+        self._modelo.base_de_datos.crear_cliente(self._modelo.cliente, self._modelo.user_id)
+
         self._cerrar_notebook()
 
     def _crear_direccion_fiscal(self):
@@ -662,12 +663,14 @@ class FormularioClienteControlador:
             'Correo': self._modelo.cliente.email,
             'Celular': self._modelo.cliente.cellphone,
             'DepotID': 0,
-            'DeliveryCost': self._modelo.cliente.delivery_cost,
+            'DeliveryCost': self._modelo.utilerias.redondear_valor_cantidad_a_decimal(
+                self._modelo.cliente.delivery_cost),
             'OfficialName': self._modelo.cliente.official_name,
             'ComercialName': self._modelo.cliente.commercial_name,
             'OfficialNumber': self._modelo.cliente.official_number,
             'CIF':self._modelo.cliente.cif,
-            'ZoneName': self._modelo.zone_name
+            'ZoneName': self._modelo.cliente.zone_name,
+            'IsMainAddress':1
         }
 
     def _cargar_direcciones_adicionales_en_cliente(self):

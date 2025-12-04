@@ -225,5 +225,6 @@ class NoteBookCliente:
         info_direccion['ComercialName'] = self._cliente.commercial_name
         info_direccion['OfficialNumber'] = self._cliente.official_number
         info_direccion['CIF'] = self._cliente.cif
+        info_direccion['IsMainAddress'] = 0
 
         return info_direccion

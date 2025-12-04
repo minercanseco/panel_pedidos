@@ -266,13 +266,7 @@ class DireccionAdicional:
         frame_contenido = self.info_notebook['tab_notebook']  # frm_xxx (donde está la UI)
 
         self._ventanas.eliminar_pestana_por_frame(notebook, frame_contenido)
-
-        # Si quieres, aquí podrías hacer algo extra:
-        # - si ya no hay pestañas: cerrar la ventana
-        # if not notebook.tabs():
-        #     notebook.winfo_toplevel().destroy()
         self._modelo.cliente.deleted_addresses.append(self._address_detail_id)
-        print(f'eliminando direccion de {self._address_detail_id}')
 
     def _buscar_informacion_direccion_whatsapp(self):
         funcion = self._ventanas.obtener_input_componente

@@ -573,10 +573,11 @@ class ControladorPanelPedidos:
         self._pausar_autorefresco()
         try:
 
-            self._parametros.id_principal = 9760
+            self._parametros.id_principal = 0
 
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
 
+            """
             cliente = Cliente()
             NoteBookCliente(ventana,
                             self._base_de_datos,
@@ -590,7 +591,7 @@ class ControladorPanelPedidos:
                          self._base_de_datos,
                          self._utilerias)
             self._interfaz.master.iconify()
-            """
+
             ventana.wait_window()
 
         finally:

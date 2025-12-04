@@ -18,6 +18,7 @@ class FormularioClienteModelo:
         self.user_group_id = self.base_de_datos.fetchone(
             'SELECT UserGroupID FROM engUser WHERE UserID = ?',
             (self.user_id,))
+        self.user_name = self.base_de_datos.buscar_nombre_de_usuario(self.user_id)
 
         self.business_entity_id = self.parametros.id_principal
         self.module_id = self.parametros.id_modulo
@@ -170,6 +171,19 @@ class FormularioClienteModelo:
         if consulta:
             return consulta[0]['ZipCode']
 
+    def obtener_info_colonia(self, colonia, estado, municipio):
+        consulta = self.base_de_datos.fetchall("""
+                            SELECT TOP 1 StateCode,	AutonomiaCode,	CountryID,	CountryCode,	Pais,	CityCode
+                            FROM engRefCountryAddress EF
+                            WHERE 
+                                EF.State = ?
+                                AND EF.Municipality = ?
+                                AND EF.City = ?
+                        """, (estado, municipio, colonia,))
+        if consulta:
+            return consulta[0]
+
+        return {}
 
     def obtener_estado_y_municipio_colonia(self, colonia):
         consulta = [reg for reg in self.consulta_colonias if reg['City'] == colonia]

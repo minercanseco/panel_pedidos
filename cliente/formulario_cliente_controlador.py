@@ -1,3 +1,4 @@
+import datetime
 import webbrowser
 
 import pyperclip
@@ -306,6 +307,8 @@ class FormularioClienteControlador:
             'btn_cif': '',
 
             'cbx_colonia': '',
+            'lbl_estado':'',
+            'lbl_municipio':'',
             'cbx_regimen': '',
             'cbx_formapago': '',
             'cbx_metodopago': '',
@@ -509,6 +512,111 @@ class FormularioClienteControlador:
 
         return True
 
+    def _settear_valores_formulario_a_cliente(self):
+        valores = self._obtener_inputs_usuario()
+        cliente = self._modelo.cliente
+
+        # -----------------------------------------
+        # 1) Atributos de dirección fiscal del cliente
+        # -----------------------------------------
+        atributos_equivalentes = {
+            'tbx_cliente': 'official_name',
+            'tbx_ncomercial': 'commercial_name',
+            'tbx_telefono': 'phone',
+            'tbx_celular': 'cellphone',
+            'tbx_calle': 'address_fiscal_street',
+            'tbx_numero': 'address_fiscal_ext_number',
+            'txt_comentario': 'address_fiscal_comments',
+            'tbx_cp': 'address_fiscal_zip_code',
+            'tbx_envio': 'delivery_cost',
+            'cbx_ruta': 'zone_name',
+            'tbx_rfc': 'official_number',
+            'tbx_cif': 'cif',
+            'cbx_colonia': 'address_fiscal_city',
+            'cbx_regimen': 'company_type_name',
+            'txt_correo': 'email',
+            'lbl_estado': 'address_fiscal_state_province',
+            'lbl_municipio': 'address_fiscal_municipality',
+        }
+
+        for componente, atributo_cliente in atributos_equivalentes.items():
+            if componente not in valores:
+                continue
+
+            valor = valores[componente]
+
+            # Normalización básica
+            if isinstance(valor, str):
+                valor = valor.strip()
+
+            # Tratamientos especiales por tipo de dato
+            if atributo_cliente == 'delivery_cost':
+                # Si viene vacío, asumimos 20
+                try:
+                    valor = float(valor) if valor not in (None, '') else 20
+                except ValueError:
+                    valor = 20
+
+            if atributo_cliente == 'address_fiscal_zip_code':
+                # CP como string limpio
+                valor = valor or ''
+
+            # Asignar al cliente
+            setattr(cliente, atributo_cliente, valor)
+
+        # -----------------------------------------
+        # 2) Atributos fiscales: se asignan por CLAVE
+        #    (formas de pago, métodos de pago, uso CFDI)
+        # -----------------------------------------
+        atributos_fiscales = {
+            'cbx_formapago': (self._modelo.consulta_formas_pago, 'forma_pago'),
+            'cbx_metodopago': (self._modelo.consulta_metodos_pago, 'metodo_pago'),
+            'cbx_usocfdi': (self._modelo.consulta_uso_cfdi, 'receptor_uso_cfdi'),
+        }
+
+        for componente, (consulta, atributo_cliente) in atributos_fiscales.items():
+            seleccionado = valores.get(componente, '').strip()
+
+            # Si no hay nada seleccionado o es "Seleccione:", lo ignoramos
+            if not seleccionado or seleccionado == 'Seleccione:':
+                continue
+
+            # Buscar en la consulta la fila cuyo 'Value' coincida con el texto del combo
+            registro = next(
+                (reg for reg in consulta if reg['Value'] == seleccionado),
+                None
+            )
+
+            if not registro:
+                continue
+
+            # Tomar la clave fiscal (ej. "01") y asignarla al cliente
+            clave = registro['Clave']
+            setattr(cliente, atributo_cliente, clave)
+
+        # -----------------------------------------
+        # 3) Códigos de país/estado/ciudad/municipio según colonia
+        # -----------------------------------------
+        info_colonia = self._modelo.obtener_info_colonia(
+            valores.get('cbx_colonia', ''),
+            valores.get('lbl_estado', ''),
+            valores.get('lbl_municipio', '')
+        )
+
+        cliente.country_code = info_colonia.get('CountryCode', '')
+        cliente.state_code = info_colonia.get('StateCode', '')
+        cliente.city_code = info_colonia.get('CityCode', '')
+        cliente.municipality_code = info_colonia.get('MunicipalityCode', '')
+
+        cliente.add_address_detail(self._crear_direccion_fiscal())
+
+        # Debug: imprime los atributos públicos del cliente
+        print({
+            attr: getattr(cliente, attr)
+            for attr in dir(cliente)
+            if not attr.startswith("_") and not callable(getattr(cliente, attr))
+        })
+
     def _guardar_o_actualizar_cliente(self):
         # garantizar que exista colonia acorde a la ruta
         self._settear_ruta_colonia()
@@ -525,22 +633,57 @@ class FormularioClienteControlador:
                 return
 
         # aqui guardamos al cliente o lo actualizamos, guardamos las direcciones adicionales o las actualizamos
-        print('aqui guardamos')
 
+        self._settear_valores_formulario_a_cliente()
+        #print('estas son las direcciones adicionales')
+        #print(self._modelo.cliente.addresses_details)
+        #print(f'direcciones eliminadas {self._modelo.cliente.deleted_addresses}')
+
+        #print('aqui afetamos la base de datos')
         self._cerrar_notebook()
 
+    def _crear_direccion_fiscal(self):
+        return {
+            'AddressDetailID': self._modelo.cliente.address_fiscal_detail_id,
+            'AddressName': 'Dirección Fiscal',
+            'City': self._modelo.cliente.address_fiscal_city,
+            'CreatedOn': datetime.datetime.now().date(),
+            'UserName': self._modelo.user_name,
+            'Street': self._modelo.cliente.address_fiscal_street,
+            'ExtNumber': self._modelo.cliente.address_fiscal_ext_number,
+            'Comments': self._modelo.cliente.address_fiscal_comments,
+            'ZipCode': self._modelo.cliente.address_fiscal_zip_code,
+            'StateProvince': self._modelo.cliente.address_fiscal_state_province,
+            'Municipality': self._modelo.cliente.address_fiscal_municipality,
+            'StateProvinceCode': self._modelo.cliente.state_code,
+            'MunicipalityCode': self._modelo.cliente.municipality_code,
+            'CityCode': self._modelo.cliente.city_code,
+            'Telefono': self._modelo.cliente.phone,
+            'Correo': self._modelo.cliente.email,
+            'Celular': self._modelo.cliente.cellphone,
+            'DepotID': 0,
+            'DeliveryCost': self._modelo.cliente.delivery_cost,
+            'OfficialName': self._modelo.cliente.official_name,
+            'ComercialName': self._modelo.cliente.commercial_name,
+            'OfficialNumber': self._modelo.cliente.official_number,
+            'CIF':self._modelo.cliente.cif,
+            'ZoneName': self._modelo.zone_name
+        }
+
     def _cargar_direcciones_adicionales_en_cliente(self):
-        """
-        Clears client.addresses_details and reloads them
-        from each DireccionAdicional instance.
-        """
         client = self._modelo.cliente
 
-        # Limpiamos los detalles actuales para recargar desde la UI
+        # Limpiar detalles actuales para recargar desde la UI
         client.addresses_details = []
 
-        for addr_instance in client.additional_address_instances:
-            addr_instance.cargar_direccion_en_cliente()
+        for instancia in client.additional_address_instances:
+            # Si la pestaña ya no existe (se eliminó), se omite.
+            # La propia DireccionAdicional ya habrá gestionado deleted_addresses.
+            if not instancia.existe_frame():
+                continue
+
+            # Si la pestaña existe → leer inputs y agregar a addresses_details
+            instancia.cargar_direccion_en_cliente()
 
     def _validar_direccion_adicional(self, info_direccion_adicional):
         """

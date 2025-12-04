@@ -271,6 +271,7 @@ class DireccionAdicional:
         # - si ya no hay pestañas: cerrar la ventana
         # if not notebook.tabs():
         #     notebook.winfo_toplevel().destroy()
+        self._modelo.cliente.deleted_addresses.append(self._address_detail_id)
         print(f'eliminando direccion de {self._address_detail_id}')
 
     def _buscar_informacion_direccion_whatsapp(self):
@@ -381,10 +382,30 @@ class DireccionAdicional:
                 valor = self._ventanas.obtener_input_componente(componente)
                 self.info_direccion[clave] = valor
 
+        info_colonia = self._modelo.obtener_info_colonia(
+            self._ventanas.obtener_input_componente('cbx_colonia'),
+            self._ventanas.obtener_input_componente('lbl_estado'),
+            self._ventanas.obtener_input_componente('lbl_municipio')
+        )
+        self.info_direccion['StateProvinceCode'] = info_colonia.get('StateProvinceCode','')
+        self.info_direccion['MunicipalityCode'] = info_colonia.get('MunicipalityCode', '')
+        self.info_direccion['CityCode'] = info_colonia.get('CityCode', '')
+
         return self.info_direccion
 
     def cargar_direccion_en_cliente(self):
         info_procesada = self._obtener_parametros_direccion_adicional()
         self._modelo.cliente.add_address_detail(info_procesada)
 
+    def existe_frame(self):
+        """
+        Retorna True si el frame asociado a esta dirección sigue existiendo.
+        Si la pestaña fue eliminada y el frame destruido, será False.
+        """
+        try:
+            # Usa el master que recibiste en __init__ (o tab_notebook, lo que te funcione mejor)
+            frame = self.master  # o: frame = self.info_notebook['tab_notebook']
 
+            return bool(frame and frame.winfo_exists())
+        except Exception:
+            return False

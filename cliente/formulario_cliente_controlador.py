@@ -11,8 +11,16 @@ class FormularioClienteControlador:
     def __init__(self, interfaz, modelo):
         self._interfaz = interfaz
         self._modelo = modelo
-
         self._rellenar_componentes()
+
+        # esto garantiza en teoria el poder contrastar la direccion fiscal modificada por el usuario con la de la bd
+        if self._modelo.cliente.business_entity_id != 0:
+            direccion_fiscal = self._crear_direccion_fiscal()
+            informacion_fiscal = self._crear_informacion_fiscal()
+
+            self._modelo.cliente.add_fiscal_detail_backup(informacion_fiscal)
+            self._modelo.cliente.add_address_detail_backup(direccion_fiscal)
+
         self._bloqueos_iniciales()
         self._cargar_eventos()
 
@@ -693,6 +701,16 @@ class FormularioClienteControlador:
             'IsMainAddress':1
         }
 
+    def _crear_informacion_fiscal(self):
+        return {
+            'official_number': self._modelo.cliente.official_number,
+            'forma_pago': self._modelo.cliente.forma_pago,
+            'metodo_pago': self._modelo.cliente.metodo_pago,
+            'receptor_uso_cfdi': self._modelo.cliente.receptor_uso_cfdi,
+            'company_type_name': self._modelo.cliente.company_type_name,
+            'zone_name':self._modelo.cliente.zone_name
+        }
+
     def _cargar_direcciones_adicionales_en_cliente(self):
         client = self._modelo.cliente
 
@@ -813,3 +831,316 @@ class FormularioClienteControlador:
     def _cerrar_notebook(self):
         ventana = self._interfaz.master.winfo_toplevel()
         ventana.destroy()
+
+    def _generar_bitacora_cambios_direcciones(self, cliente, usuario_id):
+        """
+        Compara cliente.addresses_details_backup vs cliente.addresses_details
+        y genera una lista de dicts con:
+
+          - address_detail_id
+          - es_fiscal (bool)
+          - address_name
+          - campo
+          - valor_anterior
+          - valor_nuevo
+          - motivo
+          - motivo_id
+          - usuario_id
+
+        Soporta:
+          - Dirección fiscal (IsMainAddress == 1 o AddressDetailID == address_fiscal_detail_id)
+          - Direcciones adicionales
+
+        NOTA: Altas (AddressDetailID=0 sin versión anterior) y bajas
+              las puedes manejar en otra función con motivos 28 y 30.
+        """
+
+        cambios = []
+
+        # Si el cliente es nuevo o no hay backup, no hay nada que contrastar
+        if not getattr(cliente, "business_entity_id", 0):
+            return cambios
+
+        backup = getattr(cliente, "addresses_details_backup", []) or []
+        actuales = getattr(cliente, "addresses_details", []) or []
+
+        # Indexar backup y actuales por AddressDetailID (incluimos 0 también, por si quieres usarlos luego)
+        backup_por_id = {}
+        for d in backup:
+            aid = d.get("AddressDetailID", 0) or 0
+            backup_por_id[aid] = d
+
+        actuales_por_id = {}
+        for d in actuales:
+            aid = d.get("AddressDetailID", 0) or 0
+            actuales_por_id[aid] = d
+
+        # ID fiscal registrado (si existe)
+        fiscal_detail_id_ref = getattr(cliente, 'address_fiscal_detail_id', 0) or 0
+
+        # --- Motivos dirección FISCAL ---
+        motivos_fiscal = {
+            "Street": (13, "CAMBIO EN CALLE FISCAL"),
+            "ExtNumber": (14, "CAMBIO EN NÚMERO EXTERIOR FISCAL"),
+            "Comments": (15, "CAMBIOS EN COMENTARIOS DE DIRECCIÓN FISCAL"),
+            "ZipCode": (16, "CAMBIO EN CÓDIGO POSTAL FISCAL"),
+            "City": (17, "CAMBIO EN COLONIA FISCAL"),
+            "Municipality": (18, "CAMBIO EN MUNICIPIO FISCAL"),
+            "StateProvince": (19, "CAMBIO EN ESTADO FISCAL"),
+            "ZoneName": (20, "CAMBIO EN RUTA DE ENTREGA"),
+            "DeliveryCost": (21, "CAMBIO EN COSTO DE ENVÍO"),
+            "Telefono": (22, "CAMBIO EN TELÉFONO"),
+            "Celular": (23, "CAMBIO EN CELULAR"),
+            "Correo": (24, "CAMBIO EN CORREO ELECTRÓNICO"),
+        }
+
+        # --- Motivos direcciones ADICIONALES ---
+        motivos_adicional = {
+            "Street": (32, "CAMBIO EN CALLE DIRECCIÓN ADICIONAL"),
+            "ExtNumber": (33, "CAMBIO EN NÚMERO EXTERIOR DIRECCIÓN ADICIONAL"),
+            "Comments": (34, "CAMBIO EN COMENTARIOS DE DIRECCIÓN ADICIONAL"),
+            "ZipCode": (35, "CAMBIO EN CÓDIGO POSTAL DIRECCIÓN ADICIONAL"),
+            "City": (36, "CAMBIO EN COLONIA DIRECCIÓN ADICIONAL"),
+            "Municipality": (37, "CAMBIO EN MUNICIPIO DIRECCIÓN ADICIONAL"),
+            "StateProvince": (38, "CAMBIO EN ESTADO DIRECCIÓN ADICIONAL"),
+            "ZoneName": (39, "CAMBIO EN RUTA DE ENTREGA DIRECCIÓN ADICIONAL"),
+            "DeliveryCost": (40, "CAMBIO EN COSTO DE ENVÍO DIRECCIÓN ADICIONAL"),
+            "Telefono": (41, "CAMBIO EN TELÉFONO DIRECCIÓN ADICIONAL"),
+            "Celular": (42, "CAMBIO EN CELULAR DIRECCIÓN ADICIONAL"),
+            "Correo": (43, "CAMBIO EN CORREO ELECTRÓNICO DIRECCIÓN ADICIONAL"),
+        }
+
+        # Recorremos TODAS las direcciones que existían en backup
+        for address_id, original in backup_por_id.items():
+            nueva = actuales_por_id.get(address_id)
+
+            # Si ya no existe en "actuales", aquí NO registramos nada aún
+            # (lo manejarás como ELIMINACIÓN de dirección adicional con motivo 30
+            #  en otra función, si aplica).
+            if not nueva:
+                continue
+
+            is_main_original = original.get("IsMainAddress", 0)
+            is_main_nueva = nueva.get("IsMainAddress", 0)
+
+            # ¿Es fiscal?
+            es_fiscal = (
+                    is_main_original == 1
+                    or is_main_nueva == 1
+                    or (address_id != 0 and address_id == fiscal_detail_id_ref)
+            )
+
+            # Seleccionamos el mapa de motivos según si es fiscal o adicional
+            mapa_motivos = motivos_fiscal if es_fiscal else motivos_adicional
+
+            address_name = original.get("AddressName", "") or nueva.get("AddressName", "")
+
+            # Comparar campo a campo
+            for campo, (motivo_id, motivo_texto) in mapa_motivos.items():
+                valor_anterior = original.get(campo)
+                valor_nuevo = nueva.get(campo)
+
+                # Normalización
+                if valor_anterior is None:
+                    valor_anterior = ""
+                if valor_nuevo is None:
+                    valor_nuevo = ""
+
+                if isinstance(valor_anterior, str):
+                    valor_anterior = valor_anterior.strip()
+                if isinstance(valor_nuevo, str):
+                    valor_nuevo = valor_nuevo.strip()
+
+                # Si no cambió, no registramos
+                if valor_anterior == valor_nuevo:
+                    continue
+
+                cambios.append({
+                    "address_detail_id": address_id,
+                    "es_fiscal": bool(es_fiscal),
+                    "address_name": address_name,
+                    "campo": campo,
+                    "valor_anterior": str(valor_anterior),
+                    "valor_nuevo": str(valor_nuevo),
+                    "motivo": motivo_texto,
+                    "motivo_id": motivo_id,
+                    "usuario_id": usuario_id,
+                })
+
+        return cambios
+
+    def _generar_bitacora_cambios_fiscales(self,cliente, usuario_id):
+        """
+        Compara cliente.fiscal_detail_backup vs los valores actuales del cliente
+        y genera una lista de dicts con:
+
+          - campo
+          - valor_anterior
+          - valor_nuevo
+          - motivo
+          - motivo_id
+          - usuario_id
+
+        Se basa en los motivos:
+          11 RFC
+          12 Régimen fiscal
+          20 Ruta de entrega
+          25 Forma de pago CFDI
+          26 Método de pago CFDI
+          27 Uso CFDI
+        """
+
+        cambios = []
+
+        backup_list = getattr(cliente, "fiscal_detail_backup", None) or []
+        if not backup_list:
+            return cambios
+
+        # Asumimos un solo registro de backup (el fiscal actual al cargar el formulario)
+        original = backup_list[0]
+
+        # Mapeo: clave_en_backup -> (attr_actual_en_cliente, motivo_id, motivo_texto)
+        campos_fiscales = {
+            'official_number': (
+                'official_number',
+                11,
+                'CAMBIO EN RFC'
+            ),
+            'company_type_name': (
+                'company_type_name',
+                12,
+                'CAMBIO EN RÉGIMEN FISCAL'
+            ),
+            'forma_pago': (
+                'forma_pago',
+                25,
+                'CAMBIO EN FORMA DE PAGO CFDI'
+            ),
+            'metodo_pago': (
+                'metodo_pago',
+                26,
+                'CAMBIO EN MÉTODO DE PAGO CFDI'
+            ),
+            'receptor_uso_cfdi': (
+                'receptor_uso_cfdi',
+                27,
+                'CAMBIO EN USO CFDI'
+            ),
+            'zone_name': (
+                'zone_name',
+                20,
+                'CAMBIO EN RUTA'
+            ),
+        }
+
+        for backup_key, (attr_cliente, motivo_id, motivo_texto) in campos_fiscales.items():
+            valor_anterior = original.get(backup_key)
+            valor_nuevo = getattr(cliente, attr_cliente, None)
+
+            # Normalización
+            if valor_anterior is None:
+                valor_anterior = ""
+            if valor_nuevo is None:
+                valor_nuevo = ""
+
+            if isinstance(valor_anterior, str):
+                valor_anterior = valor_anterior.strip()
+            if isinstance(valor_nuevo, str):
+                valor_nuevo = valor_nuevo.strip()
+
+            # Si no cambió, no registramos nada
+            if valor_anterior == valor_nuevo:
+                continue
+
+            cambios.append({
+                "campo": attr_cliente,
+                "valor_anterior": str(valor_anterior),
+                "valor_nuevo": str(valor_nuevo),
+                "motivo": motivo_texto,
+                "motivo_id": motivo_id,
+                "usuario_id": usuario_id,
+            })
+
+        return cambios
+
+    def _registrar_bitacora_cambios_cliente(self, cliente, usuario_id, nombre_usuario):
+        """
+        Ejecuta el análisis de cambios (fiscales y direcciones) y registra
+        cada cambio en zvwBitacoraCambiosClientesT usando el SP
+        InsertarBitacoraCambiosClientes.
+
+        Requiere:
+        - generar_bitacora_cambios_fiscales(cliente, usuario_id)
+        - generar_bitacora_cambios_direcciones(cliente, usuario_id)
+
+        Cada cambio debe traer al menos:
+          {
+            "campo":          str,
+            "valor_anterior": str,
+            "valor_nuevo":    str,
+            "motivo":         str,
+            "motivo_id":      int,
+            "usuario_id":     int,
+            # opcional:
+            "address_detail_id": int
+          }
+        """
+
+        business_entity_id = getattr(cliente, "business_entity_id", 0) or 0
+        if not business_entity_id:
+            # Cliente nuevo sin BEID aún -> nada que registrar
+            return
+
+        # 1) Obtener cambios fiscales
+        cambios_fiscales = self._generar_bitacora_cambios_fiscales(cliente, usuario_id)
+
+        # 2) Obtener cambios en direcciones (fiscal + adicionales)
+        cambios_direcciones = self._generar_bitacora_cambios_direcciones(cliente, usuario_id)
+
+        # 3) Unificamos todos los cambios
+        todos_los_cambios = []
+        todos_los_cambios.extend(cambios_fiscales)
+        todos_los_cambios.extend(cambios_direcciones)
+
+        if not todos_los_cambios:
+            return
+
+        # 4) Insertar cada cambio usando el SP InsertarBitacoraCambiosClientes
+        for cambio in todos_los_cambios:
+            incidencia = cambio["motivo"]  # texto del motivo
+            incidencia_id = cambio["motivo_id"]  # ID del motivo en la tabla de incidencias
+            valor_anterior = cambio["valor_anterior"]
+            valor_nuevo = cambio["valor_nuevo"]
+            address_detail_id = cambio.get("address_detail_id", 0)
+
+            # Por si acaso, normalizamos a string corto (el SP recibe VARCHAR(255))
+            if valor_anterior is None:
+                valor_anterior = ""
+            if valor_nuevo is None:
+                valor_nuevo = ""
+
+            valor_anterior = str(valor_anterior)[:255]
+            valor_nuevo = str(valor_nuevo)[:255]
+
+            # Llamada al procedimiento almacenado
+            self._modelo.base_de_datos.command(
+                """
+                EXEC InsertarBitacoraCambiosClientes
+                    @incidencia         = ?,
+                    @valor_anterior     = ?,
+                    @valor_nuevo        = ?,
+                    @nombre_usuario     = ?,
+                    @business_entity_id = ?,
+                    @incidencia_id      = ?,
+                    @address_detail_id  = ?
+                """,
+                (
+                    incidencia,
+                    valor_anterior,
+                    valor_nuevo,
+                    nombre_usuario,
+                    business_entity_id,
+                    incidencia_id,
+                    address_detail_id
+                )
+            )

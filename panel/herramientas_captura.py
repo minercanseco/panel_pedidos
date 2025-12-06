@@ -35,6 +35,8 @@ class HerramientasCaptura:
             {'nombre_icono': 'Manufacture32.ico', 'etiqueta': 'M.Producir', 'nombre': 'mandar_producir',
              'hotkey': None, 'comando': self._hola},
 
+            {'nombre_icono': 'lista-de-verificacion.ico', 'etiqueta': 'Editar', 'nombre': 'editar',
+             'hotkey': None, 'comando': self._hola},
 
         ]
 

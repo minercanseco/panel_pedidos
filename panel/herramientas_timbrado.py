@@ -22,8 +22,7 @@ class HerramientasTimbrado:
     def _crear_barra_herramientas(self):
         self.barra_herramientas_pedido = [
 
-            {'nombre_icono': 'Payments32.ico', 'etiqueta': 'C.Cartera.', 'nombre': 'cobrar_cartera',
-             'hotkey': None, 'comando': self._hola},
+
 
             {'nombre_icono': 'lista-de-verificacion.ico', 'etiqueta': 'Editar', 'nombre': 'editar',
              'hotkey': None, 'comando': self._hola},

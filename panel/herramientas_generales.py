@@ -28,6 +28,9 @@ class HerramientasGenerales:
             {'nombre_icono': 'Customer32.ico', 'etiqueta': 'Nuevo', 'nombre': 'nuevo_cliente',
              'hotkey': None, 'comando': self._hola},
 
+            {'nombre_icono': ' AssignSalesRep32.ico', 'etiqueta': 'E.Nombre', 'nombre': 'editar_nombre',
+             'hotkey': None, 'comando': self._hola},
+
             {'nombre_icono': 'History21.ico', 'etiqueta': 'Historial', 'nombre': 'historial_pedido',
              'hotkey': None, 'comando': self._hola},
 
@@ -40,7 +43,8 @@ class HerramientasGenerales:
             {'nombre_icono': 'Printer21.ico', 'etiqueta': 'Imprimir', 'nombre': 'imprimir_pedido',
              'hotkey': None, 'comando': self._hola},
 
-
+            {'nombre_icono': 'Payments32.ico', 'etiqueta': 'C.Cartera.', 'nombre': 'cobrar_cartera',
+             'hotkey': None, 'comando': self._hola},
 
             {'nombre_icono': 'OtrosIngresos32.ico', 'etiqueta': 'C.Transferencia', 'nombre': 'confirmar_transferencia',
              'hotkey': None, 'comando': self._hola},

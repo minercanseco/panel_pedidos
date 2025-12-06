@@ -1242,7 +1242,7 @@ class ControladorPanelPedidos:
             'PaymentConfirmedID': fila['PaymentConfirmedID']
 
         }
-        status_pedido = self._utilerias.determinar_color_fila_respecto_entrega_pedido(valores_fila, ahora)
+        status_pedido = self.utilerias.determinar_color_fila_respecto_entrega_pedido(valores_fila, ahora)
 
         color = colores[status_pedido]
 
@@ -1457,13 +1457,13 @@ def _limpiar_tabla(self):
 def _capturar_nuevo_cliente(self):
     self._pausar_autorefresco()
     try:
-        self._parametros.id_principal = -1
+        self.parametros.id_principal = -1
         self._interfaz.master.iconify()
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-        instancia = PanelPrincipal(ventana, self._parametros, self._base_de_datos, self._utilerias)
+        instancia = PanelPrincipal(ventana, self.parametros, self.base_de_datos, self.utilerias)
         ventana.wait_window()
     finally:
-        self._parametros.id_principal = 0
+        self.parametros.id_principal = 0
         self._reanudar_autorefresco()
 
 
@@ -1479,12 +1479,12 @@ def _capturar_nuevo_pedido(self):
             master=self._interfaz.master
         )
 
-        self._parametros.id_principal = -1
-        _ = BuscarGeneralesCliente(ventana, self._parametros)
+        self.parametros.id_principal = -1
+        _ = BuscarGeneralesCliente(ventana, self.parametros)
 
 
     finally:
-        self._parametros.id_principal = 0
+        self.parametros.id_principal = 0
 
         # 👉 aquí SIEMPRE entras al cerrar captura (ver ajuste en BuscarGenerales abajo)
         self._actualizar_pedidos(
@@ -1514,13 +1514,13 @@ def _editar_caracteristicas(self):
             return
         else:
             order_document_id = fila[0]['OrderDocumentID']
-            self._parametros.id_principal = order_document_id
+            self.parametros.id_principal = order_document_id
 
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-            instancia = EditarCaracteristicasPedido(ventana, self._parametros, self._base_de_datos, self._utilerias)
+            instancia = EditarCaracteristicasPedido(ventana, self.parametros, self.base_de_datos, self.utilerias)
             ventana.wait_window()
 
-            self._parametros.id_principal = 0
+            self.parametros.id_principal = 0
             self._actualizar_pedidos(self._fecha_seleccionada())
     finally:
         self._reanudar_autorefresco()
@@ -1534,7 +1534,7 @@ def _crear_ticket(self):
             return
 
         order_document_id = fila[0]['OrderDocumentID']
-        consulta = self._base_de_datos.fetchall("""
+        consulta = self.base_de_datos.fetchall("""
                 SELECT
                  CASE WHEN DeliveryPromise IS NULL THEN 0 ELSE 1 END StatusEntrega,
                     DeliveryPromise FechaEntrega
@@ -1548,18 +1548,18 @@ def _crear_ticket(self):
                 'Debe definir la forma de pago del cliente antes de generar el ticket.')
             return
         else:
-            fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(str(consulta[0]['FechaEntrega'])[0:10])
+            fecha_entrega = self.utilerias.convertir_fecha_str_a_datetime(str(consulta[0]['FechaEntrega'])[0:10])
             if fecha_entrega > self._modelo.hoy:
                 respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
                     'EL pedido es para una fecha de entrega posterior, ¿Desea actualizar los precios antes de generar el ticket?')
 
                 if respuesta:
-                    self._base_de_datos.actualizar_precios_pedido(order_document_id)
+                    self.base_de_datos.actualizar_precios_pedido(order_document_id)
 
-            self._parametros.id_principal = order_document_id
-            instancia = TicketPedidoCliente(self._base_de_datos, self._utilerias, self._parametros)
+            self.parametros.id_principal = order_document_id
+            instancia = TicketPedidoCliente(self.base_de_datos, self.utilerias, self.parametros)
 
-            self._parametros.id_principal = 0
+            self.parametros.id_principal = 0
             self._interfaz.ventanas.mostrar_mensaje(master=self._interfaz.master,
                                                     mensaje='Comprobante generado.', tipo='info')
             self._interfaz.master.iconify()
@@ -1574,7 +1574,7 @@ def _mandar_a_producir(self):
 
     for fila in filas:
         order_document_id = fila['OrderDocumentID']
-        consulta = self._base_de_datos.fetchall("""
+        consulta = self.base_de_datos.fetchall("""
                 SELECT StatusID, 
                     CASE WHEN DeliveryPromise IS NULL THEN 0 ELSE 1 END Entrega,
                     ISNULL(FolioPrefix,'')+ISNULL(Folio,'') DocFolio
@@ -1592,7 +1592,7 @@ def _mandar_a_producir(self):
             continue
 
         if status == 1:
-            self._base_de_datos.command("""
+            self.base_de_datos.command("""
                      UPDATE docDocumentOrderCayal SET SentToPrepare = GETDATE(),
                                                     SentToPrepareBy = ?,
                                                     StatusID = 2,
@@ -1601,10 +1601,10 @@ def _mandar_a_producir(self):
                 """, (self._user_id, order_document_id,))
 
             comentario = f'Enviado a producir por {self._user_name}.'
-            self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=order_document_id,
-                                                                   change_type_id=2,
-                                                                   user_id=self._user_id,
-                                                                   comments=comentario)
+            self.base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=order_document_id,
+                                                                  change_type_id=2,
+                                                                  user_id=self._user_id,
+                                                                  comments=comentario)
 
     self._actualizar_pedidos(self._fecha_seleccionada())
 
@@ -1613,7 +1613,7 @@ def _cobrar_nota(self):
     self._pausar_autorefresco()
     try:
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-        instancia = BuscarGeneralesClienteCartera(ventana, self._parametros)
+        instancia = BuscarGeneralesClienteCartera(ventana, self.parametros)
         ventana.wait_window()
 
         fila = self._seleccionar_una_fila()

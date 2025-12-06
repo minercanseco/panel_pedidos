@@ -5,18 +5,10 @@ import tempfile
 import tkinter as tk
 from datetime import datetime
 
-from herramientas.cliente.notebook_cliente import NoteBookCliente
 from herramientas.herramientas_compartidas.buscar_pedido import BuscarPedido
-from cayal.login import Login
 from herramientas.capturar_documento.buscar_generales_cliente import BuscarGeneralesCliente
 from herramientas.herramientas_compartidas.capturado_vs_producido import CapturadoVsProducido
-
 from herramientas.herramientas_panel.editar_caracteristicas_pedido import EditarCaracteristicasPedido
-from cayal.cobros import Cobros
-
-from herramientas.herramientas_compartidas.generador_ticket_produccion import GeneradorTicketProduccion
-from herramientas.herramientas_compartidas.historial_pedido import HistorialPedido
-from herramientas.herramientas_compartidas.horario_acumulado import HorarioslAcumulados
 from herramientas.capturar_documento.llamar_instancia_captura import LlamarInstanciaCaptura
 from herramientas.herramientas_panel.ticket_pedido_cliente import TicketPedidoCliente
 from herramientas.herramientas_panel.selector_tipo_documento import SelectorTipoDocumento
@@ -25,9 +17,6 @@ from cayal.tableview_cayal import Tableview
 from herramientas.herramientas_panel.editar_pedido import EditarPedido
 from cayal.cliente import Cliente
 from cayal.documento import Documento
-from herramientas.saldar_cartera.buscar_generales_cliente_cartera import BuscarGeneralesCliente
-from herramientas.cliente.buscar_clientes import BuscarClientes
-from herramientas.herramientas_compartidas.cancelar_pedido import CancelarPedido
 from panel.herramientas_captura import HerramientasCaptura
 from panel.herramientas_generales import HerramientasGenerales
 from panel.herramientas_timbrado import HerramientasTimbrado
@@ -38,30 +27,18 @@ class ControladorPanelPedidos:
         self._modelo = modelo
         self._interfaz = modelo.interfaz
         self._master = self._interfaz.master
-        self._base_de_datos = self._modelo.base_de_datos
-        self._utilerias = self._modelo.utilerias
-        self._parametros = self._modelo.parametros
-        self._cobros = Cobros(self._parametros.cadena_conexion)
-        self._ticket = GeneradorTicketProduccion(32)
-        self._ticket.ruta_archivo = self._obtener_directorio_reportes()
 
-        self._actualizando_tabla = False
-        self._number_orders = 0
-
-        self._coloreando = False
-        self._user_id = self._parametros.id_usuario
-        self._user_name = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
-        self._parametros.nombre_usuario = self._user_name
-        self._partidas_pedidos = {}
-        self._capturando_nuevo_pedido = False
+        #self._cobros = Cobros(self.parametros.cadena_conexion)
+        #self._ticket = GeneradorTicketProduccion(32)
+        #self._ticket.ruta_archivo = self._obtener_directorio_reportes()
 
         self._crear_tabla_pedidos()
         self._actualizar_pedidos(self._fecha_seleccionada())
 
         self._cargar_eventos()
         self._rellenar_operador()
-        self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Panel pedidos', bloquear=False)
         self._crear_notebook_herramientas()
+        self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Panel pedidos', bloquear=False)
 
         self._number_orders = -1
         self._number_transfer_payments = -1
@@ -99,7 +76,6 @@ class ControladorPanelPedidos:
 
     def _cargar_eventos(self):
         eventos = {
-
             'den_fecha': lambda event: self._actualizar_pedidos(self._fecha_seleccionada(), criteria=False),
             'tbv_pedidos': (lambda event: self._rellenar_tabla_detalle(), 'doble_click'),
             'cbx_capturista': lambda event: self._filtrar_por_capturados_por(),
@@ -107,8 +83,6 @@ class ControladorPanelPedidos:
             'cbx_horarios': lambda event: self._filtrar_por_horas(),
             'chk_sin_procesar': lambda *args: self._filtrar_no_procesados(),
             'chk_sin_fecha': lambda *args: self._sin_fecha(),
-
-
         }
         self._interfaz.ventanas.cargar_eventos(eventos)
 
@@ -117,15 +91,6 @@ class ControladorPanelPedidos:
         }
         self._interfaz.ventanas.cargar_eventos(evento_adicional)
 
-        evento_adicional2 = {
-            'tbv_pedidos': (lambda event: self._pausar_autorefresco(), 'enfocar')
-        }
-        self._interfaz.ventanas.cargar_eventos(evento_adicional2)
-
-        evento_adicional3 = {
-            'tbv_pedidos': (lambda event: self._reanudar_autorefresco(), 'desenfocar')
-        }
-        self._interfaz.ventanas.cargar_eventos(evento_adicional3)
 
     def _filtrar_no_procesados(self):
         self._interfaz.ventanas.insertar_input_componente('cbx_capturista', 'Seleccione')
@@ -178,7 +143,7 @@ class ControladorPanelPedidos:
         fecha = self._fecha_seleccionada()
         hoy = datetime.now().date() if not fecha else datetime.strptime(fecha, "%Y-%m-%d").date()
         # 1) Pedidos en logística impresos (4,13 + PrintedOn not null)
-        number_orders = int(self._base_de_datos.fetchone(
+        number_orders = int(self.base_de_datos.fetchone(
             """
             SELECT COUNT(1)
             FROM docDocumentOrderCayal P
@@ -190,7 +155,7 @@ class ControladorPanelPedidos:
             (hoy,)
         ) or 0)
         # 2) Transferencias confirmadas = 2
-        number_transfer_payments = int(self._base_de_datos.fetchone(
+        number_transfer_payments = int(self.base_de_datos.fetchone(
             """
             SELECT COUNT(1)
             FROM docDocumentOrderCayal
@@ -200,7 +165,7 @@ class ControladorPanelPedidos:
             (hoy,)
         ) or 0)
         # 3) Buckets de puntualidad (<=15, 16-30, >30)
-        rows = self._base_de_datos.fetchall(
+        rows = self.base_de_datos.fetchall(
             """
               ;WITH Base AS (
                 SELECT
@@ -274,7 +239,7 @@ class ControladorPanelPedidos:
         componente = Tableview(
             master=frame,
             coldata=self._interfaz.crear_columnas_tabla(),
-            rowdata=self._utilerias.diccionarios_a_tuplas(None),
+            rowdata=self.utilerias.diccionarios_a_tuplas(None),
             paginated=True,
             searchable=True,
             bootstyle=PRIMARY,
@@ -361,7 +326,7 @@ class ControladorPanelPedidos:
                 'PaymentConfirmedID': fila['PaymentConfirmedID']
 
             }
-            status_pedido = self._utilerias.determinar_color_fila_respecto_entrega_pedido(valores_fila, ahora)
+            status_pedido = self.utilerias.determinar_color_fila_respecto_entrega_pedido(valores_fila, ahora)
 
             color = colores[status_pedido]
 
@@ -566,35 +531,7 @@ class ControladorPanelPedidos:
             self._interfaz.ventanas.insertar_input_componente(campo, (1, 0))
         tabla.delete_rows()
 
-    def _capturar_nuevo_cliente(self):
-        self._pausar_autorefresco()
-        try:
 
-            self._parametros.id_principal = 9760
-
-            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-
-
-            cliente = Cliente()
-            NoteBookCliente(ventana,
-                            self._base_de_datos,
-                            self._parametros,
-                            self._utilerias,
-                            cliente
-                            )
-            """
-            ClienteNuevo(ventana,
-                         self._parametros,
-                         self._base_de_datos,
-                         self._utilerias)
-            self._interfaz.master.iconify()
-            #"""
-
-            ventana.wait_window()
-
-        finally:
-            self._parametros.id_principal = 0
-            self._reanudar_autorefresco()
 
     def _capturar_nuevo_pedido(self):
         self._pausar_autorefresco()
@@ -608,7 +545,7 @@ class ControladorPanelPedidos:
                 master=self._interfaz.master
             )
 
-            self._parametros.id_principal = -1
+            self.parametros.id_principal = -1
 
             # empaquetar ofertas del cliente
             ofertas = {
@@ -617,11 +554,11 @@ class ControladorPanelPedidos:
                 'products_ids_ofertados': self._modelo.products_ids_ofertados
             }
 
-            _ = BuscarGeneralesCliente(ventana, self._parametros, ofertas)
+            _ = BuscarGeneralesCliente(ventana, self.parametros, ofertas)
 
 
         finally:
-            self._parametros.id_principal = 0
+            self.parametros.id_principal = 0
 
             # 👉 aquí SIEMPRE entras al cerrar captura (ver ajuste en BuscarGenerales abajo)
             self._actualizar_pedidos(
@@ -649,13 +586,13 @@ class ControladorPanelPedidos:
                 return
             else:
                 order_document_id = fila[0]['OrderDocumentID']
-                self._parametros.id_principal = order_document_id
+                self.parametros.id_principal = order_document_id
 
                 ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-                instancia = EditarCaracteristicasPedido(ventana, self._parametros, self._base_de_datos, self._utilerias)
+                instancia = EditarCaracteristicasPedido(ventana, self.parametros, self.base_de_datos, self.utilerias)
                 ventana.wait_window()
 
-                self._parametros.id_principal = 0
+                self.parametros.id_principal = 0
                 self._actualizar_pedidos(self._fecha_seleccionada())
         finally:
             self._reanudar_autorefresco()
@@ -668,13 +605,13 @@ class ControladorPanelPedidos:
                 return
 
             order_document_id = fila[0]['OrderDocumentID']
-            consulta = self._base_de_datos.fetchall("""
+            consulta = self.base_de_datos.fetchall("""
                 SELECT
                  CASE WHEN DeliveryPromise IS NULL THEN 0 ELSE 1 END StatusEntrega,
                     DeliveryPromise FechaEntrega
                 FROM docDocumentOrderCayal 
                 WHERE OrderDocumentID = ?
-                """,(order_document_id,))
+                """, (order_document_id,))
             status_entrega = consulta[0]['StatusEntrega']
 
 
@@ -682,18 +619,18 @@ class ControladorPanelPedidos:
                 self._interfaz.ventanas.mostrar_mensaje('Debe definir la forma de pago del cliente antes de generar el ticket.')
                 return
             else:
-                fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(str(consulta[0]['FechaEntrega'])[0:10])
+                fecha_entrega = self.utilerias.convertir_fecha_str_a_datetime(str(consulta[0]['FechaEntrega'])[0:10])
                 if fecha_entrega > self._modelo.hoy:
                     respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
                         'EL pedido es para una fecha de entrega posterior, ¿Desea actualizar los precios antes de generar el ticket?')
 
                     if respuesta:
-                        self._base_de_datos.actualizar_precios_pedido(order_document_id)
+                        self.base_de_datos.actualizar_precios_pedido(order_document_id)
 
-                self._parametros.id_principal = order_document_id
-                instancia = TicketPedidoCliente(self._base_de_datos, self._utilerias, self._parametros)
+                self.parametros.id_principal = order_document_id
+                instancia = TicketPedidoCliente(self.base_de_datos, self.utilerias, self.parametros)
 
-                self._parametros.id_principal = 0
+                self.parametros.id_principal = 0
                 self._interfaz.ventanas.mostrar_mensaje(master=self._interfaz.master,
                                                         mensaje='Comprobante generado.', tipo='info')
                 self._interfaz.master.iconify()
@@ -708,13 +645,13 @@ class ControladorPanelPedidos:
 
         for fila in filas:
             order_document_id = fila['OrderDocumentID']
-            consulta = self._base_de_datos.fetchall("""
+            consulta = self.base_de_datos.fetchall("""
                 SELECT StatusID, 
                     CASE WHEN DeliveryPromise IS NULL THEN 0 ELSE 1 END Entrega,
                     ISNULL(FolioPrefix,'')+ISNULL(Folio,'') DocFolio
                 FROM docDocumentOrderCayal 
                 WHERE OrderDocumentID = ?
-            """,(order_document_id,))
+            """, (order_document_id,))
 
             status = consulta[0]['StatusID']
             entrega = consulta[0]['Entrega']
@@ -726,19 +663,19 @@ class ControladorPanelPedidos:
                 continue
 
             if status == 1:
-                self._base_de_datos.command("""
+                self.base_de_datos.command("""
                      UPDATE docDocumentOrderCayal SET SentToPrepare = GETDATE(),
                                                     SentToPrepareBy = ?,
                                                     StatusID = 2,
                                                     UserID = NULL
                     WHERE OrderDocumentID = ?
-                """,(self._user_id, order_document_id,))
+                """, (self._user_id, order_document_id,))
 
                 comentario = f'Enviado a producir por {self._user_name}.'
-                self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=order_document_id,
-                                                                       change_type_id=2,
-                                                                       user_id=self._user_id,
-                                                                       comments=comentario)
+                self.base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=order_document_id,
+                                                                      change_type_id=2,
+                                                                      user_id=self._user_id,
+                                                                      comments=comentario)
 
         self._actualizar_pedidos(self._fecha_seleccionada())
 
@@ -746,7 +683,7 @@ class ControladorPanelPedidos:
         self._pausar_autorefresco()
         try:
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-            instancia = BuscarGeneralesCliente(ventana, self._parametros)
+            instancia = BuscarGeneralesCliente(ventana, self.parametros)
             ventana.wait_window()
 
             fila = self._seleccionar_una_fila()
@@ -879,7 +816,7 @@ class ControladorPanelPedidos:
                 self._actualizar_status_y_relacionar(document_id, order_document_id)
 
                 # agregar documento para recalculo
-                self._base_de_datos.exec_stored_procedure('zvwRecalcularPedidos', (document_id, order_document_id))
+                self.base_de_datos.exec_stored_procedure('zvwRecalcularPedidos', (document_id, order_document_id))
 
                 # afectar bitacora
                 self._afectar_bitacora_de_cambios(document_id, [order_document_id])
@@ -925,31 +862,31 @@ class ControladorPanelPedidos:
         # relacionar pedido principal con pedidos
         for order in all_order_document_ids:
             if order != order_document_id:
-                self._base_de_datos.command(
+                self.base_de_datos.command(
                     'UPDATE docDocumentOrderCayal SET RelatedOrderID = ?, StatusID=4 WHERE OrderDocumentID = ?',
                     (order_document_id, order)
                 )
 
         # agregar documento para recalculo
-        self._base_de_datos.exec_stored_procedure('zvwRecalcularPedidos', (document_id, order_document_id))
+        self.base_de_datos.exec_stored_procedure('zvwRecalcularPedidos', (document_id, order_document_id))
 
         # afectar la bitacora de cambios
         self._afectar_bitacora_de_cambios(document_id, all_order_document_ids)
 
     def _afectar_bitacora_de_cambios(self, document_id, order_document_ids):
 
-        folio = self._base_de_datos.fetchone(
+        folio = self.base_de_datos.fetchone(
             "SELECT ISNULL(FolioPrefix,'')+ISNULL(Folio,'') DocFolio FROM docDocument WHERE DocumentID = ?",
             (document_id,))
         comentario = f"Documento creado por {self._user_name} - {folio}"
 
         for order_document_id in order_document_ids:
-            self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
-                                                                   change_type_id=4,
-                                                                   comments=comentario,
-                                                                   user_id=self._user_id)
+            self.base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
+                                                                  change_type_id=4,
+                                                                  comments=comentario,
+                                                                  user_id=self._user_id)
 
-            self._base_de_datos.command(
+            self.base_de_datos.command(
                 """
                 UPDATE docDocumentOrderCayal 
                 SET 
@@ -967,7 +904,7 @@ class ControladorPanelPedidos:
             )
 
     def _actualizar_status_y_relacionar(self, document_id, order_document_id):
-        self._base_de_datos.command(
+        self.base_de_datos.command(
             """
             DECLARE @DocumentID INT = ?
             DECLARE @OrderDocumentID INT  = ?
@@ -991,7 +928,7 @@ class ControladorPanelPedidos:
 
     def _insertar_partidas_documento(self, order_document_id, document_id, partidas, total_documento, address_detail_id):
         if total_documento < 200:
-            order_delivery_type_id = self._base_de_datos.fetchone(
+            order_delivery_type_id = self.base_de_datos.fetchone(
                 'SELECT OrderDeliveryTypeID FROM docDocumentOrderCayal WHERE OrderDocumentID = ?',
                                          (order_document_id,))
 
@@ -1012,14 +949,14 @@ class ControladorPanelPedidos:
                 21,  # modulo
                 partida['Comments']
             )
-            self._base_de_datos.insertar_partida_documento_cayal(parametros)
+            self.base_de_datos.insertar_partida_documento_cayal(parametros)
 
     def _insertar_servicio_a_docimicilio(self, document_id, address_detail_id):
-        precio_servicio = self._base_de_datos.fetchone(
+        precio_servicio = self.base_de_datos.fetchone(
             'SELECT * FROM [dbo].[zvwBuscarCargoEnvio-AddressDetailID](?)',
             (address_detail_id,))
 
-        precio_servicio_sin_impuesto = self._utilerias.calcular_monto_sin_iva(precio_servicio)
+        precio_servicio_sin_impuesto = self.utilerias.calcular_monto_sin_iva(precio_servicio)
         parametros = (
             document_id,
             5606,  # product_id
@@ -1031,7 +968,7 @@ class ControladorPanelPedidos:
             0,  # tipo captura
             21  # modulo
         )
-        self._base_de_datos.insertar_partida_documento_cayal(parametros)
+        self.base_de_datos.insertar_partida_documento_cayal(parametros)
 
     def _crear_cabecera_documento(self, document_type_id, fila):
         # este valor hace que se inserte la configuracion del cliente que esta predeterminada
@@ -1041,7 +978,7 @@ class ControladorPanelPedidos:
         if document_type_id == 0:
             way_to_pay_id = self._actualizar_forma_de_pago_documento(info_documento=fila)
 
-        document_id = self._base_de_datos.crear_documento(
+        document_id = self.base_de_datos.crear_documento(
             document_type_id,
             'FM', # prefijo mayoreo
             fila['BusinessEntityID'],
@@ -1056,8 +993,8 @@ class ControladorPanelPedidos:
         order_document_id = fila['OrderDocumentID']
 
         # este valor hace que para los doctos de mayoreo no sean recalculables
-        self._base_de_datos.command('UPDATE docDocument SET ExportID = 6, OrderDocumentID = ? WHERE DocumentID = ?',
-                                    (order_document_id, document_id))
+        self.base_de_datos.command('UPDATE docDocument SET ExportID = 6, OrderDocumentID = ? WHERE DocumentID = ?',
+                                   (order_document_id, document_id))
 
         return document_id
 
@@ -1257,14 +1194,14 @@ class ControladorPanelPedidos:
                 # ⚠️ NO crear ventana aquí: LlamarInstanciaCaptura la crea internamente
                 cliente = Cliente()
                 documento = Documento()
-                self._parametros.id_principal = order_document_id
+                self.parametros.id_principal = order_document_id
 
                 instancia = LlamarInstanciaCaptura(
                     cliente,
                     documento,
-                    self._base_de_datos,
-                    self._parametros,
-                    self._utilerias,
+                    self.base_de_datos,
+                    self.parametros,
+                    self.utilerias,
                     None  # ← evita doble ventana: no pases un Toplevel existente
                 )
                 # si LlamarInstanciaCaptura expone una ventana y quieres modal, podrías:
@@ -1274,7 +1211,7 @@ class ControladorPanelPedidos:
             elif status_id == 3:
                 # Aquí sí creas el Toplevel y lo haces modal
                 ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-                instancia = EditarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros, fila)
+                instancia = EditarPedido(ventana, self.base_de_datos, self.utilerias, self.parametros, fila)
                 ventana.wait_window()
 
             else:  # status_id > 3
@@ -1290,10 +1227,10 @@ class ControladorPanelPedidos:
         self._pausar_autorefresco()
         try:
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Buscar pedido')
-            instancia = BuscarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros)
+            instancia = BuscarPedido(ventana, self.base_de_datos, self.utilerias, self.parametros)
             ventana.wait_window()
         finally:
-            self._parametros.id_principal = 0
+            self.parametros.id_principal = 0
             self._reanudar_autorefresco()
 
     def _capturado_vs_producido(self):
@@ -1312,83 +1249,22 @@ class ControladorPanelPedidos:
                 return
 
 
-            self._parametros.id_principal = order_document_id
+            self.parametros.id_principal = order_document_id
 
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Capturado vs Producido')
-            instancia = CapturadoVsProducido(ventana, self._parametros, self._base_de_datos, self._utilerias, fila)
+            instancia = CapturadoVsProducido(ventana, self.parametros, self.base_de_datos, self.utilerias, fila)
             ventana.wait_window()
         finally:
             self._reanudar_autorefresco()
-            self._parametros.id_principal = 0
+            self.parametros.id_principal = 0
 
-    def _rellenar_operador(self):
-        operador_panel = self._modelo.buscar_nombre_usuario_operador_panel(self._parametros.id_usuario)
-        texto = f'PANEL: pedidos OPERADOR: {operador_panel}'
-        self._interfaz.ventanas.actualizar_etiqueta_externa_tabla_view('tbv_pedidos', texto)
-        self._user_id = self._parametros.id_usuario
 
-    def _validar_seleccion_una_fila(self):
-        if not self._interfaz.ventanas.validar_seleccion_una_fila_table_view('tbv_pedidos'):
-            return
 
-        return self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)[0]
 
-    def _historial_pedido(self):
-        try:
-            valores_fila = self._validar_seleccion_una_fila()
-            if not valores_fila:
-                return
 
-            order_document_id = valores_fila['OrderDocumentID']
 
-            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Historial pedido')
-            self._parametros.id_principal = order_document_id
-            instancia = HistorialPedido(ventana, self._parametros, self._base_de_datos)
-            ventana.wait_window()
-        finally:
-            self._reanudar_autorefresco()
-            self._parametros.id_principal = 0
 
-    def _cambiar_usuario(self):
 
-        def si_acceso_exitoso(parametros=None, master=None):
-            self._parametros = parametros
-            self._rellenar_operador()
-
-        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-        instancia = Login(ventana, self._parametros, si_acceso_exitoso)
-        ventana.wait_window()
-
-    def _buscar_clientes(self):
-        self._pausar_autorefresco()
-        try:
-            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-            instancia = BuscarClientes(ventana, self._base_de_datos, self._parametros, self._utilerias)
-            ventana.wait_window()
-        finally:
-            self._reanudar_autorefresco()
-
-    def _confirmar_transferencia(self):
-        filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos2', seleccionadas=True)
-        if not filas:
-            self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar un pedido.')
-            return
-
-        for fila in filas:
-            order_document_id = fila['OrderDocumentID']
-            payment_confirmend_id = fila['PaymentConfirmedID']
-
-            if payment_confirmend_id == 1:
-                self._interfaz.ventanas.mostrar_mensaje('El pedido seleccionado no es transferencia.')
-                return
-
-            if payment_confirmend_id == 3:
-                self._interfaz.ventanas.mostrar_mensaje('La transferencia ha sido confirmada con anterioridad.')
-                return
-
-            self._modelo.confirmar_transferencia(self._user_id, order_document_id)
-            comentario = f"Transferencia confirmada por {self._user_name}"
-            self._modelo.afectar_bitacora(order_document_id, self._user_id, comentario)
 
     def _imprimir(self):
         self._pausar_autorefresco()
@@ -1423,7 +1299,7 @@ class ControladorPanelPedidos:
     def _preparar_ticket_impresion(self, fila):
         order_document_id = fila['OrderDocumentID']
 
-        areas_imprimibles = set(self._base_de_datos.fetchone("""
+        areas_imprimibles = set(self.base_de_datos.fetchone("""
                     SELECT PT.Value
                     FROM docDocumentOrderCayal P INNER JOIN
                         OrdersProductionTypesCayal PT ON P.ProductionTypeID = PT.ProductionTypesID
@@ -1467,7 +1343,7 @@ class ControladorPanelPedidos:
         self._ticket.capturista = pedido.get('Captura', '')
         self._ticket.ruta = pedido.get('Ruta')
 
-        consulta = self._base_de_datos.fetchall(
+        consulta = self.base_de_datos.fetchall(
             """
             SELECT Z.ZoneName, DT.City
             FROM docDocumentOrderCayal D INNER JOIN
@@ -1480,13 +1356,13 @@ class ControladorPanelPedidos:
         if consulta:
             valores = consulta[0]
             ruta = valores.get('ZoneName', '')
-            ruta = self._utilerias.limitar_caracteres(ruta, 22)
+            ruta = self.utilerias.limitar_caracteres(ruta, 22)
             self._ticket.ruta = ruta
 
             colonia = valores.get('City', '')
             self._ticket.colonia = colonia
 
-        consulta_partidas = self._base_de_datos.buscar_partidas_pedidos_produccion_cayal(
+        consulta_partidas = self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
             order_document_id, partidas_eliminadas=False, partidas_producidas=True)
 
         partidas_filtradas_por_area = self._filtrar_partidas_por_area_impresion(consulta_partidas, areas_imprimibles, todas_las_areas)
@@ -1539,7 +1415,7 @@ class ControladorPanelPedidos:
             unidad_producto = partida['Unit']
             product_id = partida['ProductID']
 
-            abreviatura_unidad = self._utilerias.abreviatura_unidad_producto(unidad_producto)
+            abreviatura_unidad = self.utilerias.abreviatura_unidad_producto(unidad_producto)
 
             # es un producto pesado con unidad pieza
             if cayal_piece != 0:
@@ -1554,7 +1430,7 @@ class ControladorPanelPedidos:
                 # CUERO
                 # CANTIDAD: (1 Cj) 25 Kg
 
-                unidad_especial = self._utilerias.equivalencias_productos_especiales(product_id)
+                unidad_especial = self.utilerias.equivalencias_productos_especiales(product_id)
 
                 if unidad_especial:
                     unidad_especial = unidad_especial[0]
@@ -1580,13 +1456,6 @@ class ControladorPanelPedidos:
             partidas.append(producto)
         return partidas
 
-    def _acumular_horarios(self):
-        self._pausar_autorefresco()
-        try:
-            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(self._interfaz.master, 'Acumulados horarios')
-            instancia = HorarioslAcumulados(ventana, self._base_de_datos, self._utilerias)
-        finally:
-            self._reanudar_autorefresco()
 
     def _rellenar_cbx_captura(self, valores):
         valores = sorted(list(set(valores)))
@@ -1830,7 +1699,7 @@ class ControladorPanelPedidos:
         delivery_forms = []
         info_delivery = {}
         for pedido in order_document_ids:
-            consulta = self._base_de_datos.buscar_info_documento_pedido_cayal(pedido)
+            consulta = self.base_de_datos.buscar_info_documento_pedido_cayal(pedido)
             if consulta:
                 info_pedido = consulta[0]
                 # Extraer la información necesaria
@@ -1859,7 +1728,7 @@ class ControladorPanelPedidos:
         comentario = ''  # Inicia el comentario vacío
 
         for pedido in order_document_ids:
-            consulta = self._base_de_datos.buscar_info_documento_pedido_cayal(pedido)
+            consulta = self.base_de_datos.buscar_info_documento_pedido_cayal(pedido)
             if consulta:
                 info_pedido = consulta[0]
 
@@ -1880,7 +1749,7 @@ class ControladorPanelPedidos:
         payment_forms = []
         info_payment = {}
         for pedido in order_document_ids:
-            consulta = self._base_de_datos.buscar_info_documento_pedido_cayal(pedido)
+            consulta = self.base_de_datos.buscar_info_documento_pedido_cayal(pedido)
             if consulta:
                 info_pedido = consulta[0]
                 # Extraer la información necesaria
@@ -1899,7 +1768,7 @@ class ControladorPanelPedidos:
             if way_to_pay_id == 5:
                 return ''
 
-            return self._base_de_datos.fetchone(
+            return self.base_de_datos.fetchone(
                 'SELECT Comments FROM OrdersPaymentTermCayal WHERE PaymentTermID = ?',
                 (list(payment_forms)[0])
             )
@@ -1909,7 +1778,7 @@ class ControladorPanelPedidos:
                 if payment_form == 5:
                     continue
 
-                comentario_pago = self._base_de_datos.fetchone(
+                comentario_pago = self.base_de_datos.fetchone(
                     'SELECT Comments FROM OrdersPaymentTermCayal WHERE PaymentTermID = ?',
                     (payment_form,)
                 )
@@ -1942,7 +1811,7 @@ class ControladorPanelPedidos:
             total_tax += (precio_con_impuestos - precio)
             totales += total
 
-        self._base_de_datos.command(
+        self.base_de_datos.command(
             'UPDATE docDocumentOrderCayal SET SubTotal = ?, Total = ?, TotalTax = ? WHERE OrderDocumentID = ?',
             (subtotal, totales, total_tax, order_document_id)
         )
@@ -1965,20 +1834,20 @@ class ControladorPanelPedidos:
 
             UPDATE orgBusinessEntity SET Custom4 = 1 WHERE BusinessEntityID = ?
         """
-        self._base_de_datos.command(sql, (business_entity_id, business_entity_id, business_entity_id, business_entity_id))
+        self.base_de_datos.command(sql, (business_entity_id, business_entity_id, business_entity_id, business_entity_id))
 
     def _validar_credito_documento_cliente(self, business_entity_id, comentarios_documento, total_documento):
 
-        info_cliente = self._base_de_datos.fetchall('SELECT * FROM [dbo].[zvwBuscarInfoCliente-BusinessEntityID](?)',
-                                        (business_entity_id,))
-        credito_autorizado = self._utilerias.redondear_valor_cantidad_a_decimal(info_cliente[0]['AuthorizedCredit'])
+        info_cliente = self.base_de_datos.fetchall('SELECT * FROM [dbo].[zvwBuscarInfoCliente-BusinessEntityID](?)',
+                                                   (business_entity_id,))
+        credito_autorizado = self.utilerias.redondear_valor_cantidad_a_decimal(info_cliente[0]['AuthorizedCredit'])
         ruta = int(info_cliente[0]['ZoneID'])
 
         if credito_autorizado > 0 and ruta == 1040:
             bloqueo_crediticio = int(info_cliente[0]['CreditBlock'])
 
             if bloqueo_crediticio == 1:
-                tabla_credito = self._base_de_datos.fetchall("""
+                tabla_credito = self.base_de_datos.fetchall("""
                         SELECT IDEmpresa, 
                                 IDCLiente,
                                 Cliente,
@@ -1993,7 +1862,7 @@ class ControladorPanelPedidos:
                                 USUARIOEDICION 
                         FROM zvwStatusCreditoCayal WHERE IDEmpresa = ?
                         """,
-                                                 (business_entity_id,))
+                                                            (business_entity_id,))
 
                 if tabla_credito:
                     fecha_alta_bd = tabla_credito[0]['FechaAlta']
@@ -2005,7 +1874,7 @@ class ControladorPanelPedidos:
 
                 comentario_crediticio = '--NO TIENE CRÉDITO SU COMPRA ES DE CONTADO.-- '
             else:
-                credito_restante = self._utilerias.redondear_valor_cantidad_a_decimal(info_cliente[0]['RemainingCredit'])
+                credito_restante = self.utilerias.redondear_valor_cantidad_a_decimal(info_cliente[0]['RemainingCredit'])
                 debe = credito_autorizado - credito_restante
 
                 if credito_restante > 0:
@@ -2027,58 +1896,37 @@ class ControladorPanelPedidos:
 
         return comentarios_documento
 
-    def _cancelar_pedido(self):
-        self._pausar_autorefresco()
-        try:
-            user_group_id = self._base_de_datos.fetchone('SELECT UserGroupID FROM engUser WHERE UserID = ?', (self._user_id,))
-            if user_group_id not in (1, 5, 6, 7, 15,20):
-                self._interfaz.ventanas.mostrar_mensaje('No está autorizado para cancelar pedidos.')
-                return
-            valores_fila = self._validar_seleccion_una_fila()
-            if not valores_fila:
-                self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar solo o por lo menos un pedido.')
-                return
 
-            order_document_id = valores_fila['OrderDocumentID']
-            self._parametros.id_principal = order_document_id
-            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-            instancia = CancelarPedido(ventana, self._parametros, self._base_de_datos)
-            ventana.wait_window()
-        finally:
-            self._reanudar_autorefresco()
-            self._parametros.id_principal = 0
-
-        self._actualizar_pedidos(self._fecha_seleccionada())
 
     def _afectar_bitacora_impresion(self, order_document_id):
 
         change_type_id = 12
-        user_name = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
+        user_name = self.base_de_datos.buscar_nombre_de_usuario(self._user_id)
         comentario = f"{user_name}-{self._ticket.pedido}-{self._ticket.areas}"
 
-        self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
-                                                               change_type_id=change_type_id,
-                                                               comments=comentario,
-                                                               user_id=self._user_id)
+        self.base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
+                                                              change_type_id=change_type_id,
+                                                              comments=comentario,
+                                                              user_id=self._user_id)
 
     def _actualizar_tablas_impresion(self, order_document_id):
 
         areas = self._ticket.areas
 
         if 'Minisuper' in areas:
-            self._base_de_datos.command(
+            self.base_de_datos.command(
                 'UPDATE docDocumentOrderCayal SET StorePrintedOn=GETDATE(), StorePrintedBy=? WHERE OrderDocumentID = ?',
                 (self._user_id, order_document_id)
             )
 
         if 'Almacen' in areas:
-            self._base_de_datos.command(
+            self.base_de_datos.command(
                 'UPDATE docDocumentOrderCayal SET WarehousePrintedOn=GETDATE(), WarehousePrintedBy=? WHERE OrderDocumentID = ?',
                 (self._user_id, order_document_id)
             )
 
         if 'Produccion' in areas:
-            self._base_de_datos.command(
+            self.base_de_datos.command(
                 'UPDATE docDocumentOrderCayal SET ProductionPrintedOn=GETDATE(), ProductionPrintedBy=? WHERE OrderDocumentID = ?',
                 (self._user_id, order_document_id)
             )
@@ -2099,6 +1947,7 @@ class ControladorPanelPedidos:
     def _buscar_ofertas(self):
         if not self._modelo.consulta_productos_ofertados:
             self._modelo.buscar_productos_ofertados_cliente()
+
 
     def _crear_notebook_herramientas(self):
         info_pestanas = {
@@ -2140,7 +1989,8 @@ class ControladorPanelPedidos:
         for frame_name, (tab_name, configuracion, posicion) in frames_tabs.items():
             frame = self._interfaz.ventanas.componentes_forma[frame_name]
             if 'generales' in frame_name:
-                HerramientasGenerales(frame)
+                HerramientasGenerales(
+                            frame, self._controlador)
 
             if 'captura' in frame_name:
                 HerramientasCaptura(frame)

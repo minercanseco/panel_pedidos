@@ -17,6 +17,11 @@ class ModeloPanelPedidos:
         self.consulta_productos_ofertados_btn = []
         self.products_ids_ofertados = []
 
+        self.user_id = self.parametros.id_usuario
+        self.user_name = self.base_de_datos.buscar_nombre_de_usuario(self.user_id)
+        self.user_group_id = self.base_de_datos.fetchone(
+            'SELECT UserGroupID FROM engUser WHERE UserID = ?', (self.user_id,))
+
         valores_puntualidad = self.obtener_valores_de_puntualidad()
 
         self.valor_a_tiempo = valores_puntualidad['ATiempo']
@@ -43,10 +48,8 @@ class ModeloPanelPedidos:
         consulta = self.base_de_datos.obtener_valores_de_puntualidad_pedidos_cayal('timbrado')
         if not consulta:
             return
-        return consulta[0]
 
-    def buscar_nombre_usuario_operador_panel(self, user_id):
-        return self.base_de_datos.buscar_nombre_de_usuario(user_id)
+        return consulta[0]
 
     def buscar_partidas_pedido(self, order_document_id):
         consulta = self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(order_document_id= order_document_id,

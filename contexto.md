@@ -890,28 +890,28 @@ import re
 import tempfile
 import tkinter as tk
 from datetime import datetime
-from herramientas.buscar_pedido import BuscarPedido
+from herramientas.herramientas_compartidas.buscar_pedido import BuscarPedido
 from cayal.login import Login
 from buscar_generales_cliente import BuscarGeneralesCliente
-from herramientas.capturado_vs_producido import CapturadoVsProducido
-from herramientas.editar_caracteristicas_pedido import EditarCaracteristicasPedido
+from herramientas.herramientas_compartidas.capturado_vs_producido import CapturadoVsProducido
+from herramientas.herramientas_panel.editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from cayal.cobros import Cobros
 
-from herramientas.generador_ticket_produccion import GeneradorTicketProduccion
-from herramientas.historial_pedido import HistorialPedido
-from herramientas.horario_acumulado import HorarioslAcumulados
+from herramientas.herramientas_compartidas.generador_ticket_produccion import GeneradorTicketProduccion
+from herramientas.herramientas_compartidas.historial_pedido import HistorialPedido
+from herramientas.herramientas_compartidas.horario_acumulado import HorarioslAcumulados
 from llamar_instancia_captura import LlamarInstanciaCaptura
-from herramientas.ticket_pedido_cliente import TicketPedidoCliente
-from cliente.cliente_nuevo import PanelPrincipal
-from herramientas.selector_tipo_documento import SelectorTipoDocumento
+from herramientas.herramientas_panel.ticket_pedido_cliente import TicketPedidoCliente
+from herramientas.cliente.cliente_nuevo import PanelPrincipal
+from herramientas.herramientas_panel.selector_tipo_documento import SelectorTipoDocumento
 from ttkbootstrap.constants import *
 from cayal.tableview_cayal import Tableview
-from editar_pedido.editar_pedido import EditarPedido
+from herramientas.herramientas_panel.editar_pedido import EditarPedido
 from cayal.cliente import Cliente
 from cayal.documento import Documento
-from saldar_cartera.buscar_generales_cliente_cartera import BuscarGeneralesClienteCartera
-from cliente.buscar_clientes import BuscarClientes
-from herramientas.cancelar_pedido import CancelarPedido
+from herramientas.saldar_cartera.buscar_generales_cliente_cartera import BuscarGeneralesClienteCartera
+from herramientas.cliente.buscar_clientes import BuscarClientes
+from herramientas.herramientas_compartidas.cancelar_pedido import CancelarPedido
 
 
 class ControladorPanelPedidos:
@@ -1709,15 +1709,15 @@ import re
 import pyperclip
 import logging
 
-from editar_pedido.editar_pedido import AgregarEspecificaciones
-from editar_pedido.editar_pedido import AgregarPartidaManualmente
+from herramientas.herramientas_panel.editar_pedido import AgregarEspecificaciones
+from herramientas.herramientas_panel.editar_pedido import AgregarPartidaManualmente
 from direccion_cliente import DireccionCliente
 from cliente.direcciones_adicionales import DireccionesAdicionales
 from historial_cliente import HistorialCliente
 from cliente.panel_direcciones import PanelDirecciones
 from cliente.formulario_cliente import FormularioCliente
-from verificador_precios.interfaz_verificador import InterfazVerificador
-from verificador_precios.controlador_verificador import ControladorVerificador
+from herramientas.verificador_precios.interfaz_verificador import InterfazVerificador
+from herramientas.verificador_precios.controlador_verificador import ControladorVerificador
 from editar_partida import EditarPartida
 
 
@@ -3560,7 +3560,7 @@ import ttkbootstrap as ttk
 import tkinter as tk
 import ttkbootstrap.dialogs
 
-from cliente.buscar_info_cif import BuscarInfoCif
+from herramientas.cliente.buscar_info_cif import BuscarInfoCif
 from cliente.formulario_cliente import FormularioCliente
 from cayal.cliente import Cliente
 from cayal.ventanas import Ventanas

@@ -5,31 +5,29 @@ import tempfile
 import tkinter as tk
 from datetime import datetime
 
-from cliente.notebook_cliente import NoteBookCliente
-from herramientas.buscar_pedido import BuscarPedido
+from herramientas.cliente.notebook_cliente import NoteBookCliente
+from herramientas.herramientas_compartidas.buscar_pedido import BuscarPedido
 from cayal.login import Login
-from capturar_documento.buscar_generales_cliente import BuscarGeneralesCliente
-from herramientas.capturado_vs_producido import CapturadoVsProducido
+from herramientas.capturar_documento.buscar_generales_cliente import BuscarGeneralesCliente
+from herramientas.herramientas_compartidas.capturado_vs_producido import CapturadoVsProducido
 
-from cliente.cliente_nuevo import ClienteNuevo
-from cayal.cliente import Cliente
-from herramientas.editar_caracteristicas_pedido import EditarCaracteristicasPedido
+from herramientas.herramientas_panel.editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from cayal.cobros import Cobros
 
-from herramientas.generador_ticket_produccion import GeneradorTicketProduccion
-from herramientas.historial_pedido import HistorialPedido
-from herramientas.horario_acumulado import HorarioslAcumulados
-from capturar_documento.llamar_instancia_captura import LlamarInstanciaCaptura
-from herramientas.ticket_pedido_cliente import TicketPedidoCliente
-from herramientas.selector_tipo_documento import SelectorTipoDocumento
+from herramientas.herramientas_compartidas.generador_ticket_produccion import GeneradorTicketProduccion
+from herramientas.herramientas_compartidas.historial_pedido import HistorialPedido
+from herramientas.herramientas_compartidas.horario_acumulado import HorarioslAcumulados
+from herramientas.capturar_documento.llamar_instancia_captura import LlamarInstanciaCaptura
+from herramientas.herramientas_panel.ticket_pedido_cliente import TicketPedidoCliente
+from herramientas.herramientas_panel.selector_tipo_documento import SelectorTipoDocumento
 from ttkbootstrap.constants import *
 from cayal.tableview_cayal import Tableview
-from editar_pedido.editar_pedido import EditarPedido
+from herramientas.herramientas_panel.editar_pedido import EditarPedido
 from cayal.cliente import Cliente
 from cayal.documento import Documento
-from saldar_cartera.buscar_generales_cliente_cartera import BuscarGeneralesCliente
-from cliente.buscar_clientes import BuscarClientes
-from herramientas.cancelar_pedido import CancelarPedido
+from herramientas.saldar_cartera.buscar_generales_cliente_cartera import BuscarGeneralesCliente
+from herramientas.cliente.buscar_clientes import BuscarClientes
+from herramientas.herramientas_compartidas.cancelar_pedido import CancelarPedido
 
 
 

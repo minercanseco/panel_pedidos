@@ -7,7 +7,7 @@ from cayal.comandos_base_datos import ComandosBaseDatos
 from cayal.util import Utilerias
 from cayal.ventanas import Ventanas
 
-from herramientas.informacion_producto import InformacionProducto
+from herramientas.verificador_precios.informacion_producto import InformacionProducto
 
 
 class VerificadorPrecios:

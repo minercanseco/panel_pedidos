@@ -3,8 +3,8 @@ import uuid
 
 from cayal.ventanas import Ventanas
 
-from herramientas.herramientas_panel.editar_pedido import AgregarPartidaProduccion
-from herramientas.herramientas_panel.editar_pedido import EditarPartidaProduccion
+from herramientas.herramientas_panel.agregar_partida_produccion import AgregarPartidaProduccion
+from herramientas.herramientas_panel.editar_partida_produccion import EditarPartidaProduccion
 
 
 class EditarPedido:

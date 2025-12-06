@@ -2,7 +2,7 @@ import pyperclip
 from cayal.util import Utilerias
 from cayal.comandos_base_datos import ComandosBaseDatos
 
-from herramientas.verificador_precios.verificador_precios import InformacionProducto
+from herramientas.verificador_precios.informacion_producto import InformacionProducto
 
 
 class ControladorVerificador:

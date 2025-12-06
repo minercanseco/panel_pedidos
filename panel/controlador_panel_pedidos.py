@@ -28,7 +28,9 @@ from cayal.documento import Documento
 from herramientas.saldar_cartera.buscar_generales_cliente_cartera import BuscarGeneralesCliente
 from herramientas.cliente.buscar_clientes import BuscarClientes
 from herramientas.herramientas_compartidas.cancelar_pedido import CancelarPedido
-
+from panel.herramientas_captura import HerramientasCaptura
+from panel.herramientas_generales import HerramientasGenerales
+from panel.herramientas_timbrado import HerramientasTimbrado
 
 
 class ControladorPanelPedidos:
@@ -55,14 +57,11 @@ class ControladorPanelPedidos:
 
         self._crear_tabla_pedidos()
         self._actualizar_pedidos(self._fecha_seleccionada())
-        self._crear_barra_herramientas()
 
         self._cargar_eventos()
         self._rellenar_operador()
         self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Panel pedidos', bloquear=False)
-        self._interfaz.ventanas.situar_ventana_arriba(self._interfaz.master)
-
-        self._buscar_ofertas()
+        self._crear_notebook_herramientas()
 
         self._number_orders = -1
         self._number_transfer_payments = -1
@@ -1369,65 +1368,6 @@ class ControladorPanelPedidos:
         finally:
             self._reanudar_autorefresco()
 
-    def _crear_barra_herramientas(self):
-        self.barra_herramientas_pedido = [
-
-            {'nombre_icono': 'Partner32.ico', 'etiqueta': 'Clientes', 'nombre': 'buscar_cliente',
-             'hotkey': None, 'comando': self._buscar_clientes},
-
-            {'nombre_icono': 'Customer32.ico', 'etiqueta': 'Nuevo', 'nombre': 'nuevo_cliente',
-             'hotkey': None, 'comando': self._capturar_nuevo_cliente},
-
-            {'nombre_icono': 'HeaderFooter32.ico', 'etiqueta': 'Nuevo', 'nombre': 'capturar_nuevo',
-             'hotkey': None, 'comando': self._capturar_nuevo_pedido},
-
-            {'nombre_icono': 'EditBusinessEntity32.ico', 'etiqueta': 'E.Caracteristicas', 'nombre': 'editar_caracteristicas',
-             'hotkey': '', 'comando': self._editar_caracteristicas},
-
-            {'nombre_icono': 'DocumentGenerator32.ico', 'etiqueta': 'Ticket', 'nombre': 'crear_ticket',
-             'hotkey': None, 'comando': self._crear_ticket},
-
-            {'nombre_icono': 'Manufacture32.ico', 'etiqueta': 'M.Producir', 'nombre': 'mandar_producir',
-             'hotkey': None, 'comando': self._mandar_a_producir},
-
-            {'nombre_icono': 'Payments32.ico', 'etiqueta': 'C.Cartera.', 'nombre': 'cobrar_cartera',
-             'hotkey': None, 'comando': self._cobrar_nota},
-
-            {'nombre_icono': 'lista-de-verificacion.ico', 'etiqueta': 'Editar', 'nombre': 'editar',
-             'hotkey': None, 'comando': self._editar_pedido},
-
-            {'nombre_icono': 'Invoice32.ico', 'etiqueta': 'Facturar', 'nombre': 'facturar',
-             'hotkey': None, 'comando': self._inciar_facturacion},
-
-            {'nombre_icono': 'History21.ico', 'etiqueta': 'Historial', 'nombre': 'historial_pedido',
-             'hotkey': None, 'comando': self._historial_pedido},
-
-            {'nombre_icono': 'Cancelled32.ico', 'etiqueta': 'Cancelar', 'nombre': 'cancelar_pedido',
-             'hotkey': None, 'comando': self._cancelar_pedido},
-
-            {'nombre_icono': 'Organizer32.ico', 'etiqueta': 'A.Horarios', 'nombre': 'acumular_horarios',
-             'hotkey': None, 'comando': self._acumular_horarios},
-
-            {'nombre_icono': 'Printer21.ico', 'etiqueta': 'Imprimir', 'nombre': 'imprimir_pedido',
-             'hotkey': None, 'comando': self._imprimir},
-
-            {'nombre_icono': 'PrintSelectedItems.ico', 'etiqueta': 'Producido', 'nombre': 'capturado_vs_producido',
-             'hotkey': None, 'comando': self._capturado_vs_producido},
-
-            {'nombre_icono': 'OtrosIngresos32.ico', 'etiqueta': 'C.Transferencia', 'nombre': 'confirmar_transferencia',
-             'hotkey': None, 'comando': self._confirmar_transferencia},
-
-            {'nombre_icono': 'SwitchUser32.ico', 'etiqueta': 'C.Usuario', 'nombre': 'cambiar_usuario',
-             'hotkey': None, 'comando': self._cambiar_usuario},
-
-        ]
-
-        self.elementos_barra_herramientas = self._interfaz.ventanas.crear_barra_herramientas(self.barra_herramientas_pedido,
-                                                                                   'frame_herramientas')
-        self.iconos_barra_herramientas = self.elementos_barra_herramientas[0]
-        self.etiquetas_barra_herramientas = self.elementos_barra_herramientas[2]
-        self.hotkeys_barra_herramientas = self.elementos_barra_herramientas[1]
-
     def _confirmar_transferencia(self):
         filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos2', seleccionadas=True)
         if not filas:
@@ -2159,3 +2099,56 @@ class ControladorPanelPedidos:
     def _buscar_ofertas(self):
         if not self._modelo.consulta_productos_ofertados:
             self._modelo.buscar_productos_ofertados_cliente()
+
+    def _crear_notebook_herramientas(self):
+        info_pestanas = {
+            # Texto de la pestaña con emoji de dirección fiscal
+            'tab_generales': ('Generales', None),
+            'tab_captura': ('Captura', None),
+            'tab_timbrado': ('Timbrado', None),
+        }
+
+        nombre_notebook = 'nbk_herramientas'
+        notebook = self._interfaz.ventanas.crear_notebook(
+            nombre_notebook=nombre_notebook,
+            info_pestanas=info_pestanas,
+            nombre_frame_padre='frame_herramientas',
+            config_notebook={
+                'row': 0,
+                'column': 0,
+                'sticky': tk.NSEW,
+                'padx': 5,
+                'pady': 5,
+                'bootstyle': 'primary',
+            }
+        )
+
+        # Crear frames base para cada pestaña
+        frames_tabs = {}
+        for clave, valor in info_pestanas.items():
+            tab_name = clave  # p.ej. 'tab_direccion_fiscal'
+            frame_name = clave.replace('tab_', 'frm_')  # 'frm_direccion_fiscal'
+            frames_tabs[frame_name] = (
+                tab_name,
+                None,
+                {'row': 0, 'column': 0, 'sticky': tk.NSEW, 'padx': 5, 'pady': 5}
+            )
+
+        self._interfaz.ventanas.crear_frames(frames_tabs)
+
+        # cada frame será el master de las subsecuentes ventanas
+        for frame_name, (tab_name, configuracion, posicion) in frames_tabs.items():
+            frame = self._interfaz.ventanas.componentes_forma[frame_name]
+            if 'generales' in frame_name:
+                HerramientasGenerales(frame)
+
+            if 'captura' in frame_name:
+                HerramientasCaptura(frame)
+
+            if 'timbrado' in frame_name:
+                HerramientasTimbrado(frame)
+
+
+
+
+

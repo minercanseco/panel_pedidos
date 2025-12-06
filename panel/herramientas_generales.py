@@ -28,7 +28,7 @@ class HerramientasGenerales:
             {'nombre_icono': 'Customer32.ico', 'etiqueta': 'Nuevo', 'nombre': 'nuevo_cliente',
              'hotkey': None, 'comando': self._hola},
 
-            {'nombre_icono': ' AssignSalesRep32.ico', 'etiqueta': 'E.Nombre', 'nombre': 'editar_nombre',
+            {'nombre_icono': 'AssignSalesRep32.ico', 'etiqueta': 'E.Nombre', 'nombre': 'editar_nombre',
              'hotkey': None, 'comando': self._hola},
 
             {'nombre_icono': 'History21.ico', 'etiqueta': 'Historial', 'nombre': 'historial_pedido',

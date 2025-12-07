@@ -590,3 +590,78 @@ class ModeloPanelPedidos:
             'UPDATE docDocumentOrderCayal SET SubTotal = ?, Total = ?, TotalTax = ? WHERE OrderDocumentID = ?',
             (subtotal, totales, total_tax, order_document_id)
         )
+
+    def buscar_nuevos_registros(self):
+
+        # Usa la fecha seleccionada si existe; si no, hoy
+        fecha = self._fecha_seleccionada()
+        hoy = datetime.now().date() if not fecha else datetime.strptime(fecha, "%Y-%m-%d").date()
+        # 1) Pedidos en logística impresos (4,13 + PrintedOn not null)
+        number_orders = int(self.base_de_datos.fetchone(
+            """
+            SELECT COUNT(1)
+            FROM docDocumentOrderCayal P
+            INNER JOIN docDocument D ON P.OrderDocumentID = D.DocumentID
+            WHERE P.StatusID IN (1,2,3)
+              AND D.PrintedOn IS NOT NULL
+              AND CAST(P.DeliveryPromise AS date) = CAST(? AS date)
+            """,
+            (hoy,)
+        ) or 0)
+        # 2) Transferencias confirmadas = 2
+        number_transfer_payments = int(self.base_de_datos.fetchone(
+            """
+            SELECT COUNT(1)
+            FROM docDocumentOrderCayal
+            WHERE PaymentConfirmedID = 2
+              AND CAST(DeliveryPromise AS date) = CAST(? AS date)
+            """,
+            (hoy,)
+        ) or 0)
+        # 3) Buckets de puntualidad (<=15, 16-30, >30)
+        rows = self.base_de_datos.fetchall(
+            """
+              ;WITH Base AS (
+                SELECT
+                    P.OrderDocumentID,
+                    ScheduledDT =
+                        CAST(CAST(P.DeliveryPromise AS date) AS datetime)
+                        + CAST(TRY_CONVERT(time(0), H.Value) AS datetime)
+                FROM dbo.docDocumentOrderCayal AS P
+                INNER JOIN dbo.OrderSchedulesCayal AS H
+                    ON P.ScheduleID = H.ScheduleID
+                WHERE CAST(P.DeliveryPromise AS date) = CAST(? AS date)
+                  AND P.StatusID IN (2, 16, 17, 18)  -- panel logística; ajusta si aplica
+                  AND TRY_CONVERT(time(0), H.Value) IS NOT NULL
+            )
+            SELECT
+                SUM(CASE WHEN DATEDIFF(MINUTE, GETDATE(), ScheduledDT) <= 15 THEN 1 ELSE 0 END) AS RestLeq15,
+                SUM(CASE WHEN DATEDIFF(MINUTE, GETDATE(), ScheduledDT) BETWEEN 16 AND 30 THEN 1 ELSE 0 END) AS Rest16to30,
+                SUM(CASE WHEN DATEDIFF(MINUTE, GETDATE(), ScheduledDT) < -30 THEN 1 ELSE 0 END) AS LateGt30
+            FROM Base;
+            """,
+            (hoy,)
+        )
+        if rows:
+            row = rows[0]
+            rest_leq15 = int(row.get('RestLeq15') or 0)  # <= 15 minutos restantes (incluye retrasos leves)
+            rest_16_30 = int(row.get('Rest16to30') or 0)  # entre 16 y 30 min restantes
+            late_gt30 = int(row.get('LateGt30') or 0)  # más de 30 min de retraso
+        else:
+            rest_leq15 = rest_16_30 = late_gt30 = 0
+        # Disparar refresco si cambió cualquiera
+        if (
+                self._number_orders != number_orders
+                or self._number_transfer_payments != number_transfer_payments
+                or self._count_rest_leq15 != rest_leq15
+                or self._count_rest_16_30 != rest_16_30
+                or self._count_late_gt30 != late_gt30
+        ):
+            self._limpiar_componentes()
+            self._actualizar_pedidos(self._fecha_seleccionada())
+            # Actualizar contadores internos
+            self._number_orders = number_orders
+            self._number_transfer_payments = number_transfer_payments
+            self._count_rest_leq15 = rest_leq15
+            self._count_rest_16_30 = rest_16_30
+            self._count_late_gt30 = late_gt30

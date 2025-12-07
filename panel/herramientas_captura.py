@@ -1,7 +1,9 @@
 import tkinter as tk
 from cayal.ventanas import Ventanas
 
+from herramientas.capturar_documento.llamar_instancia_captura import LlamarInstanciaCaptura
 from herramientas.herramientas_panel.editar_caracteristicas_pedido import EditarCaracteristicasPedido
+from herramientas.herramientas_panel.editar_pedido import EditarPedido
 from herramientas.herramientas_panel.ticket_pedido_cliente import TicketPedidoCliente
 
 
@@ -36,7 +38,7 @@ class HerramientasCaptura:
 
 
             {'nombre_icono': 'HeaderFooter32.ico', 'etiqueta': 'Nuevo', 'nombre': 'capturar_nuevo',
-             'hotkey': None, 'comando': self._hola},
+             'hotkey': None, 'comando': self._capturar_nuevo_pedido},
 
             {'nombre_icono': 'EditBusinessEntity32.ico', 'etiqueta': 'E.Caracteristicas', 'nombre': 'editar_caracteristicas',
              'hotkey': '', 'comando': self._editar_caracteristicas_pedido},
@@ -48,7 +50,7 @@ class HerramientasCaptura:
              'hotkey': None, 'comando': self._mandar_a_producir},
 
             {'nombre_icono': 'lista-de-verificacion.ico', 'etiqueta': 'Editar', 'nombre': 'editar',
-             'hotkey': None, 'comando': self._hola},
+             'hotkey': None, 'comando': self._editar_pedido},
 
         ]
 
@@ -78,8 +80,48 @@ class HerramientasCaptura:
 
         return filas
 
-    def _hola(self):
-        print('hola')
+    def _capturar_nuevo_pedido(self):
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+        self._parametros.id_principal = 0
+
+        _ = LlamarInstanciaCaptura(
+                ventana,
+                self._parametros,
+        )
+        ventana.wait_window()
+
+    def _editar_pedido(self):
+
+        fila = self._obtener_valores_fila_pedido_seleccionado()
+        if not fila:
+            self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar un pedido.')
+            return
+
+        status_id = fila['TypeStatusID']
+        order_document_id = fila['OrderDocumentID']
+
+        try:
+            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+            if status_id < 3:
+                self._parametros.id_principal = order_document_id
+
+                _ = LlamarInstanciaCaptura(
+                    ventana,
+                    self._parametros,
+                )
+
+            elif status_id == 3:
+                _ = EditarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros, fila)
+
+            else:  # status_id > 3
+                self._interfaz.ventanas.mostrar_mensaje(
+                    'No se pueden editar en este módulo documentos que no estén en status Por Timbrar.'
+                )
+
+            ventana.wait_window()
+
+        finally:
+            self._modelo.actualizar_totales_pedido(order_document_id)
 
     def _editar_caracteristicas_pedido(self):
         try:

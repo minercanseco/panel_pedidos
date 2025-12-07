@@ -1,8 +1,11 @@
 import re
 import tkinter as tk
+
 from cayal.ventanas import Ventanas
 
+from herramientas.capturar_documento.llamar_instancia_captura import LlamarInstanciaCaptura
 from herramientas.herramientas_compartidas.capturado_vs_producido import CapturadoVsProducido
+from herramientas.herramientas_panel.editar_pedido import EditarPedido
 from herramientas.herramientas_panel.selector_tipo_documento import SelectorTipoDocumento
 
 
@@ -35,7 +38,7 @@ class HerramientasTimbrado:
         self.barra_herramientas_pedido = [
 
             {'nombre_icono': 'lista-de-verificacion.ico', 'etiqueta': 'Editar', 'nombre': 'editar',
-             'hotkey': None, 'comando': self._editar_pedido_timbrado},
+             'hotkey': None, 'comando': self._editar_pedido},
 
             {'nombre_icono': 'Invoice32.ico', 'etiqueta': 'Facturar', 'nombre': 'facturar',
              'hotkey': None, 'comando': self._facturar},
@@ -71,9 +74,9 @@ class HerramientasTimbrado:
 
         return filas
 
-    def _editar_pedido_timbrado(self):
+    def _editar_pedido(self):
 
-        fila = self._validar_seleccion_una_fila()
+        fila = self._obtener_valores_fila_pedido_seleccionado()
         if not fila:
             self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar un pedido.')
             return
@@ -81,40 +84,28 @@ class HerramientasTimbrado:
         status_id = fila['TypeStatusID']
         order_document_id = fila['OrderDocumentID']
 
-        self._pausar_autorefresco()
         try:
+            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
             if status_id < 3:
-                # ⚠️ NO crear ventana aquí: LlamarInstanciaCaptura la crea internamente
-                cliente = Cliente()
-                documento = Documento()
-                self.parametros.id_principal = order_document_id
+                self._parametros.id_principal = order_document_id
 
-                instancia = LlamarInstanciaCaptura(
-                    cliente,
-                    documento,
-                    self.base_de_datos,
-                    self.parametros,
-                    self.utilerias,
-                    None  # ← evita doble ventana: no pases un Toplevel existente
+                _ = LlamarInstanciaCaptura(
+                    ventana,
+                    self._parametros,
                 )
-                # si LlamarInstanciaCaptura expone una ventana y quieres modal, podrías:
-                # if hasattr(instancia, "master") and instancia.master:
-                #     instancia.master.wait_window()
 
             elif status_id == 3:
-                # Aquí sí creas el Toplevel y lo haces modal
-                ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-                instancia = EditarPedido(ventana, self.base_de_datos, self.utilerias, self.parametros, fila)
-                ventana.wait_window()
+                _ = EditarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros, fila)
 
             else:  # status_id > 3
                 self._interfaz.ventanas.mostrar_mensaje(
                     'No se pueden editar en este módulo documentos que no estén en status Por Timbrar.'
                 )
+
+            ventana.wait_window()
+
         finally:
             self._modelo.actualizar_totales_pedido(order_document_id)
-            self._actualizar_pedidos(self._fecha_seleccionada())
-            self._reanudar_autorefresco()
 
     def _facturar(self):
         # --------------------------------------------------------------------------------------------------------------

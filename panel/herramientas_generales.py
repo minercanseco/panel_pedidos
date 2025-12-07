@@ -8,6 +8,7 @@ from herramientas.cliente.buscar_clientes import BuscarClientes
 from herramientas.cliente.cliente_nuevo import ClienteNuevo
 from herramientas.cliente.notebook_cliente import NoteBookCliente
 from herramientas.herramientas_compartidas.cancelar_pedido import CancelarPedido
+from herramientas.herramientas_compartidas.generador_ticket_produccion import GeneradorTicketProduccion
 from herramientas.herramientas_compartidas.historial_pedido import HistorialPedido
 from herramientas.herramientas_compartidas.horario_acumulado import HorarioslAcumulados
 from herramientas.herramientas_panel.editar_nombre_pedido import EditarNombrePedido
@@ -24,6 +25,8 @@ class HerramientasGenerales:
         self._base_de_datos = self._modelo.base_de_datos
         self._parametros = self._modelo.parametros
         self._utilerias = self._modelo.utilerias
+        self._ticket = GeneradorTicketProduccion(32)
+        self._ticket.ruta_archivo = self._modelo.obtener_directorio_reportes()
 
         self._crear_frames()
         self._crear_barra_herramientas()
@@ -64,7 +67,7 @@ class HerramientasGenerales:
              'hotkey': None, 'comando': self._acumular_horarios},
 
             {'nombre_icono': 'Printer21.ico', 'etiqueta': 'Imprimir', 'nombre': 'imprimir_pedido',
-             'hotkey': None, 'comando': self._hola},
+             'hotkey': None, 'comando': self._imprimir_ticket_produccion},
 
             {'nombre_icono': 'Payments32.ico', 'etiqueta': 'C.Cartera.', 'nombre': 'cobrar_cartera',
              'hotkey': None, 'comando': self._cobrar_cartera},
@@ -93,8 +96,170 @@ class HerramientasGenerales:
 
         return valores_fila[valor]
 
-    def _hola(self):
-        print('hola')
+    def _imprimir_ticket_produccion(self):
+
+        def filtrar_partidas_por_area_impresion(consulta_partidas, areas_imprimibles, todas_las_areas):
+
+            partidas_sin_servicio_domicilio = [partida for partida in consulta_partidas if partida['ProductID'] != 5606]
+            sin_partidas_eliminadas = [partida for partida in partidas_sin_servicio_domicilio
+                                       if partida['ItemProductionStatusModified'] != 3]
+
+            tipos_partida = {0: 'M', 1: 'P', 2: 'A'}
+
+            partidas = []
+            for partida in sin_partidas_eliminadas:
+                product_type_id_cayal = partida.get('ProductTypeIDCayal', 1)
+                if tipos_partida[product_type_id_cayal] in areas_imprimibles:
+                    partidas.append(partida)
+
+            def generar_texto(conjunto):
+                # Mapeo de letras a sus respectivos textos
+                mapeo = {
+                    'P': 'Produccion',
+                    'M': 'Minisuper',
+                    'A': 'Almacen'
+                }
+
+                # Filtrar las letras válidas y generar el texto
+                textos = [mapeo[letra] for letra in conjunto if letra in mapeo]
+                return ', '.join(textos)
+
+            return generar_texto(areas_imprimibles), generar_texto(todas_las_areas), partidas
+
+        def filtrar_partidas_ticket(consulta_partidas):
+            partidas = []
+
+            for partida in consulta_partidas:
+
+                cayal_piece = partida['CayalPiece']
+                unidad_producto = partida['Unit']
+                product_id = partida['ProductID']
+
+                abreviatura_unidad = self._utilerias.abreviatura_unidad_producto(unidad_producto)
+
+                # es un producto pesado con unidad pieza
+                if cayal_piece != 0:
+
+                    # el texto experado en la partida si es por piezas es:
+                    # TOMATE
+                    # CANTIDAD: (1 Pz) 0.20 Kg
+
+                    # HUEVO (REJA)
+                    # CANTIDAD: (1 Rj) 30 Pz
+
+                    # CUERO
+                    # CANTIDAD: (1 Cj) 25 Kg
+
+                    unidad_especial = self._utilerias.equivalencias_productos_especiales(product_id)
+
+                    if unidad_especial:
+                        unidad_especial = unidad_especial[0]
+
+                    if not unidad_especial:
+                        unidad_especial = 'Pz' if cayal_piece == 1 else 'Pzs'
+
+                    cantidad_original = partida['Quantity']
+                    if unidad_especial:
+                        partida[
+                            'Quantity'] = f"({cayal_piece} {unidad_especial}) {cantidad_original} {abreviatura_unidad}"
+                    else:
+                        partida['Quantity'] = f"({cayal_piece} {unidad_especial}) {cantidad_original}"
+
+                    abreviatura_unidad = ''
+
+                producto = {
+                    'clave': partida['ProductKey'],
+                    'cantidad': partida['Quantity'],
+                    'descripcion': partida['ProductName'],
+                    'unidad': abreviatura_unidad,
+                    'observacion': partida['Comments']
+                }
+                partidas.append(producto)
+            return partidas
+
+        def settear_valores_ticket(pedido, order_document_id, areas_imprimibles, todas_las_areas):
+            self._ticket.cliente = pedido.get('Cliente', '')
+            self._ticket.pedido = pedido.get('Pedido', '')
+            self._ticket.relacionado = pedido.get('Relacion', '')
+            self._ticket.tipo = pedido.get('Tipo', '')
+
+            fecha_captura = pedido.get('F.Captura', '')
+            hora_captura = pedido.get('H.Captura', '')
+            captura = f'{fecha_captura}-{hora_captura}'
+            self._ticket.venta = captura
+
+            fecha_entrega = pedido.get('F.Entrega', '')
+            hora_entrega = pedido.get('H.Entrega', '')
+            entrega = f'{fecha_entrega}-{hora_entrega}'
+            self._ticket.entrega = entrega
+            self._ticket.tipo_entrega = pedido.get('Entrega', '')
+
+            self._ticket.capturista = pedido.get('Captura', '')
+            self._ticket.ruta = pedido.get('Ruta')
+
+            ruta, colonia = self._modelo.obtener_ruta_y_colonia(order_document_id)
+            self._ticket.ruta = ruta
+            self._ticket.colonia = colonia
+
+            consulta_partidas = self._modelo.obtener_partidas_pedido(order_document_id)
+            areas_imprimibles, todas_las_areas, partidas = filtrar_partidas_por_area_impresion(
+                consulta_partidas, areas_imprimibles, todas_las_areas
+            )
+            self._ticket.areas = areas_imprimibles
+            self._ticket.areas_aplicables =todas_las_areas
+
+            partidas_ticket = filtrar_partidas_ticket(partidas)
+
+            if not partidas_ticket:
+                return False
+
+            self._ticket.set_productos(partidas_ticket)
+
+            return True
+
+        def preparar_e_imprimir_ticket(fila):
+            order_document_id = fila['OrderDocumentID']
+            areas_imprimibles = self._modelo.obtener_areas_imprimibles(order_document_id)
+
+            if len(areas_imprimibles) in (1, 2):
+                self._ticket.parcial = True
+            else:
+                self._ticket.parcial = False
+
+            for area in areas_imprimibles:
+
+                imprimir = settear_valores_ticket(fila, order_document_id, area, areas_imprimibles)
+
+                if not imprimir:
+                    continue
+
+                self._ticket.imprimir(fuente_tamano=10, nombre_impresora="Ticket")
+                self._modelo.afectar_bitacora_impresion(self._ticket, order_document_id)
+                self._modelo.actualizar_tablas_impresion(self._ticket, order_document_id)
+
+        filas = None
+        seleccion_status = self._interfaz.ventanas.obtener_input_componente('cbx_status')
+        if seleccion_status == 'En Proceso':
+            respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                '¿Desea imprimir todos los pedidos en el status en proceso, que faltan por imprimir?')
+            if respuesta:
+                filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos')
+                filas = [
+                    fila for fila in filas
+                    if fila['TypeStatusID'] in (2, 16, 17, 18) and set(fila['PrintedStatus']) != set(
+                        fila['TipoProduccion'])
+                ]
+            else:
+                filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
+        else:
+            filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
+
+        if not filas:
+            self._interfaz.ventanas.mostrar_mensaje('No hay pedidos que imprimir')
+            return
+
+        for fila in filas:
+            preparar_e_imprimir_ticket(fila)
 
     def _capturar_nuevo_cliente(self):
         ventana = self._ventanas.crear_popup_ttkbootstrap()

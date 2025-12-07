@@ -1568,7 +1568,7 @@ def _crear_ticket(self):
 
 
 def _mandar_a_producir(self):
-    filas = self._validar_seleccion_multiples_filas()
+    filas = self._obtener_valores_filas_pedidos_seleccionados()
     if not filas:
         return
 
@@ -1634,7 +1634,7 @@ def _inciar_facturacion(self):
 
 
 def _facturar(self):
-    filas = self._validar_seleccion_multiples_filas()
+    filas = self._obtener_valores_filas_pedidos_seleccionados()
 
     if not filas:
         return

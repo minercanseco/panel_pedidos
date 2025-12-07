@@ -1,10 +1,21 @@
 import tkinter as tk
 from cayal.ventanas import Ventanas
 
+from herramientas.herramientas_panel.ticket_pedido_cliente import TicketPedidoCliente
+
+
 class HerramientasCaptura:
-    def __init__(self, master):
+    def __init__(self, master, modelo, interfaz):
         self._master = master
         self._ventanas = Ventanas(self._master)
+        self._modelo = modelo
+        self._interfaz = interfaz
+
+        self._base_de_datos = self._modelo.base_de_datos
+        self._parametros = self._modelo.parametros
+        self._utilerias = self._modelo.utilerias
+
+
         self._crear_frames()
         self._crear_barra_herramientas()
 
@@ -30,10 +41,10 @@ class HerramientasCaptura:
              'hotkey': '', 'comando': self._hola},
 
             {'nombre_icono': 'DocumentGenerator32.ico', 'etiqueta': 'Ticket', 'nombre': 'crear_ticket',
-             'hotkey': None, 'comando': self._hola},
+             'hotkey': None, 'comando': self._crear_ticket_pedido_cliente},
 
             {'nombre_icono': 'Manufacture32.ico', 'etiqueta': 'M.Producir', 'nombre': 'mandar_producir',
-             'hotkey': None, 'comando': self._hola},
+             'hotkey': None, 'comando': self._mandar_a_producir},
 
             {'nombre_icono': 'lista-de-verificacion.ico', 'etiqueta': 'Editar', 'nombre': 'editar',
              'hotkey': None, 'comando': self._hola},
@@ -46,5 +57,82 @@ class HerramientasCaptura:
         self.etiquetas_barra_herramientas = self.elementos_barra_herramientas[2]
         self.hotkeys_barra_herramientas = self.elementos_barra_herramientas[1]
 
+    def _obtener_valores_fila_pedido_seleccionado(self, valor = None):
+        if not self._interfaz.ventanas.validar_seleccion_una_fila_table_view('tbv_pedidos'):
+            return
+
+        valores_fila = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)[0]
+        if not valor:
+            return
+
+        return valores_fila[valor]
+
+    def _obtener_valores_filas_pedidos_seleccionados(self):
+        # si imprimir en automatico esta desactivado la seleccion de filas solo aplica a la seleccion
+        filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
+
+        if not filas:
+            self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar por lo menos un pedido.')
+            return
+
+        return filas
+
     def _hola(self):
         print('hola')
+
+    def _crear_ticket_pedido_cliente(self):
+        order_document_id = self._obtener_valores_fila_pedido_seleccionado(valor='OrderDocumentID')
+        if not order_document_id:
+            return
+
+        valores = self._modelo.obtener_status_entrega_pedido(order_document_id)
+
+        if not valores:
+            return
+
+        status_entrega = valores['status_entrega']
+        fecha_entrega = valores['fecha_entrega']
+
+        if status_entrega == 0:
+            self._interfaz.ventanas.mostrar_mensaje('Debe definir la forma de pago del cliente antes de generar el ticket.')
+            return
+
+        try:
+            fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(str(fecha_entrega))
+            if fecha_entrega > self._modelo.hoy:
+                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                    'EL pedido es para una fecha de entrega posterior, ¿Desea actualizar los precios antes de generar el ticket?')
+                if respuesta:
+                    self._base_de_datos.actualizar_precios_pedido(order_document_id)
+
+            self._parametros.id_principal = order_document_id
+            instancia = TicketPedidoCliente(self._base_de_datos, self._utilerias, self._parametros)
+            self._interfaz.ventanas.mostrar_mensaje(master=self._interfaz.master,
+                                                    mensaje='Comprobante generado.',
+                                                    tipo='info')
+            self._interfaz.master.iconify()
+        finally:
+            self._parametros.id_principal = 0
+
+    def _mandar_a_producir(self):
+
+        filas = self._obtener_valores_filas_pedidos_seleccionados()
+        if not filas:
+            return
+
+        for fila in filas:
+            order_document_id = fila['OrderDocumentID']
+            valores = self._modelo.obtener_status_entrega_pedido(order_document_id)
+
+            status = int(valores['status_id'])
+            entrega = int(valores['fecha_entrega'])
+            folio = valores['doc_folio']
+
+            if entrega == 0:
+                self._interfaz.ventanas.mostrar_mensaje(
+                    f'Debe usar la herramienta de editar características para el pedido {folio}.')
+                continue
+
+            if status == 1:
+                self._modelo.mandar_pedido_a_producir(order_document_id)
+

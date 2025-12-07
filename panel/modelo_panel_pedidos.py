@@ -1,3 +1,6 @@
+import os
+import platform
+import tempfile
 from datetime import datetime
 
 from cayal.comandos_base_datos import ComandosBaseDatos
@@ -157,3 +160,123 @@ class ModeloPanelPedidos:
                         WHERE P.OrderDocumentID = ?
                     """, (order_document_id,))
 
+    def obtener_status_entrega_pedido(self, order_document_id):
+        consulta = self.base_de_datos.fetchall("""
+                        SELECT
+                            CASE
+                            WHEN DeliveryPromise IS NULL THEN 0 ELSE 1 END StatusEntrega,
+                            DeliveryPromise FechaEntrega,
+                            ISNULL(FolioPrefix,'')+ISNULL(Folio,'') DocFolio,
+                            StatusID
+                        FROM docDocumentOrderCayal 
+                        WHERE OrderDocumentID = ?
+                        """, (order_document_id,))
+        if not consulta:
+            return {}
+
+        return {
+            'status_entrega': consulta[0]['StatusEntrega'],
+            'fecha_entrega': consulta[0]['FechaEntrega'],
+            'doc_folio': consulta[0]['DocFolio'],
+            'status_id': consulta[0]['StatusID'],
+        }
+
+    def obtener_areas_imprimibles(self, order_document_id):
+        return set(self.base_de_datos.fetchone("""
+                                    SELECT PT.Value
+                                    FROM docDocumentOrderCayal P INNER JOIN
+                                        OrdersProductionTypesCayal PT ON P.ProductionTypeID = PT.ProductionTypesID
+                                    WHERE P.OrderDocumentID = ?
+                                """, (order_document_id,)))
+
+    def obtener_directorio_reportes(self):
+
+        sistema = platform.system()
+
+        if sistema == "Windows":
+            directorio = os.path.join(os.getenv("USERPROFILE"), "Documents")
+
+        elif sistema in ["Darwin", "Linux"]:  # macOS y Linux
+            directorio = os.path.join(os.getenv("HOME"), "Documents")
+
+        else:
+            directorio = tempfile.gettempdir()  # como último recurso
+
+        if not os.path.exists(directorio):
+            os.makedirs(directorio)
+
+        return directorio
+
+    def obtener_partidas_pedido(self, order_document_id):
+        return self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
+            order_document_id, partidas_eliminadas=False, partidas_producidas=True)
+
+    def obtener_ruta_y_colonia_pedido(self, order_document_id):
+        consulta = self.base_de_datos.fetchall(
+            """
+            SELECT Z.ZoneName, DT.City
+            FROM docDocumentOrderCayal D INNER JOIN
+                orgZone Z ON D.ZoneID = D.ZoneID INNER JOIN
+                orgAddressDetail DT ON D.AddressDetailID = DT.AddressDetailID
+            WHERE OrderDocumentID = ? AND D.ZoneID = Z.ZoneID
+            """,
+            (order_document_id,)
+        )
+        if consulta:
+            valores = consulta[0]
+            ruta = valores.get('ZoneName', '')
+            ruta = self.utilerias.limitar_caracteres(ruta, 22)
+
+            colonia = valores.get('City', '')
+
+            return ruta, colonia
+
+        return '', ''
+
+    def afectar_bitacora_impresion(self, ticket, order_document_id):
+
+        change_type_id = 12
+        user_name = self.base_de_datos.buscar_nombre_de_usuario(self.user_id)
+        comentario = f"{user_name}-{ticket.pedido}-{ticket.areas}"
+
+        self.base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
+                                                              change_type_id=change_type_id,
+                                                              comments=comentario,
+                                                              user_id=self.user_id)
+
+    def actualizar_tablas_impresion(self, ticket, order_document_id):
+
+        areas = ticket.areas
+
+        if 'Minisuper' in areas:
+            self.base_de_datos.command(
+                'UPDATE docDocumentOrderCayal SET StorePrintedOn=GETDATE(), StorePrintedBy=? WHERE OrderDocumentID = ?',
+                (self.user_id, order_document_id)
+            )
+
+        if 'Almacen' in areas:
+            self.base_de_datos.command(
+                'UPDATE docDocumentOrderCayal SET WarehousePrintedOn=GETDATE(), WarehousePrintedBy=? WHERE OrderDocumentID = ?',
+                (self.user_id, order_document_id)
+            )
+
+        if 'Produccion' in areas:
+            self.base_de_datos.command(
+                'UPDATE docDocumentOrderCayal SET ProductionPrintedOn=GETDATE(), ProductionPrintedBy=? WHERE OrderDocumentID = ?',
+                (self.user_id, order_document_id)
+            )
+
+    def mandar_pedido_a_producir(self, order_document_id):
+        self.base_de_datos.command("""
+                             UPDATE docDocumentOrderCayal SET SentToPrepare = GETDATE(),
+                                                            SentToPrepareBy = ?,
+                                                            StatusID = 2,
+                                                            UserID = NULL
+                            WHERE OrderDocumentID = ?
+                        """, (self.user_id, order_document_id,))
+
+        comentario = f'Enviado a producir por {self.user_name}.'
+        self.base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=order_document_id,
+                                                              change_type_id=2,
+                                                              user_id=self.user_id,
+                                                              comments=comentario)

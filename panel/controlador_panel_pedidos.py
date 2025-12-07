@@ -28,17 +28,16 @@ class ControladorPanelPedidos:
         self._interfaz = modelo.interfaz
         self._master = self._interfaz.master
 
-        #self._cobros = Cobros(self.parametros.cadena_conexion)
-        #self._ticket = GeneradorTicketProduccion(32)
-        #self._ticket.ruta_archivo = self._obtener_directorio_reportes()
+        self._coloreando = False
+        self._actualizando_tabla = False
 
         self._crear_tabla_pedidos()
-        self._actualizar_pedidos(self._fecha_seleccionada())
 
         self._cargar_eventos()
-        self._rellenar_operador()
         self._crear_notebook_herramientas()
         self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Panel pedidos', bloquear=False)
+
+        self._actualizar_pedidos(self._fecha_seleccionada())
 
         self._number_orders = -1
         self._number_transfer_payments = -1
@@ -239,7 +238,7 @@ class ControladorPanelPedidos:
         componente = Tableview(
             master=frame,
             coldata=self._interfaz.crear_columnas_tabla(),
-            rowdata=self.utilerias.diccionarios_a_tuplas(None),
+            rowdata=self._modelo.utilerias.diccionarios_a_tuplas(None),
             paginated=True,
             searchable=True,
             bootstyle=PRIMARY,
@@ -257,23 +256,6 @@ class ControladorPanelPedidos:
 
         #self._interfaz.ventanas.agregar_callback_table_view_al_actualizar('tbv_pedidos', self._colorear_filas_panel_horarios)
 
-    def _obtener_directorio_reportes(self):
-
-        sistema = platform.system()
-
-        if sistema == "Windows":
-            directorio = os.path.join(os.getenv("USERPROFILE"), "Documents")
-
-        elif sistema in ["Darwin", "Linux"]:  # macOS y Linux
-            directorio = os.path.join(os.getenv("HOME"), "Documents")
-
-        else:
-            directorio = tempfile.gettempdir()  # como último recurso
-
-        if not os.path.exists(directorio):
-            os.makedirs(directorio)
-
-        return directorio
 
     def _colorear_filas_panel_horarios(self, actualizar_meters=None):
         """
@@ -597,101 +579,10 @@ class ControladorPanelPedidos:
         finally:
             self._reanudar_autorefresco()
 
-    def _crear_ticket(self):
-        self._pausar_autorefresco()
-        try:
-            fila = self._seleccionar_una_fila()
-            if not fila:
-                return
-
-            order_document_id = fila[0]['OrderDocumentID']
-            consulta = self.base_de_datos.fetchall("""
-                SELECT
-                 CASE WHEN DeliveryPromise IS NULL THEN 0 ELSE 1 END StatusEntrega,
-                    DeliveryPromise FechaEntrega
-                FROM docDocumentOrderCayal 
-                WHERE OrderDocumentID = ?
-                """, (order_document_id,))
-            status_entrega = consulta[0]['StatusEntrega']
 
 
-            if status_entrega == 0:
-                self._interfaz.ventanas.mostrar_mensaje('Debe definir la forma de pago del cliente antes de generar el ticket.')
-                return
-            else:
-                fecha_entrega = self.utilerias.convertir_fecha_str_a_datetime(str(consulta[0]['FechaEntrega'])[0:10])
-                if fecha_entrega > self._modelo.hoy:
-                    respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
-                        'EL pedido es para una fecha de entrega posterior, ¿Desea actualizar los precios antes de generar el ticket?')
 
-                    if respuesta:
-                        self.base_de_datos.actualizar_precios_pedido(order_document_id)
 
-                self.parametros.id_principal = order_document_id
-                instancia = TicketPedidoCliente(self.base_de_datos, self.utilerias, self.parametros)
-
-                self.parametros.id_principal = 0
-                self._interfaz.ventanas.mostrar_mensaje(master=self._interfaz.master,
-                                                        mensaje='Comprobante generado.', tipo='info')
-                self._interfaz.master.iconify()
-        finally:
-            self._reanudar_autorefresco()
-
-    def _mandar_a_producir(self):
-
-        filas = self._validar_seleccion_multiples_filas()
-        if not filas:
-            return
-
-        for fila in filas:
-            order_document_id = fila['OrderDocumentID']
-            consulta = self.base_de_datos.fetchall("""
-                SELECT StatusID, 
-                    CASE WHEN DeliveryPromise IS NULL THEN 0 ELSE 1 END Entrega,
-                    ISNULL(FolioPrefix,'')+ISNULL(Folio,'') DocFolio
-                FROM docDocumentOrderCayal 
-                WHERE OrderDocumentID = ?
-            """, (order_document_id,))
-
-            status = consulta[0]['StatusID']
-            entrega = consulta[0]['Entrega']
-            folio = consulta[0]['DocFolio']
-
-            if entrega == 0:
-                self._interfaz.ventanas.mostrar_mensaje(
-                    f'Debe usar la herramienta de editar características para el pedido {folio}.')
-                continue
-
-            if status == 1:
-                self.base_de_datos.command("""
-                     UPDATE docDocumentOrderCayal SET SentToPrepare = GETDATE(),
-                                                    SentToPrepareBy = ?,
-                                                    StatusID = 2,
-                                                    UserID = NULL
-                    WHERE OrderDocumentID = ?
-                """, (self._user_id, order_document_id,))
-
-                comentario = f'Enviado a producir por {self._user_name}.'
-                self.base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=order_document_id,
-                                                                      change_type_id=2,
-                                                                      user_id=self._user_id,
-                                                                      comments=comentario)
-
-        self._actualizar_pedidos(self._fecha_seleccionada())
-
-    def _cobrar_nota(self):
-        self._pausar_autorefresco()
-        try:
-            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-            instancia = BuscarGeneralesCliente(ventana, self.parametros)
-            ventana.wait_window()
-
-            fila = self._seleccionar_una_fila()
-            if not fila:
-                return
-
-        finally:
-            self._reanudar_autorefresco()
 
     def _inciar_facturacion(self):
         self._pausar_autorefresco()
@@ -1266,195 +1157,13 @@ class ControladorPanelPedidos:
 
 
 
-    def _imprimir(self):
-        self._pausar_autorefresco()
-        try:
-            filas = None
-            seleccion_status = self._interfaz.ventanas.obtener_input_componente('cbx_status')
-            if seleccion_status == 'En Proceso':
-                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
-                    '¿Desea imprimir todos los pedidos en el status en proceso, que faltan por imprimir?')
-                if respuesta:
-                    filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos')
-                    filas = [
-                        fila for fila in filas
-                        if fila['TypeStatusID'] in (2, 16, 17, 18) and set(fila['PrintedStatus']) != set(
-                            fila['TipoProduccion'])
-                    ]
-                else:
-                    filas =  self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
-            else:
-                filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
 
-            if not filas:
-                self._interfaz.ventanas.mostrar_mensaje('No hay pedidos que imprimir')
-                return
 
-            for fila in filas:
-                self._preparar_ticket_impresion(fila)
-        finally:
-            self._actualizar_pedidos(self._fecha_seleccionada())
-            self._reanudar_autorefresco()
 
-    def _preparar_ticket_impresion(self, fila):
-        order_document_id = fila['OrderDocumentID']
 
-        areas_imprimibles = set(self.base_de_datos.fetchone("""
-                    SELECT PT.Value
-                    FROM docDocumentOrderCayal P INNER JOIN
-                        OrdersProductionTypesCayal PT ON P.ProductionTypeID = PT.ProductionTypesID
-                    WHERE P.OrderDocumentID = ?
-                """, (order_document_id,)))
 
-        if len(areas_imprimibles) in (1, 2):
-            self._ticket.parcial = True
-        else:
-            self._ticket.parcial = False
 
-        for area in areas_imprimibles:
 
-            imprimir = self._settear_valores_ticket(fila, order_document_id, area, areas_imprimibles)
-
-            if not imprimir:
-
-                continue
-
-            self._ticket.imprimir(fuente_tamano=10, nombre_impresora="Ticket")
-            self._afectar_bitacora_impresion(order_document_id)
-            self._actualizar_tablas_impresion(order_document_id)
-
-    def _settear_valores_ticket(self, pedido, order_document_id, areas_imprimibles, todas_las_areas):
-        self._ticket.cliente = pedido.get('Cliente', '')
-        self._ticket.pedido = pedido.get('Pedido', '')
-        self._ticket.relacionado = pedido.get('Relacion', '')
-        self._ticket.tipo = pedido.get('Tipo', '')
-
-        fecha_captura = pedido.get('F.Captura', '')
-        hora_captura = pedido.get('H.Captura', '')
-        captura = f'{fecha_captura}-{hora_captura}'
-        self._ticket.venta = captura
-
-        fecha_entrega = pedido.get('F.Entrega', '')
-        hora_entrega = pedido.get('H.Entrega', '')
-        entrega = f'{fecha_entrega}-{hora_entrega}'
-        self._ticket.entrega = entrega
-        self._ticket.tipo_entrega = pedido.get('Entrega', '')
-
-        self._ticket.capturista = pedido.get('Captura', '')
-        self._ticket.ruta = pedido.get('Ruta')
-
-        consulta = self.base_de_datos.fetchall(
-            """
-            SELECT Z.ZoneName, DT.City
-            FROM docDocumentOrderCayal D INNER JOIN
-                orgZone Z ON D.ZoneID = D.ZoneID INNER JOIN
-                orgAddressDetail DT ON D.AddressDetailID = DT.AddressDetailID
-            WHERE OrderDocumentID = ? AND D.ZoneID = Z.ZoneID
-            """,
-            (order_document_id,)
-        )
-        if consulta:
-            valores = consulta[0]
-            ruta = valores.get('ZoneName', '')
-            ruta = self.utilerias.limitar_caracteres(ruta, 22)
-            self._ticket.ruta = ruta
-
-            colonia = valores.get('City', '')
-            self._ticket.colonia = colonia
-
-        consulta_partidas = self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
-            order_document_id, partidas_eliminadas=False, partidas_producidas=True)
-
-        partidas_filtradas_por_area = self._filtrar_partidas_por_area_impresion(consulta_partidas, areas_imprimibles, todas_las_areas)
-
-        partidas_ticket = self._filtrar_partidas_ticket(partidas_filtradas_por_area)
-
-        if not partidas_ticket:
-            return False
-
-        self._ticket.set_productos(partidas_ticket)
-
-        return True
-
-    def _filtrar_partidas_por_area_impresion(self, consulta_partidas, areas_imprimibles, todas_las_areas):
-
-        partidas_sin_servicio_domicilio = [partida for partida in consulta_partidas if partida['ProductID'] != 5606]
-        sin_partidas_eliminadas = [partida for partida in partidas_sin_servicio_domicilio
-                                   if partida['ItemProductionStatusModified'] != 3]
-
-        tipos_partida = {0: 'M', 1: 'P', 2: 'A'}
-
-        partidas = []
-        for partida in sin_partidas_eliminadas:
-            product_type_id_cayal = partida.get('ProductTypeIDCayal', 1)
-            if tipos_partida[product_type_id_cayal] in areas_imprimibles:
-                partidas.append(partida)
-
-        def generar_texto(conjunto):
-            # Mapeo de letras a sus respectivos textos
-            mapeo = {
-                'P': 'Produccion',
-                'M': 'Minisuper',
-                'A': 'Almacen'
-            }
-
-            # Filtrar las letras válidas y generar el texto
-            textos = [mapeo[letra] for letra in conjunto if letra in mapeo]
-            return ', '.join(textos)
-
-        self._ticket.areas = generar_texto(areas_imprimibles)
-        self._ticket.areas_aplicables = generar_texto(todas_las_areas)
-        return partidas
-
-    def _filtrar_partidas_ticket(self, consulta_partidas):
-        partidas = []
-
-        for partida in consulta_partidas:
-
-            cayal_piece = partida['CayalPiece']
-            unidad_producto = partida['Unit']
-            product_id = partida['ProductID']
-
-            abreviatura_unidad = self.utilerias.abreviatura_unidad_producto(unidad_producto)
-
-            # es un producto pesado con unidad pieza
-            if cayal_piece != 0:
-
-                # el texto experado en la partida si es por piezas es:
-                # TOMATE
-                # CANTIDAD: (1 Pz) 0.20 Kg
-
-                # HUEVO (REJA)
-                # CANTIDAD: (1 Rj) 30 Pz
-
-                # CUERO
-                # CANTIDAD: (1 Cj) 25 Kg
-
-                unidad_especial = self.utilerias.equivalencias_productos_especiales(product_id)
-
-                if unidad_especial:
-                    unidad_especial = unidad_especial[0]
-
-                if not unidad_especial:
-                    unidad_especial = 'Pz' if cayal_piece == 1 else 'Pzs'
-
-                cantidad_original = partida['Quantity']
-                if unidad_especial:
-                    partida['Quantity'] = f"({cayal_piece} {unidad_especial}) {cantidad_original} {abreviatura_unidad}"
-                else:
-                    partida['Quantity'] = f"({cayal_piece} {unidad_especial}) {cantidad_original}"
-
-                abreviatura_unidad = ''
-
-            producto = {
-                'clave': partida['ProductKey'],
-                'cantidad': partida['Quantity'],
-                'descripcion': partida['ProductName'],
-                'unidad': abreviatura_unidad,
-                'observacion': partida['Comments']
-            }
-            partidas.append(producto)
-        return partidas
 
 
     def _rellenar_cbx_captura(self, valores):
@@ -1598,15 +1307,7 @@ class ControladorPanelPedidos:
         self._limpiar_componentes()
         self._actualizar_pedidos(self._fecha_seleccionada())
 
-    def _validar_seleccion_multiples_filas(self):
-        # si imprimir en automatico esta desactivado la seleccion de filas solo aplica a la seleccion
-        filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
 
-        if not filas:
-            self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar por lo menos un pedido.')
-            return
-
-        return filas
 
     def _filtrar_comentario_documento(self, comentario):
 
@@ -1898,38 +1599,7 @@ class ControladorPanelPedidos:
 
 
 
-    def _afectar_bitacora_impresion(self, order_document_id):
 
-        change_type_id = 12
-        user_name = self.base_de_datos.buscar_nombre_de_usuario(self._user_id)
-        comentario = f"{user_name}-{self._ticket.pedido}-{self._ticket.areas}"
-
-        self.base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
-                                                              change_type_id=change_type_id,
-                                                              comments=comentario,
-                                                              user_id=self._user_id)
-
-    def _actualizar_tablas_impresion(self, order_document_id):
-
-        areas = self._ticket.areas
-
-        if 'Minisuper' in areas:
-            self.base_de_datos.command(
-                'UPDATE docDocumentOrderCayal SET StorePrintedOn=GETDATE(), StorePrintedBy=? WHERE OrderDocumentID = ?',
-                (self._user_id, order_document_id)
-            )
-
-        if 'Almacen' in areas:
-            self.base_de_datos.command(
-                'UPDATE docDocumentOrderCayal SET WarehousePrintedOn=GETDATE(), WarehousePrintedBy=? WHERE OrderDocumentID = ?',
-                (self._user_id, order_document_id)
-            )
-
-        if 'Produccion' in areas:
-            self.base_de_datos.command(
-                'UPDATE docDocumentOrderCayal SET ProductionPrintedOn=GETDATE(), ProductionPrintedBy=? WHERE OrderDocumentID = ?',
-                (self._user_id, order_document_id)
-            )
 
     def _sin_fecha(self):
 
@@ -1990,7 +1660,10 @@ class ControladorPanelPedidos:
             frame = self._interfaz.ventanas.componentes_forma[frame_name]
             if 'generales' in frame_name:
                 HerramientasGenerales(
-                            frame, self._controlador)
+                            frame,
+                            self._modelo,
+                            self._interfaz
+                )
 
             if 'captura' in frame_name:
                 HerramientasCaptura(frame)

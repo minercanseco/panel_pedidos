@@ -658,7 +658,7 @@ class ControladorPanelPedidos:
             if not partidas:
                 return
             consulta_partidas_con_impuestos = self._modelo.utilerias.agregar_impuestos_productos(partidas)
-            funcion = self._modelo.utilerias.convertir_valor_cantidad_a_decimal
+            funcion = self._modelo.utilerias.redondear_valor_cantidad_a_decimal
             partidas_procesadas = []
             for producto in consulta_partidas_con_impuestos:
                 precio = funcion(producto['precio'])

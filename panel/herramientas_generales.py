@@ -373,7 +373,8 @@ class HerramientasGenerales:
 
         def rellenar_operador():
             operador_panel = self._modelo.user_name
-            texto = f'PANEL: pedidos OPERADOR: {operador_panel}'
+            version_paquete = self._parametros.version_paquete
+            texto = f'Paquete: {version_paquete} OPERADOR: {operador_panel}'
             self._interfaz.ventanas.actualizar_etiqueta_externa_tabla_view('tbv_pedidos', texto)
             self._modelo.user_id = self._parametros.id_usuario
 

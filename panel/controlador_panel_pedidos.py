@@ -528,6 +528,12 @@ class ControladorPanelPedidos:
         self._interfaz.ventanas.componentes_forma['tbv_pedidos'] = componente
         componente.grid(row=0, column=0, pady=5, padx=5, sticky=tk.NSEW)
 
+        operador_panel = self._modelo.user_name
+        version_paquete = self._modelo.parametros.version_paquete
+        texto = f'Paquete: {version_paquete} OPERADOR: {operador_panel}'
+        self._interfaz.ventanas.actualizar_etiqueta_externa_tabla_view('tbv_pedidos', texto)
+
+
     def _buscar_pedidos_cliente_sin_fecha(self, criteria):
 
         fecha_seleccionada = self._interfaz.ventanas.obtener_input_componente('den_fecha')

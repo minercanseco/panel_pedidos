@@ -133,7 +133,7 @@ class HistorialCliente:
                 orgAddressDetail ADT ON X.AddressDetailID = ADT.AddressDetailID LEFT OUTER JOIN
                 orgAddress AD ON ADT.AddressDetailID = AD.AddressDetailID
             
-            WHERE D.CancelledOn IS NULL AND D.ModuleID IN (21,1400,1316,1319) AND D.BusinessEntityID=?
+            WHERE D.CancelledOn IS NULL AND D.ModuleID IN (21,967,1400,1316,1319) AND D.BusinessEntityID=?
             ORDER By D.DocumentID DESC
             """,(business_entity_id,)
         )

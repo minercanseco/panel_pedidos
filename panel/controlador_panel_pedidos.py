@@ -616,10 +616,16 @@ class ControladorPanelPedidos:
                 )
 
             if 'captura' in frame_name:
-                HerramientasCaptura(frame)
+                HerramientasCaptura(frame,
+                                    self._modelo,
+                                    self._interfaz
+                                    )
 
             if 'timbrado' in frame_name:
-                HerramientasTimbrado(frame)
+                HerramientasTimbrado(frame,
+                                     self._modelo,
+                                     self._interfaz
+                                     )
 
     def _actualizar_comentario_pedido(self):
         self._limpiar_componentes()

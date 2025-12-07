@@ -24,6 +24,8 @@ if __name__ == '__main__':
     parametros_login = ParametrosContpaqi()
 
     version_paquete = 'panel_pedidos_v104'
+    parametros_login.version_paquete = version_paquete
+
     actualizador = ActualizadorDePaquetes(version_paquete)
     nueva_version = actualizador.verificar_version_actualizada()
     solo_contexto = False

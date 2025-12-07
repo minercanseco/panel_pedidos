@@ -280,3 +280,286 @@ class ModeloPanelPedidos:
                                                               change_type_id=2,
                                                               user_id=self.user_id,
                                                               comments=comentario)
+
+    def insertar_pedido_a_recalcular(self, document_id, order_document_id):
+        self.base_de_datos.exec_stored_procedure('zvwRecalcularPedidos', (document_id, order_document_id))
+
+    def afectar_bitacora_de_cambios_pedidos(self, document_id, order_document_ids):
+
+        folio = self.base_de_datos.fetchone(
+            "SELECT ISNULL(FolioPrefix,'')+ISNULL(Folio,'') DocFolio FROM docDocument WHERE DocumentID = ?",
+            (document_id,))
+        comentario = f"Documento creado por {self.user_name} - {folio}"
+
+        for order_document_id in order_document_ids:
+            self.base_de_datos.insertar_registro_bitacora_pedidos(order_document_id,
+                                                                  change_type_id=4,
+                                                                  comments=comentario,
+                                                                  user_id=self.user_id)
+
+            self.base_de_datos.command(
+                """
+                UPDATE docDocumentOrderCayal 
+                SET 
+                    SentToInvoice = CASE 
+                        WHEN SentToInvoice IS NULL THEN GETDATE() 
+                        ELSE SentToInvoice 
+                    END,
+                    SentToInvoiceBy = CASE 
+                        WHEN SentToInvoiceBy > 0 THEN SentToInvoiceBy 
+                        ELSE ? 
+                    END
+                WHERE OrderDocumentID = ?;
+                """,
+                (self.user_id, order_document_id)
+            )
+
+    def crear_cabecera_factura_mayoreo(self, document_type_id, way_to_pay_id, fila):
+        document_id = self.base_de_datos.crear_documento(
+            document_type_id,
+            'FM',  # prefijo mayoreo
+            fila['BusinessEntityID'],
+            21,  # modulo facturas mayoreo
+            fila['CaptureBy'],  # valor de quien captura el pedido
+            fila['DepotID'],
+            fila['AddressDetailID'],
+            self.user_id,  # valor de quien crea el documento (envía a timbrar)
+            way_to_pay_id
+        )
+
+        order_document_id = fila['OrderDocumentID']
+
+        # este valor hace que para los doctos de mayoreo no sean recalculables
+        self.base_de_datos.command('UPDATE docDocument SET ExportID = 6, OrderDocumentID = ? WHERE DocumentID = ?',
+                                   (order_document_id, document_id))
+
+        return document_id
+
+    def insertar_partidas_documento(self, order_document_id, document_id, partidas, total_documento, address_detail_id):
+        if total_documento < 200:
+            order_delivery_type_id = self.base_de_datos.fetchone(
+                'SELECT OrderDeliveryTypeID FROM docDocumentOrderCayal WHERE OrderDocumentID = ?',
+                                         (order_document_id,))
+
+            # si el cliente viene omite el servicio a domicilio
+            if order_delivery_type_id == 1:
+                self.insertar_servicio_a_docimicilio(document_id, address_detail_id)
+
+        for partida in partidas:
+            parametros = (
+                document_id,
+                partida['ProductID'],
+                2,  # depot_id
+                partida['Quantity'],
+                partida['UnitPrice'],
+                0,  # costo,
+                partida['Subtotal'],
+                partida['TipoCaptura'],  # tipo captura
+                21,  # modulo
+                partida['Comments']
+            )
+            self.base_de_datos.insertar_partida_documento_cayal(parametros)
+
+    def insertar_servicio_a_docimicilio(self, document_id, address_detail_id):
+        precio_servicio = self.base_de_datos.fetchone(
+            'SELECT * FROM [dbo].[zvwBuscarCargoEnvio-AddressDetailID](?)',
+            (address_detail_id,))
+
+        precio_servicio_sin_impuesto = self.utilerias.calcular_monto_sin_iva(precio_servicio)
+        parametros = (
+            document_id,
+            5606,  # product_id
+            2,  # depot_id
+            1,
+            precio_servicio_sin_impuesto,
+            0,  # costo,
+            precio_servicio_sin_impuesto,
+            0,  # tipo captura
+            21  # modulo
+        )
+        self.base_de_datos.insertar_partida_documento_cayal(parametros)
+
+    def crear_comentario_taras(self, order_document_ids):
+        comentario = ''
+
+        for order in order_document_ids:
+            consulta = self.obtener_info_taras_pedido(order)
+
+            if not consulta:
+                continue
+
+            # Obtener el folio del pedido
+            folio = consulta[0]['PedFolio']
+            taras = []
+
+            # Generar la lista de taras
+            for tara in consulta:
+                tara_type = tara['TaraPrefix']
+                number_tara = tara['NumberTara']
+                taras.append(f"{tara_type}{number_tara}")
+
+            # Crear la cadena para este pedido
+            taras_str = ",".join(taras)  # Concatenar las taras separadas por comas
+            comentario += f"{folio}->{taras_str}; "
+
+        # Eliminar el último espacio y punto y coma si existe
+        comentario = comentario.strip("; ")
+        return comentario
+
+    def crear_comentario_entrega(self, order_document_ids):
+        comentario = ''  # Inicia el comentario vacío
+        delivery_forms = []
+        info_delivery = {}
+        for pedido in order_document_ids:
+            consulta = self.base_de_datos.buscar_info_documento_pedido_cayal(pedido)
+            if consulta:
+                info_pedido = consulta[0]
+                # Extraer la información necesaria
+                order_delivery_type_id = info_pedido['OrderDeliveryTypeID']
+                if order_delivery_type_id == 1:
+                    continue
+
+                doc_folio = info_pedido['DocFolio']
+                delivery_form = 'VIENE' if order_delivery_type_id == 2 else ''
+
+                delivery_forms.append(delivery_form)
+                info_delivery[doc_folio] = delivery_form
+
+        if len(delivery_forms) == 1:
+            return list(delivery_forms)[0]
+
+        else:
+            comentarios = []
+            for folio, delivery_form in info_delivery.items():
+                comentarios.append(f"{folio} {delivery_form}")
+
+            comentario = ", ".join(comentarios)
+            return comentario
+
+    def crear_comentario_horarios(self, order_document_ids):
+        comentario = ''  # Inicia el comentario vacío
+
+        for pedido in order_document_ids:
+            consulta = self.base_de_datos.buscar_info_documento_pedido_cayal(pedido)
+            if consulta:
+                info_pedido = consulta[0]
+
+                # Extraer la información necesaria
+                folio = info_pedido['DocFolio']
+                he = info_pedido['DeliveryTime']
+                hv = info_pedido['CreatedOnTime']
+
+                # Agregar al comentario en el formato deseado
+                comentario += f"HE:{he}\n"
+
+        # Opcionalmente, eliminar el salto de línea final
+        return comentario.strip()
+
+    def crear_comentario_forma_pago(self, order_document_ids):
+        comentario = ''  # Inicia el comentario vacío
+
+        payment_forms = []
+        info_payment = {}
+        for pedido in order_document_ids:
+            consulta = self.base_de_datos.buscar_info_documento_pedido_cayal(pedido)
+            if consulta:
+                info_pedido = consulta[0]
+                # Extraer la información necesaria
+                doc_folio = info_pedido['DocFolio']
+                payment_form = info_pedido['WayToPayID']
+                total = info_pedido['Total']
+
+                payment_forms.append(payment_form)
+                info_payment[doc_folio] = (payment_form, total)
+
+        payment_forms = set(payment_forms)
+
+        if len(payment_forms) == 1:
+
+            way_to_pay_id = list(payment_forms)[0]
+            if way_to_pay_id == 5:
+                return ''
+
+            return self.base_de_datos.fetchone(
+                'SELECT Comments FROM OrdersPaymentTermCayal WHERE PaymentTermID = ?',
+                (list(payment_forms)[0])
+            )
+        else:
+            comentarios = []
+            for folio, (payment_form, total) in info_payment.items():
+                if payment_form == 5:
+                    continue
+
+                comentario_pago = self.base_de_datos.fetchone(
+                    'SELECT Comments FROM OrdersPaymentTermCayal WHERE PaymentTermID = ?',
+                    (payment_form,)
+                )
+                if comentario_pago:
+                    comentarios.append(f"{folio} {comentario_pago}")
+
+            comentario = ", ".join(comentarios)
+            return comentario
+
+    def validar_credito_documento_cliente(self, business_entity_id, comentarios_documento, total_documento):
+
+        info_cliente = self.base_de_datos.fetchall('SELECT * FROM [dbo].[zvwBuscarInfoCliente-BusinessEntityID](?)',
+                                                   (business_entity_id,))
+        credito_autorizado = self.utilerias.redondear_valor_cantidad_a_decimal(info_cliente[0]['AuthorizedCredit'])
+        ruta = int(info_cliente[0]['ZoneID'])
+        comentario_crediticio = ''
+        if credito_autorizado > 0 and ruta == 1040:
+            bloqueo_crediticio = int(info_cliente[0]['CreditBlock'])
+
+            if bloqueo_crediticio == 1:
+                comentario_crediticio = '--NO TIENE CRÉDITO SU COMPRA ES DE CONTADO.-- '
+            else:
+                credito_restante = self.utilerias.redondear_valor_cantidad_a_decimal(info_cliente[0]['RemainingCredit'])
+                debe = credito_autorizado - credito_restante
+
+                if credito_restante > 0:
+                    comentario_crediticio = f'--DEBE: {debe}. CRÉDITO DISPONIBLE: {credito_restante}-- '
+                else:
+                    credito_restante_real = credito_restante + total_documento
+
+                    if credito_restante_real <= 0:
+                        comentario_crediticio = '--NO TIENE CRÉDITO SU COMPRA ES DE CONTADO.-- '
+
+                    elif credito_restante_real > 0 and credito_restante_real < total_documento:
+                        obligatorio = total_documento - credito_restante_real
+                        comentario_crediticio = f'--DEBE PAGAR OBLIGATORIAMENTE: {obligatorio}-- '
+
+                    elif credito_restante_real == total_documento:
+                        comentario_crediticio = f'--DEBE: {debe}. CRÉDITO DISPONIBLE: 0-- '
+
+            return f'{comentario_crediticio} {comentarios_documento}'
+
+        return comentarios_documento
+
+    def relacionar_pedidos_con_facturas(self, document_id, order_document_id):
+        self.base_de_datos.command(
+            """
+            DECLARE @DocumentID INT = ?
+            DECLARE @OrderDocumentID INT  = ?
+
+            -- Actualizar la tabla docDocumentOrderCayal
+            UPDATE docDocumentOrderCayal
+            SET StatusID = CASE WHEN StatusID = 3 AND OutputToDeliveryBy = 0 AND AssignedBy = 0 THEN 4 
+                                WHEN StatusID = 3 AND OutputToDeliveryBy = 0 AND AssignedBy <> 0 THEN 7 
+                                WHEN StatusID = 3 AND OutputToDeliveryBy <> 0 AND AssignedBy <> 0 THEN 13 
+                            END,
+                DocumentID = @DocumentID
+            WHERE OrderDocumentID = @OrderDocumentID;
+
+            -- Insertar en la tabla OrderInvoiceDocumentCayal
+            INSERT INTO OrderInvoiceDocumentCayal (OrderDocumentID, DocumentID)
+            VALUES (@OrderDocumentID, @DocumentID);
+
+            """,
+            (document_id, order_document_id)
+        )
+
+    def relacionar_pedido_con_pedidos(self, order_document_id, order):
+        self.base_de_datos.command(
+            'UPDATE docDocumentOrderCayal SET RelatedOrderID = ?, StatusID=4 WHERE OrderDocumentID = ?',
+            (order_document_id, order)
+        )

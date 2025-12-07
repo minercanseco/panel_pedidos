@@ -90,7 +90,6 @@ class ControladorPanelPedidos:
         }
         self._interfaz.ventanas.cargar_eventos(evento_adicional)
 
-
     def _filtrar_no_procesados(self):
         self._interfaz.ventanas.insertar_input_componente('cbx_capturista', 'Seleccione')
         self._interfaz.ventanas.insertar_input_componente('cbx_status', 'Seleccione')
@@ -255,8 +254,6 @@ class ControladorPanelPedidos:
         componente.grid(row=0, column=0, pady=5, padx=5, sticky=tk.NSEW)
 
         #self._interfaz.ventanas.agregar_callback_table_view_al_actualizar('tbv_pedidos', self._colorear_filas_panel_horarios)
-
-
 
     def _colorear_filas_panel_horarios(self, actualizar_meters=None):
         """
@@ -514,8 +511,6 @@ class ControladorPanelPedidos:
             self._interfaz.ventanas.insertar_input_componente(campo, (1, 0))
         tabla.delete_rows()
 
-
-
     def _capturar_nuevo_pedido(self):
         self._pausar_autorefresco()
 
@@ -550,54 +545,6 @@ class ControladorPanelPedidos:
                 despues_de_capturar_pedido=True
             )
             self._reanudar_autorefresco()
-
-    def _editar_pedido(self):
-
-        fila = self._validar_seleccion_una_fila()
-        if not fila:
-            self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar un pedido.')
-            return
-
-        status_id = fila['TypeStatusID']
-        order_document_id = fila['OrderDocumentID']
-
-        self._pausar_autorefresco()
-        try:
-            if status_id < 3:
-                # ⚠️ NO crear ventana aquí: LlamarInstanciaCaptura la crea internamente
-                cliente = Cliente()
-                documento = Documento()
-                self.parametros.id_principal = order_document_id
-
-                instancia = LlamarInstanciaCaptura(
-                    cliente,
-                    documento,
-                    self.base_de_datos,
-                    self.parametros,
-                    self.utilerias,
-                    None  # ← evita doble ventana: no pases un Toplevel existente
-                )
-                # si LlamarInstanciaCaptura expone una ventana y quieres modal, podrías:
-                # if hasattr(instancia, "master") and instancia.master:
-                #     instancia.master.wait_window()
-
-            elif status_id == 3:
-                # Aquí sí creas el Toplevel y lo haces modal
-                ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-                instancia = EditarPedido(ventana, self.base_de_datos, self.utilerias, self.parametros, fila)
-                ventana.wait_window()
-
-            else:  # status_id > 3
-                self._interfaz.ventanas.mostrar_mensaje(
-                    'No se pueden editar en este módulo documentos que no estén en status Por Timbrar.'
-                )
-        finally:
-            self._actualizar_totales_pedido(order_document_id)
-            self._actualizar_pedidos(self._fecha_seleccionada())
-            self._reanudar_autorefresco()
-
-
-
 
     def _rellenar_cbx_captura(self, valores):
         valores = sorted(list(set(valores)))
@@ -646,84 +593,86 @@ class ControladorPanelPedidos:
         return fila
 
     def _rellenar_tabla_detalle(self):
+
+        def procesar_partidas_pedido(partidas):
+            if not partidas:
+                return
+            consulta_partidas_con_impuestos = self._modelo.utilerias.agregar_impuestos_productos(partidas)
+
+            partidas_procesadas = []
+            for producto in consulta_partidas_con_impuestos:
+                precio = producto['precio']
+                cantidad_decimal = producto['cantidad']
+                total = producto['total']
+                product_id = producto['ProductID']
+
+                if product_id == 5606:
+                    continue
+                comentario = producto.get('Comments', '')
+                comentario = '' if not comentario else comentario
+                comentario = comentario.strip()
+
+                datos_fila = (
+                    cantidad_decimal,
+                    producto['ProductKey'],
+                    producto['ProductName'],
+                    precio,
+                    total,
+                    producto['Esp'],
+                    producto['ProductID'],
+                    producto['DocumentItemID'],
+                    producto['ItemProductionStatusModified'],
+                    producto['ClaveUnidad'],
+                    0,  # status surtido
+                    producto['UnitPrice'],
+                    producto['CayalPiece'],
+                    producto['CayalAmount'],
+                    comentario,
+                    producto['ProductTypeIDCayal']
+                )
+                partidas_procesadas.append(datos_fila)
+
+            return partidas_procesadas
+
+        def colorear_partidas_detalle():
+            filas = self._interfaz.ventanas.obtener_filas_treeview('tvw_detalle')
+            if not filas:
+                return
+
+            for fila in filas:
+                valores_fila = self._interfaz.ventanas.procesar_fila_treeview('tvw_detalle', fila)
+
+                estado_produccion_modificado = valores_fila['ItemProductionStatusModified']
+                if estado_produccion_modificado == 0:
+                    continue
+
+                # fila borrada
+                if estado_produccion_modificado == 3:
+                    self._interfaz.ventanas.colorear_fila_seleccionada_treeview('tvw_detalle', fila, color='danger')
+
+                # fila agregada
+                if estado_produccion_modificado == 1:
+                    self._interfaz.ventanas.colorear_fila_seleccionada_treeview('tvw_detalle', fila, color='info')
+
+                # fila editada
+                if estado_produccion_modificado == 2:
+                    self._interfaz.ventanas.colorear_fila_seleccionada_treeview('tvw_detalle', fila,
+                                                                                color='warning')
+
         fila = self._seleccionar_una_fila()
         if not fila:
             return
 
         order_document_id = fila[0]['OrderDocumentID']
         partidas = self._modelo.buscar_partidas_pedido(order_document_id)
-        partidas_procesadas = self._procesar_partidas_pedido(partidas)
+        partidas_procesadas = procesar_partidas_pedido(partidas)
 
         self._interfaz.ventanas.limpiar_componentes(['tvw_detalle'])
 
         for partida in partidas_procesadas:
             self._interfaz.ventanas.insertar_fila_treeview('tvw_detalle', partida)
 
-        self._colorear_partidas_detalle()
-
-    def _colorear_partidas_detalle(self):
-        filas = self._interfaz.ventanas.obtener_filas_treeview('tvw_detalle')
-        if not filas:
-            return
-
-        for fila in filas:
-            valores_fila = self._interfaz.ventanas.procesar_fila_treeview('tvw_detalle', fila)
-
-            estado_produccion_modificado = valores_fila['ItemProductionStatusModified']
-            if estado_produccion_modificado == 0:
-                continue
-
-            # fila borrada
-            if estado_produccion_modificado == 3:
-                self._interfaz.ventanas.colorear_fila_seleccionada_treeview('tvw_detalle', fila, color='danger')
-
-            # fila agregada
-            if estado_produccion_modificado == 1:
-                self._interfaz.ventanas.colorear_fila_seleccionada_treeview('tvw_detalle', fila, color='info')
-
-            # fila editada
-            if estado_produccion_modificado == 2:
-                self._interfaz.ventanas.colorear_fila_seleccionada_treeview('tvw_detalle', fila,
-                                                                            color='warning')
-
-    def _procesar_partidas_pedido(self, partidas):
-        if not partidas:
-            return
-        consulta_partidas_con_impuestos = self._modelo.utilerias.agregar_impuestos_productos(partidas)
-
-        partidas_procesadas = []
-        for producto in consulta_partidas_con_impuestos:
-            precio_con_impuestos = producto['SalePriceWithTaxes']
-            cantidad_decimal = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(producto['Quantity'])
-            total = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(precio_con_impuestos * cantidad_decimal)
-            product_id = producto['ProductID']
-
-            if product_id == 5606:
-                continue
-            comentario = producto.get('Comments', '')
-            comentario = '' if not comentario else comentario
-            comentario =  comentario.strip()
-
-            datos_fila = (
-                cantidad_decimal,
-                producto['ProductKey'],
-                producto['ProductName'],
-                precio_con_impuestos,
-                total,
-                producto['Esp'],
-                producto['ProductID'],
-                producto['DocumentItemID'],
-                producto['ItemProductionStatusModified'],
-                producto['ClaveUnidad'],
-                0,  # status surtido
-                producto['UnitPrice'],
-                producto['CayalPiece'],
-                producto['CayalAmount'],
-                comentario,
-                producto['ProductTypeIDCayal']
-            )
-            partidas_procesadas.append(datos_fila)
-        return partidas_procesadas
+        colorear_partidas_detalle()
 
     def _filtrar_por_capturados_por(self):
 
@@ -740,46 +689,6 @@ class ControladorPanelPedidos:
         self._limpiar_componentes()
         self._actualizar_pedidos(self._fecha_seleccionada())
 
-
-
-
-
-
-
-
-
-    def _actualizar_totales_pedido(self, order_document_id, sin_servicio_domicilio=True):
-        consulta_partidas = self._modelo.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
-            order_document_id, partidas_producidas=True)
-
-        consulta_partidas_con_impuestos = self._modelo.utilerias.agregar_impuestos_productos(consulta_partidas)
-        subtotal = 0
-        total_tax = 0
-        totales = 0
-
-        for producto in consulta_partidas_con_impuestos:
-            precio = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(producto['UnitPrice'])
-            precio_con_impuestos = producto['SalePriceWithTaxes']
-            cantidad_decimal = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(producto['Quantity'])
-            total = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(precio_con_impuestos * cantidad_decimal)
-            product_id = producto['ProductID']
-
-            if int(product_id) == 5606 and sin_servicio_domicilio:
-                continue
-
-            subtotal += (precio * cantidad_decimal)
-            total_tax += (precio_con_impuestos - precio)
-            totales += total
-
-        self.base_de_datos.command(
-            'UPDATE docDocumentOrderCayal SET SubTotal = ?, Total = ?, TotalTax = ? WHERE OrderDocumentID = ?',
-            (subtotal, totales, total_tax, order_document_id)
-        )
-
-
-
-
-
     def _sin_fecha(self):
 
         valor_chk_fecha = self._interfaz.ventanas.obtener_input_componente('chk_sin_fecha')
@@ -792,11 +701,6 @@ class ControladorPanelPedidos:
             date_entry.entry.delete(first=0, last=tk.END)
         else:
             self._interfaz.ventanas.insertar_input_componente('den_fecha', self._modelo.hoy)
-
-    def _buscar_ofertas(self):
-        if not self._modelo.consulta_productos_ofertados:
-            self._modelo.buscar_productos_ofertados_cliente()
-
 
     def _crear_notebook_herramientas(self):
         info_pestanas = {

@@ -563,3 +563,30 @@ class ModeloPanelPedidos:
             'UPDATE docDocumentOrderCayal SET RelatedOrderID = ?, StatusID=4 WHERE OrderDocumentID = ?',
             (order_document_id, order)
         )
+
+    def actualizar_totales_pedido(self, order_document_id, sin_servicio_domicilio=True):
+        consulta_partidas = self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
+            order_document_id, partidas_producidas=True)
+
+        consulta_partidas_con_impuestos = self.utilerias.agregar_impuestos_productos(consulta_partidas)
+        subtotal = 0
+        total_tax = 0
+        totales = 0
+
+        for producto in consulta_partidas_con_impuestos:
+            precio = producto['precio']
+            cantidad_decimal = producto['cantidad']
+            total = producto['total']
+            product_id = producto['ProductID']
+
+            if int(product_id) == 5606 and sin_servicio_domicilio:
+                continue
+
+            subtotal += (precio * cantidad_decimal)
+            total_tax += (precio - precio)
+            totales += total
+
+        self.base_de_datos.command(
+            'UPDATE docDocumentOrderCayal SET SubTotal = ?, Total = ?, TotalTax = ? WHERE OrderDocumentID = ?',
+            (subtotal, totales, total_tax, order_document_id)
+        )

@@ -35,10 +35,10 @@ class HerramientasTimbrado:
         self.barra_herramientas_pedido = [
 
             {'nombre_icono': 'lista-de-verificacion.ico', 'etiqueta': 'Editar', 'nombre': 'editar',
-             'hotkey': None, 'comando': self._hola},
+             'hotkey': None, 'comando': self._editar_pedido_timbrado},
 
             {'nombre_icono': 'Invoice32.ico', 'etiqueta': 'Facturar', 'nombre': 'facturar',
-             'hotkey': None, 'comando': self._hola},
+             'hotkey': None, 'comando': self._facturar},
 
             {'nombre_icono': 'PrintSelectedItems.ico', 'etiqueta': 'Producido', 'nombre': 'capturado_vs_producido',
              'hotkey': None, 'comando': self._capturado_vs_producido}
@@ -71,9 +71,50 @@ class HerramientasTimbrado:
 
         return filas
 
+    def _editar_pedido_timbrado(self):
 
-    def _hola(self):
-        print('hola')
+        fila = self._validar_seleccion_una_fila()
+        if not fila:
+            self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar un pedido.')
+            return
+
+        status_id = fila['TypeStatusID']
+        order_document_id = fila['OrderDocumentID']
+
+        self._pausar_autorefresco()
+        try:
+            if status_id < 3:
+                # ⚠️ NO crear ventana aquí: LlamarInstanciaCaptura la crea internamente
+                cliente = Cliente()
+                documento = Documento()
+                self.parametros.id_principal = order_document_id
+
+                instancia = LlamarInstanciaCaptura(
+                    cliente,
+                    documento,
+                    self.base_de_datos,
+                    self.parametros,
+                    self.utilerias,
+                    None  # ← evita doble ventana: no pases un Toplevel existente
+                )
+                # si LlamarInstanciaCaptura expone una ventana y quieres modal, podrías:
+                # if hasattr(instancia, "master") and instancia.master:
+                #     instancia.master.wait_window()
+
+            elif status_id == 3:
+                # Aquí sí creas el Toplevel y lo haces modal
+                ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+                instancia = EditarPedido(ventana, self.base_de_datos, self.utilerias, self.parametros, fila)
+                ventana.wait_window()
+
+            else:  # status_id > 3
+                self._interfaz.ventanas.mostrar_mensaje(
+                    'No se pueden editar en este módulo documentos que no estén en status Por Timbrar.'
+                )
+        finally:
+            self._modelo.actualizar_totales_pedido(order_document_id)
+            self._actualizar_pedidos(self._fecha_seleccionada())
+            self._reanudar_autorefresco()
 
     def _facturar(self):
         # --------------------------------------------------------------------------------------------------------------

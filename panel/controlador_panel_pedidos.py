@@ -550,34 +550,7 @@ class ControladorPanelPedidos:
             )
             self._reanudar_autorefresco()
 
-    def _editar_caracteristicas(self):
-        self._pausar_autorefresco()
-        try:
-            fila = self._seleccionar_una_fila()
-            if not fila:
-                return
 
-            status = fila[0]['TypeStatusID']
-
-            if status == 10:
-                self._interfaz.ventanas.mostrar_mensaje('NO se pueden editar pedidos cancelados.')
-                return
-
-            elif status >= 4:
-                self._interfaz.ventanas.mostrar_mensaje('Sólo se pueden afectar las caracteristicas de un pedido hasta el status  Por timbrar.')
-                return
-            else:
-                order_document_id = fila[0]['OrderDocumentID']
-                self.parametros.id_principal = order_document_id
-
-                ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-                instancia = EditarCaracteristicasPedido(ventana, self.parametros, self.base_de_datos, self.utilerias)
-                ventana.wait_window()
-
-                self.parametros.id_principal = 0
-                self._actualizar_pedidos(self._fecha_seleccionada())
-        finally:
-            self._reanudar_autorefresco()
 
 
 

@@ -1,6 +1,7 @@
 import tkinter as tk
 from cayal.ventanas import Ventanas
 
+from herramientas.herramientas_panel.editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from herramientas.herramientas_panel.ticket_pedido_cliente import TicketPedidoCliente
 
 
@@ -38,7 +39,7 @@ class HerramientasCaptura:
              'hotkey': None, 'comando': self._hola},
 
             {'nombre_icono': 'EditBusinessEntity32.ico', 'etiqueta': 'E.Caracteristicas', 'nombre': 'editar_caracteristicas',
-             'hotkey': '', 'comando': self._hola},
+             'hotkey': '', 'comando': self._editar_caracteristicas_pedido},
 
             {'nombre_icono': 'DocumentGenerator32.ico', 'etiqueta': 'Ticket', 'nombre': 'crear_ticket',
              'hotkey': None, 'comando': self._crear_ticket_pedido_cliente},
@@ -79,6 +80,34 @@ class HerramientasCaptura:
 
     def _hola(self):
         print('hola')
+
+    def _editar_caracteristicas_pedido(self):
+        try:
+            fila = self._obtener_valores_fila_pedido_seleccionado()
+            if not fila:
+                return
+
+            status = fila['TypeStatusID']
+
+            if status == 10:
+                self._interfaz.ventanas.mostrar_mensaje('NO se pueden editar pedidos cancelados.')
+                return
+
+            elif status >= 4:
+                self._interfaz.ventanas.mostrar_mensaje('Sólo se pueden afectar las caracteristicas de un pedido hasta el status  Por timbrar.')
+                return
+            else:
+                order_document_id = fila['OrderDocumentID']
+
+                self._parametros.id_principal = order_document_id
+                ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+                instancia = EditarCaracteristicasPedido(ventana,
+                                                        self._parametros,
+                                                        self._base_de_datos,
+                                                        self._utilerias)
+                ventana.wait_window()
+        finally:
+            self._parametros.id_principal = 0
 
     def _crear_ticket_pedido_cliente(self):
         order_document_id = self._obtener_valores_fila_pedido_seleccionado(valor='OrderDocumentID')

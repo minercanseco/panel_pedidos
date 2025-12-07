@@ -123,7 +123,7 @@ class HistorialCliente:
                 CASE WHEN X.AddressDetailID = 0 THEN  ADE.AddressName ELSE   ad.AddressName END Dirección, 
                 CASE WHEN X.AddressDetailID = 0 THEN  ADTE.City ELSE   ADT.City END Colonia, D.DocumentID, 
                 D.Comments
-            FROM docDocument D INNER JOIN
+            FROM docDocument D LEFT OUTER JOIN
                 docDocumentCFD CFD ON D.DocumentID = CFD.DocumentID INNER JOIN
                 orgBusinessEntity E ON D.BusinessEntityID = E.BusinessEntityID INNER JOIN
                 orgBusinessEntityMainInfo EM ON E.BusinessEntityID = EM.BusinessEntityID LEFT OUTER JOIN

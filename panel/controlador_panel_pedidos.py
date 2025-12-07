@@ -567,6 +567,17 @@ class ControladorPanelPedidos:
         else:
             self._interfaz.ventanas.insertar_input_componente('den_fecha', self._modelo.hoy)
 
+    def _obtener_valores_fila_pedido_seleccionado(self, valor = None):
+        if not self._interfaz.ventanas.validar_seleccion_una_fila_table_view('tbv_pedidos'):
+            return
+
+        valores_fila = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)[0]
+        if not valor:
+            return
+
+        return valores_fila[valor]
+
+
     # funciones relacionadas con herramientas del panel
     #------------------------------------------------------------------------------------------------------------------
     def _crear_notebook_herramientas(self):
@@ -708,11 +719,10 @@ class ControladorPanelPedidos:
                     self._interfaz.ventanas.colorear_fila_seleccionada_treeview('tvw_detalle', fila,
                                                                                 color='warning')
 
-        fila = self._seleccionar_una_fila()
-        if not fila:
+        order_document_id = self._obtener_valores_fila_pedido_seleccionado('OrderDocumentID')
+        if not order_document_id:
             return
 
-        order_document_id = fila[0]['OrderDocumentID']
         partidas = self._modelo.buscar_partidas_pedido(order_document_id)
         partidas_procesadas = procesar_partidas_pedido(partidas)
 

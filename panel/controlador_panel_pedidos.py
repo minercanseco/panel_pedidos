@@ -504,6 +504,69 @@ class ControladorPanelPedidos:
         # vuelve a programar
         self._iniciar_autorefresco()
 
+    def _crear_tabla_pedidos(self):
+        ancho, alto = self._interfaz.ventanas.obtener_resolucion_pantalla()
+
+        frame = self._interfaz.ventanas.componentes_forma['frame_captura']
+        colors = self._interfaz.master.style.colors
+        componente = Tableview(
+            master=frame,
+            coldata=self._interfaz.crear_columnas_tabla(),
+            rowdata=self._modelo.utilerias.diccionarios_a_tuplas(None),
+            paginated=True,
+            searchable=True,
+            bootstyle=PRIMARY,
+            pagesize=19 if ancho <= 1367 else 24,
+            stripecolor=None,  # (colors.light, None),
+            height=19 if ancho <= 1367 else 24,
+            autofit=False,
+            callbacks=[self._colorear_filas_panel_horarios],
+            callbacks_search=[self._buscar_pedidos_cliente_sin_fecha]
+
+        )
+
+        self._interfaz.ventanas.componentes_forma['tbv_pedidos'] = componente
+        componente.grid(row=0, column=0, pady=5, padx=5, sticky=tk.NSEW)
+
+    def _buscar_pedidos_cliente_sin_fecha(self, criteria):
+
+        fecha_seleccionada = self._interfaz.ventanas.obtener_input_componente('den_fecha')
+        if fecha_seleccionada:
+            return
+
+        if not criteria:
+            self._interfaz.ventanas.mostrar_mensaje('Debe introducir un valor a buscar.')
+            return
+
+        if criteria.strip() == '':
+            self._interfaz.ventanas.mostrar_mensaje('Debe abundar en el valor a buscar.')
+            return
+
+        consulta = self._modelo.buscar_pedidos_cliente_sin_fecha(criteria)
+
+        # Rellenar tabla con los datos filtrados
+        self._interfaz.ventanas.rellenar_table_view(
+            'tbv_pedidos',
+            self._interfaz.crear_columnas_tabla(),
+            consulta
+        )
+
+        self._modelo.consulta_pedidos = consulta
+        self._colorear_filas_panel_horarios(actualizar_meters=True)
+
+    def _sin_fecha(self):
+
+        valor_chk_fecha = self._interfaz.ventanas.obtener_input_componente('chk_sin_fecha')
+
+        if valor_chk_fecha == 1:
+
+            self._interfaz.ventanas.cambiar_estado_checkbutton('chk_sin_procesar', 'deseleccionado')
+
+            date_entry = self._interfaz.ventanas.componentes_forma['den_fecha']
+            date_entry.entry.delete(first=0, last=tk.END)
+        else:
+            self._interfaz.ventanas.insertar_input_componente('den_fecha', self._modelo.hoy)
+
     # funciones relacionadas con herramientas del panel
     #------------------------------------------------------------------------------------------------------------------
     def _crear_notebook_herramientas(self):
@@ -654,445 +717,4 @@ class ControladorPanelPedidos:
 
         colorear_partidas_detalle()
     #------------------------------------------------------------------------------------------------------------------
-
-
-
-"""
-    
-
-    
-
-    def _pausar_autorefresco(self):
-        self._bloquear_autorefresco = True
-        print('autorefresco pausado')
-
-    def _reanudar_autorefresco(self):
-        self._bloquear_autorefresco = False
-        print('autorefresco reanudado')
-
-    def _cargar_eventos(self):
-        eventos = {
-            'den_fecha': lambda event: self._actualizar_pedidos(self._fecha_seleccionada(), criteria=False),
-            'tbv_pedidos': (lambda event: self._rellenar_tabla_detalle(), 'doble_click'),
-            'cbx_capturista': lambda event: self._filtrar_por_capturados_por(),
-            'cbx_status': lambda event: self._filtrar_por_status(),
-            'cbx_horarios': lambda event: self._filtrar_por_horas(),
-            'chk_sin_procesar': lambda *args: self._filtrar_no_procesados(),
-            'chk_sin_fecha': lambda *args: self._sin_fecha(),
-        }
-        self._interfaz.ventanas.cargar_eventos(eventos)
-
-        evento_adicional = {
-            'tbv_pedidos': (lambda event: self._actualizar_comentario_pedido(), 'seleccion')
-        }
-        self._interfaz.ventanas.cargar_eventos(evento_adicional)
-
-    def _filtrar_no_procesados(self):
-        self._interfaz.ventanas.insertar_input_componente('cbx_capturista', 'Seleccione')
-        self._interfaz.ventanas.insertar_input_componente('cbx_status', 'Seleccione')
-        self._interfaz.ventanas.insertar_input_componente('cbx_horarios', 'Seleccione')
-
-        valor_chk = self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar')
-        if valor_chk == 1:
-            self._interfaz.ventanas.cambiar_estado_checkbutton('chk_sin_fecha', 'deseleccionado')
-            self._actualizar_pedidos()
-
-        if valor_chk == 0:
-            fecha = str(datetime.today().date())
-            self._interfaz.ventanas.insertar_input_componente('den_fecha', fecha)
-
-
-            self._actualizar_pedidos()
-
-    def _buscar_pedidos_cliente_sin_fecha(self, criteria):
-
-        fecha_seleccionada = self._interfaz.ventanas.obtener_input_componente('den_fecha')
-        if fecha_seleccionada:
-            return
-
-        if not criteria:
-            self._interfaz.ventanas.mostrar_mensaje('Debe introducir un valor a buscar.')
-            return
-
-        if criteria.strip() == '':
-            self._interfaz.ventanas.mostrar_mensaje('Debe abundar en el valor a buscar.')
-            return
-
-        consulta = self._modelo.buscar_pedidos_cliente_sin_fecha(criteria)
-
-        # Rellenar tabla con los datos filtrados
-        self._interfaz.ventanas.rellenar_table_view(
-            'tbv_pedidos',
-            self._interfaz.crear_columnas_tabla(),
-            consulta
-        )
-
-        self._modelo.consulta_pedidos = consulta
-        self._colorear_filas_panel_horarios(actualizar_meters=True)
-
-    def _limpiar_componentes(self):
-        self._interfaz.ventanas.limpiar_componentes(['tbx_comentarios', 'tvw_detalle'])
-
-    
-
-    def _fecha_seleccionada(self):
-
-        fecha = self._interfaz.ventanas.obtener_input_componente('den_fecha')
-        return str(fecha) if fecha else None
-
-    def _crear_tabla_pedidos(self):
-        ancho, alto = self._interfaz.ventanas.obtener_resolucion_pantalla()
-
-        frame = self._interfaz.ventanas.componentes_forma['frame_captura']
-        colors = self._interfaz.master.style.colors
-        componente = Tableview(
-            master=frame,
-            coldata=self._interfaz.crear_columnas_tabla(),
-            rowdata=self._modelo.utilerias.diccionarios_a_tuplas(None),
-            paginated=True,
-            searchable=True,
-            bootstyle=PRIMARY,
-            pagesize=19 if ancho  <= 1367 else 24,
-            stripecolor=None,  # (colors.light, None),
-            height=19 if ancho  <= 1367 else 24,
-            autofit=False,
-            callbacks=[self._colorear_filas_panel_horarios],
-            callbacks_search = [self._buscar_pedidos_cliente_sin_fecha]
-
-        )
-
-        self._interfaz.ventanas.componentes_forma['tbv_pedidos'] = componente
-        componente.grid(row=0, column=0, pady=5, padx=5, sticky=tk.NSEW)
-
-    def _colorear_filas_panel_horarios(self, actualizar_meters=None):
-        """
-        Colorea las filas de la tabla según la fase de producción (`StatusID`) y los tiempos estimados.
-        También tiene en cuenta la fecha y hora de captura. Si `actualizar_meters` es True, solo actualiza
-        los contadores sin modificar los colores en la tabla.
-        """
-        if not self._fecha_seleccionada():
-            return
-
-        if self._coloreando:
-            return  # Evita ejecuciones simultáneas
-
-        self._coloreando = True
-        ahora = datetime.now()
-
-        # Obtener filas a procesar
-        filas = self._modelo.consulta_pedidos if actualizar_meters else \
-            self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', visibles=True)
-
-        # Reiniciar contadores si estamos actualizando meters
-        if actualizar_meters:
-            self._modelo.pedidos_retrasados = 0
-            self._modelo.pedidos_en_tiempo = 0
-            self._modelo.pedidos_a_tiempo = 0
-
-        if not filas:
-            self._coloreando = False
-            return
-
-        # Definir colores
-        colores = {
-                1: 'green',  # Pedido a tiempo o programado para otro día
-                2: 'orange',  # Pedido próximo a la entrega (tiempo intermedio)
-                3: 'red',  # Urgente o con muy poco tiempo para entrega / cancelado
-                4: 'blue',  # Entregado o en ruta con poco tiempo para entrega
-                5: 'purple',  # Pago pendiente por confirmar
-                6: 'lightgreen',  # Transferencia confirmada
-                7: 'lightblue'  # En ruta, entregado o en cartera
-            }
-
-        for i, fila in enumerate(filas):
-            valores_fila = {
-                'PriorityID': fila['PriorityID'],
-                'Cancelled': fila['Cancelado'],
-                'FechaEntrega': fila['FechaEntrega'] if actualizar_meters else fila['F.Entrega'],
-                'HoraEntrega': fila['HoraCaptura'] if actualizar_meters else fila['H.Entrega'],
-                'StatusID': fila['TypeStatusID'],
-                'OrderDeliveryTypeID': fila['OrderDeliveryTypeID'],
-                'PaymentConfirmedID': fila['PaymentConfirmedID']
-
-            }
-            status_pedido = self.utilerias.determinar_color_fila_respecto_entrega_pedido(valores_fila, ahora)
-
-            color = colores[status_pedido]
-
-            if actualizar_meters:
-                if status_pedido in (1, 4):
-                    self._modelo.pedidos_en_tiempo += 1
-                elif status_pedido == 2:
-                    self._modelo.pedidos_a_tiempo += 1
-                elif status_pedido == 3:
-                    self._modelo.pedidos_retrasados += 1
-            else:
-                self._interfaz.ventanas.colorear_filas_table_view('tbv_pedidos', [i], color)
-
-        if actualizar_meters:
-            self._rellenar_meters()
-
-        self._coloreando = False
-
-    def _obtener_valores_cbx_filtros(self):
-        # Obtener valores actuales de los filtros
-        vlr_cbx_captura = self._interfaz.ventanas.obtener_input_componente('cbx_capturista')
-        vlr_cbx_horarios = self._interfaz.ventanas.obtener_input_componente('cbx_horarios')
-        vlr_cbx_status = self._interfaz.ventanas.obtener_input_componente('cbx_status')
-
-        return {'cbx_capturista': vlr_cbx_captura, 'cbx_horarios':vlr_cbx_horarios, 'cbx_status':vlr_cbx_status}
-
-    def _settear_valores_cbx_filtros(self, valores_cbx_filtros):
-        vlr_cbx_captura = valores_cbx_filtros['cbx_capturista']
-        vlr_cbx_horarios =  valores_cbx_filtros['cbx_horarios']
-        vlr_cbx_status =  valores_cbx_filtros['cbx_status']
-
-        # Aplicar filtros solo si el usuario ha seleccionado un valor específico
-        if vlr_cbx_captura != 'Seleccione':
-            self._interfaz.ventanas.insertar_input_componente('cbx_capturista', vlr_cbx_captura)
-
-        if vlr_cbx_horarios != 'Seleccione':
-            self._interfaz.ventanas.insertar_input_componente('cbx_horarios', vlr_cbx_horarios)
-
-        if vlr_cbx_status != 'Seleccione':
-            self._interfaz.ventanas.insertar_input_componente('cbx_status', vlr_cbx_status)
-
-    def _actualizar_pedidos(self, fecha=None, criteria=True, refresh=False, despues_de_capturar_pedido=False):
-        if self._actualizando_tabla:
-            return
-
-        try:
-            self._actualizando_tabla = True
-
-            # 1) Limpia filtros visuales si lo pides
-            self._interfaz.ventanas.limpiar_filtros_table_view('tbv_pedidos', criteria)
-
-            # 2) Reconsulta si hay refresh, cambiaste fecha o no hay caché
-            if refresh or (fecha is not None) or not getattr(self._modelo, 'consulta_pedidos', None):
-                consulta = self._modelo.buscar_pedidos(fecha)
-                self._modelo.consulta_pedidos = consulta
-            else:
-                consulta = self._modelo.consulta_pedidos
-
-            if not consulta:
-                self._limpiar_tabla()
-                return
-
-            # 3) Guarda selección actual del usuario (antes de repoblar combos)
-            seleccion_previa = self._obtener_valores_cbx_filtros()
-
-            # 4) Construye opciones de filtros desde la data FRESCA y repuebla combos
-            #    - limpia None, strip y de-duplica
-            def _norm_set(iterable):
-                vistos, res = set(), []
-                for v in iterable:
-                    if v is None:
-                        continue
-                    s = str(v).strip()
-                    if s and s not in vistos:
-                        vistos.add(s)
-                        res.append(s)
-                return sorted(res)
-
-            capturistas = _norm_set(f['CapturadoPor'] for f in consulta)
-            horarios = _norm_set(f['HoraEntrega'] for f in consulta)
-            status = _norm_set(f['Status'] for f in consulta)
-
-            # repoblar (usa tu Ventanas.rellenar_cbx(nombre_cbx, valores, sin_seleccione=None))
-            self._rellenar_cbx_captura(capturistas)
-            self._rellenar_cbx_horarios(horarios)
-            self._rellenar_cbx_status(status)
-
-            # 5) Restaura selección previa o aplica "prefiltro post-captura"
-            print(self._capturando_nuevo_pedido)
-            if self._capturando_nuevo_pedido:
-                # capturista = yo
-                self._interfaz.ventanas.insertar_input_componente('cbx_capturista', self._user_name)
-
-                # status = alguna variante de "abierto" si existe
-                abiertos_posibles = {'abierto', 'abierta', 'open'}
-                candidato_abierto = next((s for s in status if s.strip().lower() in abiertos_posibles), None)
-                self._interfaz.ventanas.insertar_input_componente('cbx_status', candidato_abierto or 'Seleccione')
-
-                # horario = 'Seleccione'
-                self._interfaz.ventanas.insertar_input_componente('cbx_horarios', 'Seleccione')
-                print('aqui debieramos filtrar abierto')
-                self._capturando_nuevo_pedido = False
-            else:
-                # restaura selección previa usando tu setter robusto
-                print('aqui no filtramos abiertos')
-                self._interfaz.ventanas.insertar_input_componente('cbx_capturista',
-                                                                  seleccion_previa.get('cbx_capturista', 'Seleccione'))
-                self._interfaz.ventanas.insertar_input_componente('cbx_horarios',
-                                                                  seleccion_previa.get('cbx_horarios', 'Seleccione'))
-                self._interfaz.ventanas.insertar_input_componente('cbx_status',
-                                                                  seleccion_previa.get('cbx_status', 'Seleccione'))
-
-            # 6) Aplica filtros según lo que haya en los combos AHORA
-            valores = self._obtener_valores_cbx_filtros()
-            consulta_filtrada = self._filtrar_consulta_sin_rellenar(
-                consulta, valores, despues_de_captura=despues_de_capturar_pedido
-            )
-
-            # 7) Pinta la tabla
-            self._interfaz.ventanas.rellenar_table_view(
-                'tbv_pedidos',
-                self._interfaz.crear_columnas_tabla(),
-                consulta_filtrada
-            )
-
-            self._colorear_filas_panel_horarios(actualizar_meters=True)
-
-        finally:
-            self._actualizando_tabla = False
-
-    def _filtrar_consulta_sin_rellenar(self, consulta, valores, despues_de_captura=False):
-        """Filtra en una sola pasada; NO toca combos."""
-        # Prioridad: "sin procesar"
-        if self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar') == 1:
-            self._interfaz.ventanas.limpiar_componentes('den_fecha')
-            return self._modelo.buscar_pedidos_sin_procesar()
-
-        if despues_de_captura:
-            usuario = self._user_name
-            return [f for f in consulta
-                    if f.get('CapturadoPor') == usuario and f.get('Status') == 'Abierto']
-
-        # Filtros normales desde combos
-        vlr_cbx_captura = valores.get('cbx_capturista')
-        vlr_cbx_horarios = valores.get('cbx_horarios')
-        vlr_cbx_status = valores.get('cbx_status')
-
-        # Predicados solo si el usuario eligió algo distinto a 'Seleccione'
-        filtrar_captura = (vlr_cbx_captura and vlr_cbx_captura != 'Seleccione')
-        filtrar_horario = (vlr_cbx_horarios and vlr_cbx_horarios != 'Seleccione')
-        filtrar_status = (vlr_cbx_status and vlr_cbx_status != 'Seleccione')
-
-        if not (filtrar_captura or filtrar_horario or filtrar_status):
-            return consulta
-
-        def ok(f):
-            if filtrar_captura and f.get('CapturadoPor') != vlr_cbx_captura:
-                return False
-            if filtrar_horario and f.get('HoraEntrega') != vlr_cbx_horarios:
-                return False
-            if filtrar_status and f.get('Status') != vlr_cbx_status:
-                return False
-            return True
-
-        return [f for f in consulta if ok(f)]
-
-    def _filtrar_consulta(self, consulta, valores_cbx_filtros):
-        # Si el checkbox está activado, solo devolver los pedidos sin procesar
-        if self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar') == 1:
-            self._interfaz.ventanas.limpiar_componentes('den_fecha')
-            return self._modelo.buscar_pedidos_sin_procesar()
-
-        vlr_cbx_captura = valores_cbx_filtros['cbx_capturista']
-        vlr_cbx_horarios = valores_cbx_filtros['cbx_horarios']
-        vlr_cbx_status = valores_cbx_filtros['cbx_status']
-
-        # Extraer valores únicos de los campos para actualizar los filtros
-        capturistas = {fila['CapturadoPor'] for fila in consulta}
-        horarios = {fila['HoraEntrega'] for fila in consulta}
-        status = {fila['Status'] for fila in consulta}
-
-        self._rellenar_cbx_status(status)
-        self._rellenar_cbx_horarios(horarios)
-        self._rellenar_cbx_captura(capturistas)
-
-        # Aplicar filtros solo si el usuario ha seleccionado un valor específico
-        if vlr_cbx_captura and vlr_cbx_captura != 'Seleccione':
-            consulta = [fila for fila in consulta if fila['CapturadoPor'] == vlr_cbx_captura]
-
-        if vlr_cbx_horarios and vlr_cbx_horarios != 'Seleccione':
-            consulta = [fila for fila in consulta if fila['HoraEntrega'] == vlr_cbx_horarios]
-
-        if vlr_cbx_status and vlr_cbx_status != 'Seleccione':
-            consulta = [fila for fila in consulta if fila['Status'] == vlr_cbx_status]
-
-        return consulta
-
-    def _limpiar_tabla(self):
-        """Limpia la tabla y restablece los contadores de métricas"""
-        tabla = self._interfaz.ventanas.componentes_forma['tbv_pedidos']
-        for campo in ['mtr_total', 'mtr_en_tiempo', 'mtr_a_tiempo', 'mtr_retrasado']:
-            self._interfaz.ventanas.insertar_input_componente(campo, (1, 0))
-        tabla.delete_rows()
-
-    def _capturar_nuevo_pedido(self):
-        self._pausar_autorefresco()
-
-        try:
-            self._capturando_nuevo_pedido = True
-            self._master.iconify()
-
-            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(
-                ocultar_master=True,
-                master=self._interfaz.master
-            )
-
-            self.parametros.id_principal = -1
-
-            # empaquetar ofertas del cliente
-            ofertas = {
-                'consulta_productos_ofertados': self._modelo.consulta_productos_ofertados,
-                'consulta_productos_ofertados_btn': self._modelo.consulta_productos_ofertados_btn,
-                'products_ids_ofertados': self._modelo.products_ids_ofertados
-            }
-
-            _ = BuscarGeneralesCliente(ventana, self.parametros, ofertas)
-
-
-        finally:
-            self.parametros.id_principal = 0
-
-            # 👉 aquí SIEMPRE entras al cerrar captura (ver ajuste en BuscarGenerales abajo)
-            self._actualizar_pedidos(
-                fecha=self._fecha_seleccionada(),
-                refresh=True,
-                despues_de_capturar_pedido=True
-            )
-            self._reanudar_autorefresco()
-
-    
-
-    
-
-    def _seleccionar_una_fila(self):
-        fila = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
-        if not fila:
-            return
-        if len(fila) > 1:
-            return
-        return fila
-
-    def _filtrar_por_capturados_por(self):
-
-        self._limpiar_componentes()
-        self._actualizar_pedidos(self._fecha_seleccionada())
-
-    def _filtrar_por_status(self):
-
-        self._limpiar_componentes()
-        self._actualizar_pedidos(self._fecha_seleccionada())
-
-    def _filtrar_por_horas(self):
-
-        self._limpiar_componentes()
-        self._actualizar_pedidos(self._fecha_seleccionada())
-
-    def _sin_fecha(self):
-
-        valor_chk_fecha = self._interfaz.ventanas.obtener_input_componente('chk_sin_fecha')
-
-        if valor_chk_fecha == 1:
-
-            self._interfaz.ventanas.cambiar_estado_checkbutton('chk_sin_procesar', 'deseleccionado')
-
-            date_entry = self._interfaz.ventanas.componentes_forma['den_fecha']
-            date_entry.entry.delete(first=0, last=tk.END)
-        else:
-            self._interfaz.ventanas.insertar_input_componente('den_fecha', self._modelo.hoy)
-"""
 

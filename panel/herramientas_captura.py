@@ -66,7 +66,7 @@ class HerramientasCaptura:
 
         valores_fila = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)[0]
         if not valor:
-            return
+            return valores_fila
 
         return valores_fila[valor]
 

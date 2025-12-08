@@ -301,12 +301,16 @@ class HerramientasGenerales:
         order_document_id = valores_fila['OrderDocumentID']
         status_id = valores_fila['TypeStatusID']
         fecha_entrega = valores_fila['F.Entrega']
+        relacion = valores_fila['Relacion']
 
         if status_id not in (1,3):
             self._ventanas.mostrar_mensaje('Esta función no aplica para pedidos en status Abierto y Por Timbrar.')
             return
         if not fecha_entrega or fecha_entrega in ('None', ''):
             self._ventanas.mostrar_mensaje('Debe definir las caracteristicas del pedido antes de usar esta función')
+            return
+        if relacion:
+            self._ventanas.mostrar_mensaje('Esta función no se puede usar en órdenes de producción relacionada a otras.')
             return
         try:
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Editar nombre pedido.')

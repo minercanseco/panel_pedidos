@@ -274,6 +274,10 @@ class EditarNombrePedido:
     def _ajustar_componentes(self):
         self._ventanas.ajustar_ancho_componente('cbx_resultados', 50)
         self._ventanas.ajustar_ancho_componente('tbx_nombre_actual',50)
+
+        self._ventanas.bloquear_componente('tbx_nombre_actual')
+        self._ventanas.bloquear_componente('tbx_direccion_actual')
+        self._ventanas.bloquear_componente('tbx_tipo_documento_actual')
         self._ventanas.bloquear_componente('btn_seleccionar')
 
     def _cargar_eventos_componentes_forma(self):

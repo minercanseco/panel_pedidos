@@ -81,14 +81,17 @@ class HerramientasCaptura:
         return filas
 
     def _capturar_nuevo_pedido(self):
-        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-        self._parametros.id_principal = 0
+        try:
+            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+            self._parametros.id_principal = 0
 
-        _ = LlamarInstanciaCaptura(
-                ventana,
-                self._parametros,
-        )
-        ventana.wait_window()
+            _ = LlamarInstanciaCaptura(
+                    ventana,
+                    self._parametros,
+            )
+            ventana.wait_window()
+        finally:
+            self._parametros.id_principal = 0
 
     def _editar_pedido(self):
 

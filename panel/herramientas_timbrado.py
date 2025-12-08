@@ -397,8 +397,7 @@ class HerramientasTimbrado:
                     self._modelo.insertar_pedido_a_recalcular(document_id, order_document_id)
 
                     # afectar bitacora
-                    self._modelo.afectar_bitacora_de_cambios_pedidos(document_id, [order_document_id])
-
+                    self._modelo.afectar_bitacora_de_cambios_en_pedidos(document_id, [order_document_id])
 
                 else:
                     partidas_acumuladas.extend(partidas)
@@ -448,7 +447,7 @@ class HerramientasTimbrado:
             self._modelo.insertar_pedido_a_recalcular(document_id, order_document_id)
 
             # afectar la bitacora de cambios
-            self._modelo.afectar_bitacora_de_cambios_pedidos(document_id, all_order_document_ids)
+            self._modelo.afectar_bitacora_de_cambios_en_pedidos(document_id, all_order_document_ids)
 
         def validar_si_los_pedidos_son_del_mismo_cliente(filas):
             business_entity_ids = []

@@ -26,6 +26,8 @@ class ControladorPanelPedidos:
         self._modelo = modelo
         self._interfaz = modelo.interfaz
         self._master = self._interfaz.master
+        self._master.bind("<FocusIn>", self._on_focus_in)
+        self._master.bind("<FocusOut>", self._on_focus_out)
 
         # --------------------------
         # Flags de estado interno
@@ -77,6 +79,63 @@ class ControladorPanelPedidos:
         # Arranque del loop de autorefresco
         # --------------------------
         self._iniciar_autorefresco()
+
+    # ------------------------------
+    # Funciones relacionadas a la actualizacion automatica de la tabla
+    # ------------------------------
+    def _iniciar_autorefresco(self):
+        # programa el siguiente tick sin bloquear la UI
+        self._master.after(self._autorefresco_ms, self._tick_autorefresco)
+
+    def _tick_autorefresco(self):
+        # evita reentradas/choques con coloreado o popups
+        if self._autorefresco_activo and not self._coloreando and not self._bloquear_autorefresco:
+            try:
+                self._buscar_nuevos_registros(self._fecha_seleccionada())
+            except Exception as e:
+                # opcional: loguea, pero no revientes el loop
+                print("[AUTOREFRESCO] error:", e)
+        # vuelve a programar
+        self._iniciar_autorefresco()
+
+    def _pausar_autorefresco(self):
+        """
+        Pausa el ciclo automático de refresco de la tabla.
+        Evita que se ejecuten _tick_autorefresco y _buscar_nuevos_registros.
+        """
+        if not self._autorefresco_activo:
+            return  # El autorefresco está completamente apagado
+
+        self._bloquear_autorefresco = True
+        print("⏸️  Autorefresco pausado")
+
+    def _reanudar_autorefresco(self):
+        """
+        Reanuda el ciclo de refresco pausado.
+        """
+        if not self._autorefresco_activo:
+            return  # Está apagado, no pausado
+
+        self._bloquear_autorefresco = False
+        print("▶️  Autorefresco reanudado")
+
+    def _on_focus_in(self, event=None):
+        """
+        Cuando la ventana está activa / siendo usada,
+        PAUSAMOS el autorefresco para evitar interferencia con el usuario.
+        """
+        if self._autorefresco_activo:
+            self._bloquear_autorefresco = True
+            # print("⏸️ Autorefresco pausado (FocusIn)")
+
+    def _on_focus_out(self, event=None):
+        """
+        Cuando la ventana pierde foco (el usuario cambia de app o ventana),
+        REANUDAMOS el autorefresco.
+        """
+        if self._autorefresco_activo:
+            self._bloquear_autorefresco = False
+            # print("▶️ Autorefresco reanudado (FocusOut)")
 
     # ------------------------------
     # Helpers de fecha / filtros
@@ -489,21 +548,6 @@ class ControladorPanelPedidos:
 
             self._actualizar_pedidos()
 
-    def _iniciar_autorefresco(self):
-        # programa el siguiente tick sin bloquear la UI
-        self._master.after(self._autorefresco_ms, self._tick_autorefresco)
-
-    def _tick_autorefresco(self):
-        # evita reentradas/choques con coloreado o popups
-        if self._autorefresco_activo and not self._coloreando and not self._bloquear_autorefresco:
-            try:
-                self._buscar_nuevos_registros(self._fecha_seleccionada())
-            except Exception as e:
-                # opcional: loguea, pero no revientes el loop
-                print("[AUTOREFRESCO] error:", e)
-        # vuelve a programar
-        self._iniciar_autorefresco()
-
     def _crear_tabla_pedidos(self):
         ancho, alto = self._interfaz.ventanas.obtener_resolucion_pantalla()
 
@@ -619,7 +663,6 @@ class ControladorPanelPedidos:
             return
 
         return valores_fila[valor]
-
 
     # funciones relacionadas con herramientas del panel
     #------------------------------------------------------------------------------------------------------------------

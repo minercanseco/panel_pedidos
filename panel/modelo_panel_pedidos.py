@@ -284,7 +284,7 @@ class ModeloPanelPedidos:
     def insertar_pedido_a_recalcular(self, document_id, order_document_id):
         self.base_de_datos.exec_stored_procedure('zvwRecalcularPedidos', (document_id, order_document_id))
 
-    def afectar_bitacora_de_cambios_pedidos(self, document_id, order_document_ids):
+    def afectar_bitacora_de_cambios_en_pedidos(self, document_id, order_document_ids):
 
         folio = self.base_de_datos.fetchone(
             "SELECT ISNULL(FolioPrefix,'')+ISNULL(Folio,'') DocFolio FROM docDocument WHERE DocumentID = ?",
@@ -543,11 +543,10 @@ class ModeloPanelPedidos:
 
             -- Actualizar la tabla docDocumentOrderCayal
             UPDATE docDocumentOrderCayal
-            SET StatusID = CASE WHEN StatusID = 3 AND OutputToDeliveryBy = 0 AND AssignedBy = 0 THEN 4 
-                                WHEN StatusID = 3 AND OutputToDeliveryBy = 0 AND AssignedBy <> 0 THEN 7 
-                                WHEN StatusID = 3 AND OutputToDeliveryBy <> 0 AND AssignedBy <> 0 THEN 13 
-                            END,
-                DocumentID = @DocumentID
+                    StatusID = CASE WHEN StatusID = 3 AND OutputToDeliveryBy = 0 AND AssignedBy = 0 THEN 4
+                                    ELSE StatusID 
+                                    END,
+                    DocumentID = @DocumentID
             WHERE OrderDocumentID = @OrderDocumentID;
 
             -- Insertar en la tabla OrderInvoiceDocumentCayal
@@ -560,7 +559,13 @@ class ModeloPanelPedidos:
 
     def relacionar_pedido_con_pedidos(self, order_document_id, order):
         self.base_de_datos.command(
-            'UPDATE docDocumentOrderCayal SET RelatedOrderID = ?, StatusID=4 WHERE OrderDocumentID = ?',
+            """
+            UPDATE docDocumentOrderCayal SET RelatedOrderID = ?,
+                    StatusID = CASE WHEN StatusID = 3 AND OutputToDeliveryBy = 0 AND AssignedBy = 0 THEN 4
+                                    ELSE StatusID 
+                                    END
+            WHERE OrderDocumentID = ?
+            """,
             (order_document_id, order)
         )
 

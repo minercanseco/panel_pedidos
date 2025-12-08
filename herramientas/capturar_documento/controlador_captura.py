@@ -10,7 +10,7 @@ from herramientas.capturar_documento.direccion_cliente import DireccionCliente
 from herramientas.capturar_documento.direcciones_adicionales import DireccionesAdicionales
 from herramientas.capturar_documento.historial_cliente import HistorialCliente
 from herramientas.capturar_documento.panel_direcciones import PanelDirecciones
-#from formulario_cliente import FormularioCliente
+from herramientas.cliente.notebook_cliente import NoteBookCliente
 from herramientas.verificador_precios.interfaz_verificador import InterfazVerificador
 from herramientas.verificador_precios.controlador_verificador import ControladorVerificador
 from herramientas.capturar_documento.editar_partida import EditarPartida
@@ -174,8 +174,8 @@ class ControladorCaptura:
     def _agregar_atajos(self):
         eventos = {
             'F3': lambda: self._verificador_precios(),
-            'F4': lambda: self._editar_direccion(),
-            'F5': lambda: self._agregar_direccion(),
+            #'F4': lambda: self._editar_direccion(),
+            #'F5': lambda: self._agregar_direccion(),
             'F6': lambda: self._editar_cliente(),
             'F7': lambda: self._historial_cliente(),  # asegúrate de llamar al método
             'F8': lambda: self._agregar_partida_manualmente(),
@@ -552,86 +552,27 @@ class ControladorCaptura:
                 self._ventanas.limpiar_componentes('tbx_buscar_manual')
                 self._ventanas.enfocar_componente('tbx_buscar_manual')
 
-    def _editar_direccion(self):
-
-        if self.cliente.addresses == 1:
-            self._llamar_instancia_direccion_adicionanl()
-            return
-        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master, 'Editar Dirección')
-        instancia = DireccionCliente(ventana,
-                                     self.documento,
-                                     self.base_de_datos,
-                                     self._ventanas.componentes_forma)
-        ventana.wait_window()
-        self._cargar_direccion_cliente()
-        self._cargar_nombre_cliente()
-
-    def _agregar_direccion(self):
-        if self.cliente.addresses == 1:
-            self._llamar_instancia_direccion_adicionanl()
-            return
-        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master, 'Direcciones cliente')
-        instancia = PanelDirecciones(ventana,
-                                     self._parametros_contpaqi,
-                                     self.cliente)
-        ventana.wait_window()
-
-        # comprobar si la direccion actual no esta borrada en cuyo defecto actualizar a la direccion
-        # fiscal del cliente y hacer lo mismo con la sucursal si aplica
-        esta_borrada = self._direccion_esta_borrada(self.documento.address_detail_id)
-
-        if esta_borrada:
-            self.documento.address_detail_id = instancia.address_fiscal_detail_id
-            direccion = self.base_de_datos.buscar_detalle_direccion_formateada(self.documento.address_detail_id)
-            self.documento.address_details = direccion
-            self.documento.depot_name = ''
-            self.documento.depot_id = 0
-            self.documento.address_name = 'Dirección Fiscal'
-
-            self._cargar_direccion_cliente()
-            self._cargar_nombre_cliente()
-
-        self.cliente.addresses = instancia.numero_direcciones
-
-    def _direccion_esta_borrada(self, address_detail_id):
-        direccion = self.base_de_datos.fetchone("""
-                SELECT * FROM orgAddress WHERE AddressDetailID = ? AND DeletedOn IS NULL
-                """, (address_detail_id,))
-
-        if not direccion:
-            return True
-
-        return False
-
-    def _llamar_instancia_direccion_adicionanl(self):
-        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master, 'Dirección')
-        instancia = DireccionesAdicionales(
-            ventana,
-            self._parametros_contpaqi,
-            self.direcciones_cliente,
-            'agregar'
-        )
-        ventana.wait_window()
-        direcciones_adicionales = instancia.direcciones_adicionales
-        numero_direcciones = self.base_de_datos.actualizar_direcciones_panel_direcciones(
-            direcciones_adicionales,
-            self.cliente.business_entity_id,
-            self._parametros_contpaqi.id_usuario
-        )
-        self.cliente.addresses = int(numero_direcciones)
-
     def _editar_cliente(self):
 
-        self._parametros_contpaqi.id_principal = self.cliente.business_entity_id
+        business_entity_id = self.cliente.business_entity_id
+        if not business_entity_id or business_entity_id == 0:
+            return
 
-        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master, 'Cliente')
-        tipo_captura = 'Remisión' if self.cliente.official_number == 'XAXX010101000' else 'Factura'
-        parametros_cliente = {'TipoCaptura': tipo_captura}
-        instancia = FormularioCliente(ventana,
-                                      self._parametros_contpaqi,
-                                      parametros_cliente,
-                                      self.cliente)
-        ventana.wait_window()
+        self._parametros_contpaqi.id_principal = business_entity_id
+        try:
+            ventana = self._ventanas.crear_popup_ttkbootstrap()
+
+            NoteBookCliente(
+                ventana,
+                self.base_de_datos,
+                self._parametros_contpaqi,
+                self._utilerias,
+                self.cliente
+            )
+            ventana.wait_window()
+
+        finally:
+            self._parametros_contpaqi.id_principal = 0
 
     def _eliminar_partida(self):
         filas = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos')
@@ -744,11 +685,11 @@ class ControladorCaptura:
 
         if self._module_id != 158:
             herramientas_base = [
-                {'nombre_icono': 'EditAddress32.ico', 'etiqueta': 'E.Dirección', 'nombre': 'editar_direccion',
-                 'hotkey': '[F4]', 'comando': self._editar_direccion},
+                #{'nombre_icono': 'EditAddress32.ico', 'etiqueta': 'E.Dirección', 'nombre': 'editar_direccion',
+                 #'hotkey': '[F4]', 'comando': self._editar_direccion},
 
-                {'nombre_icono': 'Address32.ico', 'etiqueta': 'A.Dirección', 'nombre': 'agregar_direccion',
-                 'hotkey': '[F5]', 'comando': self._agregar_direccion},
+                #{'nombre_icono': 'Address32.ico', 'etiqueta': 'A.Dirección', 'nombre': 'agregar_direccion',
+                # 'hotkey': '[F5]', 'comando': self._agregar_direccion},
 
                 {'nombre_icono': 'DocumentEdit32.ico', 'etiqueta': 'Editar Cliente', 'nombre': 'editar_cliente',
                  'hotkey': '[F6]', 'comando': self._editar_cliente},

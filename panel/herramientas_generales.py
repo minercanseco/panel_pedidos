@@ -293,13 +293,22 @@ class HerramientasGenerales:
             self._parametros.id_principal = 0
 
     def _editar_nombre_pedido(self):
-        order_document_id = self._obtener_valores_fila_pedido_seleccionado(valor='OrderDocumentID')
-        if not order_document_id:
+        valores_fila = self._obtener_valores_fila_pedido_seleccionado()
+
+        if not valores_fila:
             return
+
+        order_document_id = valores_fila['OrderDocumentID']
+        status_id = valores_fila['TypeStatusID']
+
+        if status_id not in (1,3):
+            self._interfaz.mostrar_mensaje('Esta función no aplica para pedidos en status Abierto y Por Timbrar.')
+            return
+
         try:
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Editar nombre pedido.')
             self._parametros.id_principal = order_document_id
-            instancia = EditarNombrePedido(ventana, self._parametros)
+            instancia = EditarNombrePedido(ventana, self._parametros, valores_fila)
             ventana.wait_window()
         finally:
             self._parametros.id_principal = 0

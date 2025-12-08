@@ -23,10 +23,11 @@ from cayal.util import Utilerias
 
 class EditarNombrePedido:
 
-    def __init__(self, master, parametros):
+    def __init__(self, master, parametros, valores_fila):
 
         self._master = master
         self._parametros_contpaqi = parametros
+        self._valores_fila = valores_fila
 
 
         self._declarar_variables_globales()
@@ -34,6 +35,7 @@ class EditarNombrePedido:
 
         self._crear_frames()
         self._cargar_componentes_forma()
+        self._rellenar_info_inicial()
         self._cargar_eventos_componentes_forma()
         self._cargar_hotkeys()
         self._ajustar_componentes()
@@ -110,6 +112,8 @@ class EditarNombrePedido:
     def _cargar_componentes_forma(self):
 
         componentes = {
+            'tbx_nombre_actual': ('frame_buscar', None, 'Nombre actual:', None),
+            'tbx_direccion_actual': ('frame_buscar', None, 'Dirección actual:', None),
             'tbx_buscar': ('frame_buscar', None, 'Buscar:', None),
             'cbx_resultados': ('frame_buscar', None, '  ', None),
             'cbx_documento': ('frame_cbx_documento',
@@ -253,6 +257,12 @@ class EditarNombrePedido:
 
 
         self._ventanas.crear_componentes(self._componentes_credito)
+
+    def _rellenar_info_inicial(self):
+        self._ventanas.insertar_input_componente('tbx_nombre_actual',
+                                                 self._info_cliente_seleccionado.get('Cliente',''))
+        self._ventanas.insertar_input_componente('tbx_direccion_actual',
+                                                 self._info_cliente_seleccionado.get('Direccion', ''))
 
     def _ajustar_componentes(self):
         self._ventanas.ajustar_ancho_componente('cbx_resultados', 50)

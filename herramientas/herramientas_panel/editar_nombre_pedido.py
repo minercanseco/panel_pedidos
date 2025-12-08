@@ -958,8 +958,7 @@ class EditarNombrePedido:
                 delivery_cost,
                 order_document_id
             )
-            print(parametros)
-            return
+
             self._base_de_datos.command(
                 """
                     UPDATE docDocumentOrderCayal SET 

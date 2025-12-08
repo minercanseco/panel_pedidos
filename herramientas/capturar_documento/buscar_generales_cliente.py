@@ -927,7 +927,7 @@ class BuscarGeneralesCliente:
             self._instancia_llamada = True
 
             # busca el nombre del usuario que captura el documento
-            if self._document_id == -1:
+            if self._document_id != 0:
                 self._parametros_contpaqi.nombre_usuario = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
 
             ventana = self._ventanas.crear_popup_ttkbootstrap(

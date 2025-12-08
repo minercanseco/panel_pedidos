@@ -88,7 +88,7 @@ class EditarNombrePedido:
                               {'row': 2, 'column': 1,  'pady': 5, 'sticky': tk.NSEW}),
 
             'frame_data': ('frame_principal', 'Información:',
-                           {'row': 4, 'column': 0, 'columnspan': 8, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
+                           {'row': 3, 'column': 0, 'columnspan': 8, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
 
             'frame_cbxs': ('frame_data', None,
                               {'row': 0, 'column': 0,  'columnspan': 4, 'pady': 1, 'sticky': tk.W}),
@@ -115,8 +115,8 @@ class EditarNombrePedido:
     def _cargar_componentes_forma(self):
 
         componentes = {
-            'tbx_nombre_actual': ('frame_buscar', None, 'Nombre actual:', None),
-            'tbx_direccion_actual': ('frame_buscar', None, 'Dirección actual:', None),
+            'tbx_nombre_actual': ('frame_actual', None, 'Nombre actual:', None),
+            'tbx_direccion_actual': ('frame_actual', None, 'Dirección actual:', None),
             'tbx_buscar': ('frame_buscar', None, 'Buscar:', None),
             'cbx_resultados': ('frame_buscar', None, '  ', None),
             'cbx_documento': ('frame_cbx_documento',
@@ -269,6 +269,7 @@ class EditarNombrePedido:
 
     def _ajustar_componentes(self):
         self._ventanas.ajustar_ancho_componente('cbx_resultados', 50)
+        self._ventanas.ajustar_ancho_componente('tbx_nombre_actual',50)
         self._ventanas.bloquear_componente('btn_seleccionar')
 
     def _cargar_eventos_componentes_forma(self):

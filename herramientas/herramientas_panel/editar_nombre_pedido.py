@@ -260,9 +260,9 @@ class EditarNombrePedido:
 
     def _rellenar_info_inicial(self):
         self._ventanas.insertar_input_componente('tbx_nombre_actual',
-                                                 self._info_cliente_seleccionado.get('Cliente',''))
+                                                 self._valores_fila.get('Cliente',''))
         self._ventanas.insertar_input_componente('tbx_direccion_actual',
-                                                 self._info_cliente_seleccionado.get('Direccion', ''))
+                                                 self._valores_fila.get('Direccion', ''))
 
     def _ajustar_componentes(self):
         self._ventanas.ajustar_ancho_componente('cbx_resultados', 50)

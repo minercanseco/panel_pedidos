@@ -15,6 +15,7 @@ from cayal.comandos_base_datos import ComandosBaseDatos
 from herramientas.capturar_documento.controlador_captura import ControladorCaptura
 from herramientas.capturar_documento.interfaz_captura import InterfazCaptura
 from herramientas.capturar_documento.modelo_captura import ModeloCaptura
+from herramientas.capturar_documento.ticket_158 import Ticket158
 
 
 class LlamarInstanciaCaptura:

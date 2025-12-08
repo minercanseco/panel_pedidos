@@ -1,7 +1,7 @@
 import tkinter as tk
 from cayal.ventanas import Ventanas
 
-from herramientas.capturar_documento.llamar_instancia_captura import LlamarInstanciaCaptura
+from herramientas.capturar_documento.buscar_generales_cliente import BuscarGeneralesCliente
 from herramientas.herramientas_panel.editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from herramientas.herramientas_panel.editar_pedido import EditarPedido
 from herramientas.herramientas_panel.ticket_pedido_cliente import TicketPedidoCliente
@@ -85,7 +85,7 @@ class HerramientasCaptura:
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
             self._parametros.id_principal = 0
 
-            _ = LlamarInstanciaCaptura(
+            _ = BuscarGeneralesCliente(
                     ventana,
                     self._parametros,
             )

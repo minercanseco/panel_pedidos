@@ -58,7 +58,6 @@ class ControladorCaptura:
 
         self._buscar_ofertas()
 
-        self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Nueva captura', bloquear=False)
         self._ventanas.situar_ventana_arriba(self._master)
         self._ventanas.enfocar_componente('tbx_clave')
 

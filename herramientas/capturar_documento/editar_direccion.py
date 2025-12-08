@@ -45,10 +45,14 @@ class EditarDireccionDocumento:
             self._ventanas.mostrar_mensaje('Debe seleccionar una direccion válida.')
             return
 
-        consulta = [reg['AddressDetailID'] for reg in self._direcciones_cliente
+        consulta = [reg for reg in self._direcciones_cliente
                     if reg['AddressName'] == address_name]
         if consulta:
-            address_detail_id = consulta[0]
+            address_detail = consulta[0]
+            self.documento.address_details = address_detail
+
+            address_detail_id = address_detail['AddressDetailID']
             self.documento.address_detail_id = address_detail_id
+
 
         self._master.destroy()

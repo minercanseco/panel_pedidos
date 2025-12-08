@@ -100,12 +100,17 @@ class ControladorPanelPedidos:
 
     def _tick_autorefresco(self):
         # evita reentradas/choques con coloreado o popups
-        if self._autorefresco_activo and not self._coloreando and not self._bloquear_autorefresco:
+        if (
+                self._autorefresco_activo
+                and not self._coloreando
+                and not self._bloquear_autorefresco
+                and not self._hay_subventanas_abiertas()  # 👈 clave
+        ):
             try:
                 self._buscar_nuevos_registros(self._fecha_seleccionada())
             except Exception as e:
-                # opcional: loguea, pero no revientes el loop
                 print("[AUTOREFRESCO] error:", e)
+
         # vuelve a programar
         self._iniciar_autorefresco()
 
@@ -148,6 +153,30 @@ class ControladorPanelPedidos:
         self._foco_humano = True
         self._pausar_autorefresco()
         print("👤 Usuario interactuando → pausa")
+
+    def _hay_subventanas_abiertas(self):
+        """
+        Devuelve True si existe al menos una Toplevel visible/activa
+        asociada a la misma raíz que el panel.
+        """
+        root = self._master.winfo_toplevel()
+
+        try:
+            hijos = root.winfo_children()
+        except tk.TclError:
+            return False
+
+        for w in hijos:
+            # Nos interesan las Toplevel distintas a la raíz
+            if isinstance(w, tk.Toplevel) and w is not root:
+                try:
+                    if w.winfo_exists() and w.state() not in ("withdrawn", "iconic"):
+                        return True
+                except tk.TclError:
+                    # La ventana se pudo destruir entre medias, la ignoramos
+                    continue
+
+        return False
 
     # ------------------------------
     # Helpers de fecha / filtros

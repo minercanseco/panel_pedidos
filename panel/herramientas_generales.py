@@ -294,7 +294,7 @@ class HerramientasGenerales:
 
     def _editar_nombre_pedido(self):
         valores_fila = self._obtener_valores_fila_pedido_seleccionado()
-
+        print(valores_fila)
         if not valores_fila:
             return
 

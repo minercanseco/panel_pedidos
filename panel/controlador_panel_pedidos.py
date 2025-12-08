@@ -126,7 +126,7 @@ class ControladorPanelPedidos:
         """
         if self._autorefresco_activo:
             self._bloquear_autorefresco = True
-            # print("⏸️ Autorefresco pausado (FocusIn)")
+            print("⏸️ Autorefresco pausado (FocusIn)")
 
     def _on_focus_out(self, event=None):
         """
@@ -135,7 +135,7 @@ class ControladorPanelPedidos:
         """
         if self._autorefresco_activo:
             self._bloquear_autorefresco = False
-            # print("▶️ Autorefresco reanudado (FocusOut)")
+            print("▶️ Autorefresco reanudado (FocusOut)")
 
     # ------------------------------
     # Helpers de fecha / filtros

@@ -497,7 +497,7 @@ class ControladorPanelPedidos:
         # evita reentradas/choques con coloreado o popups
         if self._autorefresco_activo and not self._coloreando and not self._bloquear_autorefresco:
             try:
-                self._modelo.buscar_nuevos_registros()  # <- tu función actual
+                self._modelo._buscar_nuevos_registros(self._fecha_seleccionada())  # <- tu función actual
             except Exception as e:
                 # opcional: loguea, pero no revientes el loop
                 print("[AUTOREFRESCO] error:", e)
@@ -533,6 +533,43 @@ class ControladorPanelPedidos:
         texto = f'Paquete: {version_paquete} OPERADOR: {operador_panel}'
         self._interfaz.ventanas.actualizar_etiqueta_externa_tabla_view('tbv_pedidos', texto)
 
+    def _buscar_nuevos_registros(self, fecha):
+
+        # Usa la fecha seleccionada si existe; si no, hoy
+        hoy = datetime.now().date() if not fecha else datetime.strptime(fecha, "%Y-%m-%d").date()
+        # 1) Pedidos en logística impresos (4,13 + PrintedOn not null)
+        number_orders = self._modelo.obtener_numero_pedidos_fecha(hoy) or 0
+
+        # 2) Transferencias confirmadas = 2
+        number_transfer_payments = self._modelo.obtener_numero_pedidos_transferencia_fecha(hoy) or 0
+
+        # 3) Buckets de puntualidad (<=15, 16-30, >30)
+        rows = self._modelo.obtener_pedidos_por_puntualidad_fecha(hoy)
+
+        if rows:
+            row = rows[0]
+            rest_leq15 = int(row.get('RestLeq15') or 0)  # <= 15 minutos restantes (incluye retrasos leves)
+            rest_16_30 = int(row.get('Rest16to30') or 0)  # entre 16 y 30 min restantes
+            late_gt30 = int(row.get('LateGt30') or 0)  # más de 30 min de retraso
+        else:
+            rest_leq15 = rest_16_30 = late_gt30 = 0
+        # Disparar refresco si cambió cualquiera
+        if (
+                self._number_orders != number_orders
+                or self._number_transfer_payments != number_transfer_payments
+                or self._count_rest_leq15 != rest_leq15
+                or self._count_rest_16_30 != rest_16_30
+                or self._count_late_gt30 != late_gt30
+        ):
+            self._limpiar_componentes()
+            self._actualizar_pedidos(self._fecha_seleccionada())
+
+            # Actualizar contadores internos
+            self._number_orders = number_orders
+            self._number_transfer_payments = number_transfer_payments
+            self._count_rest_leq15 = rest_leq15
+            self._count_rest_16_30 = rest_16_30
+            self._count_late_gt30 = late_gt30
 
     def _buscar_pedidos_cliente_sin_fecha(self, criteria):
 

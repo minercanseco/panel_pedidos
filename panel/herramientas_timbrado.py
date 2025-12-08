@@ -109,14 +109,15 @@ class HerramientasTimbrado:
 
     def _facturar(self):
         # --------------------------------------------------------------------------------------------------------------
-
         def filtrar_filas_facturables_por_status(filas):
             filas_filtradas = []
             # filtrar por status
             for fila in filas:
                 status_id = fila['TypeStatusID']
+
                 # pedido por timbrar es status 3
-                if status_id < 3:
+                #  abierto, en proceso, cancelado, surtido parcialmente minisuper, produccion, almacen
+                if status_id not in (1, 2, 10, 12, 16, 17, 18):
                     continue
 
                 filas_filtradas.append(fila)
@@ -490,7 +491,6 @@ class HerramientasTimbrado:
             return
 
         filas_filtradas = filtrar_filas_facturables_por_status(filas)
-
         # filtra por status 3 que es por timbrar
         if not filas_filtradas:
             self._interfaz.ventanas.mostrar_mensaje('No hay pedidos con un status válido para facturar')

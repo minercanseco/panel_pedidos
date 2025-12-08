@@ -497,7 +497,7 @@ class ControladorPanelPedidos:
         # evita reentradas/choques con coloreado o popups
         if self._autorefresco_activo and not self._coloreando and not self._bloquear_autorefresco:
             try:
-                self._buscar_nuevos_registros(self._fecha_seleccionada())  # <- tu función actual
+                self._buscar_nuevos_registros(self._fecha_seleccionada())
             except Exception as e:
                 # opcional: loguea, pero no revientes el loop
                 print("[AUTOREFRESCO] error:", e)

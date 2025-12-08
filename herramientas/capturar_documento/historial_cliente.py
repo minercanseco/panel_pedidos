@@ -205,13 +205,12 @@ class HistorialCliente:
     def _procesar_partidas(self, partidas):
         partidas = self._utilerias._agregar_impuestos_productos(partidas)
         partidas_procesadas = []
-
+        funcion = self._utilerias.redondear_valor_cantidad_a_decimal
         for partida in partidas:
 
-            cantidad = self._utilerias.redondear_valor_cantidad_a_decimal(partida['Quantity'])
-            precio = self._utilerias.redondear_valor_cantidad_a_decimal(partida['SalePriceWithTaxes'])
-            total = cantidad * precio
-            total = f"{total:.2f}"
+            cantidad = funcion (partida['cantidad'])
+            precio = funcion(partida['precio'])
+            total = funcion(partida['total'])
             comentario = self._base_de_datos.fetchone(
                 "SELECT ISNULL(Comments, '') Comentario FROM docDocumentItem WHERE DocumentItemID = ?",(partida['DocumentItemID'])
             )

@@ -101,10 +101,10 @@ class ControladorPanelPedidos:
     def _tick_autorefresco(self):
         # evita reentradas/choques con coloreado o popups
         if (
-                self._autorefresco_activo
-                and not self._coloreando
-                and not self._bloquear_autorefresco
-                and not self._hay_subventanas_abiertas()  # 👈 clave
+            self._autorefresco_activo
+            and not self._coloreando
+            and not self._bloquear_autorefresco
+            and not self._hay_subventanas_abiertas()  # 👈 clave
         ):
             try:
                 self._buscar_nuevos_registros(self._fecha_seleccionada())
@@ -157,9 +157,13 @@ class ControladorPanelPedidos:
     def _hay_subventanas_abiertas(self):
         """
         Devuelve True si existe al menos una Toplevel visible/activa
-        asociada a la misma raíz que el panel.
+        asociada al mismo root que el panel.
+        Funciona con las ventanas creadas por crear_popup_ttkbootstrap.
         """
-        root = self._master.winfo_toplevel()
+        try:
+            root = self._master.winfo_toplevel()
+        except tk.TclError:
+            return False
 
         try:
             hijos = root.winfo_children()
@@ -167,13 +171,13 @@ class ControladorPanelPedidos:
             return False
 
         for w in hijos:
-            # Nos interesan las Toplevel distintas a la raíz
+            # Toplevel distintos a la raíz
             if isinstance(w, tk.Toplevel) and w is not root:
                 try:
                     if w.winfo_exists() and w.state() not in ("withdrawn", "iconic"):
                         return True
                 except tk.TclError:
-                    # La ventana se pudo destruir entre medias, la ignoramos
+                    # Si se destruyó entre medias, lo ignoramos
                     continue
 
         return False

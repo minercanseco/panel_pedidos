@@ -490,8 +490,9 @@ class HerramientasTimbrado:
         if not filas:
             return
 
+        # filtra por status no considerados válidos para generar el documento o documentos del cliente
         filas_filtradas = filtrar_filas_facturables_por_status(filas)
-        # filtra por status 3 que es por timbrar
+
         if not filas_filtradas:
             self._interfaz.ventanas.mostrar_mensaje('No hay pedidos con un status válido para facturar')
             return

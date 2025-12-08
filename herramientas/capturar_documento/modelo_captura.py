@@ -586,8 +586,6 @@ class ModeloCaptura:
 
             self.documento.destination_document_id = document_id
 
-
-
     def actualizar_totales_documento(self):
 
         impuestos_acumulado = 0
@@ -637,7 +635,6 @@ class ModeloCaptura:
             self._ventanas.insertar_input_componente('lbl_restante', disponible_moneda)
 
             self.documento.credit_exceeded_amount = excedido
-
 
     def remover_servicio_a_domicilio(self):
         self.servicio_a_domicilio_agregado = False
@@ -772,5 +769,24 @@ class ModeloCaptura:
 
         self.documento.items_extra = nuevas_partidas
 
+    def actualizar_info_cliente(self):
+        business_entity_id = self.cliente.business_entity_id
+        if business_entity_id == 0:
+            return
 
+        consulta = self.base_de_datos.buscar_info_cliente(business_entity_id)
+        if not consulta:
+            return
+        info_cliente = consulta[0]
+        self.cliente.consulta = info_cliente
+        self.cliente.settear_valores_consulta()
 
+    def settear_info_direcciones_cliente(self, business_entity_id):
+        self.cliente.addresses_details = []
+        direcciones_cliente = self.obtener_direcciones_cliente(business_entity_id)
+        for direccion in direcciones_cliente:
+            self.cliente.add_address_detail(direccion)
+        return direcciones_cliente
+
+    def obtener_direcciones_cliente(self, business_entity_id):
+        return self.base_de_datos.buscar_direcciones_cliente(business_entity_id)

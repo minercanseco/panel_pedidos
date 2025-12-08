@@ -6,10 +6,8 @@ import pyperclip
 import logging
 
 from herramientas.capturar_documento.agregar_epecificaciones import AgregarEspecificaciones
-from herramientas.capturar_documento.direccion_cliente import DireccionCliente
-from herramientas.capturar_documento.direcciones_adicionales import DireccionesAdicionales
+from herramientas.capturar_documento.editar_direccion import EditarDireccionDocumento
 from herramientas.capturar_documento.historial_cliente import HistorialCliente
-from herramientas.capturar_documento.panel_direcciones import PanelDirecciones
 from herramientas.cliente.notebook_cliente import NoteBookCliente
 from herramientas.verificador_precios.interfaz_verificador import InterfazVerificador
 from herramientas.verificador_precios.controlador_verificador import ControladorVerificador
@@ -174,8 +172,7 @@ class ControladorCaptura:
     def _agregar_atajos(self):
         eventos = {
             'F3': lambda: self._verificador_precios(),
-            #'F4': lambda: self._editar_direccion(),
-            #'F5': lambda: self._agregar_direccion(),
+            'F4': lambda: self._editar_direccion_documento(),
             'F6': lambda: self._editar_cliente(),
             'F7': lambda: self._historial_cliente(),  # asegúrate de llamar al método
             'F8': lambda: self._agregar_partida_manualmente(),
@@ -552,6 +549,19 @@ class ControladorCaptura:
                 self._ventanas.limpiar_componentes('tbx_buscar_manual')
                 self._ventanas.enfocar_componente('tbx_buscar_manual')
 
+    def _editar_direccion_documento(self):
+
+        if self.cliente.addresses == 1:
+            self._ventanas.mostrar_mensaje('Use la herramienta editar cliente para agregar una dirección adicional.')
+            return
+
+        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master, 'Editar Dirección')
+        instancia = EditarDireccionDocumento(ventana, self.cliente, self.documento, self._modelo
+                                     )
+        ventana.wait_window()
+        self._cargar_direccion_cliente()
+        self._cargar_nombre_cliente()
+
     def _editar_cliente(self):
 
         business_entity_id = self.cliente.business_entity_id
@@ -570,8 +580,9 @@ class ControladorCaptura:
                 self.cliente
             )
             ventana.wait_window()
-
         finally:
+            self._modelo.actualizar_info_cliente()
+            self._modelo.settear_info_direcciones_cliente(business_entity_id)
             self._parametros_contpaqi.id_principal = 0
 
     def _eliminar_partida(self):
@@ -679,17 +690,12 @@ class ControladorCaptura:
         herramientas = [
             {'nombre_icono': 'Barcode32.ico', 'etiqueta': 'V.Precios', 'nombre': 'verificador_precios',
              'hotkey': '[F3]', 'comando': self._verificador_precios},
-
-
         ]
 
         if self._module_id != 158:
             herramientas_base = [
-                #{'nombre_icono': 'EditAddress32.ico', 'etiqueta': 'E.Dirección', 'nombre': 'editar_direccion',
-                 #'hotkey': '[F4]', 'comando': self._editar_direccion},
-
-                #{'nombre_icono': 'Address32.ico', 'etiqueta': 'A.Dirección', 'nombre': 'agregar_direccion',
-                # 'hotkey': '[F5]', 'comando': self._agregar_direccion},
+                {'nombre_icono': 'EditAddress32.ico', 'etiqueta': 'E.Dirección', 'nombre': 'editar_direccion',
+                 'hotkey': '[F4]', 'comando': self._editar_direccion_documento},
 
                 {'nombre_icono': 'DocumentEdit32.ico', 'etiqueta': 'Editar Cliente', 'nombre': 'editar_cliente',
                  'hotkey': '[F6]', 'comando': self._editar_cliente},

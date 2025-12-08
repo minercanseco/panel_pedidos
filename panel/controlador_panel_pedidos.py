@@ -26,12 +26,23 @@ class ControladorPanelPedidos:
         self._modelo = modelo
         self._interfaz = modelo.interfaz
         self._master = self._interfaz.master
+
+        # --------------------------
+        # Eventos relacionados con la actualizacion de la ventana y tabla
+        # --------------------------
         self._master.bind("<FocusIn>", self._on_focus_in)
         self._master.bind("<FocusOut>", self._on_focus_out)
+
+        # eventos reales del usuario
+        self._master.bind("<Button>", self._on_user_interaction)  # clics
+        self._master.bind("<Key>", self._on_user_interaction)  # teclas
 
         # --------------------------
         # Flags de estado interno
         # --------------------------
+        # Usado para detectar uso del aplicativo
+        self._foco_humano = False  # flag
+
         # Evita que se solapen coloreos de filas
         self._coloreando = False
         # Evita reentradas mientras se repuebla la tabla
@@ -120,22 +131,23 @@ class ControladorPanelPedidos:
         print("▶️  Autorefresco reanudado")
 
     def _on_focus_in(self, event=None):
-        """
-        Cuando la ventana está activa / siendo usada,
-        PAUSAMOS el autorefresco para evitar interferencia con el usuario.
-        """
-        if self._autorefresco_activo:
-            self._bloquear_autorefresco = True
-            print("⏸️ Autorefresco pausado (FocusIn)")
+        # si viene de interacción humana → pausa
+        if self._foco_humano:
+            self._pausar_autorefresco()
+            print("⏸️ FocusIn humano → pausa autorefresco")
+        else:
+            # Si NO fue “humano” (ej: refresco tabla), ignoramos
+            print("⚪ FocusIn automático → ignorado")
 
     def _on_focus_out(self, event=None):
-        """
-        Cuando la ventana pierde foco (el usuario cambia de app o ventana),
-        REANUDAMOS el autorefresco.
-        """
-        if self._autorefresco_activo:
-            self._bloquear_autorefresco = False
-            print("▶️ Autorefresco reanudado (FocusOut)")
+        self._foco_humano = False
+        self._reanudar_autorefresco()
+        print("▶️ FocusOut → reanudar autorefresco")
+
+    def _on_user_interaction(self, event=None):
+        self._foco_humano = True
+        self._pausar_autorefresco()
+        print("👤 Usuario interactuando → pausa")
 
     # ------------------------------
     # Helpers de fecha / filtros

@@ -282,7 +282,14 @@ class CapturadoVsProducido:
                 buscar_precio(product_id, customer_type_id))
             tax_type_id = reg['TaxTypeID']
 
-            valores_partida = self._utilerias.calcular_totales_partida(sale_price, quantity, tax_type_id)
+            clave_unidad = reg['ClaveUnidad']
+            clave_sat = reg['ClaveProdServ']
+            valores_partida = self._utilerias.calcular_totales_partida(sale_price,
+                                                                       quantity,
+                                                                       tax_type_id,
+                                                                       clave_unidad,
+                                                                       clave_sat
+                                                                       )
             sale_price = self._utilerias.redondear_valor_cantidad_a_decimal(valores_partida['precio'])
             taxes = self._utilerias.redondear_valor_cantidad_a_decimal(valores_partida['impuestos'])
             sub_total = self._utilerias.redondear_valor_cantidad_a_decimal(valores_partida['subtotal'])

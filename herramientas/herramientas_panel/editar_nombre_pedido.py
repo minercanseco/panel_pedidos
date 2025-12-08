@@ -117,6 +117,8 @@ class EditarNombrePedido:
         componentes = {
             'tbx_nombre_actual': ('frame_actual', None, 'Nombre actual:', None),
             'tbx_direccion_actual': ('frame_actual', None, 'Dirección actual:', None),
+            'tbx_tipo_documento_actual': ('frame_actual', None, 'Tipo docto actual:', None),
+
             'tbx_buscar': ('frame_buscar', None, 'Buscar:', None),
             'cbx_resultados': ('frame_buscar', None, '  ', None),
             'cbx_documento': ('frame_cbx_documento',
@@ -266,6 +268,8 @@ class EditarNombrePedido:
                                                  self._valores_fila.get('Cliente',''))
         self._ventanas.insertar_input_componente('tbx_direccion_actual',
                                                  self._valores_fila.get('Direccion', ''))
+        self._ventanas.insertar_input_componente('tbx_tipo_documento_actual',
+                                                 self._valores_fila.get('T.Docto',''))
 
     def _ajustar_componentes(self):
         self._ventanas.ajustar_ancho_componente('cbx_resultados', 50)

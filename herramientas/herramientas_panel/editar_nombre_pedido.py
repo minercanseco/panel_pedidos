@@ -78,14 +78,17 @@ class EditarNombrePedido:
             'frame_principal': ('master', None,
                                 {'row': 0, 'column': 0, 'sticky': tk.NSEW}),
 
+            'frame_actual': ('frame_principal', 'Buscar cliente o folio de nota:',
+                             {'row': 0, 'columnspan': 4, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
+
             'frame_buscar': ('frame_principal', 'Buscar cliente o folio de nota:',
-                                      {'row': 0, 'columnspan': 4, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
+                                      {'row': 1, 'columnspan': 4, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
 
             'frame_botones': ('frame_buscar', None,
                               {'row': 2, 'column': 1,  'pady': 5, 'sticky': tk.NSEW}),
 
             'frame_data': ('frame_principal', 'Información:',
-                           {'row': 3, 'column': 0, 'columnspan': 8, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
+                           {'row': 4, 'column': 0, 'columnspan': 8, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
 
             'frame_cbxs': ('frame_data', None,
                               {'row': 0, 'column': 0,  'columnspan': 4, 'pady': 1, 'sticky': tk.W}),

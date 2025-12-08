@@ -23,10 +23,11 @@ from cayal.util import Utilerias
 
 class EditarNombrePedido:
 
-    def __init__(self, master, parametros, valores_fila):
+    def __init__(self, master, parametros, modelo_panel, valores_fila):
 
         self._master = master
         self._parametros_contpaqi = parametros
+        self._modelo = modelo_panel
         self._valores_fila = valores_fila
 
 
@@ -970,6 +971,30 @@ class EditarNombrePedido:
                     WHERE OrderDocumentID = ?
                 """,parametros
             )
+
+            # afectaciones de bitacora relacionados
+            cliente_original = self._ventanas.obtener_input_componente('tbx_nombre_actual')
+            comentario = f'Nombre de pedido actualizado por {self._modelo.user_name} ({cliente_original})'
+            self._modelo.afectar_bitacora(order_document_id, self._user_id, comentario, change_type_id=54)
+
+            direccion_original = self._ventanas.obtener_input_componente('tbx_direccion_actual')
+            direccion_nueva = self._documento.address_name
+
+            if direccion_original != direccion_nueva:
+                comentario = f'Nombre de dirección actualizada pof {self._modelo.user_name} de ({direccion_original}) a ({direccion_nueva})'
+                self._modelo.afectar_bitacora(order_document_id, self._user_id, comentario, change_type_id=26)
+
+            # valor 0 factura 1 es remision
+            document_type_id_original = int(self._valores_fila.get('DocumentTypeID',0))
+            doc_type_original = 'Remisión' if document_type_id_original == 1 else 'Factura'
+
+            document_type_id_nuevo = int(self._documento.cfd_type_id)
+            doc_type_nuevo = 'Remisión' if document_type_id_nuevo == 1 else 'Factura'
+
+            if document_type_id_original != document_type_id_nuevo:
+                comentario = f'Tipo documento actualizado pof {self._modelo.user_name} de {doc_type_original} a {doc_type_nuevo}'
+                self._modelo.afectar_bitacora(order_document_id, self._user_id, comentario, change_type_id=46)
+
 
         finally:
             self._master.destroy()

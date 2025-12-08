@@ -131,10 +131,10 @@ class ModeloPanelPedidos:
             (user_id, order_document_id)
         )
 
-    def afectar_bitacora(self, order_document_id, user_id, comentario):
+    def afectar_bitacora(self, order_document_id, user_id, comentario, change_type_id):
 
         self.base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=order_document_id,
-                                                               change_type_id=19,
+                                                               change_type_id=change_type_id,
                                                                user_id=user_id,
                                                                comments=comentario)
 

@@ -115,7 +115,6 @@ class HerramientasTimbrado:
             for fila in filas:
                 status_id = fila['TypeStatusID']
 
-                # pedido por timbrar es status 3
                 #  abierto, en proceso, cancelado, surtido parcialmente minisuper, produccion, almacen
                 if status_id not in (1, 2, 10, 12, 16, 17, 18):
                     continue

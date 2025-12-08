@@ -315,7 +315,10 @@ class HerramientasGenerales:
         try:
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Editar nombre pedido.')
             self._parametros.id_principal = order_document_id
-            instancia = EditarNombrePedido(ventana, self._parametros, valores_fila)
+            instancia = EditarNombrePedido(ventana,
+                                           self._parametros,
+                                           self._modelo,
+                                           valores_fila)
             ventana.wait_window()
         finally:
             self._parametros.id_principal = 0
@@ -372,6 +375,11 @@ class HerramientasGenerales:
 
         order_document_id = fila['OrderDocumentID']
         payment_confirmend_id = fila['PaymentConfirmedID']
+        status_id = fila['TypeStatusID']
+
+        if status_id in (1,10, 14,15): #abierto, cancelado, cobrado, en cartera
+            self._ventanas.mostrar_mensaje('El no tiene un status válido para confirmar la transferencia.')
+            return
 
         if payment_confirmend_id == 1:
             self._ventanas.mostrar_mensaje('El pedido seleccionado no es transferencia.')
@@ -383,13 +391,14 @@ class HerramientasGenerales:
 
         self._modelo.confirmar_transferencia(self._modelo.user_id, order_document_id)
         comentario = f"Transferencia confirmada por {self._modelo.user_name}"
-        self._modelo.afectar_bitacora(order_document_id, self._modelo.user_id, comentario)
+        self._modelo.afectar_bitacora(order_document_id, self._modelo.user_id, comentario, change_type_id=19)
 
     def _cambiar_usuario(self):
 
         def rellenar_operador():
             operador_panel = self._modelo.user_name
             version_paquete = self._parametros.version_paquete
+
             texto = f'Paquete: {version_paquete} OPERADOR: {operador_panel}'
             self._interfaz.ventanas.actualizar_etiqueta_externa_tabla_view('tbv_pedidos', texto)
             self._modelo.user_id = self._parametros.id_usuario

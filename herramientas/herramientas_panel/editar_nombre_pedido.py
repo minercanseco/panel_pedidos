@@ -20,11 +20,6 @@ from cayal.ventanas import Ventanas
 from cayal.documento import Documento
 from cayal.util import Utilerias
 
-from herramientas.capturar_documento.controlador_captura import ControladorCaptura
-from herramientas.capturar_documento.interfaz_captura import InterfazCaptura
-from herramientas.capturar_documento.modelo_captura import ModeloCaptura
-
-
 
 class EditarNombrePedido:
 

@@ -299,7 +299,7 @@ class HerramientasGenerales:
         try:
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Editar nombre pedido.')
             self._parametros.id_principal = order_document_id
-            instancia = EditarNombrePedido(ventana, self._parametros, self._base_de_datos)
+            instancia = EditarNombrePedido(ventana, self._parametros)
             ventana.wait_window()
         finally:
             self._parametros.id_principal = 0

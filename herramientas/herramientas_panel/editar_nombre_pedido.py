@@ -944,10 +944,33 @@ class EditarNombrePedido:
         try:
             self._instancia_llamada = True
 
-            # aqui actualizamos y agregamos a la bitacora
-            print(self._cliente.business_entity_id)
-            print(self._documento.address_detail_id)
-            print(self._documento.doc_type)
+            order_document_id = self._valores_fila['OrderDocumentID']
+            delivery_cost = self._base_de_datos.fetchone(
+                'SELECT TOP (1) * FROM dbo.[zvwBuscarCargoEnvio-AddressDetailID](?)',
+                (self._documento.address_detail_id,)
+            )
+
+            parametros = (
+                self._cliente.business_entity_id,
+                self._documento.address_detail_id,
+                self._cliente.zone_id,
+                self._documento.cfd_type_id,
+                delivery_cost,
+                order_document_id
+            )
+            print(parametros)
+            return
+            self._base_de_datos.command(
+                """
+                    UPDATE docDocumentOrderCayal SET 
+                            BusinessEntityID = ?,
+                            AddressDetailID = ?,
+                            ZoneID = ?,
+                            DocumentTypeID = ?,
+                            OrderDeliveryCost = ?
+                    WHERE OrderDocumentID = ?
+                """,parametros
+            )
 
         finally:
             self._master.destroy()

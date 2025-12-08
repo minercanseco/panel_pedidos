@@ -85,7 +85,7 @@ class EditarNombrePedido:
                                       {'row': 1, 'columnspan': 4, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
 
             'frame_botones': ('frame_buscar', None,
-                              {'row': 2, 'column': 1,  'pady': 5, 'sticky': tk.NSEW}),
+                              {'row': 4, 'column': 1,  'pady': 5, 'sticky': tk.NSEW}),
 
             'frame_data': ('frame_principal', 'Información:',
                            {'row': 3, 'column': 0, 'columnspan': 8, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),

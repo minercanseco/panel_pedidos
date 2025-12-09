@@ -110,10 +110,7 @@ class HerramientasCaptura:
                 # aquí sí reanudas cuando realmente se cerró la captura
                 self._reanudar_autorefresco()
 
-            nueva_ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap(
-                titulo='Nueva captura',
-                on_close=al_cerrar_captura,
-            )
+            nueva_ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap('Nueva captura')
 
             _ = LlamarInstanciaCaptura(
                 nueva_ventana,
@@ -127,7 +124,7 @@ class HerramientasCaptura:
             self._parametros.id_principal = 0
             # OJO: si usas on_close arriba, aquí podrías quitar el reanudar
             # para no adelantarlo:
-            # self._reanudar_autorefresco()
+            self._reanudar_autorefresco()
 
     def _editar_pedido(self):
 

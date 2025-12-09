@@ -19,11 +19,6 @@ from cayal.ventanas import Ventanas
 from cayal.documento import Documento
 from cayal.util import Utilerias
 
-from herramientas.capturar_documento.controlador_captura import ControladorCaptura
-from herramientas.capturar_documento.interfaz_captura import InterfazCaptura
-from herramientas.capturar_documento.modelo_captura import ModeloCaptura
-
-
 
 class BuscarGeneralesCliente:
 
@@ -65,14 +60,14 @@ class BuscarGeneralesCliente:
         self.consulta_productos_ofertados = []
         self.consulta_productos_ofertados_btn = []
         self.products_ids_ofertados = []
-        self._ofertas = {}
+        self.ofertas = {}
         self._ofertas_por_lista = {}
 
     def _crear_instancias_de_clases(self):
         self._base_de_datos = ComandosBaseDatos()
-        self._cliente = Cliente()
+        self.cliente = Cliente()
         self._ventanas = Ventanas(self._master)
-        self._documento = Documento()
+        self.documento = Documento()
         self._utilerias = Utilerias()
 
     def _crear_frames(self):
@@ -288,7 +283,7 @@ class BuscarGeneralesCliente:
             return
 
         if tipo == 'factura':
-            if self._cliente.cayal_customer_type_id in (0, 1):
+            if self.cliente.cayal_customer_type_id in (0, 1):
                 return
 
             self._ventanas.insertar_input_componente('cbx_documento', 'Factura')
@@ -303,7 +298,7 @@ class BuscarGeneralesCliente:
 
     def _copiar_informacion_direccion(self):
         business_entity_id = self._info_cliente_seleccionado[0]['BusinessEntityID']
-        address_detail_id = self._documento.address_detail_id
+        address_detail_id = self.documento.address_detail_id
 
         informacion = self._base_de_datos.buscar_informacion_direccion_whatsapp(address_detail_id, business_entity_id)
         pyperclip.copy(informacion)
@@ -327,8 +322,8 @@ class BuscarGeneralesCliente:
     def _buscar_info_y_setear_cliente(self, business_entity_id, abrir=False, actualizar=False):
         """Busca info del cliente, setea en self._cliente y ejecuta la acción final."""
         self._buscar_info_cliente_seleccionado(business_entity_id)
-        self._cliente.consulta = self._info_cliente_seleccionado
-        self._cliente.settear_valores_consulta()
+        self.cliente.consulta = self._info_cliente_seleccionado
+        self.cliente.settear_valores_consulta()
         self._rellenar_cbx_documento()
         self._buscar_ofertas()
 
@@ -481,7 +476,7 @@ class BuscarGeneralesCliente:
         seleccion = self._ventanas.obtener_input_componente('cbx_resultados')
 
         if seleccion == 'Seleccione':
-            self._cliente.reinicializar_atributos()
+            self.cliente.reinicializar_atributos()
             self._ventanas.mostrar_mensaje(mensaje='Debe seleccionar un cliente de la lista', master=self._master)
             self._ventanas.bloquear_componente('btn_seleccionar')
             return
@@ -547,11 +542,11 @@ class BuscarGeneralesCliente:
             beid = self._buscar_busines_entity_id(seleccion)
 
         self._buscar_info_y_setear_cliente(beid, actualizar=False)  # ya venimos con selección hecha
-        self._cliente.consulta = self._info_cliente_seleccionado
-        self._cliente.settear_valores_consulta()
+        self.cliente.consulta = self._info_cliente_seleccionado
+        self.cliente.settear_valores_consulta()
         self._asignar_parametros_a_documento()
 
-        if self._cliente.depots > 0:
+        if self.cliente.depots > 0:
             seleccion_direccion = (self._ventanas.obtener_input_componente('cbx_direccion') or '').upper()
             if seleccion_direccion == 'DIRECCIÓN FISCAL' or not seleccion_direccion:
                 respuesta = ttk.dialogs.Messagebox.yesno(
@@ -563,7 +558,7 @@ class BuscarGeneralesCliente:
             self._llamar_instancia()
 
     def _rellenar_cbx_documento(self):
-        if self._cliente.cayal_customer_type_id == 2:
+        if self.cliente.cayal_customer_type_id == 2:
             tipos_documento = ['Remisión', 'Factura']
             self._ventanas.rellenar_cbx('cbx_documento', tipos_documento)
         else:
@@ -580,26 +575,26 @@ class BuscarGeneralesCliente:
 
 
         def es_remision():
-            self._documento.cfd_type_id = 1
-            self._documento.doc_type = 'REMISIÓN'
-            self._documento.forma_pago = '01'
-            self._documento.metodo_pago = 'PUE'
-            self._documento.receptor_uso_cfdi = 'S01'
+            self.documento.cfd_type_id = 1
+            self.documento.doc_type = 'REMISIÓN'
+            self.documento.forma_pago = '01'
+            self.documento.metodo_pago = 'PUE'
+            self.documento.receptor_uso_cfdi = 'S01'
 
         def es_factura():
-            self._documento.cfd_type_id = 0
-            self._documento.doc_type = 'FACTURA'
-            self._documento.forma_pago = self._cliente.forma_pago
-            self._documento.metodo_pago = self._cliente.metodo_pago
-            self._documento.receptor_uso_cfdi = self._cliente.receptor_uso_cfdi
+            self.documento.cfd_type_id = 0
+            self.documento.doc_type = 'FACTURA'
+            self.documento.forma_pago = self.cliente.forma_pago
+            self.documento.metodo_pago = self.cliente.metodo_pago
+            self.documento.receptor_uso_cfdi = self.cliente.receptor_uso_cfdi
 
-        self._documento.prefix = prefijos.get(self._module_id, 'CAYAL')
+        self.documento.prefix = prefijos.get(self._module_id, 'CAYAL')
 
         if self._module_id in (967,1692,1316):
             es_remision()
             return True
 
-        if self._cliente.cayal_customer_type_id in (0, 1):
+        if self.cliente.cayal_customer_type_id in (0, 1):
             es_remision()
             return True
 
@@ -645,7 +640,7 @@ class BuscarGeneralesCliente:
 
     def _actualizar_apariencia_si_tiene_sucursales(self):
 
-        if self._cliente.depots == 0:
+        if self.cliente.depots == 0:
             self._ventanas.ocultar_componente('cbx_sucursales')
             self._consulta_sucursales = None
         else:
@@ -659,7 +654,7 @@ class BuscarGeneralesCliente:
             		FROM orgBusinessEntity E INNER JOIN
             			orgDepot A ON E.BusinessEntityID=A.BusinessEntityID 
             		WHERE E.BusinessEntityID = ? AND A.DeletedOn IS NULL
-                    """, (self._cliente.business_entity_id,))
+                    """, (self.cliente.business_entity_id,))
 
             nombres_sucursales = [sucursal['DepotName'] for sucursal in self._consulta_sucursales]
 
@@ -680,7 +675,7 @@ class BuscarGeneralesCliente:
 
         cbx_direccion = self._ventanas.componentes_forma['cbx_direccion']
 
-        if self._cliente.cayal_customer_type_id in (1, 2):
+        if self.cliente.cayal_customer_type_id in (1, 2):
             self._ventanas.posicionar_frame('frame_data')
             self._ventanas.posicionar_frame('frame_informacion')
             self._ventanas.posicionar_frame('frame_direccion')
@@ -692,7 +687,7 @@ class BuscarGeneralesCliente:
             self._ventanas.posicionar_frame('frame_direccion', posicion)
 
         self._consulta_direcciones = self._base_de_datos.rellenar_cbx_direcciones(
-            self._cliente.business_entity_id,
+            self.cliente.business_entity_id,
             cbx_direccion
         )
         self._seleccionar_direccion()
@@ -705,7 +700,7 @@ class BuscarGeneralesCliente:
         self._ventanas.posicionar_frame('frame_cbxs')
         self._ventanas.mostrar_componente('cbx_direccion')
 
-        if self._cliente.addresses == 1:
+        if self.cliente.addresses == 1:
             direccion = self._seleccionar_direccion_fiscal(direccion)
         else:
             datos_direccion = self._procesar_direccion_seleccionada()
@@ -713,8 +708,8 @@ class BuscarGeneralesCliente:
             direccion = self._base_de_datos.buscar_detalle_direccion_formateada(address_detail_id)
             direccion['celular'] = self._info_cliente_seleccionado[0]['CellPhone']
 
-        self._documento.address_details = direccion
-        self._documento.address_detail_id = direccion.get('address_detail_id', 0)
+        self.documento.address_details = direccion
+        self.documento.address_detail_id = direccion.get('address_detail_id', 0)
         self._cargar_info_direccion(direccion)
 
     def _seleccionar_direccion_fiscal(self, direccion):
@@ -722,18 +717,18 @@ class BuscarGeneralesCliente:
         if isinstance(direccion, list):
             direccion = direccion[0]
 
-        direccion['address_detail_id'] = self._cliente.address_fiscal_detail_id
+        direccion['address_detail_id'] = self.cliente.address_fiscal_detail_id
         direccion['address_name'] = 'Dirección Fiscal'
         direccion['depot_id'] = 0
-        direccion['telefono'] = self._cliente.phone
-        direccion['celular'] = self._cliente.cellphone
-        direccion['calle'] = self._cliente.address_fiscal_street
-        direccion['numero'] = self._cliente.address_fiscal_ext_number
-        direccion['comentario'] = self._cliente.address_fiscal_comments
-        direccion['cp'] = self._cliente.address_fiscal_zip_code
-        direccion['colonia'] = self._cliente.address_fiscal_city
-        direccion['estado'] = self._cliente.address_fiscal_state_province
-        direccion['municipio'] = self._cliente.address_fiscal_municipality
+        direccion['telefono'] = self.cliente.phone
+        direccion['celular'] = self.cliente.cellphone
+        direccion['calle'] = self.cliente.address_fiscal_street
+        direccion['numero'] = self.cliente.address_fiscal_ext_number
+        direccion['comentario'] = self.cliente.address_fiscal_comments
+        direccion['cp'] = self.cliente.address_fiscal_zip_code
+        direccion['colonia'] = self.cliente.address_fiscal_city
+        direccion['estado'] = self.cliente.address_fiscal_state_province
+        direccion['municipio'] = self.cliente.address_fiscal_municipality
 
         return direccion
 
@@ -742,8 +737,8 @@ class BuscarGeneralesCliente:
         self._ventanas.posicionar_frame('frame_direccion')
 
         informacion = {
-            'lbl_ncomercial': self._cliente.commercial_name,
-            'lbl_ruta': self._cliente.zone_name,
+            'lbl_ncomercial': self.cliente.commercial_name,
+            'lbl_ruta': self.cliente.zone_name,
             'lbl_telefono': info_direccion.get('telefono', ''),
             'lbl_celular': info_direccion.get('celular', ''),
             'lbl_calle': info_direccion.get('calle', ''),
@@ -765,18 +760,18 @@ class BuscarGeneralesCliente:
     def _cargar_info_credito(self):
         self._limpiar_formulario()
         informacion = {
-            'lbl_nombre': self._cliente.official_name,
-            'lbl_rfc': self._cliente.official_number,
-            'lbl_ruta': self._cliente.zone_name,
+            'lbl_nombre': self.cliente.official_name,
+            'lbl_rfc': self.cliente.official_number,
+            'lbl_ruta': self.cliente.zone_name,
             'lbl_autorizado': self._credito_autorizado(),
             'lbl_debe': self._documentos_en_cartera(),
             'lbl_restante': self._credito_restante(),
-            'lbl_condicion': self._cliente.payment_term_name,
-            'lbl_pcompra': self._ultimo_documento_en_cartera(self._cliente.business_entity_id),
-            'lbl_comentario': self._cliente.credit_comments,
+            'lbl_condicion': self.cliente.payment_term_name,
+            'lbl_pcompra': self._ultimo_documento_en_cartera(self.cliente.business_entity_id),
+            'lbl_comentario': self.cliente.credit_comments,
             'lbl_minisuper': self._credito_en_super(),
             'lbl_vales': self._vales_empleados(),
-            'lbl_lista': self._cliente.customer_type_name,
+            'lbl_lista': self.cliente.customer_type_name,
         }
         for nombre_componente, valores in self._componentes_credito.items():
             if '_txt' in nombre_componente:
@@ -802,8 +797,8 @@ class BuscarGeneralesCliente:
     def _credito_en_super(self):
         text = 'NO TIENE CRÉDITO EN MINISUPER'
 
-        if self._cliente.store_credit == 1:
-            if self._cliente.credit_block == 1:
+        if self.cliente.store_credit == 1:
+            if self.cliente.credit_block == 1:
                 text = 'NO TIENE CRÉDITO EN MINISUPER'
 
             else:
@@ -812,34 +807,34 @@ class BuscarGeneralesCliente:
         return text
 
     def _vales_empleados(self):
-        if self._cliente.coupons_block == 1:
+        if self.cliente.coupons_block == 1:
             return f"NO TIENE DERECHO"
 
-        if self._cliente.coupons != 0:
+        if self.cliente.coupons != 0:
             return f"COMPRA DEL MES REALIZADA"
 
-        return f"DISPONIBLE {self._cliente.remaining_coupons}"
+        return f"DISPONIBLE {self.cliente.remaining_coupons}"
 
     def _credito_autorizado(self):
-        text = f'${self._cliente.authorized_credit}'
+        text = f'${self.cliente.authorized_credit}'
 
-        if self._cliente.credit_block == 1:
+        if self.cliente.credit_block == 1:
             text = '$0.00'
         return text
 
     def _credito_restante(self):
-        text = f'${self._cliente.remaining_credit}'
+        text = f'${self.cliente.remaining_credit}'
 
-        if self._cliente.credit_block == 1:
+        if self.cliente.credit_block == 1:
             text = '$0.00'
         return text
 
     def _documentos_en_cartera(self):
         texto = ''
-        if self._cliente.documents_with_balance > 0:
-            texto = f'Debe ${self._cliente.debt} en {self._cliente.documents_with_balance} documentos.'
+        if self.cliente.documents_with_balance > 0:
+            texto = f'Debe ${self.cliente.debt} en {self.cliente.documents_with_balance} documentos.'
         else:
-            texto = f'${self._cliente.debt}'
+            texto = f'${self.cliente.debt}'
         return texto
 
     def _ultimo_documento_en_cartera(self, business_entity_id):
@@ -903,83 +898,18 @@ class BuscarGeneralesCliente:
 
     def _validar_restriccion_por_cliente(self):
         if self._module_id == 1692:
-            if self._cliente.coupons != 0 or self._cliente.coupons_block == 1:
+            if self.cliente.coupons != 0 or self.cliente.coupons_block == 1:
                 texto = self._vales_empleados().lower().capitalize()
 
                 self._ventanas.mostrar_mensaje(texto)
                 return
 
-            if self._cliente.coupons_block == 1:
+            if self.cliente.coupons_block == 1:
                 texto = self._vales_empleados()
                 self._ventanas.mostrar_mensaje(texto)
                 return
 
         return True
-
-    def _crear_popup_simple(self,
-                           master=None,
-                           titulo=None,
-                           ejecutar_al_cierre=None,
-                           nombre_icono=None):
-        """
-        Popup simple:
-        - No oculta el master.
-        - No toca atributos raros de la raíz.
-        - Centra y muestra la ventana.
-        """
-        import tkinter as tk
-        import ttkbootstrap as ttk
-
-        titulo = titulo or "Ventana"
-
-        root = master or getattr(self, "_master", None) or tk._default_root
-        if root is None:
-            root = ttk.Window()
-            root.withdraw()
-
-        popup = ttk.Toplevel(root)
-        popup.title(titulo)
-        popup.resizable(False, False)
-
-        # Icono (si procede)
-        try:
-            # Ojo: aquí el icono debe aplicarse al popup, no al master
-            self._ventanas.agregar_icono_ventana(master=popup, nombre_icono=nombre_icono)
-        except Exception:
-            pass
-
-        def cerrar():
-            # Callback opcional
-            if ejecutar_al_cierre:
-                try:
-                    ejecutar_al_cierre()
-                except Exception as e:
-                    print(f"Error en callback al cerrar popup: {e}")
-            try:
-                popup.destroy()
-            except Exception:
-                pass
-
-        popup.protocol("WM_DELETE_WINDOW", lambda: cerrar())
-        popup.bind("<Escape>", lambda e: cerrar())
-
-        # Centrar
-        try:
-            popup.update_idletasks()
-            sw, sh = popup.winfo_screenwidth(), popup.winfo_screenheight()
-            w, h = popup.winfo_reqwidth(), popup.winfo_reqheight()
-            x, y = max(0, (sw - w) // 2), max(0, (sh - h) // 2)
-            popup.geometry(f"+{x}+{y}")
-        except Exception:
-            pass
-
-        try:
-            popup.lift()
-            popup.focus_set()
-        except Exception:
-            pass
-
-        return popup
 
     def _llamar_instancia(self):
         if self._instancia_llamada or not self._documento_seleccionado():
@@ -990,15 +920,16 @@ class BuscarGeneralesCliente:
 
         try:
             self._instancia_llamada = True
+            # empaquetar ofertas del cliente
+            self.ofertas = self._ofertas_por_lista[self.cliente.customer_type_id]
 
+            """
             # busca el nombre del usuario que captura el documento
             if self._document_id != 0:
                 self._parametros_contpaqi.nombre_usuario = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
 
             ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap(
                  titulo="Capturar pedido", ocultar_master=True, on_close=None)
-
-
 
             # empaquetar ofertas del cliente
             self._ofertas = self._ofertas_por_lista[self._cliente.customer_type_id]
@@ -1017,9 +948,9 @@ class BuscarGeneralesCliente:
 
             controlador = ControladorCaptura(interfaz, modelo)
             ventana.wait_window()
-
+            """
         finally:
-
+            """
             if self._documento.document_id != 0:
                 self._base_de_datos.registrar_documento_a_recalcular(
                     self._documento.document_id,
@@ -1048,9 +979,9 @@ class BuscarGeneralesCliente:
                     self._actualizar_excedente_crediticio()
 
                 self._actualizar_comentario_documento()
-
+            """
             self._master.destroy()
-
+    """
     def _actualizar_excedente_crediticio(self):
         self._base_de_datos.command(
             'UPDATE docDocument SET CreditExceededAmount = ? WHERE DocumentID = ?',
@@ -1070,23 +1001,23 @@ class BuscarGeneralesCliente:
             'UPDATE docDocument SET Comments = ? WHERE DocumentID = ?',
             (self._documento.comments, self._documento.document_id)
         )
-
+    """
     def _asignar_parametros_a_documento(self):
 
         # las propiedades  self._doc_type | self._cfd_type_id son aginadas por la funcion self._documento_seleccionado
 
         datos_direccion_seleccionada = self._procesar_direccion_seleccionada()
 
-        self._documento.depot_id = datos_direccion_seleccionada.get('depot_id', 0)
-        self._documento.depot_name = datos_direccion_seleccionada.get('depot_name', '')
-        self._documento.address_detail_id = datos_direccion_seleccionada.get('address_detail_id', 0)
-        self._documento.address_name = datos_direccion_seleccionada.get('address_name', '')
-        self._documento.business_entity_id = self._cliente.business_entity_id
-        self._documento.customer_type_id = self._cliente.cayal_customer_type_id
+        self.documento.depot_id = datos_direccion_seleccionada.get('depot_id', 0)
+        self.documento.depot_name = datos_direccion_seleccionada.get('depot_name', '')
+        self.documento.address_detail_id = datos_direccion_seleccionada.get('address_detail_id', 0)
+        self.documento.address_name = datos_direccion_seleccionada.get('address_name', '')
+        self.documento.business_entity_id = self.cliente.business_entity_id
+        self.documento.customer_type_id = self.cliente.cayal_customer_type_id
 
     def _buscar_ofertas(self):
 
-        if self._cliente.customer_type_id in self._customer_types_ids_ofertas:
+        if self.cliente.customer_type_id in self._customer_types_ids_ofertas:
             return
 
         self._buscar_productos_ofertados_cliente()
@@ -1149,7 +1080,7 @@ class BuscarGeneralesCliente:
                     except Exception:
                         pass
 
-        customer_type_id = self._cliente.customer_type_id
+        customer_type_id = self.cliente.customer_type_id
 
         # 1) Memoria
         ofertas_mem = self._ofertas_por_lista.get(customer_type_id)

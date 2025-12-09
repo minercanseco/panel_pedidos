@@ -12,42 +12,74 @@ from cayal.documento import Documento
 from cayal.cliente import Cliente
 from cayal.comandos_base_datos import ComandosBaseDatos
 
-from herramientas.capturar_documento.controlador_captura import ControladorCaptura
-from herramientas.capturar_documento.interfaz_captura import InterfazCaptura
-from herramientas.capturar_documento.modelo_captura import ModeloCaptura
-from herramientas.capturar_documento.ticket_158 import Ticket158
+from herramientas.capturar_documento.ventana_captura.captura_controlador import ControladorCaptura
+from herramientas.capturar_documento.ventana_captura.captura_interfaz import InterfazCaptura
+from herramientas.capturar_documento.ventana_captura.captura_modelo import ModeloCaptura
+from herramientas.capturar_documento.impresion_captura.ticket_158 import Ticket158
 
 
 class LlamarInstanciaCaptura:
-    def __init__(self,master, parametros):
+    def __init__(self, master, parametros, cliente=None, documento=None, ofertas=None):
+        """
+        master:   Toplevel / Frame / Window donde se monta la UI.
+        parametros: objeto con al menos id_modulo, id_usuario.
+        cliente, documento: instancias opcionales a reutilizar.
+        ofertas: dict opcional con info de productos ofertados, e.g.:
+            {
+                'consulta_productos_ofertados': ...,
+                'consulta_productos_ofertados_btn': ...,
+                'products_ids_ofertados': ...
+            }
+        """
         self._master = master
         self._parametros_contpaqi = parametros
 
-        self._declarar_clases_auxiliares()
-        self._declarar_variables_instancia()
+        self._declarar_clases_auxiliares(cliente, documento)
+        self._declarar_variables_instancia(ofertas)
 
         if self._module_id == 158:
             self._llamar_instancia_158()
+        else:
+            self._llamar_instancia()
 
-    def _declarar_clases_auxiliares(self):
-        self._documento = Documento()
-        self._cliente = Cliente()
+    def _declarar_clases_auxiliares(self, cliente=None, documento=None):
+        """
+        Inicializa clases auxiliares. Si se proporcionan cliente/documento,
+        se reutilizan; de lo contrario se crean instancias nuevas.
+        """
+        self._documento = documento if documento is not None else Documento()
+        self._cliente = cliente if cliente is not None else Cliente()
         self._base_de_datos = ComandosBaseDatos()
         self._utilerias = Utilerias()
 
-    def _declarar_variables_instancia(self):
+    def _declarar_variables_instancia(self, ofertas=None):
+        """
+        Inicializa variables de instancia relacionadas con parámetros y ofertas.
+        """
+        # --- parámetros base ---
+        self._module_id = getattr(self._parametros_contpaqi, "id_modulo", None)
+        self._user_id = getattr(self._parametros_contpaqi, "id_usuario", None)
 
-        self._module_id = self._parametros_contpaqi.id_modulo
-        self._user_id = self._parametros_contpaqi.id_usuario
         self._monto_recibido = self._utilerias.redondear_valor_cantidad_a_decimal(0)
         self._cambio_cliente = self._utilerias.redondear_valor_cantidad_a_decimal(0)
 
+        # --- colecciones / estado interno ---
         self._customer_types_ids_ofertas = set()
+
         self.consulta_productos = []
+
+        # Ofertas: si te pasan un dict, úsalo; si no, deja listas vacías
         self.consulta_productos_ofertados = []
         self.consulta_productos_ofertados_btn = []
         self.products_ids_ofertados = []
-        self._ofertas = {}
+
+        if ofertas:
+            self.consulta_productos_ofertados = ofertas.get("consulta_productos_ofertados", []) or []
+            self.consulta_productos_ofertados_btn = ofertas.get("consulta_productos_ofertados_btn", []) or []
+            self.products_ids_ofertados = ofertas.get("products_ids_ofertados", []) or []
+
+        # Si luego vas a guardar estructura de ofertas más compleja:
+        self._ofertas = ofertas or {}
         self._ofertas_por_lista = {}
 
     def _buscar_productos_ofertados_cliente(self):
@@ -380,6 +412,91 @@ class LlamarInstanciaCaptura:
 
                 if self._module_id == 158:
                     self._crear_ticket_de_venta()
+
+    def _llamar_instancia(self):
+        try:
+            self._instancia_llamada = True
+
+            # 1) Nombre de usuario si hay documento existente
+            if self._documento.document_id != 0:
+                self._parametros_contpaqi.nombre_usuario = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
+
+            # 2) Empaquetar ofertas del cliente
+            #    Prioridad:
+            #    - Si self._ofertas ya trae algo (e.g. pasado en __init__), lo respetamos.
+            #    - Si no, intentamos construirlo desde _ofertas_por_lista según el tipo de cliente.
+            if not self._ofertas:
+                ct_id = getattr(self._cliente, "customer_type_id", None)
+                if ct_id is not None and self._ofertas_por_lista:
+                    self._ofertas = self._ofertas_por_lista.get(ct_id, {})
+                else:
+                    self._ofertas = {}
+
+            # 3) Llamar a interfaz / modelo / controlador de captura
+            interfaz = InterfazCaptura(self._master, self._parametros_contpaqi.id_modulo)
+
+            modelo = ModeloCaptura(
+                self._base_de_datos,
+                interfaz.ventanas,
+                self._utilerias,
+                self._cliente,
+                self._parametros_contpaqi,
+                self._documento,
+                self._ofertas,
+            )
+
+            controlador = ControladorCaptura(interfaz, modelo)
+
+        finally:
+            # 4) Registro de documentos a recalcular y actualizaciones varias
+            if self._documento.document_id != 0:
+                self._base_de_datos.registrar_documento_a_recalcular(
+                    self._documento.document_id,
+                    self._documento.document_id,
+                    self._parametros_contpaqi.uuid
+                )
+
+                if self._documento.destination_document_id != 0:
+                    self._base_de_datos.registrar_documento_a_recalcular(
+                        self._documento.destination_document_id,
+                        self._documento.destination_document_id,
+                        self._parametros_contpaqi.uuid
+                    )
+
+                if self._documento.adicional_document_id != 0:
+                    self._base_de_datos.registrar_documento_a_recalcular(
+                        self._documento.adicional_document_id,
+                        self._documento.adicional_document_id,
+                        self._parametros_contpaqi.uuid
+                    )
+
+                if self._module_id in (1400, 21, 1319):
+                    self._actualizar_forma_pago_documento()
+                    self._actualizar_excedente_crediticio()
+
+                self._actualizar_comentario_documento()
+
+            self._master.destroy()
+
+    def _actualizar_excedente_crediticio(self):
+        self._base_de_datos.command(
+            'UPDATE docDocument SET CreditExceededAmount = ? WHERE DocumentID = ?',
+            (self._documento.credit_exceeded_amount, self._documento.document_id)
+        )
+
+    def _actualizar_forma_pago_documento(self):
+        self._base_de_datos.command(
+            'UPDATE docDocumentCFD SET FormaPago = ? WHERE DocumentID = ?',
+            (
+                self._documento.forma_pago,
+                self._documento.document_id)
+        )
+
+    def _actualizar_comentario_documento(self):
+        self._base_de_datos.command(
+            'UPDATE docDocument SET Comments = ? WHERE DocumentID = ?',
+            (self._documento.comments, self._documento.document_id)
+        )
 
     def _crear_ticket_de_venta(self):
         redondear = self._utilerias.redondear_valor_cantidad_a_decimal

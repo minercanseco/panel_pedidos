@@ -2,6 +2,7 @@ import tkinter as tk
 from cayal.ventanas import Ventanas
 
 from herramientas.capturar_documento.buscar_generales_cliente import BuscarGeneralesCliente
+from herramientas.capturar_documento.llamar_instancia_captura import LlamarInstanciaCaptura
 from herramientas.herramientas_panel.editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from herramientas.herramientas_panel.editar_pedido import EditarPedido
 from herramientas.herramientas_panel.ticket_pedido_cliente import TicketPedidoCliente
@@ -96,17 +97,37 @@ class HerramientasCaptura:
         self._pausar_autorefresco()
 
         try:
-            ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap(
-                on_close=self._reanudar_autorefresco)
+            ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap('Seleccionar cliente')
             self._parametros.id_principal = 0
 
-            _ = BuscarGeneralesCliente(
-                    ventana,
-                    self._parametros,
-            )
+            instancia = BuscarGeneralesCliente(ventana, self._parametros)
             ventana.wait_window()
+
+            if not getattr(instancia, "cliente", None):
+                return
+
+            def al_cerrar_captura():
+                # aquí sí reanudas cuando realmente se cerró la captura
+                self._reanudar_autorefresco()
+
+            nueva_ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap(
+                titulo='Nueva captura',
+                on_close=al_cerrar_captura,
+            )
+
+            _ = LlamarInstanciaCaptura(
+                nueva_ventana,
+                self._parametros,
+                instancia.cliente,
+                instancia.documento,
+                instancia.ofertas
+            )
+
         finally:
             self._parametros.id_principal = 0
+            # OJO: si usas on_close arriba, aquí podrías quitar el reanudar
+            # para no adelantarlo:
+            # self._reanudar_autorefresco()
 
     def _editar_pedido(self):
 

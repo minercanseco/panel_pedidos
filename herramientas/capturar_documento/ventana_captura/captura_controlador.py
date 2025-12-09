@@ -246,6 +246,7 @@ class ControladorCaptura:
 
     def _cargar_direccion_cliente(self):
         datos_direccion = self.documento.address_details
+        print(self.documento.address_details)
         self.documento.address_detail_id = datos_direccion['AddressDetailID']
         if self._module_id == 1687: # modulo de pedidos
             self.documento.order_parameters['AddressDetailID'] = datos_direccion['AddressDetailID']

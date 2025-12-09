@@ -112,9 +112,7 @@ class HerramientasCaptura:
 
             # 2) Popup para captura
             nueva_ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap('Nueva captura')
-
-            # ⚠️ NO usamos nueva_ventana.wait_window() aquí
-            # porque LlamarInstanciaCaptura ya la destruye en su finally.
+            nueva_ventana.mainloop()
 
             _ = LlamarInstanciaCaptura(
                 nueva_ventana,  # master
@@ -124,9 +122,7 @@ class HerramientasCaptura:
                 instancia.ofertas
             )
 
-            nueva_ventana.mainloop()
-            # En este punto, LlamarInstanciaCaptura ya terminó y
-            # nueva_ventana ya fue destruida desde adentro.
+
 
         finally:
             self._parametros.id_principal = 0

@@ -38,7 +38,7 @@ class ControladorPanelPedidos:
         # --------------------------
         # Usado para detectar uso del aplicativo
         self._foco_humano = False  # flag
-        self._nivel_pausa_autorefresco = 0  # 👈 nuevo
+        self._nivel_pausa_autorefresco = 0
 
         # Evita que se solapen coloreos de filas
         self._coloreando = False

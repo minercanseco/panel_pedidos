@@ -124,7 +124,7 @@ class HerramientasCaptura:
                 instancia.ofertas
             )
 
-            ventana.mainloop()
+            nueva_ventana.mainloop()
             # En este punto, LlamarInstanciaCaptura ya terminó y
             # nueva_ventana ya fue destruida desde adentro.
 

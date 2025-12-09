@@ -24,51 +24,95 @@ class BuscarGeneralesCliente:
 
     def __init__(self, master, parametros):
 
+        # --- Referencias principales ---
         self._master = master
         self._parametros_contpaqi = parametros
 
-
+        # --- Estado interno y variables resultado ---
         self._declarar_variables_globales()
         self._crear_instancias_de_clases()
 
+        # --- Construcción UI ---
         self._crear_frames()
         self._cargar_componentes_forma()
         self._cargar_eventos_componentes_forma()
         self._cargar_hotkeys()
         self._ajustar_componentes()
 
+        # --- Apariencia inicial ---
         self._actualizar_apariencia_forma(solo_apariencia_inicial=True)
         self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
         self._ventanas.enfocar_componente('tbx_buscar')
 
+        # --- Manejo seguro del cierre con “X” ---
+        # Si el usuario cierra sin seleccionar, devolver valores neutros.
+        self._master.protocol("WM_DELETE_WINDOW", self._cerrar_sin_seleccion)
+
+
     def _declarar_variables_globales(self):
+        """
+        Todas estas variables deben ser por instancia
+        y reiniciarse en cada ejecución del popup.
+        """
+
+        # Búsqueda / selección
         self._termino_buscado = None
         self._consulta_clientes = None
         self._info_cliente_seleccionado = None
         self._consulta_direcciones = None
-        self._instancia_llamada = False
         self._consulta_sucursales = None
+
+        # Control interno
+        self._instancia_llamada = False          # evita doble ejecución de aceptar
         self._procesando_documento = False
         self._tipo_documento = 0
 
+        # Parámetros operativos
         self._module_id = self._parametros_contpaqi.id_modulo
         self._user_id = self._parametros_contpaqi.id_usuario
         self._document_id = self._parametros_contpaqi.id_principal
 
+        # Ofertas (estado por instancia)
         self._customer_types_ids_ofertas = set()
         self.consulta_productos = []
         self.consulta_productos_ofertados = []
         self.consulta_productos_ofertados_btn = []
         self.products_ids_ofertados = []
-        self.ofertas = {}
-        self._ofertas_por_lista = {}
+
+        # Resultado final que el panel leerá
+        self.ofertas = {}              # ← se llenará al aceptar selección
+        self._ofertas_por_lista = {}   # ← se llena en _buscar_ofertas()
+
 
     def _crear_instancias_de_clases(self):
+        """
+        Instancias frescas para cada ejecución.
+        Las anteriores NO se deben reutilizar.
+        """
         self._base_de_datos = ComandosBaseDatos()
-        self.cliente = Cliente()
-        self._ventanas = Ventanas(self._master)
-        self.documento = Documento()
         self._utilerias = Utilerias()
+
+        # Objetos resultado frescos para el panel
+        self.cliente = Cliente()
+        self.documento = Documento()
+
+        # Manejo de UI independiente por popup
+        self._ventanas = Ventanas(self._master)
+
+
+    def _cerrar_sin_seleccion(self):
+        """
+        Cierre seguro cuando el usuario presiona la 'X'.
+        El panel puede detectar esto porque cliente queda en None.
+        """
+        self.cliente = None
+        self.documento = None
+        self.ofertas = {}
+
+        try:
+            self._master.destroy()
+        except Exception:
+            pass
 
     def _crear_frames(self):
         frames = {
@@ -319,16 +363,52 @@ class BuscarGeneralesCliente:
 
         return termino_buscado
 
-    def _buscar_info_y_setear_cliente(self, business_entity_id, abrir=False, actualizar=False):
-        """Busca info del cliente, setea en self._cliente y ejecuta la acción final."""
+    def _buscar_info_y_setear_cliente(self, business_entity_id, abrir: bool = False, actualizar: bool = False):
+        """
+        Busca la información del cliente por BusinessEntityID,
+        la carga en self.cliente y prepara documentos/ofertas.
+
+        Parámetros
+        ----------
+        business_entity_id : int
+            Identificador del cliente a buscar.
+        abrir : bool
+            Si True, al finalizar la carga ejecuta _aceptar_seleccion().
+        actualizar : bool
+            Si True, refresca la apariencia de la forma (_actualizar_apariencia_forma()).
+        """
+
+        # 1) Reset mínimo de contexto para evitar arrastrar datos de búsquedas previas
+        self._info_cliente_seleccionado = None
+        self._consulta_direcciones = None
+        self._consulta_sucursales = None
+        # ofertas de esta instancia se recalcularán
+        self.ofertas = {}
+        self._ofertas_por_lista = {}
+
+        # 2) Buscar info del cliente
         self._buscar_info_cliente_seleccionado(business_entity_id)
+
+        # Si no hubo resultado, no seguimos
+        if not self._info_cliente_seleccionado:
+            # aquí podrías mostrar un mensaje, si aplica:
+            # self._ventanas.mostrar_mensaje("No se encontró información del cliente.")
+            return
+
+        # 3) Pasar la consulta al objeto Cliente y setear sus atributos
         self.cliente.consulta = self._info_cliente_seleccionado
         self.cliente.settear_valores_consulta()
+
+        # 4) Preparar documentos / direcciones / sucursales según ese cliente
         self._rellenar_cbx_documento()
+
+        # 5) Buscar ofertas (debe llenar self._ofertas_por_lista para este cliente)
         self._buscar_ofertas()
 
+        # 6) Lógica opcional: abrir captura y/o refrescar UI
         if abrir:
-            self._llamar_instancia()
+            self._aceptar_seleccion()
+
         if actualizar:
             self._actualizar_apariencia_forma()
 
@@ -555,7 +635,7 @@ class BuscarGeneralesCliente:
                     proceder = False
 
         if proceder:
-            self._llamar_instancia()
+            self._aceptar_seleccion()
 
     def _rellenar_cbx_documento(self):
         if self.cliente.cayal_customer_type_id == 2:
@@ -911,97 +991,50 @@ class BuscarGeneralesCliente:
 
         return True
 
-    def _llamar_instancia(self):
-        if self._instancia_llamada or not self._documento_seleccionado():
+    def _aceptar_seleccion(self):
+        """
+        Confirma la selección del cliente y prepara los datos
+        que leerá el panel (cliente, documento, ofertas).
+
+        - Evita doble disparo usando _instancia_llamada.
+        - Verifica que haya documento seleccionado y que el cliente cumpla restricciones.
+        - Empaqueta las ofertas para el tipo de cliente actual.
+        - Cierra la ventana de selección.
+        """
+        # 1) Evitar ejecuciones repetidas o sin documento válido
+        if self._instancia_llamada:
             return
 
+        if not self._documento_seleccionado():
+            return
+
+        # 2) Restricciones adicionales (crédito, bloqueo, etc.)
         if not self._validar_restriccion_por_cliente():
             return
 
         try:
             self._instancia_llamada = True
-            # empaquetar ofertas del cliente
-            self.ofertas = self._ofertas_por_lista[self.cliente.customer_type_id]
 
-            """
-            # busca el nombre del usuario que captura el documento
-            if self._document_id != 0:
-                self._parametros_contpaqi.nombre_usuario = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
+            # 3) Empaquetar ofertas para el tipo de cliente actual
+            ct_id = getattr(self.cliente, "customer_type_id", None)
 
-            ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap(
-                 titulo="Capturar pedido", ocultar_master=True, on_close=None)
+            if ct_id is not None:
+                # .get para evitar KeyError y caer en {} si no hay ofertas para ese tipo
+                self.ofertas = self._ofertas_por_lista.get(ct_id, {})
+            else:
+                # si por alguna razón no hay tipo de cliente, devolvemos ofertas vacías
+                self.ofertas = {}
 
-            # empaquetar ofertas del cliente
-            self._ofertas = self._ofertas_por_lista[self._cliente.customer_type_id]
+            # (Opcional, si aquí ya tienes el documento elegido, podrías asegurar:)
+            # self.documento = self._documento_seleccionado_objeto()
 
-            # llama a la instancia de captura
-            interfaz = InterfazCaptura(ventana, self._parametros_contpaqi.id_modulo)
-
-            modelo = ModeloCaptura(self._base_de_datos,
-                                   interfaz.ventanas,
-                                   self._utilerias,
-                                   self._cliente,
-                                   self._parametros_contpaqi,
-                                   self._documento,
-                                   self._ofertas
-                                   )
-
-            controlador = ControladorCaptura(interfaz, modelo)
-            ventana.wait_window()
-            """
         finally:
-            """
-            if self._documento.document_id != 0:
-                self._base_de_datos.registrar_documento_a_recalcular(
-                    self._documento.document_id,
-                    self._documento.document_id,
-                    self._parametros_contpaqi.uuid
-                )
+            # 4) Cerrar la ventana de selección de forma segura
+            try:
+                self._master.destroy()
+            except Exception:
+                pass
 
-                # en caso de algun modulo especial donde la captura tenga que estar relacionada a un proceso de salida
-                # o documento adicional
-                if self._documento.destination_document_id != 0:
-                    self._base_de_datos.registrar_documento_a_recalcular(
-                        self._documento.destination_document_id,
-                        self._documento.destination_document_id,
-                        self._parametros_contpaqi.uuid
-                    )
-
-                if self._documento.adicional_document_id != 0:
-                    self._base_de_datos.registrar_documento_a_recalcular(
-                        self._documento.adicional_document_id,
-                        self._documento.adicional_document_id,
-                        self._parametros_contpaqi.uuid
-                    )
-
-                if self._module_id  in (1400,21,1319):
-                    self._actualizar_forma_pago_documento()
-                    self._actualizar_excedente_crediticio()
-
-                self._actualizar_comentario_documento()
-            """
-            self._master.destroy()
-    """
-    def _actualizar_excedente_crediticio(self):
-        self._base_de_datos.command(
-            'UPDATE docDocument SET CreditExceededAmount = ? WHERE DocumentID = ?',
-            (self._documento.credit_exceeded_amount, self._documento.document_id)
-        )
-
-    def _actualizar_forma_pago_documento(self):
-        self._base_de_datos.command(
-            'UPDATE docDocumentCFD SET FormaPago = ? WHERE DocumentID = ?',
-            (
-                self._documento.forma_pago,
-                self._documento.document_id)
-        )
-
-    def _actualizar_comentario_documento(self):
-        self._base_de_datos.command(
-            'UPDATE docDocument SET Comments = ? WHERE DocumentID = ?',
-            (self._documento.comments, self._documento.document_id)
-        )
-    """
     def _asignar_parametros_a_documento(self):
 
         # las propiedades  self._doc_type | self._cfd_type_id son aginadas por la funcion self._documento_seleccionado
@@ -1016,11 +1049,19 @@ class BuscarGeneralesCliente:
         self.documento.customer_type_id = self.cliente.cayal_customer_type_id
 
     def _buscar_ofertas(self):
-
-        if self.cliente.customer_type_id in self._customer_types_ids_ofertas:
+        """
+        Se asegura de tener ofertas cargadas para el tipo de cliente actual.
+        Utiliza memoria y cache en disco (HOY) desde _buscar_productos_ofertados_cliente.
+        """
+        customer_type_id = getattr(self.cliente, "customer_type_id", None)
+        if customer_type_id is None:
+            self.ofertas = {}
             return
 
-        self._buscar_productos_ofertados_cliente()
+        ofertas = self._buscar_productos_ofertados_cliente()
+        # opcionalmente, puedes guardar directamente en self.ofertas aquí:
+        # self.ofertas = ofertas or {}
+        return ofertas
 
     def _buscar_productos_ofertados_cliente(self):
         try:

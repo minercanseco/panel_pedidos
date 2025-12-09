@@ -113,7 +113,7 @@ class HerramientasCaptura:
             # 2) Popup para captura
             nueva_ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap('Nueva captura')
             _ = LlamarInstanciaCaptura(
-                nueva_ventana,  # master
+                nueva_ventana,
                 self._parametros,
                 instancia.cliente,
                 instancia.documento,

@@ -8,11 +8,12 @@ from herramientas.herramientas_panel.ticket_pedido_cliente import TicketPedidoCl
 
 
 class HerramientasCaptura:
-    def __init__(self, master, modelo, interfaz):
+    def __init__(self, master, modelo, interfaz, callbacks_autorefresco):
         self._master = master
         self._ventanas = Ventanas(self._master)
         self._modelo = modelo
         self._interfaz = interfaz
+        self._callbacks_autorefresco = callbacks_autorefresco or {}
 
         self._base_de_datos = self._modelo.base_de_datos
         self._parametros = self._modelo.parametros
@@ -60,6 +61,16 @@ class HerramientasCaptura:
         self.etiquetas_barra_herramientas = self.elementos_barra_herramientas[2]
         self.hotkeys_barra_herramientas = self.elementos_barra_herramientas[1]
 
+    def _pausar_autorefresco(self):
+        fn = self._callbacks_autorefresco.get("pausar")
+        if fn:
+            fn()
+
+    def _reanudar_autorefresco(self):
+        fn = self._callbacks_autorefresco.get("reanudar")
+        if fn:
+            fn()
+
     def _obtener_valores_fila_pedido_seleccionado(self, valor = None):
         if not self._interfaz.ventanas.validar_seleccion_una_fila_table_view('tbv_pedidos'):
             return
@@ -81,8 +92,14 @@ class HerramientasCaptura:
         return filas
 
     def _capturar_nuevo_pedido(self):
+        self._pausar_autorefresco()
+
+        def al_cerrar():
+            # Se ejecuta cuando se cierre el popup
+            self._reanudar_autorefresco()
+
         try:
-            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(ejecutar_al_cierre=al_cerrar)
             self._parametros.id_principal = 0
 
             _ = BuscarGeneralesCliente(

@@ -713,7 +713,6 @@ class ControladorPanelPedidos:
     #------------------------------------------------------------------------------------------------------------------
     def _crear_notebook_herramientas(self):
         info_pestanas = {
-            # Texto de la pestaña con emoji de dirección fiscal
             'tab_generales': ('Generales', None),
             'tab_captura': ('Captura', None),
             'tab_timbrado': ('Timbrado', None),
@@ -737,8 +736,8 @@ class ControladorPanelPedidos:
         # Crear frames base para cada pestaña
         frames_tabs = {}
         for clave, valor in info_pestanas.items():
-            tab_name = clave  # p.ej. 'tab_direccion_fiscal'
-            frame_name = clave.replace('tab_', 'frm_')  # 'frm_direccion_fiscal'
+            tab_name = clave
+            frame_name = clave.replace('tab_', 'frm_')
             frames_tabs[frame_name] = (
                 tab_name,
                 None,
@@ -747,27 +746,39 @@ class ControladorPanelPedidos:
 
         self._interfaz.ventanas.crear_frames(frames_tabs)
 
+        # Callbacks para herramientas del notebook
+        callbacks_autorefresco = {
+            "pausar": self._pausar_autorefresco,
+            "reanudar": self._reanudar_autorefresco,
+        }
+
         # cada frame será el master de las subsecuentes ventanas
         for frame_name, (tab_name, configuracion, posicion) in frames_tabs.items():
             frame = self._interfaz.ventanas.componentes_forma[frame_name]
+
             if 'generales' in frame_name:
                 HerramientasGenerales(
-                            frame,
-                            self._modelo,
-                            self._interfaz
+                    master=frame,
+                    modelo=self._modelo,
+                    interfaz=self._interfaz,
+                    callbacks_autorefresco=callbacks_autorefresco,
                 )
 
             if 'captura' in frame_name:
-                HerramientasCaptura(frame,
-                                    self._modelo,
-                                    self._interfaz
-                                    )
+                HerramientasCaptura(
+                    master=frame,
+                    modelo=self._modelo,
+                    interfaz=self._interfaz,
+                    callbacks_autorefresco=callbacks_autorefresco,
+                )
 
             if 'timbrado' in frame_name:
-                HerramientasTimbrado(frame,
-                                     self._modelo,
-                                     self._interfaz
-                                     )
+                HerramientasTimbrado(
+                    master=frame,
+                    modelo=self._modelo,
+                    interfaz=self._interfaz,
+                    callbacks_autorefresco=callbacks_autorefresco,
+                )
 
     def _actualizar_comentario_pedido(self):
         self._limpiar_componentes()

@@ -16,11 +16,13 @@ from herramientas.cobrar_cartera.buscar_generales_cliente_cartera import BuscarG
 
 
 class HerramientasGenerales:
-    def __init__(self, master, modelo, interfaz):
+    def __init__(self, master, modelo, interfaz, callbacks_autorefresco):
         self._master = master
         self._ventanas = Ventanas(self._master)
         self._modelo = modelo
         self._interfaz = interfaz
+        self._callbacks_autorefresco = callbacks_autorefresco or {}
+
 
         self._base_de_datos = self._modelo.base_de_datos
         self._parametros = self._modelo.parametros
@@ -85,6 +87,16 @@ class HerramientasGenerales:
         self.iconos_barra_herramientas = self.elementos_barra_herramientas[0]
         self.etiquetas_barra_herramientas = self.elementos_barra_herramientas[2]
         self.hotkeys_barra_herramientas = self.elementos_barra_herramientas[1]
+
+    def _pausar_autorefresco(self):
+        fn = self._callbacks_autorefresco.get("pausar")
+        if fn:
+            fn()
+
+    def _reanudar_autorefresco(self):
+        fn = self._callbacks_autorefresco.get("reanudar")
+        if fn:
+            fn()
 
     def _obtener_valores_fila_pedido_seleccionado(self, valor = None):
         if not self._interfaz.ventanas.validar_seleccion_una_fila_table_view('tbv_pedidos'):
@@ -262,6 +274,8 @@ class HerramientasGenerales:
             preparar_e_imprimir_ticket(fila)
 
     def _capturar_nuevo_cliente(self):
+
+
         ventana = self._ventanas.crear_popup_ttkbootstrap()
         self._parametros.id_principal = 0
         ClienteNuevo(ventana,

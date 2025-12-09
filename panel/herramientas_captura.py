@@ -97,33 +97,38 @@ class HerramientasCaptura:
         self._pausar_autorefresco()
 
         try:
+            # 1) Popup para seleccionar cliente
             ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap('Seleccionar cliente')
             self._parametros.id_principal = 0
 
             instancia = BuscarGeneralesCliente(ventana, self._parametros)
+
+            # Esperar a que CIERRA la ventana de búsqueda
             ventana.wait_window()
 
+            # Si el usuario cerró sin seleccionar cliente, salimos
             if not getattr(instancia, "cliente", None):
                 return
 
-            def al_cerrar_captura():
-                # aquí sí reanudas cuando realmente se cerró la captura
-                self._reanudar_autorefresco()
-
+            # 2) Popup para captura
             nueva_ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap('Nueva captura')
 
+            # ⚠️ NO usamos nueva_ventana.wait_window() aquí
+            # porque LlamarInstanciaCaptura ya la destruye en su finally.
+
             _ = LlamarInstanciaCaptura(
-                nueva_ventana,
+                nueva_ventana,  # master
                 self._parametros,
                 instancia.cliente,
                 instancia.documento,
                 instancia.ofertas
             )
-            nueva_ventana.wait_window()
+
+            # En este punto, LlamarInstanciaCaptura ya terminó y
+            # nueva_ventana ya fue destruida desde adentro.
+
         finally:
             self._parametros.id_principal = 0
-            # OJO: si usas on_close arriba, aquí podrías quitar el reanudar
-            # para no adelantarlo:
             self._reanudar_autorefresco()
 
     def _editar_pedido(self):

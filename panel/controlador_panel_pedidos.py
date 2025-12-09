@@ -42,6 +42,7 @@ class ControladorPanelPedidos:
         # --------------------------
         # Usado para detectar uso del aplicativo
         self._foco_humano = False  # flag
+        self._nivel_pausa_autorefresco = 0  # 👈 nuevo
 
         # Evita que se solapen coloreos de filas
         self._coloreando = False
@@ -117,37 +118,56 @@ class ControladorPanelPedidos:
     def _pausar_autorefresco(self):
         """
         Pausa el ciclo automático de refresco de la tabla.
-        Evita que se ejecuten _tick_autorefresco y _buscar_nuevos_registros.
+        Soporta llamadas anidadas (niveles de pausa).
         """
         if not self._autorefresco_activo:
-            return  # El autorefresco está completamente apagado
+            return
 
+        self._nivel_pausa_autorefresco += 1
         self._bloquear_autorefresco = True
-        print("⏸️  Autorefresco pausado")
+        print(f"⏸️  Autorefresco pausado (nivel={self._nivel_pausa_autorefresco})")
 
     def _reanudar_autorefresco(self):
         """
         Reanuda el ciclo de refresco pausado.
+        Solo desbloquea cuando el nivel vuelve a 0.
         """
         if not self._autorefresco_activo:
-            return  # Está apagado, no pausado
+            return
 
-        self._bloquear_autorefresco = False
-        print("▶️  Autorefresco reanudado")
+        if self._nivel_pausa_autorefresco > 0:
+            self._nivel_pausa_autorefresco -= 1
+
+        if self._nivel_pausa_autorefresco == 0:
+            self._bloquear_autorefresco = False
+            print("▶️  Autorefresco reanudado")
+        else:
+            print(f"▶️  Autorefresco sigue pausado (nivel={self._nivel_pausa_autorefresco})")
 
     def _on_focus_in(self, event=None):
-        # si viene de interacción humana → pausa
-        if self._foco_humano:
-            self._pausar_autorefresco()
-            print("⏸️ FocusIn humano → pausa autorefresco")
-        else:
-            # Si NO fue “humano” (ej: refresco tabla), ignoramos
-            print("⚪ FocusIn automático → ignorado")
+        """
+        (Opcional) Si quieres que el foco en la ventana la pause, puedes dejar esto.
+        Si ya controlas las pausas manualmente, lo puedes dejar solo como log.
+        """
+        print("⏸️ FocusIn (log)")
 
     def _on_focus_out(self, event=None):
-        self._foco_humano = False
-        self._reanudar_autorefresco()
-        print("▶️ FocusOut → reanudar autorefresco")
+        """
+        Cuando la ventana pierde foco.
+        Solo reanuda si NO hay pausas pendientes (nivel == 0).
+        Eso evita que la creación de popups reactive el autorefresco.
+        """
+        if not self._autorefresco_activo:
+            return
+
+        if self._nivel_pausa_autorefresco > 0:
+            # Hay pausas “manuales” activas, no reanudamos
+            print(f"▶️ FocusOut, pero hay pausas activas (nivel={self._nivel_pausa_autorefresco}) → no reanudar")
+            return
+
+        # Solo si no hay ninguna pausa explícita, puedes reanudar por foco
+        self._bloquear_autorefresco = False
+        print("▶️ FocusOut → reanudar autorefresco (sin pausas activas)")
 
     def _on_user_interaction(self, event=None):
         self._foco_humano = True

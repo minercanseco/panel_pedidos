@@ -246,17 +246,17 @@ class ControladorCaptura:
 
     def _cargar_direccion_cliente(self):
         datos_direccion = self.documento.address_details
-        self.documento.address_detail_id = datos_direccion['address_detail_id']
+        self.documento.address_detail_id = datos_direccion['AddressDetailID']
         if self._module_id == 1687: # modulo de pedidos
-            self.documento.order_parameters['AddressDetailID'] = datos_direccion['address_detail_id']
+            self.documento.order_parameters['AddressDetailID'] = datos_direccion['AddressDetailID']
 
-        calle = datos_direccion.get('calle', '')
-        numero = datos_direccion.get('numero', '')
-        colonia = datos_direccion.get('colonia', '')
-        cp = datos_direccion.get('cp', '')
-        municipio = datos_direccion.get('municipio', '')
-        estado = datos_direccion.get('estado', '')
-        comentario = datos_direccion.get('comentario', '')
+        calle = datos_direccion.get('Street', '')
+        numero = datos_direccion.get('ExtNumber', '')
+        colonia = datos_direccion.get('City', '')
+        cp = datos_direccion.get('ZipCode', '')
+        municipio = datos_direccion.get('Municipality', '')
+        estado = datos_direccion.get('StateProvince', '')
+        comentario = datos_direccion.get('Comments', '')
 
         texto_direccion = f'{calle} NUM.{numero}, COL.{colonia}, MPIO.{municipio}, EDO.{estado}, C.P.{cp}'
         texto_direccion = texto_direccion.upper()

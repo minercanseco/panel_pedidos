@@ -559,7 +559,6 @@ class BuscarGeneralesCliente:
             self._ventanas.bloquear_componente('btn_seleccionar')
             return
 
-        # <<< NUEVO: cachear selección confirmada >>>
         self._ultimo_cliente_texto = seleccion
         self._ultimo_cliente_id = self._buscar_busines_entity_id(seleccion)
 
@@ -1010,7 +1009,7 @@ class BuscarGeneralesCliente:
             if depot_id != 0:
                 depot_name = self._base_de_datos.fetchone('SELECT DepotName FROM orgDepot WHERE DepotID = ?',
                                                           (depot_id,))
-
+            self.documento.address_details = direccion
             self.documento.depot_id = depot_id
             self.documento.depot_name = depot_name
             self.documento.address_detail_id = direccion.get('AddressDetailID', 0)

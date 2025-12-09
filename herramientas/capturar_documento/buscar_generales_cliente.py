@@ -995,10 +995,10 @@ class BuscarGeneralesCliente:
             if self._document_id != 0:
                 self._parametros_contpaqi.nombre_usuario = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
 
-            #ventana = self._ventanas.crear_popup_ttkbootstrap(
-            #     titulo="Capturar pedido", ocultar_master=True, ejecutar_al_cierre=None, preguntar=None)
+            ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap(
+                 titulo="Capturar pedido", ocultar_master=True, on_close=None)
 
-            ventana = self._crear_popup_simple('Capturar pedido')
+
 
             # empaquetar ofertas del cliente
             self._ofertas = self._ofertas_por_lista[self._cliente.customer_type_id]

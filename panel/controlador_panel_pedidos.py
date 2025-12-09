@@ -27,11 +27,7 @@ class ControladorPanelPedidos:
         self._interfaz = modelo.interfaz
         self._master = self._interfaz.master
 
-        # --------------------------
-        # Eventos relacionados con la actualizacion de la ventana y tabla
-        # --------------------------
-        self._master.bind("<FocusIn>", self._on_focus_in)
-        self._master.bind("<FocusOut>", self._on_focus_out)
+
 
         # eventos reales del usuario
         self._master.bind("<Button>", self._on_user_interaction)  # clics
@@ -100,41 +96,28 @@ class ControladorPanelPedidos:
         self._master.after(self._autorefresco_ms, self._tick_autorefresco)
 
     def _tick_autorefresco(self):
-        # evita reentradas/choques con coloreado o popups
         if (
-            self._autorefresco_activo
-            and not self._coloreando
-            and not self._bloquear_autorefresco
-            and not self._hay_subventanas_abiertas()  # 👈 clave
+                self._autorefresco_activo
+                and not self._coloreando
+                and not self._bloquear_autorefresco
         ):
             try:
                 self._buscar_nuevos_registros(self._fecha_seleccionada())
             except Exception as e:
                 print("[AUTOREFRESCO] error:", e)
 
-        # vuelve a programar
         self._iniciar_autorefresco()
 
     def _pausar_autorefresco(self):
-        """
-        Pausa el ciclo automático de refresco de la tabla.
-        Soporta llamadas anidadas (niveles de pausa).
-        """
         if not self._autorefresco_activo:
             return
-
         self._nivel_pausa_autorefresco += 1
         self._bloquear_autorefresco = True
         print(f"⏸️  Autorefresco pausado (nivel={self._nivel_pausa_autorefresco})")
 
     def _reanudar_autorefresco(self):
-        """
-        Reanuda el ciclo de refresco pausado.
-        Solo desbloquea cuando el nivel vuelve a 0.
-        """
         if not self._autorefresco_activo:
             return
-
         if self._nivel_pausa_autorefresco > 0:
             self._nivel_pausa_autorefresco -= 1
 
@@ -143,31 +126,6 @@ class ControladorPanelPedidos:
             print("▶️  Autorefresco reanudado")
         else:
             print(f"▶️  Autorefresco sigue pausado (nivel={self._nivel_pausa_autorefresco})")
-
-    def _on_focus_in(self, event=None):
-        """
-        (Opcional) Si quieres que el foco en la ventana la pause, puedes dejar esto.
-        Si ya controlas las pausas manualmente, lo puedes dejar solo como log.
-        """
-        print("⏸️ FocusIn (log)")
-
-    def _on_focus_out(self, event=None):
-        """
-        Cuando la ventana pierde foco.
-        Solo reanuda si NO hay pausas pendientes (nivel == 0).
-        Eso evita que la creación de popups reactive el autorefresco.
-        """
-        if not self._autorefresco_activo:
-            return
-
-        if self._nivel_pausa_autorefresco > 0:
-            # Hay pausas “manuales” activas, no reanudamos
-            print(f"▶️ FocusOut, pero hay pausas activas (nivel={self._nivel_pausa_autorefresco}) → no reanudar")
-            return
-
-        # Solo si no hay ninguna pausa explícita, puedes reanudar por foco
-        self._bloquear_autorefresco = False
-        print("▶️ FocusOut → reanudar autorefresco (sin pausas activas)")
 
     def _on_user_interaction(self, event=None):
         self._foco_humano = True

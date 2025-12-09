@@ -94,12 +94,8 @@ class HerramientasCaptura:
     def _capturar_nuevo_pedido(self):
         self._pausar_autorefresco()
 
-        def al_cerrar():
-            # Se ejecuta cuando se cierre el popup
-            self._reanudar_autorefresco()
-
         try:
-            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(ejecutar_al_cierre=al_cerrar)
+            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(ejecutar_al_cierre=self._reanudar_autorefresco)
             self._parametros.id_principal = 0
 
             _ = BuscarGeneralesCliente(

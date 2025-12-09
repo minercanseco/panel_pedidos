@@ -122,7 +122,7 @@ class HerramientasCaptura:
                 instancia.documento,
                 instancia.ofertas
             )
-
+            nueva_ventana.wait_window()
         finally:
             self._parametros.id_principal = 0
             # OJO: si usas on_close arriba, aquí podrías quitar el reanudar

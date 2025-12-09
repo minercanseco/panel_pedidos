@@ -83,7 +83,6 @@ class BuscarGeneralesCliente:
         self.ofertas = {}              # ← se llenará al aceptar selección
         self._ofertas_por_lista = {}   # ← se llena en _buscar_ofertas()
 
-
     def _crear_instancias_de_clases(self):
         """
         Instancias frescas para cada ejecución.
@@ -98,7 +97,6 @@ class BuscarGeneralesCliente:
 
         # Manejo de UI independiente por popup
         self._ventanas = Ventanas(self._master)
-
 
     def _cerrar_sin_seleccion(self):
         """
@@ -601,6 +599,16 @@ class BuscarGeneralesCliente:
               SELECT * FROM [dbo].[zvwBuscarInfoCliente-BusinessEntityID](?)
             """, (business_entity_id,))
 
+    def _buscar_info_direcciones_cliente_seleccionado(self, business_entity_id):
+        return self._base_de_datos.buscar_direcciones_cliente(business_entity_id)
+
+    def _settear_info_direcciones_cliente(self, business_entity_id):
+        self.cliente.addresses_details = []
+        direcciones_cliente = self._buscar_info_direcciones_cliente_seleccionado(business_entity_id)
+        for direccion in direcciones_cliente:
+            self.cliente.add_address_detail(direccion)
+        return direcciones_cliente
+
     def _seleccionar_cliente(self):
         # Asegura selección consolidada por si llegamos aquí desde F1
         self._forzar_confirmar_cbx('cbx_resultados')
@@ -624,6 +632,8 @@ class BuscarGeneralesCliente:
         self._buscar_info_y_setear_cliente(beid, actualizar=False)  # ya venimos con selección hecha
         self.cliente.consulta = self._info_cliente_seleccionado
         self.cliente.settear_valores_consulta()
+        self._settear_info_direcciones_cliente(beid)
+
         self._asignar_parametros_a_documento()
 
         if self.cliente.depots > 0:
@@ -688,36 +698,6 @@ class BuscarGeneralesCliente:
             es_factura() if seleccion == 'Factura' else es_remision()
             return True
 
-    def _procesar_direccion_seleccionada(self):
-
-        def normalizar(texto):
-            """Elimina acentos y convierte a minúsculas."""
-            texto = unicodedata.normalize('NFD', texto)
-            texto = ''.join(c for c in texto if unicodedata.category(c) != 'Mn')
-            return texto.lower()
-
-        # Obtener nombre de dirección del componente
-        address_name = self._ventanas.obtener_input_componente('cbx_direccion')
-
-        # Normaliza el texto para comparación
-        address_name_normalizado = normalizar(address_name)
-
-        # Verifica si contiene "direccion fiscal"
-        if 'direccion fiscal' in address_name_normalizado:
-
-            address_fiscal_detail_id = self._info_cliente_seleccionado[0].get('AddressFiscalDetailID', 0)
-            address_selected = [reg for reg in self._consulta_direcciones
-                            if reg['AddressDetailID'] == address_fiscal_detail_id]
-
-            if address_selected:
-                self._seleccionar_direccion_fiscal(address_selected)
-
-                # esto pr
-                self._base_de_datos.homologar_direccion_fiscal(address_fiscal_detail_id)
-                return address_selected[0]
-
-        return self._base_de_datos.procesar_direccion_seleccionada_cbx(address_name, self._consulta_direcciones)
-
     def _actualizar_apariencia_si_tiene_sucursales(self):
 
         if self.cliente.depots == 0:
@@ -779,55 +759,42 @@ class BuscarGeneralesCliente:
 
         self._ventanas.posicionar_frame('frame_cbxs')
         self._ventanas.mostrar_componente('cbx_direccion')
+        direccion_seleccionada = self._ventanas.obtener_input_componente('cbx_direccion')
 
+        # direccion fiscal es la direccion AddressTypeID = 1
         if self.cliente.addresses == 1:
-            direccion = self._seleccionar_direccion_fiscal(direccion)
+            consulta = [reg for reg in self.cliente.addresses_details if reg['AddressTypeID'] == 1]
         else:
-            datos_direccion = self._procesar_direccion_seleccionada()
-            address_detail_id = datos_direccion.get('address_detail_id', 0)
-            direccion = self._base_de_datos.buscar_detalle_direccion_formateada(address_detail_id)
-            direccion['celular'] = self._info_cliente_seleccionado[0]['CellPhone']
+            consulta = [reg for reg in self.cliente.addresses_details if reg['AddressName'] == direccion_seleccionada]
 
-        self.documento.address_details = direccion
-        self.documento.address_detail_id = direccion.get('address_detail_id', 0)
-        self._cargar_info_direccion(direccion)
-
-    def _seleccionar_direccion_fiscal(self, direccion):
-
-        if isinstance(direccion, list):
-            direccion = direccion[0]
-
-        direccion['address_detail_id'] = self.cliente.address_fiscal_detail_id
-        direccion['address_name'] = 'Dirección Fiscal'
-        direccion['depot_id'] = 0
-        direccion['telefono'] = self.cliente.phone
-        direccion['celular'] = self.cliente.cellphone
-        direccion['calle'] = self.cliente.address_fiscal_street
-        direccion['numero'] = self.cliente.address_fiscal_ext_number
-        direccion['comentario'] = self.cliente.address_fiscal_comments
-        direccion['cp'] = self.cliente.address_fiscal_zip_code
-        direccion['colonia'] = self.cliente.address_fiscal_city
-        direccion['estado'] = self.cliente.address_fiscal_state_province
-        direccion['municipio'] = self.cliente.address_fiscal_municipality
-
-        return direccion
+        if consulta and direccion_seleccionada != 'Seleccione':
+            self.documento.address_details = direccion
+            self.documento.address_detail_id = direccion.get('AddressDetailID', 0)
+            self._cargar_info_direccion(direccion)
 
     def _cargar_info_direccion(self, info_direccion):
-        self._limpiar_direccion()
+
+        def _limpiar_direccion():
+            componentes = ['lbl_calle', 'lbl_numero', 'lbl_cp', 'lbl_telefono', 'lbl_celular',
+                           'lbl_estado', 'lbl_municipio', 'lbl_colonia', 'lbl_ncomercial'
+                           ]
+            self._ventanas.limpiar_componentes(componentes)
+
+        _limpiar_direccion()
         self._ventanas.posicionar_frame('frame_direccion')
 
         informacion = {
             'lbl_ncomercial': self.cliente.commercial_name,
             'lbl_ruta': self.cliente.zone_name,
-            'lbl_telefono': info_direccion.get('telefono', ''),
-            'lbl_celular': info_direccion.get('celular', ''),
-            'lbl_calle': info_direccion.get('calle', ''),
-            'lbl_numero': info_direccion.get('numero', ''),
-            'lbl_cp': info_direccion.get('cp', ''),
-            'lbl_colonia': info_direccion.get('colonia', ''),
-            'lbl_estado': info_direccion.get('estado', ''),
-            'lbl_municipio': info_direccion.get('municipio', ''),
-            'txt_comentario': info_direccion.get('comentario','')
+            'lbl_telefono': info_direccion.get('Telefono', ''),
+            'lbl_celular': info_direccion.get('Celular', ''),
+            'lbl_calle': info_direccion.get('Street', ''),
+            'lbl_numero': info_direccion.get('ExtNumber', ''),
+            'lbl_cp': info_direccion.get('ZipCode', ''),
+            'lbl_colonia': info_direccion.get('City', ''),
+            'lbl_estado': info_direccion.get('StateProvince', ''),
+            'lbl_municipio': info_direccion.get('Municipality', ''),
+            'txt_comentario': info_direccion.get('Comments','')
         }
 
         for nombre_componente, valores in self._componentes_direccion.items():
@@ -865,12 +832,6 @@ class BuscarGeneralesCliente:
                        'lbl_condicion','lbl_pcompra', 'lbl_comentario', 'lbl_minisuper', 'lbl_lista',
                        'lbl_telefono', 'lbl_celular', 'lbl_calle', 'lbl_numero','lbl_cp',
                        'lbl_estado','lbl_municipio'
-                       ]
-        self._ventanas.limpiar_componentes(componentes)
-
-    def _limpiar_direccion(self):
-        componentes = [ 'lbl_calle', 'lbl_numero', 'lbl_cp', 'lbl_telefono', 'lbl_celular',
-                       'lbl_estado', 'lbl_municipio', 'lbl_colonia', 'lbl_ncomercial'
                        ]
         self._ventanas.limpiar_componentes(componentes)
 
@@ -1038,15 +999,24 @@ class BuscarGeneralesCliente:
     def _asignar_parametros_a_documento(self):
 
         # las propiedades  self._doc_type | self._cfd_type_id son aginadas por la funcion self._documento_seleccionado
+        consulta = [reg for reg in self.cliente.addresses_details
+                                        if reg['AddressDetailID'] == self.documento.address_detail_id]
 
-        datos_direccion_seleccionada = self._procesar_direccion_seleccionada()
+        if consulta:
+            direccion = consulta[0]
 
-        self.documento.depot_id = datos_direccion_seleccionada.get('depot_id', 0)
-        self.documento.depot_name = datos_direccion_seleccionada.get('depot_name', '')
-        self.documento.address_detail_id = datos_direccion_seleccionada.get('address_detail_id', 0)
-        self.documento.address_name = datos_direccion_seleccionada.get('address_name', '')
-        self.documento.business_entity_id = self.cliente.business_entity_id
-        self.documento.customer_type_id = self.cliente.cayal_customer_type_id
+            depot_id = direccion.get('DepotID', 0)
+            depot_name = ''
+            if depot_id != 0:
+                depot_name = self._base_de_datos.fetchone('SELECT DepotName FROM orgDepot WHERE DepotID = ?',
+                                                          (depot_id,))
+
+            self.documento.depot_id = depot_id
+            self.documento.depot_name = depot_name
+            self.documento.address_detail_id = direccion.get('AddressDetailID', 0)
+            self.documento.address_name = direccion.get('AddressName', '')
+            self.documento.business_entity_id = self.cliente.business_entity_id
+            self.documento.customer_type_id = self.cliente.cayal_customer_type_id
 
     def _buscar_ofertas(self):
         """

@@ -476,7 +476,6 @@ class LlamarInstanciaCaptura:
 
                 self._actualizar_comentario_documento()
 
-            self._master.destroy()
 
     def _actualizar_excedente_crediticio(self):
         self._base_de_datos.command(

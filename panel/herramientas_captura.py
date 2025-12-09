@@ -112,8 +112,6 @@ class HerramientasCaptura:
 
             # 2) Popup para captura
             nueva_ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap('Nueva captura')
-            nueva_ventana.mainloop()
-
             _ = LlamarInstanciaCaptura(
                 nueva_ventana,  # master
                 self._parametros,
@@ -121,9 +119,6 @@ class HerramientasCaptura:
                 instancia.documento,
                 instancia.ofertas
             )
-
-
-
         finally:
             self._parametros.id_principal = 0
             self._reanudar_autorefresco()

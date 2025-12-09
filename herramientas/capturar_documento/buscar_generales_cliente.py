@@ -916,6 +916,71 @@ class BuscarGeneralesCliente:
 
         return True
 
+    def _crear_popup_simple(self,
+                           master=None,
+                           titulo=None,
+                           ejecutar_al_cierre=None,
+                           nombre_icono=None):
+        """
+        Popup simple:
+        - No oculta el master.
+        - No toca atributos raros de la raíz.
+        - Centra y muestra la ventana.
+        """
+        import tkinter as tk
+        import ttkbootstrap as ttk
+
+        titulo = titulo or "Ventana"
+
+        root = master or getattr(self, "_master", None) or tk._default_root
+        if root is None:
+            root = ttk.Window()
+            root.withdraw()
+
+        popup = ttk.Toplevel(root)
+        popup.title(titulo)
+        popup.resizable(False, False)
+
+        # Icono (si procede)
+        try:
+            # Ojo: aquí el icono debe aplicarse al popup, no al master
+            self._ventanas.agregar_icono_ventana(master=popup, nombre_icono=nombre_icono)
+        except Exception:
+            pass
+
+        def cerrar():
+            # Callback opcional
+            if ejecutar_al_cierre:
+                try:
+                    ejecutar_al_cierre()
+                except Exception as e:
+                    print(f"Error en callback al cerrar popup: {e}")
+            try:
+                popup.destroy()
+            except Exception:
+                pass
+
+        popup.protocol("WM_DELETE_WINDOW", lambda: cerrar())
+        popup.bind("<Escape>", lambda e: cerrar())
+
+        # Centrar
+        try:
+            popup.update_idletasks()
+            sw, sh = popup.winfo_screenwidth(), popup.winfo_screenheight()
+            w, h = popup.winfo_reqwidth(), popup.winfo_reqheight()
+            x, y = max(0, (sw - w) // 2), max(0, (sh - h) // 2)
+            popup.geometry(f"+{x}+{y}")
+        except Exception:
+            pass
+
+        try:
+            popup.lift()
+            popup.focus_set()
+        except Exception:
+            pass
+
+        return popup
+
     def _llamar_instancia(self):
         if self._instancia_llamada or not self._documento_seleccionado():
             return
@@ -930,8 +995,10 @@ class BuscarGeneralesCliente:
             if self._document_id != 0:
                 self._parametros_contpaqi.nombre_usuario = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
 
-            ventana = self._ventanas.crear_popup_ttkbootstrap(
-                 titulo="Capturar pedido", ocultar_master=True, ejecutar_al_cierre=None, preguntar=None)
+            #ventana = self._ventanas.crear_popup_ttkbootstrap(
+            #     titulo="Capturar pedido", ocultar_master=True, ejecutar_al_cierre=None, preguntar=None)
+
+            ventana = self._crear_popup_simple('Capturar pedido')
 
             # empaquetar ofertas del cliente
             self._ofertas = self._ofertas_por_lista[self._cliente.customer_type_id]

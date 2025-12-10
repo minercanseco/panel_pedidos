@@ -1064,12 +1064,21 @@ class BuscarGeneralesCliente:
 
         if not nombres:
             self._ventanas.rellenar_cbx('cbx_direccion', None, 'sin seleccione')
+            # Si no hay direcciones, aseguramos que el documento no arrastre algo anterior
+            self.documento.address_detail_id = 0
+            self.documento.address_details = {}
             return
 
+        # Rellenamos el combo normalmente
         self._ventanas.rellenar_cbx('cbx_direccion', nombres, 'sin seleccione')
 
-        # si quieres que por default quede seleccionada la fiscal:
-        self._ventanas.insertar_input_componente('cbx_direccion', nombres[0])
+        # Dejamos seleccionada por defecto la primera (en tu lógica: la fiscal)
+        direccion_por_defecto = nombres[0]
+        self._ventanas.insertar_input_componente('cbx_direccion', direccion_por_defecto)
+
+        # 🔴 Aquí es la clave: aplicamos de inmediato la dirección por defecto
+        # para que se asigne self.documento.address_detail_id y se carguen los labels.
+        self._seleccionar_direccion()
     # ------------------------------------------------------------------------------
     # funcion adcional de copia de informacion de la direccion
     # ------------------------------------------------------------------------------
@@ -1174,26 +1183,63 @@ class BuscarGeneralesCliente:
 
     def _asignar_parametros_a_documento(self):
 
-        # las propiedades  self._doc_type | self._cfd_type_id son aginadas por la funcion self._documento_seleccionado
-        consulta = [reg for reg in self.cliente.addresses_details
-                                        if reg['AddressDetailID'] == self.documento.address_detail_id]
+        # Si por alguna razón aún no hay address_detail_id,
+        # elegimos una dirección por defecto (fiscal si existe, si no la primera).
+        if not getattr(self.documento, "address_detail_id", 0):
+            direcciones = getattr(self.cliente, "addresses_details", []) or []
 
-        if consulta:
-            direccion = consulta[0]
+            if direcciones:
+                direccion_defecto = None
 
-            depot_id = direccion.get('DepotID', 0)
-            depot_name = ''
-            if depot_id != 0:
-                depot_name = self._base_de_datos.fetchone('SELECT DepotName FROM orgDepot WHERE DepotID = ?',
-                                                          (depot_id,))
+                # Preferimos la fiscal (AddressTypeID == 1)
+                for d in direcciones:
+                    if d.get('AddressTypeID') == 1:
+                        direccion_defecto = d
+                        break
 
-            self.documento.address_details = direccion
-            self.documento.depot_id = depot_id
-            self.documento.depot_name = depot_name
-            self.documento.address_detail_id = direccion.get('AddressDetailID', 0)
-            self.documento.address_name = direccion.get('AddressName', '')
-            self.documento.business_entity_id = self.cliente.business_entity_id
-            self.documento.customer_type_id = self.cliente.cayal_customer_type_id
+                if direccion_defecto is None:
+                    direccion_defecto = direcciones[0]
+
+                self.documento.address_detail_id = direccion_defecto.get('AddressDetailID', 0)
+            else:
+                # No hay direcciones registradas para el cliente; dejamos todo vacío y salimos
+                self.documento.address_details = {}
+                self.documento.depot_id = 0
+                self.documento.depot_name = ''
+                return
+
+        # En este punto, address_detail_id debe ser > 0
+        consulta = [
+            reg for reg in self.cliente.addresses_details
+            if reg['AddressDetailID'] == self.documento.address_detail_id
+        ]
+
+        if not consulta:
+            # No encontramos una dirección que matchee ese ID; evitamos reventar
+            self.documento.address_details = {}
+            self.documento.depot_id = 0
+            self.documento.depot_name = ''
+            return
+
+        direccion = consulta[0]
+
+        depot_id = direccion.get('DepotID', 0)
+        depot_name = ''
+        if depot_id != 0:
+            depot_name_row = self._base_de_datos.fetchone(
+                'SELECT DepotName FROM orgDepot WHERE DepotID = ?',
+                (depot_id,)
+            )
+            # fetchone te puede devolver dict o valor simple según lo tengas implementado
+            depot_name = depot_name_row['DepotName'] if isinstance(depot_name_row, dict) else depot_name_row
+
+        self.documento.address_details = direccion
+        self.documento.depot_id = depot_id
+        self.documento.depot_name = depot_name
+        self.documento.address_detail_id = direccion.get('AddressDetailID', 0)
+        self.documento.address_name = direccion.get('AddressName', '')
+        self.documento.business_entity_id = self.cliente.business_entity_id
+        self.documento.customer_type_id = self.cliente.cayal_customer_type_id
 
     def _validar_restriccion_vales_cliente(self):
         if self._module_id == 1692:

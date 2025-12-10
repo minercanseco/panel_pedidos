@@ -517,7 +517,7 @@ class ModeloCaptura:
                 )
                 self.base_de_datos.insertar_partida_documento_cayal(parametros)
 
-        if self._module_id == 1692:
+        if self._module_id == 1692: #modulo de vales
 
             if self.documento.finish_document == 0: # aplica para el módulo de vales
 

@@ -1108,8 +1108,6 @@ class BuscarGeneralesCliente:
             self._instancia_llamada = True
 
             self._asignar_parametros_a_documento()
-            print(self.documento.address_details)
-
 
             # 3) Empaquetar ofertas para el tipo de cliente actual
             ct_id = getattr(self.cliente, "customer_type_id", None)

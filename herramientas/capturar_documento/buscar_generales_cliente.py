@@ -800,7 +800,6 @@ class BuscarGeneralesCliente:
 
         seleccion = self._ventanas.obtener_input_componente('cbx_resultados') or ''
         if seleccion == 'Seleccione' and getattr(self, '_ultimo_cliente_texto', None):
-            # usa el último confirmado si el cbx sigue en placeholder
             seleccion = self._ultimo_cliente_texto
 
         if not seleccion or seleccion == 'Seleccione':
@@ -809,13 +808,9 @@ class BuscarGeneralesCliente:
 
         proceder = True
 
-        # Prepara datos (usa el id cacheado si existe; evita re-resolver por texto)
         beid = getattr(self, '_ultimo_cliente_id', None)
         if not beid:
             beid = self._buscar_busines_entity_id(seleccion)
-
-
-        self._seleccionar_direccion()
 
         if self.cliente.depots > 0:
             seleccion_direccion = (self._ventanas.obtener_input_componente('cbx_direccion') or '').upper()
@@ -969,8 +964,11 @@ class BuscarGeneralesCliente:
 
         if consulta and direccion_seleccionada != 'Seleccione':
             direccion = consulta[0]
-            self.documento.address_details = direccion
+
+            # Sólo usamos el ID aquí, para que la asignación "fuerte"
+            # se haga una sola vez en _asignar_parametros_a_documento
             self.documento.address_detail_id = direccion.get('AddressDetailID', 0)
+
             _limpiar_direccion()
             _cargar_info_direccion(direccion)
             self._ventanas.posicionar_frame('frame_direccion')

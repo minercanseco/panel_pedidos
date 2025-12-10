@@ -58,9 +58,9 @@ Fecha: 2025-09-03 13:33:41
 
 import ttkbootstrap as ttk
 from cayal.parametros_contpaqi import ParametrosContpaqi
-from panel.interfaz_panel_pedidos import InterfazPanelPedidos
-from panel.modelo_panel_pedidos import ModeloPanelPedidos
-from panel.controlador_panel_pedidos import ControladorPanelPedidos
+from panel.panel_pedidos_interfaz import InterfazPanelPedidos
+from panel.panel_pedidos_modelo import ModeloPanelPedidos
+from panel.panel_pedidos_controlador import ControladorPanelPedidos
 from cayal.actualizador_de_paquetes import ActualizadorDePaquetes
 from cayal.login import Login
 from cayal.generar_contexto_ia import GenerarContextoIA

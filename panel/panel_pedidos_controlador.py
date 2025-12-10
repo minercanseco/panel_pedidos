@@ -420,6 +420,13 @@ class ControladorPanelPedidos:
         self._limpiar_componentes()
         self._actualizar_pedidos(self._fecha_seleccionada())
 
+    def _filtrar_post_captura(self):
+        self._actualizar_pedidos(self._fecha_seleccionada())
+        self._interfaz.ventanas.insertar_input_componente('cbx_capturista',self._modelo.user_name)
+        self._interfaz.ventanas.insertar_input_componente('cbx_status', 'Abierto')
+        self._filtrar_por_status()
+
+
     def _limpiar_componentes(self):
         self._interfaz.ventanas.limpiar_componentes(['tbx_comentarios', 'tvw_detalle'])
 
@@ -728,6 +735,7 @@ class ControladorPanelPedidos:
         callbacks_autorefresco = {
             "pausar": self._pausar_autorefresco,
             "reanudar": self._reanudar_autorefresco,
+            "postcaptura":self._filtrar_post_captura
         }
 
         # cada frame será el master de las subsecuentes ventanas

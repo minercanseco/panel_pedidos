@@ -72,6 +72,11 @@ class HerramientasCaptura:
         if fn:
             fn()
 
+    def _filtro_post_captura(self):
+        fn = self._callbacks_autorefresco.get("postcaptura")
+        if fn:
+            fn()
+
     def _obtener_valores_fila_pedido_seleccionado(self, valor = None):
         if not self._interfaz.ventanas.validar_seleccion_una_fila_table_view('tbv_pedidos'):
             return
@@ -121,6 +126,7 @@ class HerramientasCaptura:
             )
         finally:
             self._parametros.id_principal = 0
+            self._filtro_post_captura()
             self._reanudar_autorefresco()
 
     def _editar_pedido(self):

@@ -1727,7 +1727,7 @@ class ControladorCaptura:
         self._interfaz = interfaz
         self._master = interfaz.master
         self._modelo = modelo
-        self._parametros_contpaqi = self._modelo.parametros_contpaqi
+        self._parametros_contpaqi = self._modelo.parametros
         self._ventanas = self._interfaz.ventanas
 
         self.base_de_datos = self._modelo.base_de_datos
@@ -5726,7 +5726,7 @@ class EditarPartida:
 
         self._ventanas_interfaz = self._interfaz.ventanas
         self._modelo = modelo
-        self._parametros_contpaqi = self._modelo.parametros_contpaqi
+        self._parametros_contpaqi = self._modelo.parametros
         self._documento = self._modelo.documento
         self._utilerias = utilerias
         self._base_de_datos = base_de_datos
@@ -5757,16 +5757,14 @@ class EditarPartida:
         partida_documento = self._obtener_info_partida_documento(valor_uuid)
 
         if partida_documento:
-            piezas = partida_documento.get('CayalPiece',0)
+            piezas = partida_documento.get('CayalPiece', 0)
             if piezas == 0:
                 self._ventanas.insertar_input_componente('tbx_cantidad', quantity)
                 self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'deseleccionado')
 
-
-            if  piezas % 1 == 0 and piezas != 0:
+            if piezas % 1 == 0 and piezas != 0:
                 self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'seleccionado')
                 self._ventanas.insertar_input_componente('tbx_cantidad', piezas)
-
 
         info_producto = self._modelo.buscar_info_productos_por_ids(product_id)[0]
         self._info_producto = self._utilerias.calcular_precio_con_impuesto_producto(info_producto)
@@ -5782,7 +5780,7 @@ class EditarPartida:
         texto = self._modelo.crear_texto_existencia_producto(info_producto)
         self._ventanas.insertar_input_componente('lbl_existencia', texto)
 
-        comentario = partida_documento.get('Comments','')
+        comentario = partida_documento.get('Comments', '')
         self._ventanas.insertar_input_componente('txt_comentario', comentario)
 
     def _obtener_info_partida_documento(self, uuid_partida):
@@ -6096,7 +6094,7 @@ class EditarPartida:
                     partida['cantidad'] = cantidad_nueva
                     partida['subtotal'] = partida_actualizada['subtotal']
                     partida['total'] = partida_actualizada['total']
-                    partida['CayalPiece'] = piezas #self._ventanas.obtener_input_componente('chk_pieza')
+                    partida['CayalPiece'] = piezas  # self._ventanas.obtener_input_componente('chk_pieza')
                     partida['monto_cayal'] = self._ventanas.obtener_input_componente('chk_monto')
                     partida['Comments'] = self._ventanas.obtener_input_componente('txt_comentario')
                     partida['CreatedBy'] = self._user_id
@@ -6108,7 +6106,6 @@ class EditarPartida:
                         valores_fila = self._ventanas_interfaz.procesar_fila_treeview('tvw_productos', fila)
                         uuid_tabla = str(valores_fila['UUID'])
                         if uuid_tabla == uuid_partida:
-
                             valores_fila['Cantidad'] = cantidad_nueva
                             valores_fila['Importe'] = "{:.2f}".format(partida_actualizada['subtotal'])
                             valores_fila['Impuestos'] = "{:.2f}".format(partida_actualizada['impuestos'])
@@ -6122,7 +6119,7 @@ class EditarPartida:
             cantidad_nueva = self._utilerias.redondear_valor_cantidad_a_decimal(cantidad_nueva)
 
             if cantidad_original == cantidad_nueva:
-                comentario  = self._ventanas.obtener_input_componente('txt_comentario')
+                comentario = self._ventanas.obtener_input_componente('txt_comentario')
                 comentario = f'EDITADO POR {self._user_name}: {comentario}'
             else:
                 # actualiza los totales de la nota para posteriores modificaciones

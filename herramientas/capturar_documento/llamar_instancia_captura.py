@@ -449,7 +449,7 @@ class LlamarInstanciaCaptura:
 
         finally:
             # 4) Registro de documentos a recalcular y actualizaciones varias
-            if self._documento.document_id != 0:
+            if self._documento.document_id != 0 and self._module_id != 1687: # proceso no válido para pedidos
                 self._base_de_datos.registrar_documento_a_recalcular(
                     self._documento.document_id,
                     self._documento.document_id,
@@ -476,6 +476,9 @@ class LlamarInstanciaCaptura:
 
                 self._actualizar_comentario_documento()
 
+            if self._documento.order_document_id != 0 and self._module_id == 1687: # proceso válido para pedidos
+                self._actualizar_comentario_pedido()
+
     def _actualizar_excedente_crediticio(self):
         self._base_de_datos.command(
             'UPDATE docDocument SET CreditExceededAmount = ? WHERE DocumentID = ?',
@@ -493,6 +496,12 @@ class LlamarInstanciaCaptura:
     def _actualizar_comentario_documento(self):
         self._base_de_datos.command(
             'UPDATE docDocument SET Comments = ? WHERE DocumentID = ?',
+            (self._documento.comments, self._documento.document_id)
+        )
+
+    def _actualizar_comentario_pedido(self):
+        self._base_de_datos.command(
+            'UPDATE docDocumentOrderCayal SET CommentsOrder = ? WHERE OrderDocumentID = ?',
             (self._documento.comments, self._documento.document_id)
         )
 

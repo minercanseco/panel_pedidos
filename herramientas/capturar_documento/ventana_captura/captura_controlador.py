@@ -1,19 +1,14 @@
 import copy
 import datetime
 import re
-
+import tkinter as tk
 import pyperclip
 import logging
 
 from herramientas.capturar_documento.herramientas_captura.agregar_epecificaciones import AgregarEspecificaciones
-from herramientas.capturar_documento.herramientas_captura.editar_direccion_documento import EditarDireccionDocumento
-from herramientas.capturar_documento.herramientas_captura.historial_cliente import HistorialCliente
-from herramientas.cliente.notebook_cliente import NoteBookCliente
-from herramientas.verificador_precios.interfaz_verificador import InterfazVerificador
-from herramientas.verificador_precios.controlador_verificador import ControladorVerificador
-from herramientas.capturar_documento.herramientas_captura.editar_partida import EditarPartida
-from herramientas.cobro_rapido.controlador_cobro_rapido import ControladorCobroRapido
-from herramientas.cobro_rapido.interfaz_cobro_rapido import InterfazCobroRapido
+from herramientas.capturar_documento.ventana_captura.herramientas_facturas import HerramientasFacturas
+from herramientas.capturar_documento.ventana_captura.herramientas_pedido import HerramientasPedido
+from herramientas.capturar_documento.ventana_captura.herramientas_ticket import HerramientasTicket
 
 
 class ControladorCaptura:
@@ -22,216 +17,208 @@ class ControladorCaptura:
         self._interfaz = interfaz
         self._master = interfaz.master
         self._modelo = modelo
-        self._parametros_contpaqi = self._modelo.parametros_contpaqi
-        self._ventanas = self._interfaz.ventanas
 
-        self.base_de_datos = self._modelo.base_de_datos
-        self._utilerias = self._modelo.utilerias
-
-        self.documento = self._modelo.documento
-        self.cliente = self._modelo.cliente
-        self._inicializar_variables_de_instancia()
-
-        self._crear_barra_herramientas()
-        self.direcciones_cliente = self.base_de_datos.rellenar_cbx_direcciones(self.cliente.business_entity_id)
-
-        self.servicio_a_domicilio_agregado = self._modelo.servicio_a_domicilio_agregado
-        self._costo_servicio_a_domicilio = self._modelo.costo_servicio_a_domicilio
-        self._partida_servicio_domicilio = None
-
-        self._consulta_productos = None
-        self.consulta_productos_ofertados = None
-        self._termino_buscado = None
-
-        self._rellenar_controles_interfaz()
+        self._crear_notebook_herramientas()
+        self._cargar_informacion_general()
         self._cargar_eventos_componentes()
 
-        if not self._es_documento_bloqueado():
-            self._agregar_atajos()
+        if self._modelo.module_id == 1687: # modulo de pedidos
+            self._modelo.agregar_servicio_a_domicilio()
+            self._configurar_pedido()
 
-        self._modelo.agregar_servicio_a_domicilio()
-
-        self._rellenar_desde_base_de_datos()
-
-        self._configurar_pedido()
-        self._inicializar_captura_manual()
+        if self._modelo.module_id == 1687 and self._modelo.documento.document_id > 0: # modulo de pedidos
+            self._rellenar_desde_base_de_datos()
 
         self._buscar_ofertas()
+        self._interfaz.ventanas.situar_ventana_arriba(self._master)
+        self._interfaz.ventanas.enfocar_componente('tbx_clave')
 
-        self._interfaz.ventanas.configurar_ventana_ttkbootstrap(titulo='Nueva captura', bloquear=False)
-        self._ventanas.situar_ventana_arriba(self._master)
-        self._ventanas.enfocar_componente('tbx_clave')
+        if self._modelo.module_id == 1687: # si es pedido
+            self._interfaz.ventanas.enfocar_componente('tbx_buscar_manual')
 
-        if self._module_id == 1687: # si es pedido
-            self._ventanas.enfocar_componente('tbx_buscar_manual')
+    # ---------------------------------------------------------------------
+    # Funciones relacionadas a herramientas y eventos de componentes de captura
+    # ---------------------------------------------------------------------
+    def _crear_notebook_herramientas(self):
+        info_pestanas = {
+            'tab_ticket': ('Herramientas', [158]),
+            'tab_pedido': ('Herramientas', [1687]),
+            'tab_facturas': ('Herramientas', [21, 1400, 1319, 1316, 967]),
+        }
 
-    def _inicializar_captura_manual(self):
-        if self._es_documento_bloqueado():
+        info_pestanas_modulo = {
+            clave: (etiqueta, modulos)
+            for clave, (etiqueta, modulos) in info_pestanas.items()
+            if self._modelo.module_id in modulos
+        }
+
+        # Si el módulo no tiene pestaña asociada, no hacemos nada
+        if not info_pestanas_modulo:
             return
 
-        self._procesando_seleccion = False
-        self._info_partida_seleccionada = {}
-        self._agregando_producto = False
-
-        self._rellenar_componentes_manual()
-
-    def _es_documento_bloqueado(self):
-        status_id = 0
-
-        if self._module_id == 1687:
-            status_id = self.base_de_datos.fetchone(
-                'SELECT ISNULL(StatusID,0) Status FROM docDocumentOrderCayal WHERE OrderDocumentID = ?',
-                (self.documento.document_id,)
-            )
-            status_id = 0 if not status_id else status_id
-
-        if status_id > 2 or self.documento.cancelled_on:
-            self._ventanas.bloquear_forma('frame_herramientas')
-
-            estilo_cancelado = {
-                'foreground': 'white',
-                'background': '#ff8000',
+        nombre_notebook = 'nbk_herramientas_captura'
+        notebook = self._interfaz.ventanas.crear_notebook(
+            nombre_notebook=nombre_notebook,
+            info_pestanas=info_pestanas_modulo,
+            nombre_frame_padre='frame_herramientas',
+            config_notebook={
+                'row': 0,
+                'column': 0,
+                'sticky': tk.NSEW,
+                'padx': 0,
+                'pady': 0,
+                'bootstyle': 'primary',
             }
+        )
 
-            frame = self._ventanas.componentes_forma['frame_totales']
-            widgets = frame.winfo_children()
+        # Crear frames base para cada pestaña (en la práctica será solo una)
+        frames_tabs = {}
+        for clave, (etiqueta, modulos) in info_pestanas_modulo.items():
+            tab_name = clave
+            frame_name = clave.replace('tab_', 'frm_')
+            frames_tabs[frame_name] = (
+                tab_name,
+                None,
+                {'row': 0, 'column': 0, 'sticky': tk.NSEW, 'padx': 0, 'pady': 0}
+            )
 
-            for widget in widgets:
-                widget.config(**estilo_cancelado)
+        self._interfaz.ventanas.crear_frames(frames_tabs)
 
-            return True
+        # cada frame será el master de las subsecuentes ventanas
+        for frame_name, (tab_name, configuracion, posicion) in frames_tabs.items():
+            frame = self._interfaz.ventanas.componentes_forma[frame_name]
 
-        return False
+            if 'ticket' in frame_name and self._modelo.module_id == 158:
+                HerramientasTicket(
+                    master=frame,
+                    modelo=self._modelo,
+                    interfaz=self._interfaz
+                )
 
-    def _actualizar_forma_pago(self):
-        if self.documento.cfd_type_id == 1:
-            return
+            if 'pedido' in frame_name and self._modelo.module_id == 1687:
+                HerramientasPedido(
+                    master=frame,
+                    modelo=self._modelo,
+                    interfaz=self._interfaz
+                )
 
-        clave = self.documento.forma_pago
-        fp_seleccionada = self._ventanas.obtener_input_componente('cbx_formapago')
-        consulta_clave_seleccionada =  [reg['Clave'] for reg in self._modelo.consulta_formas_pago
-                                        if fp_seleccionada == reg['Value']]
-        if consulta_clave_seleccionada:
-            clave_seleccionada = str(consulta_clave_seleccionada[0])
-
-            if clave != '99' and clave_seleccionada == '99':
-                consulta_valor_documento = [reg['Value'] for reg in self._modelo.consulta_formas_pago
-                                        if clave == reg['Clave']]
-                if consulta_valor_documento:
-                    valor_documento = consulta_valor_documento[0]
-
-                    self._ventanas.mostrar_mensaje('La forma de pago 99 solo es válida con método de pago PPD.')
-                    self._ventanas.insertar_input_componente('cbx_formapago', valor_documento)
-                    return
-
-            self.documento.forma_pago = clave_seleccionada
-            self._ventanas.insertar_input_componente('cbx_formapago', fp_seleccionada)
+            if 'facturas' in frame_name and self._modelo.module_id in (21, 1400, 1319, 1316, 967):
+                HerramientasFacturas(
+                    master=frame,
+                    modelo=self._modelo,
+                    interfaz=self._interfaz
+                )
 
     def _cargar_eventos_componentes(self):
         eventos = {
             'tbx_clave': lambda event: self._agregar_partida(),
-
             # eventos captura manual
             'btn_ofertas_manual': lambda: self._buscar_ofertas(rellenar_tabla=True),
             'btn_agregar_manual': lambda: self._agregar_partida_manualmente(),
             'btn_copiar_manual': lambda: self._copiar_productos(),
             'btn_especificaciones_manual': lambda: self._agregar_especicificaciones(),
-
             'tbx_buscar_manual': lambda event: self._buscar_productos_manualmente(),
             'tbx_cantidad_manual': lambda event: self._selecionar_producto_tabla_manual(),
-
             'chk_monto': lambda *args: self._selecionar_producto_tabla_manual(),
             'chk_pieza': lambda *args: self._selecionar_producto_tabla_manual(),
-            'tvw_productos_manual': (lambda event: self._selecionar_producto_tabla_manual(configurar_forma=True), 'seleccion'),
-            'cbx_formapago': lambda event:self._actualizar_forma_pago()
-        }
-        if self._module_id not in (1400,21,1319): # solo aplica actualizacion de forma de pago para facturas
-            del eventos['cbx_formapago']
-
-        if self._module_id == 1687: # solo en el modulo de pedidos se puede editar la partida
-            eventos['tvw_productos'] = (lambda event: self._editar_partida(), 'doble_click')
-
-        self._ventanas.cargar_eventos(eventos)
-
-        if self._module_id == 1687:  # solo en el modulo de pedidos se puede editar la partida
-            evento_adicional = {
-                'tvw_productos': (lambda event: self._eliminar_partida(), 'suprimir'),
-            }
-            self._ventanas.cargar_eventos(evento_adicional)
-
-        ancho, alto = self._ventanas.obtener_resolucion_pantalla()
-        if ancho > 1367:
-            txt_comentario_pedido = self._ventanas.componentes_forma['txt_comentario_documento']
-            txt_comentario_pedido.bind("<FocusOut>",lambda event:self._actualizar_comentario_pedido())
-
-    def _actualizar_comentario_pedido(self):
-        comentario = self._ventanas.obtener_input_componente('txt_comentario_documento')
-        comentario = comentario.upper().strip() if comentario else ''
-        self.documento.comments = comentario
-
-    def _agregar_atajos(self):
-        eventos = {
-            'F3': lambda: self._verificador_precios(),
-            'F4': lambda: self._editar_direccion_documento(),
-            'F6': lambda: self._editar_cliente(),
-            'F7': lambda: self._historial_cliente(),  # asegúrate de llamar al método
-            'F8': lambda: self._agregar_partida_manualmente(),
-            'F9': lambda: self._copiar_productos(),
-            'F10': lambda: self._activar_chk_pieza(),
-            'F11': lambda: self._activar_chk_monto(),
-            'F12': lambda: self._cobrar_nota(),
-
-            'Ctrl+B': lambda: self._ventanas.enfocar_componente('tbx_buscar_manual'),
-            'Ctrl+C': lambda: self._ventanas.enfocar_componente('tbx_cantidad_manual'),
-            'Ctrl+F': lambda: self._ventanas.enfocar_componente('cbx_tipo_busqueda_manual'),
-            'Ctrl+M': lambda: self._ventanas.enfocar_componente('txt_comentario_manual'),
-            'Ctrl+T': lambda: self._ventanas.enfocar_componente('tvw_productos_manual'),
-            'Ctrl+P': lambda: self._ventanas.enfocar_componente('txt_portapapeles_manual'),
-            'Ctrl+E': lambda: self._agregar_especicificaciones(),
+            'tvw_productos_manual': (lambda event: self._selecionar_producto_tabla_manual(configurar_forma=True), 'seleccion')
         }
 
-        # Módulos que SÍ deben conservar F8 y F12
-        mod_con_f8_f12 = {21, 158, 1319, 1400}
-        if self._module_id not in mod_con_f8_f12:
-            # En todos los demás módulos se quitan F8 y F12
-            eventos.pop('F8', None)
-            eventos.pop('F12', None)
+        self._interfaz.ventanas.cargar_eventos(eventos)
 
-        # Ajustes adicionales sólo para el módulo 158
-        if self._module_id == 158:
-            for k in ('F4', 'F5', 'F6', 'F7', 'F9'):
-                eventos.pop(k, None)
-
-        # Registrar atajos resultantes
-        self._ventanas.agregar_hotkeys_forma(eventos)
-
-    def _inicializar_variables_de_instancia(self):
-        self._iconos_barra_herramientas = []
-        self._module_id = self._parametros_contpaqi.id_modulo
-        self._user_id = self._parametros_contpaqi.id_usuario
-
-        self._cobrando = False
-        self._documento_cobrado = False
-
-        if self.documento.document_id > 0:
-            self._user_name = self.base_de_datos.buscar_nombre_de_usuario(self.documento.created_by)
-
-        if self.documento.document_id < 1:
-            self._user_name = self.base_de_datos.buscar_nombre_de_usuario(self._user_id)
-
-    def _rellenar_controles_interfaz(self):
+    #---------------------------------------------------------------------
+    # Funciones relacionadas a información del documento
+    # ---------------------------------------------------------------------
+    def _cargar_informacion_general(self):
         self._cargar_direccion_cliente()
         self._cargar_nombre_cliente()
         self._cargar_informacion_crediticia()
 
-        self._ventanas.insertar_input_componente('lbl_captura', self._user_name)
-        self._ventanas.insertar_input_componente('lbl_folio', self.documento.docfolio)
+        self._interfaz.ventanas.insertar_input_componente('lbl_captura', self._modelo.user_name)
+        self._interfaz.ventanas.insertar_input_componente('lbl_folio', self._modelo.documento.docfolio)
 
-        nombre_modulo = self._cargar_nombre_y_prefijo_modulo()
-        self._ventanas.insertar_input_componente('lbl_modulo', nombre_modulo)
+        nombre_modulo = self._modelo.obtener_nombre_y_prefijo_segun_modulo()
+        self._interfaz.ventanas.insertar_input_componente('lbl_modulo', nombre_modulo)
 
-        if self._module_id in (21,1400,1319):
+        if self._modelo.module_id in (21,1400,1319):
             self._modelo.rellenar_cbxs_fiscales()
+
+    def _cargar_nombre_cliente(self):
+        nombre = self._modelo.cliente.official_name
+        nombre_comercial = self._modelo.cliente.commercial_name
+        sucursal = self._modelo.documento.depot_name
+        nombre_direccion = self._modelo.documento.address_name
+
+        sucursal = f'({nombre_direccion})' if not sucursal else f'({sucursal})'
+        nombre_comercial = '' if not nombre_comercial else f'-{nombre_comercial}-'
+
+        nombre_cliente = f'{nombre} {nombre_comercial} {sucursal}'
+        self._interfaz.ventanas.insertar_input_componente('tbx_cliente', nombre_cliente)
+        self._interfaz.ventanas.bloquear_componente('tbx_cliente')
+
+    def _cargar_direccion_cliente(self):
+        datos_direccion = self._modelo.documento.address_details
+
+        self._modelo.documento.address_detail_id = datos_direccion['AddressDetailID']
+        if self._modelo.module_id == 1687: # modulo de pedidos
+            self._modelo.documento.order_parameters['AddressDetailID'] = datos_direccion['AddressDetailID']
+
+        calle = datos_direccion.get('Street', '')
+        numero = datos_direccion.get('ExtNumber', '')
+        colonia = datos_direccion.get('City', '')
+        cp = datos_direccion.get('ZipCode', '')
+        municipio = datos_direccion.get('Municipality', '')
+        estado = datos_direccion.get('StateProvince', '')
+        comentario = datos_direccion.get('Comments', '')
+
+        texto_direccion = f'{calle} NUM.{numero}, COL.{colonia}, MPIO.{municipio}, EDO.{estado}, C.P.{cp}'
+        texto_direccion = texto_direccion.upper()
+
+        self._interfaz.ventanas.insertar_input_componente('tbx_direccion', texto_direccion)
+        self._interfaz.ventanas.bloquear_componente('tbx_direccion')
+
+        self._interfaz.ventanas.insertar_input_componente('tbx_comentario', comentario)
+        self._interfaz.ventanas.bloquear_componente('tbx_comentario')
+
+    def _cargar_informacion_crediticia(self):
+
+        if self._modelo.cliente.credit_block == 1:
+            estilo = {
+                'foreground': '#E30421',
+                'background': '#E30421',
+                'font': ('Consolas', 14, 'bold'),
+                # 'anchor': 'center'
+            }
+
+            nombres = ['lbl_credito_texto', 'lbl_restante_texto', 'lbl_debe_texto',
+                       'lbl_credito', 'lbl_restante', 'lbl_debe'
+                       ]
+            for nombre in nombres:
+                componente = self._modelo.ventanas.componentes_forma.get(nombre, None)
+                if componente:
+                    componente.config(**estilo)
+
+        if self._modelo.cliente.credit_block == 0:
+            if self._modelo.cliente.authorized_credit > 0 and self._modelo.cliente.remaining_credit > 0:
+                valores = {'authorized_credit': 'lbl_credito',
+                           'remaining_credit': 'lbl_restante',
+                           'debt': 'lbl_debe'
+                           }
+
+                # el credito del cliente es el credito del documento
+                self._modelo.documento.credit_document_available = 0 if self._modelo.cliente.remaining_credit <= 0 else 1
+
+                for atributo, label in valores.items():
+                    monto = getattr(self._modelo.cliente, atributo)
+                    monto_decimal = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(monto)
+                    monto_moneda = self._modelo.utilerias.convertir_decimal_a_moneda(monto_decimal)
+
+                    self._interfaz.ventanas.insertar_input_componente(label, monto_moneda)
+
+    # ---------------------------------------------------------------------
+    # Funciones auxiliares relacionados con la captura de partidas en el documento
+    # ---------------------------------------------------------------------
+
 
     def _copiar_portapapeles(self):
         try:
@@ -244,131 +231,13 @@ class ControladorCaptura:
             logging.error("Error al obtener el texto del portapapeles: %s", e)
             return None
 
-    def _cargar_direccion_cliente(self):
-        datos_direccion = self.documento.address_details
 
-        self.documento.address_detail_id = datos_direccion['AddressDetailID']
-        if self._module_id == 1687: # modulo de pedidos
-            self.documento.order_parameters['AddressDetailID'] = datos_direccion['AddressDetailID']
 
-        calle = datos_direccion.get('Street', '')
-        numero = datos_direccion.get('ExtNumber', '')
-        colonia = datos_direccion.get('City', '')
-        cp = datos_direccion.get('ZipCode', '')
-        municipio = datos_direccion.get('Municipality', '')
-        estado = datos_direccion.get('StateProvince', '')
-        comentario = datos_direccion.get('Comments', '')
 
-        texto_direccion = f'{calle} NUM.{numero}, COL.{colonia}, MPIO.{municipio}, EDO.{estado}, C.P.{cp}'
-        texto_direccion = texto_direccion.upper()
-        self._ventanas.insertar_input_componente('tbx_direccion', texto_direccion)
-        self._ventanas.bloquear_componente('tbx_direccion')
 
-        self._ventanas.insertar_input_componente('tbx_comentario', comentario)
-        self._ventanas.bloquear_componente('tbx_comentario')
 
-    def _cobrar_nota(self):
-        if self.documento.document_id == 0:
-            self._ventanas.mostrar_mensaje('Debe por lo menos capturar un producto.')
-            return
 
-        if not self._cobrando:
-            try:
-                self._cobrando = True
 
-                self.base_de_datos.command("""
-                    UPDATE docDocument SET Balance = ?,
-                                            Total = ?,
-                                            TotalPaid = ?  
-                    WHERE DocumentID = ?
-                """,(
-                    self.documento.total,
-                    self.documento.total,
-                    0,
-                    self.documento.document_id
-                ))
-
-                self._parametros_contpaqi.id_principal = self.documento.document_id
-
-                ventana = self._ventanas.crear_popup_ttkbootstrap()
-                interfaz = InterfazCobroRapido(ventana)
-                controlador = ControladorCobroRapido(interfaz, self._parametros_contpaqi)
-                ventana.wait_window()
-
-                self._documento_cobrado = controlador.documento_cobrado
-                self.documento.amount_received = controlador.monto_recibido
-                self.documento.customer_change = controlador.cambio_cliente
-
-            finally:
-                self._cobrando = False
-
-                self._parametros_contpaqi.id_principal = 0
-
-                if self._documento_cobrado:
-                    self._interfaz.master.destroy()
-
-    def _cargar_nombre_cliente(self):
-        nombre = self.cliente.official_name
-        nombre_comercial = self.cliente.commercial_name
-        sucursal = self.documento.depot_name
-        nombre_direccion = self.documento.address_name
-
-        sucursal = f'({nombre_direccion})' if not sucursal else f'({sucursal})'
-        nombre_comercial = '' if not nombre_comercial else f'-{nombre_comercial}-'
-
-        nombre_cliente = f'{nombre} {nombre_comercial} {sucursal}'
-        self._ventanas.insertar_input_componente('tbx_cliente', nombre_cliente)
-        self._ventanas.bloquear_componente('tbx_cliente')
-
-    def _cargar_nombre_y_prefijo_modulo(self):
-
-        nombre_modulo = {1687: 'PEDIDOS',
-                         21: 'MAYOREO',
-                         1400: 'MINISUPER',
-                         158: 'VENTAS',
-                         1316: 'NOTAS',
-                         1319: 'GLOBAL',
-                         202: 'ENTRADA',
-                         203: 'SALIDA',
-                         1692: 'C.EMPLEADOS'
-                         }
-
-        return nombre_modulo.get(self._module_id, 'CAYAL')
-
-    def _cargar_informacion_crediticia(self):
-
-        if self.cliente.credit_block == 1:
-            estilo = {
-                'foreground': '#E30421',
-                'background': '#E30421',
-                'font': ('Consolas', 14, 'bold'),
-                # 'anchor': 'center'
-            }
-
-            nombres = ['lbl_credito_texto', 'lbl_restante_texto', 'lbl_debe_texto',
-                       'lbl_credito', 'lbl_restante', 'lbl_debe'
-                       ]
-            for nombre in nombres:
-                componente = self._ventanas.componentes_forma.get(nombre, None)
-                if componente:
-                    componente.config(**estilo)
-
-        if self.cliente.credit_block == 0:
-            if self.cliente.authorized_credit > 0 and self.cliente.remaining_credit > 0:
-                valores = {'authorized_credit': 'lbl_credito',
-                           'remaining_credit': 'lbl_restante',
-                           'debt': 'lbl_debe'
-                           }
-
-                # el credito del cliente es el credito del documento
-                self.documento.credit_document_available = 0 if self.cliente.remaining_credit <= 0 else 1
-
-                for atributo, label in valores.items():
-                    monto = getattr(self.cliente, atributo)
-                    monto_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(monto)
-                    monto_moneda = self._utilerias.convertir_decimal_a_moneda(monto_decimal)
-
-                    self._ventanas.insertar_input_componente(label, monto_moneda)
 
     def _agregar_partida_por_clave(self, clave):
 
@@ -393,16 +262,16 @@ class ControladorCaptura:
                 self._modelo.mensajes_de_error(8)
                 return
 
-            producto_id = self._modelo.obtener_product_ids_consulta(consulta_producto)
+            product_id = self._modelo.obtener_product_ids_consulta(consulta_producto)
 
-            if not producto_id:
+            if not product_id:
                 self._modelo.mensajes_de_error(11)
                 return
 
-            info_producto = self._modelo.buscar_info_productos_por_ids(producto_id, no_en_venta=True)
+            info_producto = self._modelo.buscar_info_productos_por_ids(product_id, no_en_venta=True)
 
             if not info_producto:
-                existencia = self.base_de_datos.buscar_existencia_productos(producto_id)
+                existencia = self._modelo.obtener_existencia_producto(product_id)
 
                 if not existencia:
                     self._modelo.mensajes_de_error(11)
@@ -417,7 +286,7 @@ class ControladorCaptura:
                 return
 
             # permite que al capturar por clave se respeten los casos tipo reja de huevo
-            equivalencia_especial = self._utilerias.equivalencias_productos_especiales(producto_id)
+            equivalencia_especial = self._utilerias.equivalencias_productos_especiales(product_id)
             if equivalencia_especial:
                 cantidad = equivalencia_especial[1]
 
@@ -434,25 +303,25 @@ class ControladorCaptura:
             self._ventanas.enfocar_componente('tbx_clave')
 
     def _configurar_pedido(self):
-        if self.documento.document_id < 1:
+        if self._modelo.documento.document_id < 1:
             valores_pedido = {}
             valores_pedido['OrderTypeID'] = 1
-            valores_pedido['CreatedBy'] = self._parametros_contpaqi.id_usuario
+            valores_pedido['CreatedBy'] = self._parametros.id_usuario
             valores_pedido['CreatedOn'] = datetime.datetime.now()
-            comentario_pedido = self.documento.comments
+            comentario_pedido = self._modelo.documento.comments
             valores_pedido['CommentsOrder'] = comentario_pedido.upper().strip() if comentario_pedido else ''
-            valores_pedido['BusinessEntityID'] = self.cliente.business_entity_id
+            valores_pedido['BusinessEntityID'] = self._modelo.cliente.business_entity_id
             related_order_id = 0
             valores_pedido['RelatedOrderID'] = related_order_id
-            valores_pedido['ZoneID'] = self.cliente.zone_id
+            valores_pedido['ZoneID'] = self._modelo.cliente.zone_id
             valores_pedido['SubTotal'] = 0
             valores_pedido['TotalTax'] = 0
             valores_pedido['Total'] = 0
-            valores_pedido['HostName'] = self._utilerias.obtener_hostname()
-            valores_pedido['AddressDetailID'] = self.documento.address_detail_id
-            valores_pedido['DocumentTypeID'] = self.documento.cfd_type_id
-            valores_pedido['OrderDeliveryCost'] = self.documento.delivery_cost
-            valores_pedido['DepotID'] = self.documento.depot_id
+            valores_pedido['HostName'] = self._modelo.utilerias.obtener_hostname()
+            valores_pedido['AddressDetailID'] = self._modelo.documento.address_detail_id
+            valores_pedido['DocumentTypeID'] = self._modelo.documento.cfd_type_id
+            valores_pedido['OrderDeliveryCost'] = self._modelo.documento.delivery_cost
+            valores_pedido['DepotID'] = self._modelo.documento.depot_id
 
             way_to_pay_id = valores_pedido.get('WayToPayID', 1)
             payment_confirmed_id = 1
@@ -469,7 +338,7 @@ class ControladorCaptura:
             valores_pedido['PaymentConfirmedID'] = payment_confirmed_id
 
             self.parametros_pedido = valores_pedido
-            self.documento.order_parameters = valores_pedido
+            self._modelo.documento.order_parameters = valores_pedido
 
     def _rellenar_desde_base_de_datos(self):
         if self.documento.document_id < 1:
@@ -479,8 +348,7 @@ class ControladorCaptura:
         self._ventanas.insertar_input_componente('txt_comentario_documento', self.documento.comments)
 
         # rellena la informacion relativa a las partidas
-        partidas = self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(self.documento.document_id,
-                                                                           partidas_producidas=True)
+        partidas = self._modelo.obtener_partidas_pedido(self.documento.document_id)
 
         for partida in partidas:
             # Crear una copia profunda para evitar referencias pegadas
@@ -526,7 +394,7 @@ class ControladorCaptura:
 
                 cantidad = valores_partida['cantidad']
 
-                partida = self._utilerias.crear_partida(info_partida_seleccionada, cantidad)
+                partida = self._modelo.utilerias.crear_partida(info_partida_seleccionada, cantidad)
 
                 chk_pieza = self._ventanas.obtener_input_componente('chk_pieza')
                 chk_monto = self._ventanas.obtener_input_componente('chk_monto')
@@ -540,198 +408,12 @@ class ControladorCaptura:
 
                 self._modelo.agregar_partida_tabla(partida, document_item_id=0, tipo_captura=1, unidad_cayal=chk_pieza,
                                                    monto_cayal=chk_monto)
-
-
-
             finally:
                 self._agregando_producto = False
                 self._ventanas.insertar_input_componente('tbx_cantidad_manual', 1)
                 self._ventanas.limpiar_componentes('txt_comentario_manual')
                 self._ventanas.limpiar_componentes('tbx_buscar_manual')
                 self._ventanas.enfocar_componente('tbx_buscar_manual')
-
-    def _editar_direccion_documento(self):
-
-        if self.cliente.addresses == 1:
-            self._ventanas.mostrar_mensaje('Use la herramienta editar cliente para agregar una dirección adicional.')
-            return
-
-        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master, 'Editar Dirección')
-        instancia = EditarDireccionDocumento(ventana, self.cliente, self.documento, self._modelo
-                                     )
-        ventana.wait_window()
-        self._cargar_direccion_cliente()
-        self._cargar_nombre_cliente()
-
-    def _editar_cliente(self):
-
-        business_entity_id = self.cliente.business_entity_id
-        if not business_entity_id or business_entity_id == 0:
-            return
-
-        self._parametros_contpaqi.id_principal = business_entity_id
-        try:
-            ventana = self._ventanas.crear_popup_ttkbootstrap()
-
-            NoteBookCliente(
-                ventana,
-                self.base_de_datos,
-                self._parametros_contpaqi,
-                self._utilerias,
-                self.cliente
-            )
-            ventana.wait_window()
-        finally:
-            self._modelo.actualizar_info_cliente()
-            self._modelo.settear_info_direcciones_cliente(business_entity_id)
-            self._parametros_contpaqi.id_principal = 0
-
-    def _eliminar_partida(self):
-        filas = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos')
-        if not filas:
-            return
-
-        if filas:
-            if not self._ventanas.mostrar_mensaje_pregunta('¿Desea eliminar las partidas seleccionadas?'):
-                return
-
-            production_status_modified = 0
-            for fila in filas:
-                valores_fila = self._ventanas.procesar_fila_treeview('tvw_productos', fila)
-                product_id = valores_fila['ProductID']
-
-                # la eliminacion del servicio a domicilio es de forma automatizada
-                if product_id == 5606 and self._module_id == 1687:
-                    self._modelo.mensajes_de_error(13)
-                    return
-
-                document_item_id = valores_fila['DocumentItemID']
-                identificador = valores_fila['UUID']
-
-                # si aplica remover de la bd
-                if document_item_id != 0:
-                    self.base_de_datos.exec_stored_procedure(
-                        'zvwBorrarPartidasDocumentoCayal', (self.documento.document_id,
-                                                            self._parametros_contpaqi.id_modulo,
-                                                            document_item_id,
-                                                            self._parametros_contpaqi.id_usuario)
-                    )
-
-                # remover del treeview
-                self._ventanas.remover_fila_treeview('tvw_productos', fila)
-
-                #----------------------------------------------------------------------------------
-                # remover la partida de los items del documento
-
-                # filtrar de los items del documento
-                partida_items = [partida for partida in self.documento.items
-                                   if str(identificador) == str(partida['uuid'])][0]
-
-                nuevas_partidas = [partida for partida in self.documento.items
-                                   if str(identificador) != str(partida['uuid'])]
-
-                # asignar los nuevos items sin el item que ha sido removido
-                self.documento.items = nuevas_partidas
-                self._modelo.actualizar_totales_documento()
-                # ----------------------------------------------------------------------------------
-
-                # respalda la partida extra para tratamiento despues del cierre del documento
-                comentario = f'ELIMINADA POR {self._user_name}'
-                self._modelo.agregar_partida_items_documento_extra(partida_items, 'eliminar', comentario, identificador)
-
-                # Solo aplica para el módulo 1687 pedidos
-                if self._module_id == 1687:
-                    # Si el total es menor a 200 y no se ha agregado aún, lo agrega
-                    if self.documento.total < 200 and not self.servicio_a_domicilio_agregado:
-                        self._modelo.agregar_servicio_a_domicilio()
-                        self.servicio_a_domicilio_agregado = True
-
-                    # Si ya se agregó pero ahora el total (sin el servicio) es >= 200, lo remueve
-                    elif self.servicio_a_domicilio_agregado and (
-                            self.documento.total - self._costo_servicio_a_domicilio) >= 200:
-                        self._modelo.remover_servicio_a_domicilio()
-                        self.servicio_a_domicilio_agregado = False
-
-    def _editar_partida(self):
-        fila = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos')
-
-        if not fila:
-            self._ventanas.mostrar_mensaje('Debe seleccionar por lo menos un producto')
-            return
-
-        if not self._ventanas.validar_seleccion_una_fila_treeview('tvw_productos'):
-            self._ventanas.mostrar_mensaje('Debe seleccionar por lo menos un producto')
-            return
-
-        valores_fila = self._ventanas.procesar_fila_treeview('tvw_productos', fila)
-        if valores_fila['ProductID'] == 5606:
-            self._ventanas.mostrar_mensaje('No se puede editar la partida servicio a domicilio.')
-            return
-
-        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master, 'Editar partida')
-        instancia = EditarPartida(ventana, self._interfaz, self._modelo, self._utilerias, self.base_de_datos, valores_fila)
-        ventana.wait_window()
-
-    def _verificador_precios(self):
-        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master)
-        vista = InterfazVerificador(ventana)
-        controlador = ControladorVerificador(vista, self._parametros_contpaqi)
-
-    def _historial_cliente(self):
-        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-        instancia = HistorialCliente(ventana,
-                                     self._modelo.base_de_datos,
-                                     self._utilerias,
-                                     self.cliente.business_entity_id
-                                     )
-        ventana.wait_window()
-
-    def _crear_barra_herramientas(self):
-
-        herramientas = [
-            {'nombre_icono': 'Barcode32.ico', 'etiqueta': 'V.Precios', 'nombre': 'verificador_precios',
-             'hotkey': '[F3]', 'comando': self._verificador_precios},
-        ]
-
-        if self._module_id != 158:
-            herramientas_base = [
-                {'nombre_icono': 'EditAddress32.ico', 'etiqueta': 'E.Dirección', 'nombre': 'editar_direccion',
-                 'hotkey': '[F4]', 'comando': self._editar_direccion_documento},
-
-                {'nombre_icono': 'DocumentEdit32.ico', 'etiqueta': 'Editar Cliente', 'nombre': 'editar_cliente',
-                 'hotkey': '[F6]', 'comando': self._editar_cliente},
-
-                {'nombre_icono': 'CampaignFlow32.ico', 'etiqueta': 'H.Cliente', 'nombre': 'historial_cliente',
-                 'hotkey': '[F7]', 'comando': self._historial_cliente},
-            ]
-
-            herramientas = herramientas + herramientas_base
-
-        # herramientas de pedidos
-        if self._module_id == 1687:
-            herramientas_extra = [
-                {'nombre_icono': 'ProductChange32.ico', 'etiqueta': 'Editar', 'nombre': 'editar_partida',
-                 'hotkey': '[F2]', 'comando': self._editar_partida},
-
-                {'nombre_icono': 'Cancelled32.ico', 'etiqueta': 'Eliminar', 'nombre': 'eliminar_partida',
-                 'hotkey': '[SUPR]', 'comando': self._eliminar_partida},
-            ]
-            herramientas = herramientas + herramientas_extra
-
-        # herramientas de cobro
-        if self._module_id in (21, 1400, 1319,158):
-            herramientas_extra = [
-                {'nombre_icono': 'Finance32.ico', 'etiqueta': 'Cobrar', 'nombre': 'cobrar_nota',
-                 'hotkey': '[F12]', 'comando': self._cobrar_nota}
-            ]
-            herramientas = herramientas + herramientas_extra
-
-        self.barra_herramientas_pedido = herramientas
-        self.elementos_barra_herramientas = self._ventanas.crear_barra_herramientas(self.barra_herramientas_pedido,
-                                                                                   'frame_herramientas')
-        self.iconos_barra_herramientas = self.elementos_barra_herramientas[0]
-        self.etiquetas_barra_herramientas = self.elementos_barra_herramientas[2]
-        self.hotkeys_barra_herramientas = self.elementos_barra_herramientas[1]
 
     def _buscar_ofertas(self, rellenar_tabla=True):
 
@@ -1111,7 +793,7 @@ class ControladorCaptura:
     def _obtener_valores_controles(self):
 
         equivalencia = self._ventanas.obtener_input_componente('tbx_equivalencia_manual')
-        equivalencia_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
+        equivalencia_decimal = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
 
         return {
             'valor_chk_monto': self._ventanas.obtener_input_componente('chk_monto'),
@@ -1123,7 +805,7 @@ class ControladorCaptura:
     def _obtener_cantidad_partida_manual(self):
         cantidad = self._ventanas.obtener_input_componente('tbx_cantidad_manual')
 
-        if not cantidad or not self._utilerias.es_cantidad(cantidad):
+        if not cantidad or not self._modelo.utilerias.es_cantidad(cantidad):
             return self._utilerias.redondear_valor_cantidad_a_decimal(0)
 
         cantidad_decimal = self._utilerias.convertir_valor_a_decimal(cantidad)
@@ -1192,3 +874,7 @@ class ControladorCaptura:
             if valor_chk_monto == 1:
                 return 'Monto'
         return 'Error'
+
+        # funciones relacionadas con herramientas del panel
+        # ------------------------------------------------------------------------------------------------------------------
+

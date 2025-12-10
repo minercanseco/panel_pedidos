@@ -11,7 +11,7 @@ class EditarPartida:
 
         self._ventanas_interfaz = self._interfaz.ventanas
         self._modelo = modelo
-        self._parametros_contpaqi = self._modelo.parametros_contpaqi
+        self._parametros_contpaqi = self._modelo.parametros
         self._documento = self._modelo.documento
         self._utilerias = utilerias
         self._base_de_datos = base_de_datos

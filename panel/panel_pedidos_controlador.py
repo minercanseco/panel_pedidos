@@ -766,6 +766,9 @@ class ControladorPanelPedidos:
                     callbacks_autorefresco=callbacks_autorefresco,
                 )
 
+    # ------------------------------------------------------------------------------------------------------------------
+    # Funciones auxiliares
+    # ------------------------------------------------------------------------------------------------------------------
     def _actualizar_comentario_pedido(self):
         self._limpiar_componentes()
         fila = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)

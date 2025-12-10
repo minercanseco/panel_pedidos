@@ -15,10 +15,10 @@ class ModeloCaptura:
         self._ofertas = ofertas
         self._impuestos = Impuestos()
 
-        self.parametros_contpaqi = parametros_contpaqi
-        self._module_id = self.parametros_contpaqi.id_modulo
-        self._user_id = self.parametros_contpaqi.id_usuario
-        self._user_name = self.parametros_contpaqi.nombre_usuario
+        self.parametros = parametros_contpaqi
+        self.module_id = self.parametros.id_modulo
+        self.user_id = self.parametros.id_usuario
+        self.user_name = self.obtener_user_name()
 
         self.documento = documento
 
@@ -47,6 +47,27 @@ class ModeloCaptura:
             'Editado': 2,  # partida eliminada del pedido
             'Eliminado': 3  # parida eliminada del pedido
         }
+
+    def obtener_user_name(self):
+        if self.documento.document_id > 0:
+            return self.base_de_datos.buscar_nombre_de_usuario(self.documento.created_by)
+        if self.documento.document_id < 1:
+            return self.base_de_datos.buscar_nombre_de_usuario(self.user_id)
+
+    def obtener_nombre_y_prefijo_segun_modulo(self):
+        nombre_modulo = {
+            1687: 'PEDIDOS',
+            21: 'MAYOREO',
+            1400: 'MINISUPER',
+            158: 'VENTAS',
+            1316: 'NOTAS',
+            1319: 'GLOBAL',
+            202: 'ENTRADA',
+            203: 'SALIDA',
+            1692: 'C.EMPLEADOS'
+
+        }
+        return nombre_modulo.get(self.module_id, 'CAYAL')
 
     def rellenar_cbxs_fiscales(self):
 
@@ -665,11 +686,11 @@ class ModeloCaptura:
                 self.servicio_a_domicilio_agregado = True
 
         # servicio a domicilio solo aplica para pedidos
-        if self._module_id != 1687:
+        if self.module_id != 1687:
             return
 
         # servicio a domicilio no aplica para anexos o cambios 2 y 3 solo para pedidos 1
-        if self._module_id == 1687:
+        if self.module_id == 1687:
             parametros_pedido = self.documento.order_parameters
             order_type_id = int(parametros_pedido.get('OrderTypeID', 1))
 
@@ -790,3 +811,38 @@ class ModeloCaptura:
 
     def obtener_direcciones_cliente(self, business_entity_id):
         return self.base_de_datos.buscar_direcciones_cliente(business_entity_id)
+
+    def es_documento_bloqueado(self):
+        status_id = 0
+
+        if self._module_id == 1687:
+            status_id = self.base_de_datos.fetchone(
+                'SELECT ISNULL(StatusID,0) Status FROM docDocumentOrderCayal WHERE OrderDocumentID = ?',
+                (self.documento.document_id,)
+            )
+            status_id = 0 if not status_id else status_id
+
+        if status_id > 2 or self.documento.cancelled_on:
+            self._ventanas.bloquear_forma('frame_herramientas')
+
+            estilo_cancelado = {
+                'foreground': 'white',
+                'background': '#ff8000',
+            }
+
+            frame = self._ventanas.componentes_forma['frame_totales']
+            widgets = frame.winfo_children()
+
+            for widget in widgets:
+                widget.config(**estilo_cancelado)
+
+            return True
+
+        return False
+
+    def obtener_existencia_producto(self, product_id):
+        return self.base_de_datos.buscar_existencia_productos(product_id)
+
+    def obtener_partidas_pedido(self, order_document_id):
+        return self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(order_document_id,
+                                                                           partidas_producidas=True)

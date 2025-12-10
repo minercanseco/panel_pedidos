@@ -203,7 +203,7 @@ class HistorialCliente:
                                          valor_barra_desplazamiento=10)
 
     def _procesar_partidas(self, partidas):
-        partidas = self._utilerias._agregar_impuestos_productos(partidas)
+        partidas = self._utilerias.agregar_impuestos_productos(partidas)
         partidas_procesadas = []
         funcion = self._utilerias.redondear_valor_cantidad_a_decimal
         for partida in partidas:

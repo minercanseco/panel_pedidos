@@ -528,9 +528,6 @@ class BuscarGeneralesCliente:
         # 5) Buscar ofertas (debe llenar self._ofertas_por_lista para este cliente)
         self._buscar_ofertas()
 
-        # 6) Seleccionamos la direccion por defecto
-        self._seleccionar_direccion()
-
         # 6) Lógica opcional: abrir captura y/o refrescar UI
         if actualizar and not abrir:
             self._actualizar_apariencia_forma()
@@ -817,9 +814,8 @@ class BuscarGeneralesCliente:
         if not beid:
             beid = self._buscar_busines_entity_id(seleccion)
 
-        self._settear_info_cliente_y_direcciones(beid, actualizar=False)  # ya venimos con selección hecha
 
-        self._asignar_parametros_a_documento()
+        self._seleccionar_direccion()
 
         if self.cliente.depots > 0:
             seleccion_direccion = (self._ventanas.obtener_input_componente('cbx_direccion') or '').upper()
@@ -1113,6 +1109,10 @@ class BuscarGeneralesCliente:
         try:
             self._instancia_llamada = True
 
+            self._asignar_parametros_a_documento()
+            print(self.documento.address_details)
+
+
             # 3) Empaquetar ofertas para el tipo de cliente actual
             ct_id = getattr(self.cliente, "customer_type_id", None)
 
@@ -1190,6 +1190,7 @@ class BuscarGeneralesCliente:
             if depot_id != 0:
                 depot_name = self._base_de_datos.fetchone('SELECT DepotName FROM orgDepot WHERE DepotID = ?',
                                                           (depot_id,))
+
             self.documento.address_details = direccion
             self.documento.depot_id = depot_id
             self.documento.depot_name = depot_name

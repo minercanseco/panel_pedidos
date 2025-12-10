@@ -126,7 +126,7 @@ class HerramientasCaptura:
             )
         finally:
             self._parametros.id_principal = 0
-            self._filtro_post_captura()
+            #self._filtro_post_captura()
             self._reanudar_autorefresco()
 
     def _editar_pedido(self):

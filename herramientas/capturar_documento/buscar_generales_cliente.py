@@ -34,10 +34,10 @@ class BuscarGeneralesCliente:
 
         # --- Construcción UI ---
         self._crear_frames()
-        self._cargar_componentes_forma()
-        self._cargar_eventos_componentes_forma()
+        self._cargar_componentes()
+        self._cargar_eventos()
         self._cargar_hotkeys()
-        self._ajustar_componentes()
+        self._ajustar_y_boquear_componentes()
 
         # --- Apariencia inicial ---
         self._actualizar_apariencia_forma(solo_apariencia_inicial=True)
@@ -48,7 +48,9 @@ class BuscarGeneralesCliente:
         # Si el usuario cierra sin seleccionar, devolver valores neutros.
         self._master.protocol("WM_DELETE_WINDOW", self._cerrar_sin_seleccion)
 
-
+    #-----------------------------------------
+    # Construcción de la forma
+    #-----------------------------------------
     def _declarar_variables_globales(self):
         """
         Todas estas variables deben ser por instancia
@@ -59,7 +61,6 @@ class BuscarGeneralesCliente:
         self._termino_buscado = None
         self._consulta_clientes = None
         self._info_cliente_seleccionado = None
-        self._consulta_direcciones = None
         self._consulta_sucursales = None
 
         # Control interno
@@ -98,20 +99,6 @@ class BuscarGeneralesCliente:
         # Manejo de UI independiente por popup
         self._ventanas = Ventanas(self._master)
 
-    def _cerrar_sin_seleccion(self):
-        """
-        Cierre seguro cuando el usuario presiona la 'X'.
-        El panel puede detectar esto porque cliente queda en None.
-        """
-        self.cliente = None
-        self.documento = None
-        self.ofertas = {}
-
-        try:
-            self._master.destroy()
-        except Exception:
-            pass
-
     def _crear_frames(self):
         frames = {
             'frame_principal': ('master', None,
@@ -148,7 +135,7 @@ class BuscarGeneralesCliente:
 
         self._ventanas.crear_frames(frames)
 
-    def _cargar_componentes_forma(self):
+    def _cargar_componentes(self):
 
         componentes = {
             'tbx_buscar': ('frame_buscar', None, 'Buscar:', None),
@@ -295,13 +282,13 @@ class BuscarGeneralesCliente:
 
         self._ventanas.crear_componentes(self._componentes_credito)
 
-    def _ajustar_componentes(self):
+    def _ajustar_y_boquear_componentes(self):
         self._ventanas.ajustar_ancho_componente('cbx_resultados', 50)
         self._ventanas.bloquear_componente('btn_seleccionar')
 
-    def _cargar_eventos_componentes_forma(self):
+    def _cargar_eventos(self):
         eventos = {
-            'btn_cancelar': self._master.destroy,
+            'btn_cancelar': self._cerrar_sin_seleccion,
             'btn_seleccionar': self._seleccionar_cliente,
             'tbx_buscar': self._buscar_termino,
             'cbx_resultados': self._cambio_de_seleccion_cliente,
@@ -320,98 +307,39 @@ class BuscarGeneralesCliente:
         }
         self._ventanas.agregar_hotkeys_forma(hotkeys)
 
-    def _seleccionar_cliente_por_documento(self, tipo):
-        if self._ventanas.obtener_input_componente('cbx_resultados') == 'Seleccione':
-            return
+    def _cerrar_sin_seleccion(self):
+        """
+        Cierre seguro cuando el usuario presiona la 'X'.
+        El panel puede detectar esto porque cliente queda en None.
+        """
+        self.cliente = None
+        self.documento = None
+        self.ofertas = {}
 
-        if tipo == 'factura':
-            if self.cliente.cayal_customer_type_id in (0, 1):
+        try:
+            self._master.destroy()
+        except Exception:
+            pass
+    #------------------------------------------
+    # Flujo de trabajo
+    #------------------------------------------
+    def _buscar_termino(self, event=None):
+        def _validar_termino():
+            termino_buscado = self._ventanas.obtener_input_componente('tbx_buscar')
+
+            if not termino_buscado:
+                self._ventanas.mostrar_mensaje('Debe introducir un termino a buscar')
+                self._ventanas.bloquear_componente('btn_seleccionar')
                 return
 
-            self._ventanas.insertar_input_componente('cbx_documento', 'Factura')
-            # Ejecutamos las funciones directamente, no con lambda suelta
-            self._forzar_confirmar_cbx('cbx_resultados')
-            self._seleccionar_cliente()
+            if len(termino_buscado) < 5 and not termino_buscado.startswith(('FG', 'FM', 'FGR')):
+                self._ventanas.mostrar_mensaje('Insuficientes letras en el termino a buscar')
+                self._ventanas.bloquear_componente('btn_seleccionar')
+                return
 
-        elif tipo == 'remision':
-            self._ventanas.insertar_input_componente('cbx_documento', 'Remisión')
-            self._forzar_confirmar_cbx('cbx_resultados')
-            self._seleccionar_cliente()
+            return termino_buscado
 
-    def _copiar_informacion_direccion(self):
-        business_entity_id = self._info_cliente_seleccionado[0]['BusinessEntityID']
-        address_detail_id = self.documento.address_detail_id
-
-        informacion = self._base_de_datos.buscar_informacion_direccion_whatsapp(address_detail_id, business_entity_id)
-        pyperclip.copy(informacion)
-        self._master.iconify()
-
-    def _validar_termino(self):
-        termino_buscado = self._ventanas.obtener_input_componente('tbx_buscar')
-
-        if not termino_buscado:
-            self._ventanas.mostrar_mensaje('Debe introducir un termino a buscar')
-            self._ventanas.bloquear_componente('btn_seleccionar')
-            return
-
-        if len(termino_buscado) < 5 and not termino_buscado.startswith(('FG', 'FM', 'FGR')):
-            self._ventanas.mostrar_mensaje('Insuficientes letras en el termino a buscar')
-            self._ventanas.bloquear_componente('btn_seleccionar')
-            return
-
-        return termino_buscado
-
-    def _buscar_info_y_setear_cliente(self, business_entity_id, abrir: bool = False, actualizar: bool = False):
-        """
-        Busca la información del cliente por BusinessEntityID,
-        la carga en self.cliente y prepara documentos/ofertas.
-
-        Parámetros
-        ----------
-        business_entity_id : int
-            Identificador del cliente a buscar.
-        abrir : bool
-            Si True, al finalizar la carga ejecuta _aceptar_seleccion().
-        actualizar : bool
-            Si True, refresca la apariencia de la forma (_actualizar_apariencia_forma()).
-        """
-
-        # 1) Reset mínimo de contexto para evitar arrastrar datos de búsquedas previas
-        self._info_cliente_seleccionado = None
-        self._consulta_direcciones = None
-        self._consulta_sucursales = None
-        # ofertas de esta instancia se recalcularán
-        self.ofertas = {}
-        self._ofertas_por_lista = {}
-
-        # 2) Buscar info del cliente
-        self._buscar_info_cliente_seleccionado(business_entity_id)
-
-        # Si no hubo resultado, no seguimos
-        if not self._info_cliente_seleccionado:
-            # aquí podrías mostrar un mensaje, si aplica:
-            # self._ventanas.mostrar_mensaje("No se encontró información del cliente.")
-            return
-
-        # 3) Pasar la consulta al objeto Cliente y setear sus atributos
-        self.cliente.consulta = self._info_cliente_seleccionado
-        self.cliente.settear_valores_consulta()
-
-        # 4) Preparar documentos / direcciones / sucursales según ese cliente
-        self._rellenar_cbx_documento()
-
-        # 5) Buscar ofertas (debe llenar self._ofertas_por_lista para este cliente)
-        self._buscar_ofertas()
-
-        # 6) Lógica opcional: abrir captura y/o refrescar UI
-        if abrir:
-            self._aceptar_seleccion()
-
-        if actualizar:
-            self._actualizar_apariencia_forma()
-
-    def _buscar_termino(self, event=None):
-        termino_buscado = self._validar_termino()
+        termino_buscado = _validar_termino()
         if not termino_buscado:
             return
 
@@ -426,7 +354,7 @@ class BuscarGeneralesCliente:
             if not info_documento:
                 return
             business_entity_id = info_documento['BusinessEntityID']
-            self._buscar_info_y_setear_cliente(business_entity_id, abrir=True)
+            self._settear_info_cliente_y_direcciones(business_entity_id, abrir=True)
             return
 
         es_numero = self._utilerias.es_cantidad(termino_buscado)
@@ -448,7 +376,7 @@ class BuscarGeneralesCliente:
                 self._ventanas.rellenar_cbx('cbx_resultados', nombres_clientes, 'sin seleccione')
                 cliente = nombres_clientes[0]
                 business_entity_id = self._buscar_busines_entity_id(cliente)
-                self._buscar_info_y_setear_cliente(business_entity_id, actualizar=True)
+                self._settear_info_cliente_y_direcciones(business_entity_id, actualizar=True)
 
             self._ventanas.desbloquear_componente('btn_seleccionar')
             self._ventanas.enfocar_componente('cbx_resultados')
@@ -469,8 +397,10 @@ class BuscarGeneralesCliente:
             return
 
         business_entity_id = info_documento['BusinessEntityID']
-        self._buscar_info_y_setear_cliente(business_entity_id, abrir=True)
-
+        self._settear_info_cliente_y_direcciones(business_entity_id, abrir=True)
+    # ------------------------------------------
+    # Helpers de busqueda ya sea por codigo de barras o nombre
+    # ------------------------------------------
     def _buscar_clientes_por_nombre_similar(self, termino_buscado):
         # Dividir el término en palabras clave
         palabras = termino_buscado.split()
@@ -550,11 +480,377 @@ class BuscarGeneralesCliente:
 
         return info_documento
 
+    def _settear_info_cliente_y_direcciones(self, business_entity_id, abrir: bool = False, actualizar: bool = False):
+        """
+        Busca la información del cliente por BusinessEntityID,
+        la carga en self.cliente y prepara documentos/ofertas.
+
+        Parámetros
+        ----------
+        business_entity_id : int
+            Identificador del cliente a buscar.
+        abrir : bool
+            Si True, al finalizar la carga ejecuta _aceptar_seleccion().
+        actualizar : bool
+            Si True, refresca la apariencia de la forma (_actualizar_apariencia_forma()).
+        """
+
+        # 1) Reset mínimo de contexto para evitar arrastrar datos de búsquedas previas
+        self._info_cliente_seleccionado = None
+        self._consulta_sucursales = None
+        # ofertas de esta instancia se recalcularán
+        self.ofertas = {}
+        self._ofertas_por_lista = {}
+
+        # 2) Buscar info del cliente
+        self._buscar_info_cliente_seleccionado(business_entity_id)
+
+        # Si no hubo resultado, no seguimos
+        if not self._info_cliente_seleccionado:
+            self._ventanas.mostrar_mensaje("No se encontró información del cliente.")
+            return
+
+        # 3) Pasar la consulta al objeto Cliente y setear sus atributos
+        self.cliente.consulta = self._info_cliente_seleccionado
+        self.cliente.settear_valores_consulta()
+
+        # 4) cargar la informacion de las direcciones del cliente
+        self.cliente.addresses_details = []
+        direcciones_cliente = self._buscar_info_direcciones_cliente_seleccionado(business_entity_id)
+        for direccion in direcciones_cliente:
+            self.cliente.add_address_detail(direccion)
+
+        # 5) Preparar documentos / direcciones / sucursales según ese cliente
+        self._rellenar_cbx_documento()
+
+        # 5) Buscar ofertas (debe llenar self._ofertas_por_lista para este cliente)
+        self._buscar_ofertas()
+
+        # 6) Lógica opcional: abrir captura y/o refrescar UI
+        if actualizar and not abrir:
+            self._actualizar_apariencia_forma()
+
+        if abrir:
+            self._aceptar_seleccion()
+
+    # ------------------------------------------------------------------------------
+    # Helper que garantiza homologar clientes antiguos a nuevo proceso de direcciones adicionales
+    # ------------------------------------------------------------------------------
+    def _homologar_direccion_fiscal(self, business_entity_id):
+        if business_entity_id <= 0:
+            return
+        # esta funcion es deuda tecnica de la homologacion entre la direccion fiscal
+        # y orgbusinessentitymaininfo que es la tabla donde nace los parametros
+        # de la direccion fiscal del cliente, esto es necesario para coherencia en
+        # la información y la impresion de los formatos del cliente
+
+        self._base_de_datos.command("""
+           DECLARE @business_entity_id INT = ?
+           UPDATE ADT
+            SET
+                ADT.StateProvince      = EM.AddressFiscalStateProvince, 
+                ADT.City               = EM.AddressFiscalCity,
+                ADT.Municipality       = EM.AddressFiscalMunicipality,
+                ADT.Street             = EM.AddressFiscalStreet,
+                ADT.Comments           = EM.AddressFiscalComments,
+                ADT.CountryCode        = EM.AddressFiscalCountryCode,
+                ADT.CityCode           = EM.AddressFiscalCityCode, 
+                ADT.MunicipalityCode   = EM.AddressFiscalMunicipalityCode, 
+                ADT.Telefono           = EM.BusinessEntityPhone
+            FROM orgBusinessEntityMainInfo EM
+            INNER JOIN orgAddressDetail ADT ON EM.AddressFiscalDetailID = ADT.AddressDetailID
+            WHERE
+                ADT.AddressDetailID = (SELECT AddressFiscalDetailID from orgBusinessEntityMainInfo WHERE BusinessEntityID = @business_entity_id)
+                AND (
+                    ISNULL(ADT.StateProvince, '')       <> ISNULL(EM.AddressFiscalStateProvince, '') OR
+                    ISNULL(ADT.City, '')                <> ISNULL(EM.AddressFiscalCity, '') OR
+                    ISNULL(ADT.Municipality, '')        <> ISNULL(EM.AddressFiscalMunicipality, '') OR
+                    ISNULL(ADT.Street, '')              <> ISNULL(EM.AddressFiscalStreet, '') OR
+                    ISNULL(ADT.Comments, '')            <> ISNULL(EM.AddressFiscalComments, '') OR
+                    ISNULL(ADT.CountryCode, '')         <> ISNULL(EM.AddressFiscalCountryCode, '') OR
+                    ISNULL(ADT.CityCode, '')            <> ISNULL(EM.AddressFiscalCityCode, '') OR
+                    ISNULL(ADT.MunicipalityCode, '')    <> ISNULL(EM.AddressFiscalMunicipalityCode, '') OR
+                    ISNULL(ADT.Telefono, '')            <> ISNULL(EM.BusinessEntityPhone, '')
+                );
+        """, (business_entity_id,))
+    #------------------------------------------------------------------------------
+    # Helpers de búsqueda de información relacionada al cliente y ss direcciones
+    #------------------------------------------------------------------------------
+    def _buscar_info_cliente_seleccionado(self, business_entity_id):
+        if business_entity_id != 0:
+            self._info_cliente_seleccionado = self._base_de_datos.fetchall("""
+              SELECT * FROM [dbo].[zvwBuscarInfoCliente-BusinessEntityID](?)
+            """, (business_entity_id,))
+
+        self._homologar_direccion_fiscal(business_entity_id)
+
+    def _buscar_info_direcciones_cliente_seleccionado(self, business_entity_id):
+        return self._base_de_datos.buscar_direcciones_cliente(business_entity_id)
+    # ------------------------------------------------------------------------
+    # Funciones destinadas a construir las ofertas relacionadas con el cliente
+    # ------------------------------------------------------------------------
+    def _buscar_ofertas(self):
+        """
+        Se asegura de tener ofertas cargadas para el tipo de cliente actual.
+        Utiliza memoria y cache en disco (HOY) desde _buscar_productos_ofertados_cliente.
+        """
+        customer_type_id = getattr(self.cliente, "customer_type_id", None)
+        if customer_type_id is None:
+            self.ofertas = {}
+            return
+        ofertas = self._buscar_productos_ofertados_cliente()
+        # opcionalmente, puedes guardar directamente en self.ofertas aquí:
+        # self.ofertas = ofertas or {}
+        return ofertas
+
+    def _buscar_productos_ofertados_cliente(self):
+        try:
+            from zoneinfo import ZoneInfo  # Py>=3.9
+            tz = ZoneInfo("America/Merida")
+        except Exception:
+            tz = None  # fallback sin zona (no debería pasar en Py>=3.9)
+        def _today_str():
+            now = datetime.now(tz) if tz else datetime.now()
+            return now.strftime("%Y%m%d")
+        def _cache_dir() -> Path:
+            base = getattr(self, "_offers_cache_dir", None)
+            if base is None:
+                base = Path(".offers_cache")
+                setattr(self, "_offers_cache_dir", base)
+            base.mkdir(parents=True, exist_ok=True)
+            return base
+        def _cache_path(ctid: int, day: str) -> Path:
+            # nombre con fecha para validar día y facilitar limpieza
+            safe = f"ofertas_{ctid}_{day}.pkl.gz"
+            return _cache_dir() / safe
+        def _cache_load_if_today(ctid: int):
+            day = _today_str()
+            p = _cache_path(ctid, day)
+            if not p.exists():
+                return None
+            try:
+                with gzip.open(p, "rb") as fh:
+                    return pickle.load(fh)
+            except Exception:
+                try:
+                    p.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                return None
+        def _cache_save_today(ctid: int, data: dict):
+            day = _today_str()
+            p = _cache_path(ctid, day)
+            tmp = p.with_suffix(".tmp")
+            with gzip.open(tmp, "wb") as fh:
+                pickle.dump(data, fh, protocol=pickle.HIGHEST_PROTOCOL)
+            os.replace(tmp, p)
+        def _cache_cleanup_not_today():
+            day = _today_str()
+            base = _cache_dir()
+            # Borra cualquier archivo que no termine en _YYYYMMDD.pkl.gz (día actual)
+            for f in base.glob("ofertas_*.pkl.gz"):
+                if not f.name.endswith(f"_{day}.pkl.gz"):
+                    try:
+                        f.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+        customer_type_id = self.cliente.customer_type_id
+        # 1) Memoria
+        ofertas_mem = self._ofertas_por_lista.get(customer_type_id)
+        if ofertas_mem is not None:
+            self._customer_types_ids_ofertas.add(customer_type_id)
+            return ofertas_mem
+        # 2) Cache local (solo si es de HOY)
+        ofertas_disk = _cache_load_if_today(customer_type_id)
+        if ofertas_disk is not None:
+            self._ofertas_por_lista[customer_type_id] = ofertas_disk
+            self._customer_types_ids_ofertas.add(customer_type_id)
+            _cache_cleanup_not_today()
+            return ofertas_disk
+        # 3) Consulta BD + proceso
+        consulta_productos_ofertados = self._base_de_datos.buscar_productos_en_oferta(
+            lista_precios=customer_type_id
+        )
+        productos_ids = list({reg['ProductID'] for reg in consulta_productos_ofertados})
+        consulta_productos = self._buscar_info_productos_por_ids(productos_ids)
+        consulta_procesada = self._agregar_impuestos_productos(consulta_productos)
+        ofertas = {
+            'consulta_productos': consulta_procesada,
+            'consulta_productos_ofertados': consulta_productos_ofertados,
+            'consulta_productos_ofertados_btn': consulta_procesada,  # ajusta si necesitas otro set
+            'products_ids_ofertados': productos_ids
+        }
+        # Guarda en memoria y en disco (para HOY)
+        self._ofertas_por_lista[customer_type_id] = ofertas
+        self._customer_types_ids_ofertas.add(customer_type_id)
+        _cache_save_today(customer_type_id, ofertas)
+        # 4) Limpieza de archivos no correspondientes a HOY
+        _cache_cleanup_not_today()
+        return ofertas
+
+    def _buscar_info_productos_por_ids(self, productos_ids, no_en_venta=None):
+        if no_en_venta:
+            return self._base_de_datos.buscar_info_productos(productos_ids,
+                                                             no_en_venta=True)
+        return self._base_de_datos.buscar_info_productos(productos_ids)
+
+    def _agregar_impuestos_productos(self, consulta_productos):
+        consulta_procesada = []
+        for producto in consulta_productos:
+            producto_procesado = self._utilerias.calcular_precio_con_impuesto_producto(producto)
+            consulta_procesada.append(producto_procesado)
+        return consulta_procesada
+    # ------------------------------------------------------------------------------
+    # Funciones relacionadas a eventos de carga y seleccion de cliente
+    # ------------------------------------------------------------------------------
+    def _actualizar_apariencia_forma(self, solo_apariencia_inicial = False):
+
+        def apariencia_inicial():
+            self._ventanas.ocultar_frame('frame_data')
+
+        if solo_apariencia_inicial:
+            apariencia_inicial()
+            self._master.place_window_center()
+            return
+
+        if self.cliente.cayal_customer_type_id in (1, 2):
+            self._ventanas.posicionar_frame('frame_data')
+            self._ventanas.posicionar_frame('frame_informacion')
+            self._ventanas.posicionar_frame('frame_direccion')
+            self._cargar_info_credito()
+        else:
+            self._ventanas.posicionar_frame('frame_data')
+            self._ventanas.ocultar_frame('frame_informacion')
+            posicion = {'row': 1, 'column': 0, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}
+            self._ventanas.posicionar_frame('frame_direccion', posicion)
+
+        self._master.place_window_center()
+
+    def _cargar_info_credito(self):
+
+        def _credito_autorizado():
+            text = f'${self.cliente.authorized_credit}'
+
+            if self.cliente.credit_block == 1:
+                text = '$0.00'
+            return text
+
+        def _credito_restante():
+            text = f'${self.cliente.remaining_credit}'
+
+            if self.cliente.credit_block == 1:
+                text = '$0.00'
+            return text
+
+        def _documentos_en_cartera():
+            texto = ''
+            if self.cliente.documents_with_balance > 0:
+                texto = f'Debe ${self.cliente.debt} en {self.cliente.documents_with_balance} documentos.'
+            else:
+                texto = f'${self.cliente.debt}'
+            return texto
+
+        def _credito_en_super():
+            text = 'NO TIENE CRÉDITO EN MINISUPER'
+
+            if self.cliente.store_credit == 1:
+                if self.cliente.credit_block == 1:
+                    text = 'NO TIENE CRÉDITO EN MINISUPER'
+
+                else:
+                    text = 'CRÉDITO EN MINISUPER PERMITIDO'
+
+            return text
+
+        def _vales_empleados():
+            if self.cliente.coupons_block == 1:
+                return f"NO TIENE DERECHO"
+
+            if self.cliente.coupons != 0:
+                return f"COMPRA DEL MES REALIZADA"
+
+            return f"DISPONIBLE {self.cliente.remaining_coupons}"
+
+        informacion = {
+            'lbl_nombre': self.cliente.official_name,
+            'lbl_rfc': self.cliente.official_number,
+            'lbl_ruta': self.cliente.zone_name,
+            'lbl_autorizado': _credito_autorizado(),
+            'lbl_debe': _documentos_en_cartera(),
+            'lbl_restante': _credito_restante(),
+            'lbl_condicion': self.cliente.payment_term_name,
+            'lbl_pcompra': self._ultimo_documento_en_cartera(self.cliente.business_entity_id),
+            'lbl_comentario': self.cliente.credit_comments,
+            'lbl_minisuper': _credito_en_super(),
+            'lbl_vales': _vales_empleados(),
+            'lbl_lista': self.cliente.customer_type_name,
+        }
+        for nombre_componente, valores in self._componentes_credito.items():
+            if '_txt' in nombre_componente:
+                continue
+
+            valor = informacion.get(nombre_componente, '')
+            self._ventanas.insertar_input_componente(nombre_componente, valor)
+
+    def _seleccionar_cliente(self):
+        # Asegura selección consolidada por si llegamos aquí desde F1
+        self._forzar_confirmar_cbx('cbx_resultados')
+
+        seleccion = self._ventanas.obtener_input_componente('cbx_resultados') or ''
+        if seleccion == 'Seleccione' and getattr(self, '_ultimo_cliente_texto', None):
+            # usa el último confirmado si el cbx sigue en placeholder
+            seleccion = self._ultimo_cliente_texto
+
+        if not seleccion or seleccion == 'Seleccione':
+            self._ventanas.mostrar_mensaje(master=self._master, mensaje='Debe buscar y seleccionar un cliente.')
+            return
+
+        proceder = True
+
+        # Prepara datos (usa el id cacheado si existe; evita re-resolver por texto)
+        beid = getattr(self, '_ultimo_cliente_id', None)
+        if not beid:
+            beid = self._buscar_busines_entity_id(seleccion)
+
+        self._settear_info_cliente_y_direcciones(beid, actualizar=False)  # ya venimos con selección hecha
+
+        self._asignar_parametros_a_documento()
+
+        if self.cliente.depots > 0:
+            seleccion_direccion = (self._ventanas.obtener_input_componente('cbx_direccion') or '').upper()
+            if seleccion_direccion == 'DIRECCIÓN FISCAL' or not seleccion_direccion:
+                respuesta = ttk.dialogs.Messagebox.yesno(
+                    parent=self._master, message='El cliente tiene sucursales ¿Desea proceder sin seleccionar una?')
+                if respuesta == 'No':
+                    proceder = False
+
+        if proceder:
+            self._aceptar_seleccion()
+
+    def _seleccionar_cliente_por_documento(self, tipo):
+        if self._ventanas.obtener_input_componente('cbx_resultados') == 'Seleccione':
+            return
+
+        if tipo == 'factura':
+            if self.cliente.cayal_customer_type_id in (0, 1):
+                return
+
+            self._ventanas.insertar_input_componente('cbx_documento', 'Factura')
+            # Ejecutamos las funciones directamente, no con lambda suelta
+            self._forzar_confirmar_cbx('cbx_resultados')
+            self._seleccionar_cliente()
+
+        elif tipo == 'remision':
+            self._ventanas.insertar_input_componente('cbx_documento', 'Remisión')
+            self._forzar_confirmar_cbx('cbx_resultados')
+            self._seleccionar_cliente()
+
     def _cambio_de_seleccion_cliente(self, event=None):
         seleccion = self._ventanas.obtener_input_componente('cbx_resultados')
 
         if seleccion == 'Seleccione':
             self.cliente.reinicializar_atributos()
+            self.documento.reinicializar_atributos()
             self._ventanas.mostrar_mensaje(mensaje='Debe seleccionar un cliente de la lista', master=self._master)
             self._ventanas.bloquear_componente('btn_seleccionar')
             return
@@ -563,9 +859,12 @@ class BuscarGeneralesCliente:
         self._ultimo_cliente_id = self._buscar_busines_entity_id(seleccion)
 
         self._ventanas.desbloquear_componente('btn_seleccionar')
-        self._buscar_info_y_setear_cliente(self._ultimo_cliente_id, actualizar=True)
+        self._settear_info_cliente_y_direcciones(self._ultimo_cliente_id, actualizar=True)
         self._actualizar_apariencia_forma()
-
+        self._seleccionar_direccion()
+    # ------------------------------------------------------------------------------
+    # Helpers relacionados a la seleccion del cliente
+    # ------------------------------------------------------------------------------
     def _forzar_confirmar_cbx(self, nombre_cbx):
         """Si el combobox tiene un item resaltado pero no confirmado, confírmalo.
            Si no hay nada confirmado, usa el último cliente cacheado o el primer valor."""
@@ -592,60 +891,6 @@ class BuscarGeneralesCliente:
 
         return business_entity_id if business_entity_id else 0
 
-    def _buscar_info_cliente_seleccionado(self, business_entity_id):
-        if business_entity_id != 0:
-            self._info_cliente_seleccionado = self._base_de_datos.fetchall("""
-              SELECT * FROM [dbo].[zvwBuscarInfoCliente-BusinessEntityID](?)
-            """, (business_entity_id,))
-
-    def _buscar_info_direcciones_cliente_seleccionado(self, business_entity_id):
-        return self._base_de_datos.buscar_direcciones_cliente(business_entity_id)
-
-    def _settear_info_direcciones_cliente(self, business_entity_id):
-        self.cliente.addresses_details = []
-        direcciones_cliente = self._buscar_info_direcciones_cliente_seleccionado(business_entity_id)
-        for direccion in direcciones_cliente:
-            self.cliente.add_address_detail(direccion)
-        return direcciones_cliente
-
-    def _seleccionar_cliente(self):
-        # Asegura selección consolidada por si llegamos aquí desde F1
-        self._forzar_confirmar_cbx('cbx_resultados')
-
-        seleccion = self._ventanas.obtener_input_componente('cbx_resultados') or ''
-        if seleccion == 'Seleccione' and getattr(self, '_ultimo_cliente_texto', None):
-            # usa el último confirmado si el cbx sigue en placeholder
-            seleccion = self._ultimo_cliente_texto
-
-        if not seleccion or seleccion == 'Seleccione':
-            self._ventanas.mostrar_mensaje(master=self._master, mensaje='Debe buscar y seleccionar un cliente.')
-            return
-
-        proceder = True
-
-        # Prepara datos (usa el id cacheado si existe; evita re-resolver por texto)
-        beid = getattr(self, '_ultimo_cliente_id', None)
-        if not beid:
-            beid = self._buscar_busines_entity_id(seleccion)
-
-        self._buscar_info_y_setear_cliente(beid, actualizar=False)  # ya venimos con selección hecha
-        self.cliente.consulta = self._info_cliente_seleccionado
-        self.cliente.settear_valores_consulta()
-        self._settear_info_direcciones_cliente(beid)
-
-        self._asignar_parametros_a_documento()
-
-        if self.cliente.depots > 0:
-            seleccion_direccion = (self._ventanas.obtener_input_componente('cbx_direccion') or '').upper()
-            if seleccion_direccion == 'DIRECCIÓN FISCAL' or not seleccion_direccion:
-                respuesta = ttk.dialogs.Messagebox.yesno(
-                    parent=self._master, message='El cliente tiene sucursales ¿Desea proceder sin seleccionar una?')
-                if respuesta == 'No':
-                    proceder = False
-
-        if proceder:
-            self._aceptar_seleccion()
-
     def _rellenar_cbx_documento(self):
         if self.cliente.cayal_customer_type_id == 2:
             tipos_documento = ['Remisión', 'Factura']
@@ -655,47 +900,6 @@ class BuscarGeneralesCliente:
             tipos_documento = ['Remisión']
             self._ventanas.rellenar_cbx('cbx_documento', tipos_documento, sin_seleccione=True)
             self._ventanas.bloquear_componente('cbx_documento')
-
-    def _documento_seleccionado(self):
-
-        prefijos = {
-            967: 'PM', 1692:'CE', 21:'FM', 1400: 'FG', 1316:'NVR', 1319:'FGR', 158:'NV'
-        }
-
-
-        def es_remision():
-            self.documento.cfd_type_id = 1
-            self.documento.doc_type = 'REMISIÓN'
-            self.documento.forma_pago = '01'
-            self.documento.metodo_pago = 'PUE'
-            self.documento.receptor_uso_cfdi = 'S01'
-
-        def es_factura():
-            self.documento.cfd_type_id = 0
-            self.documento.doc_type = 'FACTURA'
-            self.documento.forma_pago = self.cliente.forma_pago
-            self.documento.metodo_pago = self.cliente.metodo_pago
-            self.documento.receptor_uso_cfdi = self.cliente.receptor_uso_cfdi
-
-        self.documento.prefix = prefijos.get(self._module_id, 'CAYAL')
-
-        if self._module_id in (967,1692,1316):
-            es_remision()
-            return True
-
-        if self.cliente.cayal_customer_type_id in (0, 1):
-            es_remision()
-            return True
-
-        else:
-            seleccion = self._ventanas.obtener_input_componente('cbx_documento')
-
-            if seleccion == 'Seleccione':
-                self._ventanas.mostrar_mensaje('Debe seleccionar un tipo de documento.')
-                return False
-
-            es_factura() if seleccion == 'Factura' else es_remision()
-            return True
 
     def _actualizar_apariencia_si_tiene_sucursales(self):
 
@@ -720,40 +924,37 @@ class BuscarGeneralesCliente:
             if self._consulta_sucursales:
                 self._ventanas.rellenar_cbx('cbx_sucursales', nombres_sucursales)
 
-    def _actualizar_apariencia_forma(self, solo_apariencia_inicial = False):
-
-        def apariencia_inicial():
-            self._ventanas.ocultar_frame('frame_data')
-
-
-        if solo_apariencia_inicial:
-            apariencia_inicial()
-            self._master.place_window_center()
-            #self.master.after_idle(lambda: self.ventanas.centrar_ventana_ttkbootstrap(self.master))
-            return
-
-        cbx_direccion = self._ventanas.componentes_forma['cbx_direccion']
-
-        if self.cliente.cayal_customer_type_id in (1, 2):
-            self._ventanas.posicionar_frame('frame_data')
-            self._ventanas.posicionar_frame('frame_informacion')
-            self._ventanas.posicionar_frame('frame_direccion')
-            self._cargar_info_credito()
-        else:
-            self._ventanas.posicionar_frame('frame_data')
-            self._ventanas.ocultar_frame('frame_informacion')
-            posicion = {'row': 1, 'column': 0, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}
-            self._ventanas.posicionar_frame('frame_direccion', posicion)
-
-        self._consulta_direcciones = self._base_de_datos.rellenar_cbx_direcciones(
-            self.cliente.business_entity_id,
-            cbx_direccion
-        )
-        self._seleccionar_direccion()
-
-        self._master.place_window_center()
-
     def _seleccionar_direccion(self, event=None):
+
+        def _limpiar_direccion():
+            componentes = ['lbl_calle', 'lbl_numero', 'lbl_cp', 'lbl_telefono', 'lbl_celular',
+                           'lbl_estado', 'lbl_municipio', 'lbl_colonia', 'lbl_ncomercial'
+                           ]
+            self._ventanas.limpiar_componentes(componentes)
+
+        def _cargar_info_direccion(info_direccion):
+            informacion = {
+                'lbl_ncomercial': self.cliente.commercial_name,
+                'lbl_ruta': self.cliente.zone_name,
+                'lbl_telefono': info_direccion.get('Telefono', ''),
+                'lbl_celular': info_direccion.get('Celular', ''),
+                'lbl_calle': info_direccion.get('Street', ''),
+                'lbl_numero': info_direccion.get('ExtNumber', ''),
+                'lbl_cp': info_direccion.get('ZipCode', ''),
+                'lbl_colonia': info_direccion.get('City', ''),
+                'lbl_estado': info_direccion.get('StateProvince', ''),
+                'lbl_municipio': info_direccion.get('Municipality', ''),
+                'txt_comentario': info_direccion.get('Comments', '')
+            }
+
+            for nombre_componente, valores in self._componentes_direccion.items():
+                if '_txt' in nombre_componente:
+                    continue
+
+                valor_direccion = informacion.get(nombre_componente, '')
+                print(nombre_componente, valor_direccion)
+                self._ventanas.insertar_input_componente(nombre_componente, valor_direccion)
+
         direccion = {}
 
         self._ventanas.posicionar_frame('frame_cbxs')
@@ -767,64 +968,14 @@ class BuscarGeneralesCliente:
             consulta = [reg for reg in self.cliente.addresses_details if reg['AddressName'] == direccion_seleccionada]
 
         if consulta and direccion_seleccionada != 'Seleccione':
+            direccion = consulta[0]
+            print(direccion)
             self.documento.address_details = direccion
             self.documento.address_detail_id = direccion.get('AddressDetailID', 0)
-            self._cargar_info_direccion(direccion)
-
-    def _cargar_info_direccion(self, info_direccion):
-
-        def _limpiar_direccion():
-            componentes = ['lbl_calle', 'lbl_numero', 'lbl_cp', 'lbl_telefono', 'lbl_celular',
-                           'lbl_estado', 'lbl_municipio', 'lbl_colonia', 'lbl_ncomercial'
-                           ]
-            self._ventanas.limpiar_componentes(componentes)
-
-        _limpiar_direccion()
-        self._ventanas.posicionar_frame('frame_direccion')
-
-        informacion = {
-            'lbl_ncomercial': self.cliente.commercial_name,
-            'lbl_ruta': self.cliente.zone_name,
-            'lbl_telefono': info_direccion.get('Telefono', ''),
-            'lbl_celular': info_direccion.get('Celular', ''),
-            'lbl_calle': info_direccion.get('Street', ''),
-            'lbl_numero': info_direccion.get('ExtNumber', ''),
-            'lbl_cp': info_direccion.get('ZipCode', ''),
-            'lbl_colonia': info_direccion.get('City', ''),
-            'lbl_estado': info_direccion.get('StateProvince', ''),
-            'lbl_municipio': info_direccion.get('Municipality', ''),
-            'txt_comentario': info_direccion.get('Comments','')
-        }
-
-        for nombre_componente, valores in self._componentes_direccion.items():
-            if '_txt' in nombre_componente:
-                continue
-
-            valor_direccion = informacion.get(nombre_componente, '')
-            self._ventanas.insertar_input_componente(nombre_componente, valor_direccion)
-
-    def _cargar_info_credito(self):
-        self._limpiar_formulario()
-        informacion = {
-            'lbl_nombre': self.cliente.official_name,
-            'lbl_rfc': self.cliente.official_number,
-            'lbl_ruta': self.cliente.zone_name,
-            'lbl_autorizado': self._credito_autorizado(),
-            'lbl_debe': self._documentos_en_cartera(),
-            'lbl_restante': self._credito_restante(),
-            'lbl_condicion': self.cliente.payment_term_name,
-            'lbl_pcompra': self._ultimo_documento_en_cartera(self.cliente.business_entity_id),
-            'lbl_comentario': self.cliente.credit_comments,
-            'lbl_minisuper': self._credito_en_super(),
-            'lbl_vales': self._vales_empleados(),
-            'lbl_lista': self.cliente.customer_type_name,
-        }
-        for nombre_componente, valores in self._componentes_credito.items():
-            if '_txt' in nombre_componente:
-                continue
-
-            valor_direccion = informacion.get(nombre_componente, '')
-            self._ventanas.insertar_input_componente(nombre_componente, valor_direccion)
+            _limpiar_direccion()
+            _cargar_info_direccion(direccion)
+            self._ventanas.posicionar_frame('frame_direccion')
+            print('direccion cargada')
 
     def _limpiar_formulario(self):
         componentes = ['lbl_ncomercial','lbl_nombre',  'lbl_rfc', 'lbl_ruta', 'lbl_autorizado', 'lbl_debe', 'lbl_restante',
@@ -833,49 +984,6 @@ class BuscarGeneralesCliente:
                        'lbl_estado','lbl_municipio'
                        ]
         self._ventanas.limpiar_componentes(componentes)
-
-    def _credito_en_super(self):
-        text = 'NO TIENE CRÉDITO EN MINISUPER'
-
-        if self.cliente.store_credit == 1:
-            if self.cliente.credit_block == 1:
-                text = 'NO TIENE CRÉDITO EN MINISUPER'
-
-            else:
-                text = 'CRÉDITO EN MINISUPER PERMITIDO'
-
-        return text
-
-    def _vales_empleados(self):
-        if self.cliente.coupons_block == 1:
-            return f"NO TIENE DERECHO"
-
-        if self.cliente.coupons != 0:
-            return f"COMPRA DEL MES REALIZADA"
-
-        return f"DISPONIBLE {self.cliente.remaining_coupons}"
-
-    def _credito_autorizado(self):
-        text = f'${self.cliente.authorized_credit}'
-
-        if self.cliente.credit_block == 1:
-            text = '$0.00'
-        return text
-
-    def _credito_restante(self):
-        text = f'${self.cliente.remaining_credit}'
-
-        if self.cliente.credit_block == 1:
-            text = '$0.00'
-        return text
-
-    def _documentos_en_cartera(self):
-        texto = ''
-        if self.cliente.documents_with_balance > 0:
-            texto = f'Debe ${self.cliente.debt} en {self.cliente.documents_with_balance} documentos.'
-        else:
-            texto = f'${self.cliente.debt}'
-        return texto
 
     def _ultimo_documento_en_cartera(self, business_entity_id):
         info_ultimo_folio = self._base_de_datos.fetchall("""
@@ -935,22 +1043,19 @@ class BuscarGeneralesCliente:
 
 
         return texto
+    # ------------------------------------------------------------------------------
+    # funcion adcional de copia de informacion de la direccion
+    # ------------------------------------------------------------------------------
+    def _copiar_informacion_direccion(self):
+        business_entity_id = self._info_cliente_seleccionado[0]['BusinessEntityID']
+        address_detail_id = self.documento.address_detail_id
 
-    def _validar_restriccion_por_cliente(self):
-        if self._module_id == 1692:
-            if self.cliente.coupons != 0 or self.cliente.coupons_block == 1:
-                texto = self._vales_empleados().lower().capitalize()
-
-                self._ventanas.mostrar_mensaje(texto)
-                return
-
-            if self.cliente.coupons_block == 1:
-                texto = self._vales_empleados()
-                self._ventanas.mostrar_mensaje(texto)
-                return
-
-        return True
-
+        informacion = self._base_de_datos.buscar_informacion_direccion_whatsapp(address_detail_id, business_entity_id)
+        pyperclip.copy(informacion)
+        self._master.iconify()
+    # ------------------------------------------------------------------------------
+    # funcion principal de seleccion del cliente y sus caracteristicas
+    # ------------------------------------------------------------------------------
     def _aceptar_seleccion(self):
         """
         Confirma la selección del cliente y prepara los datos
@@ -969,7 +1074,7 @@ class BuscarGeneralesCliente:
             return
 
         # 2) Restricciones adicionales (crédito, bloqueo, etc.)
-        if not self._validar_restriccion_por_cliente():
+        if not self._validar_restriccion_vales_cliente():
             return
 
         try:
@@ -994,6 +1099,49 @@ class BuscarGeneralesCliente:
                 self._master.destroy()
             except Exception:
                 pass
+    # ------------------------------------------------------------------------------
+    # helpers de la funcion principal de la seleccion del cliente
+    # ------------------------------------------------------------------------------
+    def _documento_seleccionado(self):
+
+        prefijos = {
+            967: 'PM', 1692:'CE', 21:'FM', 1400: 'FG', 1316:'NVR', 1319:'FGR', 158:'NV'
+        }
+
+
+        def es_remision():
+            self.documento.cfd_type_id = 1
+            self.documento.doc_type = 'REMISIÓN'
+            self.documento.forma_pago = '01'
+            self.documento.metodo_pago = 'PUE'
+            self.documento.receptor_uso_cfdi = 'S01'
+
+        def es_factura():
+            self.documento.cfd_type_id = 0
+            self.documento.doc_type = 'FACTURA'
+            self.documento.forma_pago = self.cliente.forma_pago
+            self.documento.metodo_pago = self.cliente.metodo_pago
+            self.documento.receptor_uso_cfdi = self.cliente.receptor_uso_cfdi
+
+        self.documento.prefix = prefijos.get(self._module_id, 'CAYAL')
+
+        if self._module_id in (967,1692,1316):
+            es_remision()
+            return True
+
+        if self.cliente.cayal_customer_type_id in (0, 1):
+            es_remision()
+            return True
+
+        else:
+            seleccion = self._ventanas.obtener_input_componente('cbx_documento')
+
+            if seleccion == 'Seleccione':
+                self._ventanas.mostrar_mensaje('Debe seleccionar un tipo de documento.')
+                return False
+
+            es_factura() if seleccion == 'Factura' else es_remision()
+            return True
 
     def _asignar_parametros_a_documento(self):
 
@@ -1017,131 +1165,17 @@ class BuscarGeneralesCliente:
             self.documento.business_entity_id = self.cliente.business_entity_id
             self.documento.customer_type_id = self.cliente.cayal_customer_type_id
 
-    def _buscar_ofertas(self):
-        """
-        Se asegura de tener ofertas cargadas para el tipo de cliente actual.
-        Utiliza memoria y cache en disco (HOY) desde _buscar_productos_ofertados_cliente.
-        """
-        customer_type_id = getattr(self.cliente, "customer_type_id", None)
-        if customer_type_id is None:
-            self.ofertas = {}
-            return
+    def _validar_restriccion_vales_cliente(self):
+        if self._module_id == 1692:
+            if self.cliente.coupons != 0 or self.cliente.coupons_block == 1:
+                texto =f"COMPRA DEL MES REALIZADA".lower().capitalize()
 
-        ofertas = self._buscar_productos_ofertados_cliente()
-        # opcionalmente, puedes guardar directamente en self.ofertas aquí:
-        # self.ofertas = ofertas or {}
-        return ofertas
+                self._ventanas.mostrar_mensaje(texto)
+                return
 
-    def _buscar_productos_ofertados_cliente(self):
-        try:
-            from zoneinfo import ZoneInfo  # Py>=3.9
-            tz = ZoneInfo("America/Merida")
-        except Exception:
-            tz = None  # fallback sin zona (no debería pasar en Py>=3.9)
+            if self.cliente.coupons_block == 1:
+                texto = f"NO TIENE DERECHO"
+                self._ventanas.mostrar_mensaje(texto)
+                return
 
-        def _today_str():
-            now = datetime.now(tz) if tz else datetime.now()
-            return now.strftime("%Y%m%d")
-
-        def _cache_dir() -> Path:
-            base = getattr(self, "_offers_cache_dir", None)
-            if base is None:
-                base = Path(".offers_cache")
-                setattr(self, "_offers_cache_dir", base)
-            base.mkdir(parents=True, exist_ok=True)
-            return base
-
-        def _cache_path(ctid: int, day: str) -> Path:
-            # nombre con fecha para validar día y facilitar limpieza
-            safe = f"ofertas_{ctid}_{day}.pkl.gz"
-            return _cache_dir() / safe
-
-        def _cache_load_if_today(ctid: int):
-            day = _today_str()
-            p = _cache_path(ctid, day)
-            if not p.exists():
-                return None
-            try:
-                with gzip.open(p, "rb") as fh:
-                    return pickle.load(fh)
-            except Exception:
-                try:
-                    p.unlink(missing_ok=True)
-                except Exception:
-                    pass
-                return None
-
-        def _cache_save_today(ctid: int, data: dict):
-            day = _today_str()
-            p = _cache_path(ctid, day)
-            tmp = p.with_suffix(".tmp")
-            with gzip.open(tmp, "wb") as fh:
-                pickle.dump(data, fh, protocol=pickle.HIGHEST_PROTOCOL)
-            os.replace(tmp, p)
-
-        def _cache_cleanup_not_today():
-            day = _today_str()
-            base = _cache_dir()
-            # Borra cualquier archivo que no termine en _YYYYMMDD.pkl.gz (día actual)
-            for f in base.glob("ofertas_*.pkl.gz"):
-                if not f.name.endswith(f"_{day}.pkl.gz"):
-                    try:
-                        f.unlink(missing_ok=True)
-                    except Exception:
-                        pass
-
-        customer_type_id = self.cliente.customer_type_id
-
-        # 1) Memoria
-        ofertas_mem = self._ofertas_por_lista.get(customer_type_id)
-        if ofertas_mem is not None:
-            self._customer_types_ids_ofertas.add(customer_type_id)
-            return ofertas_mem
-
-        # 2) Cache local (solo si es de HOY)
-        ofertas_disk = _cache_load_if_today(customer_type_id)
-        if ofertas_disk is not None:
-            self._ofertas_por_lista[customer_type_id] = ofertas_disk
-            self._customer_types_ids_ofertas.add(customer_type_id)
-            _cache_cleanup_not_today()
-            return ofertas_disk
-
-        # 3) Consulta BD + proceso
-        consulta_productos_ofertados = self._base_de_datos.buscar_productos_en_oferta(
-            lista_precios=customer_type_id
-        )
-        productos_ids = list({reg['ProductID'] for reg in consulta_productos_ofertados})
-
-        consulta_productos = self._buscar_info_productos_por_ids(productos_ids)
-        consulta_procesada = self._agregar_impuestos_productos(consulta_productos)
-
-        ofertas = {
-            'consulta_productos': consulta_procesada,
-            'consulta_productos_ofertados': consulta_productos_ofertados,
-            'consulta_productos_ofertados_btn': consulta_procesada,  # ajusta si necesitas otro set
-            'products_ids_ofertados': productos_ids
-        }
-
-        # Guarda en memoria y en disco (para HOY)
-        self._ofertas_por_lista[customer_type_id] = ofertas
-        self._customer_types_ids_ofertas.add(customer_type_id)
-        _cache_save_today(customer_type_id, ofertas)
-
-        # 4) Limpieza de archivos no correspondientes a HOY
-        _cache_cleanup_not_today()
-
-        return ofertas
-
-    def _buscar_info_productos_por_ids(self, productos_ids, no_en_venta=None):
-
-        if no_en_venta:
-            return self._base_de_datos.buscar_info_productos(productos_ids,
-                                                            no_en_venta=True)
-        return self._base_de_datos.buscar_info_productos(productos_ids)
-
-    def _agregar_impuestos_productos(self, consulta_productos):
-        consulta_procesada = []
-        for producto in consulta_productos:
-            producto_procesado = self._utilerias.calcular_precio_con_impuesto_producto(producto)
-            consulta_procesada.append(producto_procesado)
-        return consulta_procesada
+        return True

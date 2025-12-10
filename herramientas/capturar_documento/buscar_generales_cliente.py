@@ -104,7 +104,7 @@ class BuscarGeneralesCliente:
             'frame_principal': ('master', None,
                                 {'row': 0, 'column': 0, 'sticky': tk.NSEW}),
 
-            'frame_buscar': ('frame_principal', 'Buscar cliente o folio de nota:',
+            'frame_buscar': ('frame_principal', 'Buscar cliente, folio o código de barras:',
                                       {'row': 0, 'columnspan': 4, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
 
             'frame_botones': ('frame_buscar', None,
@@ -354,7 +354,8 @@ class BuscarGeneralesCliente:
             if not info_documento:
                 return
             business_entity_id = info_documento['BusinessEntityID']
-            self._settear_info_cliente_y_direcciones(business_entity_id, abrir=True)
+            cfd_type_id = info_documento['CFDTypeID']
+            self._settear_info_cliente_y_direcciones(business_entity_id, abrir=True, cfd_type_id=cfd_type_id)
             return
 
         es_numero = self._utilerias.es_cantidad(termino_buscado)
@@ -397,7 +398,9 @@ class BuscarGeneralesCliente:
             return
 
         business_entity_id = info_documento['BusinessEntityID']
-        self._settear_info_cliente_y_direcciones(business_entity_id, abrir=True)
+        cfd_type_id = info_documento['CFDTypeID']
+
+        self._settear_info_cliente_y_direcciones(business_entity_id, abrir=True, cfd_type_id=cfd_type_id)
     # ------------------------------------------
     # Helpers de busqueda ya sea por codigo de barras o nombre
     # ------------------------------------------
@@ -433,10 +436,10 @@ class BuscarGeneralesCliente:
                 SELECT D.BusinessEntityID, E.OfficialName,
                     ISNULL(D.FolioPrefix,'')+ISNULL(D.Folio,'') DocFolio,
                     CASE WHEN D.CancelledOn IS NULL THEN 0 ELSE 1 END Cancelled,
-                    D.Balance, D.Total, D.TotalPaid, StatusPaidID
+                    D.Balance, D.Total, D.TotalPaid, StatusPaidID, D.chkCustom1 CFDTypeID
                 FROM docDocument D
                 INNER JOIN orgBusinessEntity E ON D.BusinessEntityID = E.BusinessEntityID
-                WHERE D.DocumentID = ? AND ISNULL(D.Custom3,0) =1040
+                WHERE D.DocumentID = ?
                 AND D.ModuleID IN (21,1400,1319)
             """, (document_id,))
 
@@ -449,7 +452,7 @@ class BuscarGeneralesCliente:
                 SELECT D.BusinessEntityID, E.OfficialName,
                     ISNULL(D.FolioPrefix,'')+ISNULL(D.Folio,'') DocFolio,
                     CASE WHEN D.CancelledOn IS NULL THEN 0 ELSE 1 END Cancelled,
-                    D.Balance, D.Total, D.TotalPaid, StatusPaidID
+                    D.Balance, D.Total, D.TotalPaid, StatusPaidID, D.chkCustom1 CFDTypeID
                 FROM docDocument D
                 INNER JOIN orgBusinessEntity E ON D.BusinessEntityID = E.BusinessEntityID
                 WHERE D.FolioPrefix = ?
@@ -460,19 +463,6 @@ class BuscarGeneralesCliente:
         if consulta:
             info_documento = consulta[0]
 
-            cancelado = info_documento['Cancelled']
-            status_paid_id = info_documento['StatusPaidID']
-            official_name= info_documento['OfficialName']
-            doc_folio = info_documento['DocFolio']
-
-            if cancelado == 1:
-                self._ventanas.mostrar_mensaje(f'El documento {doc_folio} del cliente {official_name} está cancelado.')
-                return
-
-            if status_paid_id == 1:
-                self._ventanas.mostrar_mensaje(f'El documento {doc_folio} del cliente {official_name} está saldado completamente.')
-                return
-
         if not consulta:
             if folio_documento != '':
                 self._ventanas.mostrar_mensaje(f'La búsqueda del término {folio_documento} no devolvió resultados.')
@@ -480,7 +470,12 @@ class BuscarGeneralesCliente:
 
         return info_documento
 
-    def _settear_info_cliente_y_direcciones(self, business_entity_id, abrir: bool = False, actualizar: bool = False):
+    def _settear_info_cliente_y_direcciones(self,
+                                            business_entity_id,
+                                            abrir: bool = False,
+                                            actualizar: bool = False,
+                                            cfd_type_id: int = 2
+                                            ):
         """
         Busca la información del cliente por BusinessEntityID,
         la carga en self.cliente y prepara documentos/ofertas.
@@ -532,8 +527,12 @@ class BuscarGeneralesCliente:
         if actualizar and not abrir:
             self._actualizar_apariencia_forma()
 
+        # 7) Caso opcional para apertura por ejemplo folio o codigo de barras
         if abrir:
-            self._aceptar_seleccion()
+            seleccion = 'Seleccione'
+            if cfd_type_id != 2:
+                seleccion =  'Factura' if cfd_type_id == 0 else 'Remisión'
+            self._aceptar_seleccion(seleccion)
 
     # ------------------------------------------------------------------------------
     # Helper que garantiza homologar clientes antiguos a nuevo proceso de direcciones adicionales
@@ -1092,7 +1091,7 @@ class BuscarGeneralesCliente:
     # ------------------------------------------------------------------------------
     # funcion principal de seleccion del cliente y sus caracteristicas
     # ------------------------------------------------------------------------------
-    def _aceptar_seleccion(self):
+    def _aceptar_seleccion(self, seleccion_documento=None):
         """
         Confirma la selección del cliente y prepara los datos
         que leerá el panel (cliente, documento, ofertas).
@@ -1106,7 +1105,7 @@ class BuscarGeneralesCliente:
         if self._instancia_llamada:
             return
 
-        if not self._documento_seleccionado():
+        if not self._documento_seleccionado(seleccion_documento):
             return
 
         # 2) Restricciones adicionales (crédito, bloqueo, etc.)
@@ -1128,9 +1127,6 @@ class BuscarGeneralesCliente:
                 # si por alguna razón no hay tipo de cliente, devolvemos ofertas vacías
                 self.ofertas = {}
 
-            # (Opcional, si aquí ya tienes el documento elegido, podrías asegurar:)
-            # self.documento = self._documento_seleccionado_objeto()
-
         finally:
             # 4) Cerrar la ventana de selección de forma segura
             try:
@@ -1140,7 +1136,7 @@ class BuscarGeneralesCliente:
     # ------------------------------------------------------------------------------
     # helpers de la funcion principal de la seleccion del cliente
     # ------------------------------------------------------------------------------
-    def _documento_seleccionado(self):
+    def _documento_seleccionado(self, seleccion=None):
 
         prefijos = {
             967: 'PM', 1692:'CE', 21:'FM', 1400: 'FG', 1316:'NVR', 1319:'FGR', 158:'NV'
@@ -1172,7 +1168,7 @@ class BuscarGeneralesCliente:
             return True
 
         else:
-            seleccion = self._ventanas.obtener_input_componente('cbx_documento')
+            seleccion = self._ventanas.obtener_input_componente('cbx_documento') if not seleccion else seleccion
 
             if seleccion == 'Seleccione':
                 self._ventanas.mostrar_mensaje('Debe seleccionar un tipo de documento.')

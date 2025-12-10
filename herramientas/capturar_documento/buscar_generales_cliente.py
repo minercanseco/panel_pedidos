@@ -520,11 +520,16 @@ class BuscarGeneralesCliente:
         for direccion in direcciones_cliente:
             self.cliente.add_address_detail(direccion)
 
+        self._rellenar_cbx_direccion()
+
         # 5) Preparar documentos / direcciones / sucursales según ese cliente
         self._rellenar_cbx_documento()
 
         # 5) Buscar ofertas (debe llenar self._ofertas_por_lista para este cliente)
         self._buscar_ofertas()
+
+        # 6) Seleccionamos la direccion por defecto
+        self._seleccionar_direccion()
 
         # 6) Lógica opcional: abrir captura y/o refrescar UI
         if actualizar and not abrir:
@@ -952,7 +957,6 @@ class BuscarGeneralesCliente:
                     continue
 
                 valor_direccion = informacion.get(nombre_componente, '')
-                print(nombre_componente, valor_direccion)
                 self._ventanas.insertar_input_componente(nombre_componente, valor_direccion)
 
         direccion = {}
@@ -969,13 +973,11 @@ class BuscarGeneralesCliente:
 
         if consulta and direccion_seleccionada != 'Seleccione':
             direccion = consulta[0]
-            print(direccion)
             self.documento.address_details = direccion
             self.documento.address_detail_id = direccion.get('AddressDetailID', 0)
             _limpiar_direccion()
             _cargar_info_direccion(direccion)
             self._ventanas.posicionar_frame('frame_direccion')
-            print('direccion cargada')
 
     def _limpiar_formulario(self):
         componentes = ['lbl_ncomercial','lbl_nombre',  'lbl_rfc', 'lbl_ruta', 'lbl_autorizado', 'lbl_debe', 'lbl_restante',
@@ -1043,6 +1045,37 @@ class BuscarGeneralesCliente:
 
 
         return texto
+
+    def _rellenar_cbx_direccion(self):
+        direcciones = getattr(self.cliente, "addresses_details", []) or []
+
+        nombres_fiscal = []
+        nombres_otros = []
+
+        for d in direcciones:
+            nombre = (d.get('AddressName') or '').strip()
+            if not nombre:
+                continue
+
+            # Fiscal: AddressTypeID == 1
+            if d.get('AddressTypeID') == 1:
+                if nombre not in nombres_fiscal:
+                    nombres_fiscal.append(nombre)
+            else:
+                if nombre not in nombres_otros:
+                    nombres_otros.append(nombre)
+
+        # Fiscal primero, luego el resto
+        nombres = nombres_fiscal + nombres_otros
+
+        if not nombres:
+            self._ventanas.rellenar_cbx('cbx_direccion', None, 'sin seleccione')
+            return
+
+        self._ventanas.rellenar_cbx('cbx_direccion', nombres, 'sin seleccione')
+
+        # si quieres que por default quede seleccionada la fiscal:
+        self._ventanas.insertar_input_componente('cbx_direccion', nombres[0])
     # ------------------------------------------------------------------------------
     # funcion adcional de copia de informacion de la direccion
     # ------------------------------------------------------------------------------

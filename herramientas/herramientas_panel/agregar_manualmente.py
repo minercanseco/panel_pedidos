@@ -283,7 +283,7 @@ class AgregarPartidaManualmente:
         consulta = self._modelo.buscar_productos(termino_buscado, tipo_busqueda)
 
         if not consulta:
-            self._modelo.mensajes_de_error(6, self._master)
+            self._modelo._mensajes_de_error(6, self._master)
             self._limpiar_controles_forma()
             self._ventanas.enfocar_componente('tbx_buscar')
             self._ventanas.insertar_input_componente('tbx_cantidad', 1.00)
@@ -507,7 +507,7 @@ class AgregarPartidaManualmente:
 
             if valor_chk_monto == 1:
                 self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
-                self._modelo.mensajes_de_error(4, self._master)
+                self._modelo._mensajes_de_error(4, self._master)
 
             if equivalencia == 0:
                 return 'Unidad'
@@ -518,12 +518,12 @@ class AgregarPartidaManualmente:
         if clave_unidad == 'KGM':
 
             if valor_chk_pieza == 1 and equivalencia == 0:
-                self._modelo.mensajes_de_error(3, self._master)
+                self._modelo._mensajes_de_error(3, self._master)
                 self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'deseleccionado')
                 return 'Error'
 
             if valor_chk_monto == 1 and cantidad == 0:
-                self._modelo.mensajes_de_error(0, self._master)
+                self._modelo._mensajes_de_error(0, self._master)
                 self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
                 return 'Error'
 
@@ -540,7 +540,7 @@ class AgregarPartidaManualmente:
                 return 'Equivalencia'
 
             if valor_chk_monto == 1 and cantidad <= 1:
-                self._modelo.mensajes_de_error(2, self._master)
+                self._modelo._mensajes_de_error(2, self._master)
                 return 'Error'
 
             if valor_chk_monto == 1:

@@ -2,8 +2,14 @@ import copy
 import datetime
 import re
 import tkinter as tk
+import uuid
+
 import pyperclip
 import logging
+import gzip, pickle
+from pathlib import Path
+from datetime import datetime
+
 
 from herramientas.capturar_documento.herramientas_captura.agregar_epecificaciones import AgregarEspecificaciones
 from herramientas.capturar_documento.ventana_captura.herramientas_facturas import HerramientasFacturas
@@ -21,28 +27,35 @@ class ControladorCaptura:
         self._crear_notebook_herramientas()
         self._cargar_informacion_general()
         self._cargar_eventos_componentes()
+
         # ---------------------------------------------------------------------
         # Banderas de procesos
         # ---------------------------------------------------------------------
         self._agregando_producto = False
         self._procesando_seleccion = False
-
+        self._agregando_partida_tabla = False
+        self._servicio_a_domicilio_agregado = False
+        self._cargar_shortcuts = True
         # ---------------------------------------------------------------------
-        # Acciones de inicializacion relacionadas con captura
+        # Esta validación determina si el flujo de inicialización se detiene debido al bloqueo de documento
         # ---------------------------------------------------------------------
-        if self._modelo.module_id == 1687: # modulo de pedidos
-            self._modelo.agregar_servicio_a_domicilio()
-            self._configurar_pedido()
+        if not self.determinar_bloqueo_ventana():
+            # ---------------------------------------------------------------------
+            # Acciones de inicialización relacionadas con captura
+            # ---------------------------------------------------------------------
+            if self._modelo.module_id == 1687: # modulo de pedidos
+                self.agregar_servicio_a_domicilio()
+                self._configurar_pedido()
 
-        if self._modelo.module_id == 1687 and self._modelo.documento.document_id > 0: # modulo de pedidos
-            self._rellenar_desde_base_de_datos()
+            if self._modelo.module_id == 1687 and self._modelo.documento.document_id > 0: # modulo de pedidos
+                self._rellenar_desde_base_de_datos()
 
-        self._buscar_ofertas()
-        self._interfaz.ventanas.situar_ventana_arriba(self._master)
-        self._interfaz.ventanas.enfocar_componente('tbx_clave')
+            self._buscar_ofertas()
+            self._interfaz.ventanas.situar_ventana_arriba(self._master)
+            self._interfaz.ventanas.enfocar_componente('tbx_clave')
 
-        if self._modelo.module_id == 1687: # si es pedido
-            self._interfaz.ventanas.enfocar_componente('tbx_buscar_manual')
+            if self._modelo.module_id == 1687: # si es pedido
+                self._interfaz.ventanas.enfocar_componente('tbx_buscar_manual')
 
     # ---------------------------------------------------------------------
     # Funciones relacionadas a herramientas y eventos de componentes de captura
@@ -204,7 +217,7 @@ class ControladorCaptura:
                        'lbl_credito', 'lbl_restante', 'lbl_debe'
                        ]
             for nombre in nombres:
-                componente = self._modelo.ventanas.componentes_forma.get(nombre, None)
+                componente = self._interfaz.ventanas.componentes_forma.get(nombre, None)
                 if componente:
                     componente.config(**estilo)
 
@@ -242,6 +255,162 @@ class ControladorCaptura:
                                                               self._copiar_portapapeles(),
                                                               con_saltos_de_linea=True)
 
+    def rellenar_cbxs_fiscales(self):
+
+
+        # ==============
+        # Helpers locales
+        # ==============
+        def _today_str():
+            return datetime.now().strftime("%Y%m%d")
+
+        def _cache_dir():
+            base = Path.home() / ".cayal_cache"
+            base.mkdir(parents=True, exist_ok=True)
+            return base
+
+        def _fiscales_cache_path(kind: str, day: str):
+            return _cache_dir() / f"fiscales_{kind}_{day}.pkl.gz"
+
+        def _cache_save_today(kind: str, data):
+            day = _today_str()
+            path = _fiscales_cache_path(kind, day)
+            try:
+                with gzip.open(path, "wb") as f:
+                    pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+            except Exception:
+                pass
+
+        def _cache_load_if_today(kind: str):
+            day = _today_str()
+            path = _fiscales_cache_path(kind, day)
+            try:
+                if path.exists():
+                    with gzip.open(path, "rb") as f:
+                        return pickle.load(f)
+            except Exception:
+                return None
+            return None
+
+        def _cache_cleanup_not_today():
+            day = _today_str()
+            for f in _cache_dir().glob("fiscales_*.pkl.gz"):
+                if not f.name.endswith(f"_{day}.pkl.gz"):
+                    try:
+                        f.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+
+        # ==============
+        # Lógica principal
+        # ==============
+        if not hasattr(self, "_fiscales_cache_mem"):
+            self._fiscales_cache_mem = {
+                'metodopago': None,
+                'formapago': None,
+                'regimen': None,
+                'usocfdi': None,
+            }
+
+        parametros = {
+            'cbx_metodopago': ('metodopago', 'consulta_metodos_pago', self._modelo.obtener_metodos_de_pago),
+            'cbx_formapago': ('formapago', 'consulta_formas_pago', self._modelo.obtener_formas_de_pago),
+            'cbx_regimen': ('regimen', 'consulta_regimenes', self._modelo.obtener_regimenes_fiscales),
+            'cbx_usocfdi': ('usocfdi', 'consulta_uso_cfdi', self._modelo.obtener_usos_de_cfdi),
+        }
+
+        datos_por_tipo = {}
+        for componente, (tipo, attr_name, funcion) in parametros.items():
+            lista = self._fiscales_cache_mem.get(tipo)
+            if lista is None:
+                lista = _cache_load_if_today(tipo)
+                if lista is not None:
+                    self._fiscales_cache_mem[tipo] = lista
+                    setattr(self, attr_name, lista)
+                    _cache_cleanup_not_today()
+
+            if lista is None:
+                lista = funcion()
+                self._fiscales_cache_mem[tipo] = lista
+                setattr(self, attr_name, lista)
+                _cache_save_today(tipo, lista)
+                _cache_cleanup_not_today()
+
+            datos_por_tipo[tipo] = lista or []
+
+        for componente, (tipo, attr_name, _) in parametros.items():
+            lista = datos_por_tipo.get(tipo, [])
+            valores_cbx = [reg.get('Value') for reg in lista]
+            self._interfaz.ventanas.rellenar_cbx(componente, valores_cbx, sin_seleccione=True)
+
+        parametros_cliente = {
+            'cbx_metodopago': (datos_por_tipo['metodopago'], getattr(self._modelo.cliente, 'metodo_pago', None)),
+            'cbx_formapago': (datos_por_tipo['formapago'], getattr(self._modelo.cliente, 'forma_pago', None)),
+            'cbx_regimen': (datos_por_tipo['regimen'], getattr(self._modelo.cliente, 'company_type_name', None)),
+            'cbx_usocfdi': (datos_por_tipo['usocfdi'], getattr(self._modelo.cliente, 'receptor_uso_cfdi', None)),
+        }
+
+        if getattr(self._modelo.documento, 'cfd_type_id', None) == 1 or getattr(self._modelo.cliente, 'cayal_customer_type_id',
+                                                                        None) in (0, 1):
+            self._interfaz.ventanas.insertar_input_componente('cbx_regimen', '616 - Sin obligaciones fiscales')
+            self._interfaz.ventanas.insertar_input_componente('cbx_metodopago', 'PUE - Pago en una sola exhibición')
+            self._interfaz.ventanas.insertar_input_componente('cbx_formapago', '01 - Efectivo')
+            self._interfaz.ventanas.insertar_input_componente('cbx_usocfdi', 'S01 - Sin efectos fiscales.')
+            for componente in parametros_cliente.keys():
+                self._interfaz.ventanas.bloquear_componente(componente)
+            return
+
+        for componente, (lista, clave) in parametros_cliente.items():
+            if not lista:
+                continue
+            seleccionado = None
+            if componente != 'cbx_regimen' and clave is not None:
+                _match = [reg.get('Value') for reg in lista if reg.get('Clave') == clave]
+                if _match:
+                    seleccionado = _match[0]
+                    self._interfaz.ventanas.insertar_input_componente(componente, seleccionado)
+                    if componente != 'cbx_formapago':
+                        self._interfaz.ventanas.bloquear_componente(componente)
+            if seleccionado is None and clave is not None:
+                _match = [reg.get('Value') for reg in lista if reg.get('Value') == clave]
+                if _match:
+                    seleccionado = _match[0]
+                    self._interfaz.ventanas.insertar_input_componente(componente, seleccionado)
+                    self._interfaz.ventanas.bloquear_componente(componente)
+            if componente == 'cbx_formapago':
+                if getattr(self._modelo.cliente, 'forma_pago', None) == '99':
+                    self._interfaz.ventanas.bloquear_componente(componente)
+
+    def asignar_folio(self, document_id=0, order_document_id=0):
+        folio = self._modelo.obtener_folio_documento(document_id, order_document_id)
+
+        self._modelo.documento.folio = folio
+        doc_folio = f"{self._modelo.documento.prefix}{folio}"
+        self._modelo.documento.doc_folio = doc_folio
+        self._interfaz.ventanas.insertar_input_componente('lbl_folio', doc_folio)
+
+    def determinar_bloqueo_ventana(self):
+        status = 'Bloqueado'
+        if self._modelo.module_id == 1687:
+            status = self._modelo.obtener_status_pedido(self._modelo.documento.document_id)
+
+        if status == 'Bloqueado' or self._modelo.documento.cancelled_on:
+            self._interfaz.ventanas.bloquear_forma('frame_herramientas')
+
+            estilo_cancelado = {
+                'foreground': 'white',
+                'background': '#ff8000',
+            }
+
+            frame = self._interfaz.ventanas.componentes_forma['frame_totales']
+            widgets = frame.winfo_children()
+
+            for widget in widgets:
+                widget.config(**estilo_cancelado)
+
+            return True
+
+        return False
     # ---------------------------------------------------------------------
     # Funciones auxiliares relacionados con la captura de partidas en el pedido
     # ---------------------------------------------------------------------
@@ -250,7 +419,7 @@ class ControladorCaptura:
             valores_pedido = {}
             valores_pedido['OrderTypeID'] = 1
             valores_pedido['CreatedBy'] = self._modelo.parametros.id_usuario
-            valores_pedido['CreatedOn'] = datetime.datetime.now()
+            valores_pedido['CreatedOn'] = datetime.now()
             comentario_pedido = self._modelo.documento.comments
             valores_pedido['CommentsOrder'] = comentario_pedido.upper().strip() if comentario_pedido else ''
             valores_pedido['BusinessEntityID'] = self._modelo.cliente.business_entity_id
@@ -389,6 +558,31 @@ class ControladorCaptura:
             'equivalencia': equivalencia_decimal
         }
 
+    def _mensajes_de_error(self, numero_mensaje, master=None):
+
+        mensajes = {
+            0: 'El valor de la cantidad no puede ser menor o igual a zero',
+            1: 'El valor de la pieza no puede ser numero fracionario.',
+            2: 'El monto no puede ser menor o igual a 1',
+            3: 'El producto no tiene una equivalencia válida',
+            4: 'No se puede calcular el monto de un producto cuya unidad sea pieza.',
+            5: 'Solo puede elegir o monto o pieza en productos que tengan equivalencia.',
+            6: 'El término de búsqueda no arrojó ningún resultado.',
+            7: 'La el código de barras es inválido.',
+            8: 'La consulta por código no devolvió ningún resultado.',
+            9: 'La consulta a la base de datos del código proporcionado no devolvió resultados.',
+            10: 'El producto no está disponible a la venta favor de validar.',
+            11: 'El producto no tiene existencia favor de validar.',
+            12: 'El cliente solo tiene una direccion agreguela desde editar cliente.',
+            13: 'En el módulo de pedidos no se puede eliminar el servicio a domicilio manualmente.',
+            14: 'La captura del producto no está permitida en el módulo de venta actual.',
+            15: 'Con la captura de la partida excede el monto autorizado para este modulo.',
+            16: 'Con la captura de la partida excede el monto de crédito autorizado.',
+            17: 'La captura del documento ha conluido.'
+        }
+
+        self._interfaz.ventanas.mostrar_mensaje(mensajes[numero_mensaje], master)
+
     # ---------------------------------------------------------------------
     # Funciones auxiliares relacionados con las ofertas
     # ---------------------------------------------------------------------
@@ -470,7 +664,7 @@ class ControladorCaptura:
             self._agregando_producto = True
 
             if not self._modelo.utilerias.es_codigo_barras(clave):
-                self._modelo.mensajes_de_error(7)
+                self._mensajes_de_error(7)
                 return
 
             valores_clave = self._modelo.utilerias.validar_codigo_barras(clave)
@@ -481,13 +675,13 @@ class ControladorCaptura:
             consulta_producto = self._modelo.buscar_productos(codigo_barras, 'Clave')
 
             if not consulta_producto:
-                self._modelo.mensajes_de_error(8)
+                self._mensajes_de_error(8)
                 return
 
             product_id = self._modelo.obtener_product_ids_consulta(consulta_producto)
 
             if not product_id:
-                self._modelo.mensajes_de_error(11)
+                self._mensajes_de_error(11)
                 return
 
             info_producto = self._modelo.buscar_info_productos_por_ids(product_id, no_en_venta=True)
@@ -496,15 +690,15 @@ class ControladorCaptura:
                 existencia = self._modelo.obtener_existencia_producto(product_id)
 
                 if not existencia:
-                    self._modelo.mensajes_de_error(11)
+                    self._mensajes_de_error(11)
                     return
 
-                self._modelo.mensajes_de_error(9)
+                self._mensajes_de_error(9)
                 return
 
             disponible_a_venta = info_producto[0]['AvailableForSale']
             if disponible_a_venta == 0:
-                self._modelo.mensajes_de_error(10)
+                self._mensajes_de_error(10)
                 return
 
             # permite que al capturar por clave se respeten los casos tipo reja de huevo
@@ -571,7 +765,7 @@ class ControladorCaptura:
         consulta = self._modelo.buscar_productos(termino_buscado, tipo_busqueda)
 
         if not consulta:
-            self._modelo.mensajes_de_error(6, self._master)
+            self._mensajes_de_error(6, self._master)
             self._limpiar_controles_captura_manual()
             self._interfaz.ventanas.enfocar_componente('tbx_buscar_manual')
             self._interfaz.ventanas.insertar_input_componente('tbx_cantidad_manual', 1.00)
@@ -687,7 +881,7 @@ class ControladorCaptura:
 
                 if valor_chk_monto == 1:
                     self._interfaz.ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
-                    self._modelo.mensajes_de_error(4, self._master)
+                    self._mensajes_de_error(4, self._master)
 
                 if equivalencia == 0:
                     return 'Unidad'
@@ -698,12 +892,12 @@ class ControladorCaptura:
             if clave_unidad == 'KGM':
 
                 if valor_chk_pieza == 1 and equivalencia == 0:
-                    self._modelo.mensajes_de_error(3, self._master)
+                    self._mensajes_de_error(3, self._master)
                     self._interfaz.ventanas.cambiar_estado_checkbutton('chk_pieza', 'deseleccionado')
                     return 'Error'
 
                 if valor_chk_monto == 1 and cantidad == 0:
-                    self._modelo.mensajes_de_error(0, self._master)
+                    self._mensajes_de_error(0, self._master)
                     self._interfaz.ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
                     return 'Error'
 
@@ -720,7 +914,7 @@ class ControladorCaptura:
                     return 'Equivalencia'
 
                 if valor_chk_monto == 1 and cantidad <= 1:
-                    self._modelo.mensajes_de_error(2, self._master)
+                    self._mensajes_de_error(2, self._master)
                     return 'Error'
 
                 if valor_chk_monto == 1:
@@ -749,7 +943,7 @@ class ControladorCaptura:
             if tipo_calculo == 'Equivalencia':
                 if not self._modelo.utilerias.es_numero_entero(cantidad_decimal):
                     cantidad_decimal = self._modelo.utilerias.redondear_numero_a_entero(cantidad_decimal)
-                    self._modelo.ventanas.insertar_input_componente('tbx_cantidad_manual', cantidad_decimal)
+                    self._interfaz.ventanas.insertar_input_componente('tbx_cantidad_manual', cantidad_decimal)
                 total = cantidad_real_decimal * precio_con_impuestos
 
             if tipo_calculo == 'Unidad':
@@ -763,13 +957,13 @@ class ControladorCaptura:
 
         _actualizar_lbl_total_manual_moneda(total)
         texto = self._modelo.crear_texto_existencia_producto(info_producto)
-        self._modelo.ventanas.insertar_input_componente('lbl_existencia_manual', texto)
+        self._interfaz.ventanas.insertar_input_componente('lbl_existencia_manual', texto)
 
         unidad = info_producto.get('Unit', 'PIEZA')
         product_id = int(info_producto.get('ProductID', 0))
 
         texto_cantidad = self._modelo.crear_texto_cantidad_producto(cantidad_real_decimal, unidad, product_id)
-        self._modelo.ventanas.insertar_input_componente('lbl_cantidad_manual', texto_cantidad)
+        self._interfaz.ventanas.insertar_input_componente('lbl_cantidad_manual', texto_cantidad)
         _actualizar_clave_producto_manual()
 
         return {'cantidad': cantidad_real_decimal, 'cantidad_piezas': cantidad_piezas, 'total': total}
@@ -814,9 +1008,8 @@ class ControladorCaptura:
         if self._procesando_seleccion:
             return
 
-        self._procesando_seleccion = True
-
         try:
+            self._procesando_seleccion = True
             fila = self._tabla_manual_con_seleccion_valida()
             if not fila:
                 return
@@ -856,6 +1049,366 @@ class ControladorCaptura:
             return False
 
         return fila
+
+    def _filtrar_productos_no_permitidos(self, partida):
+
+        if self._modelo.module_id == 1692: # restriccion por modulo vales
+            linea = partida.get('Category1', '')
+            if linea not in self._modelo.LINEAS_PRODUCTOS_PERMITIDOS_VALES:
+                self._mensajes_de_error(14)
+                return
+
+        return partida
+
+    def actualizar_totales_documento(self):
+
+        impuestos_acumulado = 0
+        ieps_acumulado = 0
+        iva_acumulado = 0
+        sub_total_acumulado = 0
+
+        for producto in self._modelo.documento.items:
+            ieps_acumulado += producto.get('ieps', 0)
+            iva_acumulado += producto.get('iva', 0)
+            impuestos_acumulado += producto.get('impuestos',0)
+            sub_total_acumulado += producto.get('subtotal', 0)
+
+        totales_documento = self._modelo.impuestos.doc_totales_por_documento(self._modelo.documento.items)
+        self._modelo.documento.total = totales_documento['total_doc']
+
+
+        total_documento_moneda = self._modelo.utilerias.convertir_decimal_a_moneda(self._modelo.documento.total)
+        self._interfaz.ventanas.insertar_input_componente('lbl_total', total_documento_moneda)
+
+        self._modelo.documento.total_tax = impuestos_acumulado
+        self._modelo.documento.subtotal = sub_total_acumulado
+        self._modelo.documento.ieps = ieps_acumulado
+        self._modelo.documento.iva = iva_acumulado
+
+        self._interfaz.ventanas.insertar_input_componente('lbl_articulos',
+                                                 self._interfaz.ventanas.numero_filas_treeview('tvw_productos'))
+
+        if self._modelo.cliente.cayal_customer_type_id in (1,2) and self._modelo.cliente.credit_block == 0:
+            debe = self._modelo.cliente.debt
+            debe = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(debe)
+
+            debe += self._modelo.documento.total
+            debe_moneda = self._modelo.utilerias.convertir_decimal_a_moneda(debe)
+            self._interfaz.ventanas.insertar_input_componente('lbl_debe', debe_moneda)
+
+            disponible = self._modelo.cliente.remaining_credit
+            disponible = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(disponible)
+
+            disponible = disponible - self._modelo.documento.total
+            excedido = abs(disponible) if disponible < 0 else 0
+
+            disponible = 0 if disponible <= 0 else disponible
+            self._modelo.documento.credit_document_available = 0 if disponible == 0 else 1
+
+            disponible_moneda = self._modelo.utilerias.convertir_decimal_a_moneda(disponible)
+            self._interfaz.ventanas.insertar_input_componente('lbl_restante', disponible_moneda)
+
+            self._modelo.documento.credit_exceeded_amount = excedido
+
+    def validar_restriccion_por_monto(self, partida, tipo_captura):
+        total = self._modelo.documento.total
+        total_partida = partida.get('total', 0)
+        total_real = total_partida + total
+
+        if self._modelo.module_id in (1400,21,1319):
+            if total_real >= 2000 and self._modelo.documento.cfd_type_id == 0 and self._modelo.documento.forma_pago == '01':
+                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                    "Con la captura de la partida excede $2000.00, que es el monto máximo para facturas capturadas en efectivo. "
+                    "¿Desea continuar?"
+                )
+                if not respuesta:
+                    return
+
+        # Si ya está completamente cerrado (2), no hacer nada
+        if self._modelo.module_id == 1692 and self._modelo.documento.finish_document == 2:
+            # IMPORTANTE: devolver True para no bloquear flujos posteriores
+            return True
+
+        if self._modelo.module_id == 1692 and self._modelo.documento.finish_document == 0:
+            # restricción por vales
+            if total_real > self._modelo.cliente.coupons_mount:
+
+                clave_unidad_partida = partida.get('ClaveUnidad', 'KGM')
+                if clave_unidad_partida != 'KGM':
+                    self._interfaz.ventanas.mostrar_mensaje(
+                        "Con la captura de la partida excede el monto autorizado para este módulo. "
+                        "La partida no se puede dividir debido a que su unidad es distinta de Kilo."
+                    )
+                    return
+
+                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                    "Con la captura de la partida excede el monto autorizado para este módulo. "
+                    "¿Desea capturar la diferencia en un folio Minisuper?"
+                )
+                if not respuesta:
+                    return
+
+                # Calcula cuánto se puede quedar en el doc relacionado (finish_document == 0)
+                monto_limite = total_real - self._modelo.cliente.coupons_mount
+                partida_anterior, partida_nueva = self._modelo.dividir_partida(partida, monto_limite)
+
+                # Etiquetas de captura
+                partida_anterior['TipoCaptura'] = tipo_captura
+                partida_nueva['TipoCaptura'] = tipo_captura
+
+                # 1) INSERTA PRIMERO LA PARTE "PERMITIDA" EN EL DOCUMENTO RELACIONADO
+                #    Evitar revalidación: usa document_item_id != 0 para saltar validar_restriccion_por_monto dentro de agregar_partida_tabla
+                self._modelo.agregar_partida_tabla(partida_anterior, document_item_id=-1, tipo_captura=tipo_captura)
+
+                # 2) AHORA sí marca como "finish_document = 1" y crea el folio Minisúper si no existe
+                self._modelo.documento.finish_document = 1
+
+                if not getattr(self._modelo.documento, 'adicional_document_id', 0):
+                    folio_document_id = self._modelo.crear_cabecera_documento(1400, 'FG')  # fac minisuper
+                    self._modelo.documento.adicional_document_id = folio_document_id
+
+                # 3) Inserta la parte restante en el folio Minisúper
+                #    Puedes ir directo a items (sin tabla) o usar la tabla con document_item_id != 0 para saltar validación.
+                self._modelo.agregar_partida_items_documento(partida_nueva)
+                # o, si quieres que aparezca en el treeview de la UI:
+                # self.agregar_partida_tabla(partida_nueva, document_item_id=-1, tipo_captura=tipo_captura)
+
+                return  # corta el flujo original (ya insertamos ambas partes)
+
+        # crédito empleado Cayal ruta 7
+        if self._modelo.cliente.zone_id == 1040 and self._modelo.module_id in (1400, 21, 1319):
+            if total_real > self._modelo.cliente.remaining_credit and self._modelo.documento.credit_document_available == 1:
+
+                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                    "Con la captura de la partida excede el monto autorizado para este módulo. "
+                    "¿Desea continuar?"
+                )
+                self._modelo.documento.credit_document_available = 0
+                if not respuesta:
+                    return
+
+        return True
+
+    def agregar_partida_tabla(self, partida, document_item_id, tipo_captura, unidad_cayal=0, monto_cayal=0):
+
+        if self._modelo.documento.finish_document == 2:
+            self._mensajes_de_error(17)
+            return
+
+        if document_item_id == 0:
+            if not self._filtrar_productos_no_permitidos(partida):
+                return
+
+            if not self.validar_restriccion_por_monto(partida, tipo_captura):
+                return
+
+        if not self._agregando_partida_tabla:
+            try:
+                self._agregando_partida_tabla = True
+
+                cantidad = self._modelo.utilerias.convertir_valor_a_decimal(partida['cantidad'])
+                comments = partida.get('Comments', '')
+                producto = partida.get('ProductName', '')
+                partida['TipoCaptura'] = tipo_captura
+                partida['DocumentItemID'] = document_item_id
+                partida['CayalAmount'] = monto_cayal
+                partida['uuid'] = uuid.uuid4()
+
+                if self._modelo.documento.document_id > 0 and document_item_id == 0:
+                    partida['ItemProductionStatusModified'] = 1
+                    partida['CreatedBy'] = self._modelo.user_id
+
+                    comentario = f'AGREGADO POR {self._modelo.user_name}'
+                    self._modelo.agregar_partida_items_documento_extra(partida, 'agregar', comentario, partida['uuid'])
+
+                # en caso que el modulo se use para capturar otro tipo de documentos que no sean pedidos el valor por defecto
+                # debe ser 0 y para las subsecuentes modificaciones segun aplique
+                # en funcion del diccionario modificaciones_pedido
+                item_production_status_modified = partida.get('ItemProductionStatusModified', 0)
+                partida['ItemProductionStatusModified'] = item_production_status_modified
+                partida['CreatedBy'] = self._modelo.user_id
+
+                cantidad_piezas = 0 if unidad_cayal == 0 else self._modelo.utilerias.redondear_valor_cantidad_a_decimal(partida['CayalPiece'])
+
+                equivalencia = self._modelo.obtener_equivalencia(partida.get('ProductID', 0))
+                equivalencia = 0 if not equivalencia else equivalencia
+                equivalencia_decimal = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
+
+                if equivalencia_decimal > 0 and unidad_cayal == 1:
+                    cantidad_piezas = int((cantidad/equivalencia_decimal))
+
+                funcion = self._modelo.utilerias.convertir_valor_a_decimal
+
+                partida['CayalPiece'] = cantidad_piezas
+                cantidad = f"{cantidad:.3f}" if partida['ClaveUnidad'] == 'KGM' else f"{cantidad:.2f}"
+                partida_tabla = (cantidad,
+                                 cantidad_piezas,
+                                 partida['ProductKey'],
+                                 producto,
+                                 partida['Unit'],
+                                 funcion(partida['precio']),
+                                 funcion(partida['subtotal']),
+                                 funcion(partida['impuestos']),
+                                 funcion(partida['total']),
+                                 partida['ProductID'],
+                                 partida['DocumentItemID'],
+                                 partida['TipoCaptura'],  # Tipo de captura 1 para manual y 0 para captura por pistola
+                                 cantidad_piezas,  # Viene del control de captura manual
+                                 partida['CayalAmount'],  # viene del control de tipo monto
+                                 partida['uuid'],
+                                 partida['ItemProductionStatusModified'],
+                                 comments,
+                                 partida['CreatedBy']
+                                 )
+
+                if int(partida['ProductID']) == 5606:
+                    if self._servicio_a_domicilio_agregado:
+                        return
+
+                    self._servicio_a_domicilio_agregado = True
+
+                # agregar tipo de captura
+                tabla_captura = self._interfaz.ventanas.componentes_forma['tvw_productos']
+                self._interfaz.ventanas.insertar_fila_treeview(tabla_captura, partida_tabla, al_principio=True)
+
+                self.agregar_partida_items_documento(partida)
+                self.actualizar_totales_documento()
+
+                # si aplica remueve el servicio a domicilio
+                if self._modelo.module_id == 1687 and self._servicio_a_domicilio_agregado == True:
+                    if self._modelo.documento.total - self._modelo.documento.delivery_cost >= 200:
+                        self.remover_servicio_a_domicilio()
+
+            finally:
+                self._agregando_partida_tabla = False
+
+    def remover_servicio_a_domicilio(self):
+        self._servicio_a_domicilio_agregado = False
+        self._modelo.remover_partida_items_documento(5606)
+        self.remover_product_id_tabla(5606)
+        self.actualizar_totales_documento()
+
+    def remover_product_id_tabla(self, product_id):
+        filas = self._interfaz.ventanas.obtener_filas_treeview('tvw_productos')
+
+        for fila in filas:
+            valores = self._interfaz.ventanas.procesar_fila_treeview('tvw_productos', fila)
+            product_id_tabla = int(valores['ProductID'])
+            if product_id_tabla == product_id:
+                self._interfaz.ventanas.remover_fila_treeview('tvw_productos', fila)
+
+    def agregar_partida_items_documento(self, partida):
+
+        self._modelo.documento.items.append(partida)
+
+        if self._modelo.module_id != 1687: # si no es el modulo de pedidos inserta la partida
+            if self._modelo.documento.document_id == 0:
+                document_id = self._modelo.crear_cabecera_documento()
+                self._modelo.documento.document_id = document_id
+
+                self.asignar_folio(document_id)
+
+                self._modelo.crear_cabecera_documento_relacionado()
+
+            if self._modelo.documento.finish_document != 1:
+
+                # agregamos partida al documento de venta
+                parametros = (
+                    self._modelo.documento.document_id,
+                    partida['ProductID'],
+                    2,  # depot id minisuper
+                    partida['cantidad'],
+                    partida['precio'],
+                    0,  # costo
+                    partida['subtotal'],
+                    partida['TipoCaptura'],
+                    self._modelo.module_id
+                )
+                self._modelo.insertar_partida_documento(parametros)
+
+        if self._modelo.module_id == 1692: #modulo de vales
+
+            if self._modelo.documento.finish_document == 0: # aplica para el módulo de vales
+
+                # agregamos partida al documento de salida
+                costo = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(partida['CostPrice'])
+                cantidad = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(partida['cantidad'])
+                total = costo * cantidad
+
+                parametros = (
+                    self._modelo.documento.destination_document_id,
+                    partida['ProductID'],
+                    2,  # depot id minisuper
+                    cantidad,
+                    0,
+                    costo,  # costo
+                    total,
+                    partida['TipoCaptura'],
+                    203 # salida de inventario
+                )
+                self._modelo.insertar_partida_documento(parametros)
+
+            if self._modelo.documento.finish_document == 1: # aplica para el restante del módulo vales
+                # agregamos partida al documento de venta folio minisuper
+                parametros = (
+                    self._modelo.documento.adicional_document_id,
+                    partida['ProductID'],
+                    2,  # depot id minisuper
+                    partida['cantidad'],
+                    partida['precio'],
+                    0,  # costo
+                    partida['subtotal'],
+                    partida['TipoCaptura'],
+                    self._modelo.module_id
+                )
+                self._modelo.insertar_partida_documento(parametros)
+
+                self._modelo.documento.finish_document = 2 # bandera de cierre final del documento
+
+    def agregar_servicio_a_domicilio(self):
+
+        def insertar_partida_servicio_a_domicilio():
+            delivery_cost_iva = self._modelo.documento.delivery_cost
+            self.costo_servicio_a_domicilio = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(delivery_cost_iva)
+            delivery_cost = self._modelo.utilerias.calcular_monto_sin_iva(delivery_cost_iva)
+
+            info_producto = self._modelo.buscar_info_productos_por_ids(5606, no_en_venta=True)
+
+            if info_producto:
+                info_producto = info_producto[0]
+
+                info_producto['SalePrice'] = delivery_cost
+
+                partida = self._modelo.utilerias.crear_partida(info_producto, cantidad=1)
+
+                self.partida_servicio_domicilio = partida
+                partida['Comments'] = ''
+                self.agregar_partida_tabla(partida, document_item_id=0, tipo_captura=2, unidad_cayal=1, monto_cayal=0)
+
+                self.servicio_a_domicilio_agregado = True
+
+        # servicio a domicilio solo aplica para pedidos
+        if self._modelo.module_id != 1687:
+            return
+
+        # servicio a domicilio no aplica para anexos o cambios 2 y 3 solo para pedidos 1
+        if self._modelo.module_id == 1687:
+            parametros_pedido = self._modelo.documento.order_parameters
+            order_type_id = int(parametros_pedido.get('OrderTypeID', 1))
+
+            # anexos o cambios 2 y 3
+            if order_type_id in (2,3):
+                return
+
+        # no se debe agregar mas de una partida de servicio a domicilio
+        existe_servicio_a_domicilio = [producto for producto in self._modelo.documento.items
+                                       if int(producto['ProductID']) == 5606]
+
+        if existe_servicio_a_domicilio:
+            return
+
+        # insertamos el servicio a domicilio
+        insertar_partida_servicio_a_domicilio()
 
     # ---------------------------------------------------------------------
     # Funciones auxiliares relacionados con la carga de partidas de un documento previamente capturado

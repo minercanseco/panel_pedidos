@@ -437,7 +437,6 @@ class LlamarInstanciaCaptura:
 
             modelo = ModeloCaptura(
                 self._base_de_datos,
-                interfaz.ventanas,
                 self._utilerias,
                 self._cliente,
                 self._parametros_contpaqi,

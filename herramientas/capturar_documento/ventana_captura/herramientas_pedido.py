@@ -162,7 +162,7 @@ class HerramientasPedido:
 
                 # la eliminacion del servicio a domicilio es de forma automatizada
                 if product_id == 5606 and self._module_id == 1687:
-                    self._modelo.mensajes_de_error(13)
+                    self._modelo._mensajes_de_error(13)
                     return
 
                 document_item_id = valores_fila['DocumentItemID']

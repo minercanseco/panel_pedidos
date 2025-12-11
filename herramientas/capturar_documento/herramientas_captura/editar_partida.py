@@ -206,7 +206,7 @@ class EditarPartida:
 
             if valor_chk_monto == 1:
                 self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
-                self._modelo.mensajes_de_error(4)
+                self._modelo._mensajes_de_error(4)
 
             if equivalencia == 0:
                 return 'Unidad'
@@ -217,12 +217,12 @@ class EditarPartida:
         if clave_unidad == 'KGM':
 
             if valor_chk_pieza == 1 and equivalencia == 0:
-                self._modelo.mensajes_de_error(3)
+                self._modelo._mensajes_de_error(3)
                 self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'deseleccionado')
                 return 'Error'
 
             if valor_chk_monto == 1 and cantidad == 0:
-                self._modelo.mensajes_de_error(0)
+                self._modelo._mensajes_de_error(0)
                 self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
                 return 'Error'
 
@@ -239,7 +239,7 @@ class EditarPartida:
                 return 'Equivalencia'
 
             if valor_chk_monto == 1 and cantidad <= 1:
-                self._modelo.mensajes_de_error(2)
+                self._modelo._mensajes_de_error(2)
                 return 'Error'
 
             if valor_chk_monto == 1:
@@ -420,7 +420,7 @@ class EditarPartida:
         if self._module_id == 1687:
             total_documento = self._documento.total
 
-            if self._modelo.servicio_a_domicilio_agregado:
+            if self._modelo._servicio_a_domicilio_agregado:
                 total_sin_servicio = total_documento - self._modelo.costo_servicio_a_domicilio
 
                 if total_sin_servicio >= 200:

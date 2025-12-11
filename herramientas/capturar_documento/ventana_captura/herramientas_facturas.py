@@ -1,7 +1,13 @@
 import tkinter as tk
+
+from cayal.cliente import Cliente
 from cayal.ventanas import Ventanas
 
 from herramientas.capturar_documento.herramientas_captura.editar_direccion_documento import EditarDireccionDocumento
+from herramientas.capturar_documento.herramientas_captura.historial_cliente import HistorialCliente
+from herramientas.cliente.notebook_cliente import NoteBookCliente
+from herramientas.verificador_precios.controlador_verificador import ControladorVerificador
+from herramientas.verificador_precios.interfaz_verificador import InterfazVerificador
 
 
 class HerramientasFacturas:
@@ -109,10 +115,10 @@ class HerramientasFacturas:
         self._modelo.documento.comments = comentario
 
     def _actualizar_forma_pago(self):
-        if self.documento.cfd_type_id == 1:
+        if self._modelo.documento.cfd_type_id == 1:
             return
 
-        clave = self.documento.forma_pago
+        clave = self._modelo.documento.forma_pago
         fp_seleccionada = self._ventanas.obtener_input_componente('cbx_formapago')
         consulta_clave_seleccionada =  [reg['Clave'] for reg in self._modelo.consulta_formas_pago
                                         if fp_seleccionada == reg['Value']]
@@ -129,32 +135,61 @@ class HerramientasFacturas:
                     self._ventanas.insertar_input_componente('cbx_formapago', valor_documento)
                     return
 
-            self.documento.forma_pago = clave_seleccionada
+            self._modelo.documento.forma_pago = clave_seleccionada
             self._ventanas.insertar_input_componente('cbx_formapago', fp_seleccionada)
 
     # -----------------------------------------------------------
     # Funciones relacionadas con la sección
     # -----------------------------------------------------------
     def _verificador_precios(self):
-        pass
+        ventana = self._ventanas.crear_popup_ttkbootstrap(titulo='Verificador precios')
+        interfaz = InterfazVerificador(ventana)
+        controlador = ControladorVerificador(interfaz, self._parametros)
+
 
     def _editar_direccion_documento(self):
-        if self.cliente.addresses == 1:
+        if self._modelo.cliente.addresses == 1:
             self._ventanas.mostrar_mensaje('Use la herramienta editar cliente para agregar una dirección adicional.')
             return
 
-        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master, 'Editar Dirección')
-        instancia = EditarDireccionDocumento(ventana, self.cliente, self.documento, self._modelo
-                                             )
-        ventana.wait_window()
-        self._cargar_direccion_cliente()
-        self._cargar_nombre_cliente()
+        try:
+            ventana = self._ventanas.crear_popup_ttkbootstrap(titulo='Editar Dirección')
+            instancia = EditarDireccionDocumento(ventana,
+                                                 self._modelo,
+                                                 self._interfaz
+                                                 )
+            ventana.wait_window()
+        except Exception as e:
+            self._ventanas.mostrar_mensaje(
+                f'Ocurrió un error al editar la dirección:\n{e}'
+            )
 
     def _editar_cliente(self):
-        pass
+
+        self._parametros.id_principal = self._modelo.cliente.business_entity_id
+        try:
+            ventana = self._ventanas.crear_popup_ttkbootstrap()
+            cliente = Cliente()
+            NoteBookCliente(
+                ventana,
+                self._base_de_datos,
+                self._parametros,
+                self._utilerias,
+                cliente
+            )
+            ventana.wait_window()
+        finally:
+            self._parametros.id_principal = 0
 
     def _historial_cliente(self):
-        pass
+
+        ventana = self._ventanas.crear_popup_ttkbootstrap(titulo='Historial cliente')
+        HistorialCliente(ventana,
+                         self._modelo.base_de_datos,
+                         self._modelo.utilerias,
+                         self._modelo.cliente.business_entity_id
+                         )
+        ventana.wait_window()
 
     def _cobrar_nota(self):
         pass

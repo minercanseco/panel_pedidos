@@ -1742,7 +1742,7 @@ class ControladorCaptura:
 
         self._inicializar_variables_de_instancia()
 
-        self.servicio_a_domicilio_agregado = self._modelo.servicio_a_domicilio_agregado
+        self.servicio_a_domicilio_agregado = self._modelo._servicio_a_domicilio_agregado
         self._costo_servicio_a_domicilio = self._modelo.costo_servicio_a_domicilio
         self._partida_servicio_domicilio = None
 
@@ -2000,7 +2000,7 @@ class ControladorCaptura:
 
     def _agregar_partida_por_clave_producto(self, clave):
         if not self._utilerias.es_codigo_barras(clave):
-            self._modelo.mensajes_de_error(7)
+            self._modelo._mensajes_de_error(7)
             return
 
         valores_clave = self._utilerias.validar_codigo_barras(clave)
@@ -2010,7 +2010,7 @@ class ControladorCaptura:
         consulta_producto = self._modelo.buscar_productos(codigo_barras, 'Término')
 
         if not consulta_producto:
-            self._modelo.mensajes_de_error(8)
+            self._modelo._mensajes_de_error(8)
             return
 
         producto_id = self._modelo.obtener_product_ids_consulta(consulta_producto)
@@ -2021,15 +2021,15 @@ class ControladorCaptura:
             existencia = self.base_de_datos.buscar_existencia_productos(producto_id)
 
             if not existencia:
-                self._modelo.mensajes_de_error(11)
+                self._modelo._mensajes_de_error(11)
                 return
 
-            self._modelo.mensajes_de_error(9)
+            self._modelo._mensajes_de_error(9)
             return
 
         disponible_a_venta = info_producto[0]['AvailableForSale']
         if disponible_a_venta == 0:
-            self._modelo.mensajes_de_error(10)
+            self._modelo._mensajes_de_error(10)
             return
 
         partida = self._utilerias.crear_partida(info_producto[0], cantidad)
@@ -2268,7 +2268,7 @@ class ControladorCaptura:
 
                 # la eliminacion del servicio a domicilio es de forma automatizada
                 if product_id == 5606 and self._module_id == 1687:
-                    self._modelo.mensajes_de_error(13)
+                    self._modelo._mensajes_de_error(13)
                     return
 
                 document_item_id = valores_fila['DocumentItemID']
@@ -2494,7 +2494,7 @@ def _buscar_productos_manualmente(self, event=None):
     consulta = self._modelo.buscar_productos(termino_buscado, tipo_busqueda)
 
     if not consulta:
-        self._modelo.mensajes_de_error(6, self._master)
+        self._modelo._mensajes_de_error(6, self._master)
         self._limpiar_controles_captura_manual()
         self._ventanas.enfocar_componente('tbx_buscar_manual')
         self._ventanas.insertar_input_componente('tbx_cantidad_manual', 1.00)
@@ -5919,7 +5919,7 @@ class EditarPartida:
 
             if valor_chk_monto == 1:
                 self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
-                self._modelo.mensajes_de_error(4)
+                self._modelo._mensajes_de_error(4)
 
             if equivalencia == 0:
                 return 'Unidad'
@@ -5930,12 +5930,12 @@ class EditarPartida:
         if clave_unidad == 'KGM':
 
             if valor_chk_pieza == 1 and equivalencia == 0:
-                self._modelo.mensajes_de_error(3)
+                self._modelo._mensajes_de_error(3)
                 self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'deseleccionado')
                 return 'Error'
 
             if valor_chk_monto == 1 and cantidad == 0:
-                self._modelo.mensajes_de_error(0)
+                self._modelo._mensajes_de_error(0)
                 self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
                 return 'Error'
 
@@ -5952,7 +5952,7 @@ class EditarPartida:
                 return 'Equivalencia'
 
             if valor_chk_monto == 1 and cantidad <= 1:
-                self._modelo.mensajes_de_error(2)
+                self._modelo._mensajes_de_error(2)
                 return 'Error'
 
             if valor_chk_monto == 1:
@@ -6132,7 +6132,7 @@ class EditarPartida:
         if self._module_id == 1687:
             total_documento = self._documento.total
 
-            if self._modelo.servicio_a_domicilio_agregado:
+            if self._modelo._servicio_a_domicilio_agregado:
                 total_sin_servicio = total_documento - self._modelo.costo_servicio_a_domicilio
 
                 if total_sin_servicio >= 200:

@@ -2495,7 +2495,7 @@ def _buscar_productos_manualmente(self, event=None):
 
     if not consulta:
         self._modelo.mensajes_de_error(6, self._master)
-        self._limpiar_controles_forma_manual()
+        self._limpiar_controles_captura_manual()
         self._ventanas.enfocar_componente('tbx_buscar_manual')
         self._ventanas.insertar_input_componente('tbx_cantidad_manual', 1.00)
         return

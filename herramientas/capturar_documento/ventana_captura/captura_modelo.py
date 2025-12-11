@@ -122,9 +122,9 @@ class ModeloCaptura:
         clave_sat = partida.get('ClaveProdServ')
 
         nueva_partida = copy.deepcopy(partida)
-        cantidad_previa = self.utilerias.redondear_valor_cantidad_a_decimal(partida.get('cantidad', 0))
+        cantidad_previa = self.utilerias.convertir_valor_a_decimal(partida.get('cantidad', 0))
         total_partida = partida.get('total', 0)
-        sale_price = self.utilerias.redondear_valor_cantidad_a_decimal(partida.get('SalePrice', 0))
+        sale_price = self.utilerias.convertir_valor_a_decimal(partida.get('SalePrice', 0))
 
         # Cantidad que permanece en el documento actual (lo permitido por cupones)
         # Derivación algebraica: cantidad = (coupons_mount - total_actual_sin_partida) / precio
@@ -141,7 +141,7 @@ class ModeloCaptura:
         if cantidad_permitida > cantidad_previa:
             cantidad_permitida = cantidad_previa
 
-        cantidad_restante = self.utilerias.redondear_valor_cantidad_a_decimal(cantidad_previa - cantidad_permitida)
+        cantidad_restante = self.utilerias.convertir_valor_a_decimal(cantidad_previa - cantidad_permitida)
 
         # Recalcula totales de ambas
         valores_partida_perm = self.utilerias.calcular_totales_partida(sale_price,
@@ -227,7 +227,7 @@ class ModeloCaptura:
             unidad_producto = producto_especial[0]
             existencia = existencia / producto_especial[1]
 
-        existencia_decimal = self.utilerias.redondear_valor_cantidad_a_decimal(existencia)
+        existencia_decimal = self.utilerias.convertir_valor_a_decimal(existencia)
 
         return f'{existencia_decimal} {unidad_producto}'
 

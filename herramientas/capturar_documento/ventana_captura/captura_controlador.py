@@ -28,21 +28,22 @@ class ControladorCaptura:
         self._cargar_informacion_general()
         self._cargar_eventos_componentes()
 
-        # ---------------------------------------------------------------------
-        # Banderas de procesos
-        # ---------------------------------------------------------------------
+        # ------------------------------------------------------
+        # Banderas de procesos y variables auxiliares de captura
+        # ------------------------------------------------------
         self._agregando_producto = False
         self._procesando_seleccion = False
         self._agregando_partida_tabla = False
         self._servicio_a_domicilio_agregado = False
         self._cargar_shortcuts = True
-        # ---------------------------------------------------------------------
+        self._info_partida_seleccionada = {}
+        # -------------------------------------------------------------------------------------------------
         # Esta validación determina si el flujo de inicialización se detiene debido al bloqueo de documento
-        # ---------------------------------------------------------------------
+        # -------------------------------------------------------------------------------------------------
         if not self.determinar_bloqueo_ventana():
-            # ---------------------------------------------------------------------
+            # ----------------------------------------------------
             # Acciones de inicialización relacionadas con captura
-            # ---------------------------------------------------------------------
+            # ----------------------------------------------------
             if self._modelo.module_id == 1687: # modulo de pedidos
                 self.agregar_servicio_a_domicilio()
                 self._configurar_pedido()
@@ -57,9 +58,9 @@ class ControladorCaptura:
             if self._modelo.module_id == 1687: # si es pedido
                 self._interfaz.ventanas.enfocar_componente('tbx_buscar_manual')
 
-    # ---------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Funciones relacionadas a herramientas y eventos de componentes de captura
-    # ---------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     def _crear_notebook_herramientas(self):
         info_pestanas = {
             'tab_ticket': ('Herramientas', [158]),
@@ -147,9 +148,9 @@ class ControladorCaptura:
 
         self._interfaz.ventanas.cargar_eventos(eventos)
 
-    #---------------------------------------------------------------------
+    #--------------------------------------------------------------------
     # Funciones relacionadas a información del documento y estado inicial
-    # ---------------------------------------------------------------------
+    # -------------------------------------------------------------------
     def _cargar_informacion_general(self):
         self._cargar_direccion_cliente()
         self._cargar_nombre_cliente()
@@ -233,8 +234,8 @@ class ControladorCaptura:
 
                 for atributo, label in valores.items():
                     monto = getattr(self._modelo.cliente, atributo)
-                    monto_decimal = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(monto)
-                    monto_moneda = self._modelo.utilerias.convertir_decimal_a_moneda(monto_decimal)
+                    monto_decimal = self._modelo.utilerias.convertir_valor_a_decimal(monto)
+                    monto_moneda = self._modelo.utilerias.convertir_valor_a_decimal(monto_decimal)
 
                     self._interfaz.ventanas.insertar_input_componente(label, monto_moneda)
 
@@ -411,9 +412,9 @@ class ControladorCaptura:
             return True
 
         return False
-    # ---------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Funciones auxiliares relacionados con la captura de partidas en el pedido
-    # ---------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     def _configurar_pedido(self):
         if self._modelo.documento.document_id < 1:
             valores_pedido = {}
@@ -549,7 +550,7 @@ class ControladorCaptura:
     def _obtener_valores_controles(self):
 
         equivalencia = self._interfaz.ventanas.obtener_input_componente('tbx_equivalencia_manual')
-        equivalencia_decimal = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
+        equivalencia_decimal = self._modelo.utilerias.convertir_valor_a_decimal(equivalencia)
 
         return {
             'valor_chk_monto': self._interfaz.ventanas.obtener_input_componente('chk_monto'),
@@ -583,9 +584,9 @@ class ControladorCaptura:
 
         self._interfaz.ventanas.mostrar_mensaje(mensajes[numero_mensaje], master)
 
-    # ---------------------------------------------------------------------
+    # --------------------------------------------------
     # Funciones auxiliares relacionados con las ofertas
-    # ---------------------------------------------------------------------
+    # --------------------------------------------------
 
     def _buscar_ofertas(self, rellenar_tabla=True):
 
@@ -613,7 +614,7 @@ class ControladorCaptura:
             if product_id in self._modelo.products_ids_ofertados:
                 producto_actualizado = self._actualizar_nombre_producto_ofertado(producto, product_id)
                 valores_fila['Descripción'] = producto_actualizado
-                precio = self._interfaz.utilerias.redondear_valor_cantidad_a_decimal(valores_fila['Precio'])
+                precio = self._modelo.utilerias.convertir_valor_a_decimal(valores_fila['Precio'])
                 valores_fila['Precio'] = precio
                 self._interfaz.ventanas.actualizar_fila_treeview_diccionario('tvw_productos_manual', fila, valores_fila)
                 self._interfaz.ventanas.colorear_fila_seleccionada_treeview('tvw_productos_manual', fila,
@@ -626,7 +627,7 @@ class ControladorCaptura:
         # Buscar el producto ofertado por ID (copiando solo los campos necesarios)
         for reg in self._modelo.consulta_productos_ofertados:
             if int(reg['ProductID']) == int(product_id):
-                sale_price_before = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(
+                sale_price_before = self._modelo.utilerias.convertir_valor_a_decimal(
                     reg['SalePriceBefore'])  # Copia segura
                 tax_type_id = int(reg['TaxTypeID'])  # Copia segura
                 clave_unidad = reg['ClaveUnidad']
@@ -646,14 +647,15 @@ class ControladorCaptura:
             clave_sat=clave_sat
         )
         producto = _remover_texto_oferta(producto)
-        sale_price_before_with_taxes = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(
+        sale_price_before_with_taxes = self._modelo.utilerias.convertir_valor_a_decimal(
             totales_partida.get('total', sale_price_before))
+        sale_price_before_with_taxes = f"{sale_price_before_with_taxes:.2f}"
         nombre_producto = f"{producto} (OFE) {sale_price_before_with_taxes}"
         return nombre_producto
 
-    # ---------------------------------------------------------------------
+    # ----------------------------------------------------------------------------
     # Funciones auxiliares relacionados con la captura de partidas en el documento
-    # ---------------------------------------------------------------------
+    # ----------------------------------------------------------------------------
 
     def _agregar_partida_por_clave(self):
         clave = self._interfaz.ventanas.obtener_input_componente('tbx_clave')
@@ -748,7 +750,7 @@ class ControladorCaptura:
                     self._interfaz.ventanas.mostrar_mensaje('La cantidad de piezas deben ser valores no fraccionarios.')
                     return
 
-                self._modelo.agregar_partida_tabla(partida, document_item_id=0, tipo_captura=1, unidad_cayal=chk_pieza,
+                self.agregar_partida_tabla(partida, document_item_id=0, tipo_captura=1, unidad_cayal=chk_pieza,
                                                    monto_cayal=chk_monto)
             finally:
                 self._agregando_producto = False
@@ -784,7 +786,7 @@ class ControladorCaptura:
         def _insertar_equivalencia(equivalencia):
 
             equivalencia = str(equivalencia)
-            equivalencia_decimal = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
+            equivalencia_decimal = self._modelo.utilerias.convertir_valor_a_decimal(equivalencia)
 
             self._interfaz.ventanas.desbloquear_componente('tbx_equivalencia_manual')
             self._interfaz.ventanas.insertar_input_componente('tbx_equivalencia_manual', equivalencia_decimal)
@@ -815,12 +817,14 @@ class ControladorCaptura:
         tabla = self._interfaz.ventanas.componentes_forma['tvw_productos_manual']
 
         for producto in consulta_productos:
+            sale_price_before_with_taxes = self._modelo.utilerias.convertir_valor_a_decimal(
+                producto['SalePriceWithTaxes'])
+            sale_price_before_with_taxes = f"{sale_price_before_with_taxes:.2f}"
 
             _producto = {
                 'ProductKey': producto['ProductKey'],
                 'ProductName': producto['ProductName'],
-                'SalePriceWithTaxes': self._modelo.utilerias.redondear_valor_cantidad_a_decimal(
-                    producto['SalePriceWithTaxes']),
+                'SalePriceWithTaxes': sale_price_before_with_taxes,
                 'ProductID': producto['ProductID'],
                 'ClaveUnidad': producto['ClaveUnidad'],
                 'Category1': producto['Category1']
@@ -929,20 +933,20 @@ class ControladorCaptura:
         if tipo_calculo != 'Error':
             valores_controles = self._obtener_valores_controles()
 
-            precio_con_impuestos = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(info_producto.get('SalePriceWithTaxes', 0.0))
+            precio_con_impuestos = self._modelo.utilerias.convertir_valor_a_decimal(info_producto.get('SalePriceWithTaxes', 0.0))
 
             cantidad = valores_controles['cantidad']
             cantidad_piezas = cantidad
             cantidad_decimal = self._modelo.utilerias.convertir_valor_a_decimal(cantidad)
 
             equivalencia = valores_controles['equivalencia']
-            equivalencia_decimal = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
+            equivalencia_decimal = self._modelo.utilerias.convertir_valor_a_decimal(equivalencia)
 
             cantidad_real_decimal = calcular_cantidad_real(tipo_calculo, equivalencia_decimal, cantidad_decimal)
 
             if tipo_calculo == 'Equivalencia':
                 if not self._modelo.utilerias.es_numero_entero(cantidad_decimal):
-                    cantidad_decimal = self._modelo.utilerias.redondear_numero_a_entero(cantidad_decimal)
+                    cantidad_decimal = self._modelo.utilerias.convertir_valor_a_decimal(cantidad_decimal)
                     self._interfaz.ventanas.insertar_input_componente('tbx_cantidad_manual', cantidad_decimal)
                 total = cantidad_real_decimal * precio_con_impuestos
 
@@ -986,23 +990,23 @@ class ControladorCaptura:
         cantidad = self._interfaz.ventanas.obtener_input_componente('tbx_cantidad_manual')
 
         if not cantidad or not self._modelo.utilerias.es_cantidad(cantidad):
-            return self._modelo.utilerias.redondear_valor_cantidad_a_decimal(0)
+            return self._modelo.utilerias.convertir_valor_a_decimal(0)
 
         cantidad_decimal = self._modelo.utilerias.convertir_valor_a_decimal(cantidad)
 
-        return self._modelo.utilerias.redondear_valor_cantidad_a_decimal(1) if cantidad_decimal <= 0 else cantidad_decimal
+        return self._modelo.utilerias.convertir_valor_a_decimal(1) if cantidad_decimal <= 0 else cantidad_decimal
 
     def _selecionar_producto_tabla_manual(self, configurar_forma=None):
 
         def _obtener_cantidad_manual_partida():
             cantidad = self._interfaz.ventanas.obtener_input_componente('tbx_cantidad_manual')
 
-            if not cantidad or not self._interfaz.utilerias.es_cantidad(cantidad):
-                return self._interfaz.utilerias.convertir_valor_a_decimal(0)
+            if not cantidad or not self._modelo.utilerias.es_cantidad(cantidad):
+                return self._modelo.utilerias.convertir_valor_a_decimal(0)
 
-            cantidad_decimal = self._interfaz.utilerias.convertir_valor_a_decimal(cantidad)
+            cantidad_decimal = self._modelo.utilerias.convertir_valor_a_decimal(cantidad)
 
-            return self._interfaz.utilerias.redondear_valor_cantidad_a_decimal(
+            return self._modelo.utilerias.convertir_valor_a_decimal(
                 1) if cantidad_decimal <= 0 else cantidad_decimal
 
         if self._procesando_seleccion:
@@ -1090,14 +1094,14 @@ class ControladorCaptura:
 
         if self._modelo.cliente.cayal_customer_type_id in (1,2) and self._modelo.cliente.credit_block == 0:
             debe = self._modelo.cliente.debt
-            debe = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(debe)
+            debe = self._modelo.utilerias.convertir_valor_a_decimal(debe)
 
             debe += self._modelo.documento.total
             debe_moneda = self._modelo.utilerias.convertir_decimal_a_moneda(debe)
             self._interfaz.ventanas.insertar_input_componente('lbl_debe', debe_moneda)
 
             disponible = self._modelo.cliente.remaining_credit
-            disponible = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(disponible)
+            disponible = self._modelo.utilerias.convertir_valor_a_decimal(disponible)
 
             disponible = disponible - self._modelo.documento.total
             excedido = abs(disponible) if disponible < 0 else 0
@@ -1228,11 +1232,11 @@ class ControladorCaptura:
                 partida['ItemProductionStatusModified'] = item_production_status_modified
                 partida['CreatedBy'] = self._modelo.user_id
 
-                cantidad_piezas = 0 if unidad_cayal == 0 else self._modelo.utilerias.redondear_valor_cantidad_a_decimal(partida['CayalPiece'])
+                cantidad_piezas = 0 if unidad_cayal == 0 else self._modelo.utilerias.convertir_valor_a_decimal(partida['CayalPiece'])
 
                 equivalencia = self._modelo.obtener_equivalencia(partida.get('ProductID', 0))
                 equivalencia = 0 if not equivalencia else equivalencia
-                equivalencia_decimal = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
+                equivalencia_decimal = self._modelo.utilerias.convertir_valor_a_decimal(equivalencia)
 
                 if equivalencia_decimal > 0 and unidad_cayal == 1:
                     cantidad_piezas = int((cantidad/equivalencia_decimal))
@@ -1240,16 +1244,17 @@ class ControladorCaptura:
                 funcion = self._modelo.utilerias.convertir_valor_a_decimal
 
                 partida['CayalPiece'] = cantidad_piezas
-                cantidad = f"{cantidad:.3f}" if partida['ClaveUnidad'] == 'KGM' else f"{cantidad:.2f}"
+                cantidad = f"{cantidad:.3f}" if partida['clave_unidad'] == 'KGM' else f"{cantidad:.2f}"
+
                 partida_tabla = (cantidad,
                                  cantidad_piezas,
                                  partida['ProductKey'],
                                  producto,
                                  partida['Unit'],
-                                 funcion(partida['precio']),
-                                 funcion(partida['subtotal']),
-                                 funcion(partida['impuestos']),
-                                 funcion(partida['total']),
+                                 f"{funcion(partida['precio']):.2f}",
+                                 f"{funcion(partida['subtotal']):.2f}",
+                                 f"{funcion(partida['impuestos']):.2f}",
+                                 f"{funcion(partida['total']):.2f}",
                                  partida['ProductID'],
                                  partida['DocumentItemID'],
                                  partida['TipoCaptura'],  # Tipo de captura 1 para manual y 0 para captura por pistola
@@ -1331,8 +1336,8 @@ class ControladorCaptura:
             if self._modelo.documento.finish_document == 0: # aplica para el módulo de vales
 
                 # agregamos partida al documento de salida
-                costo = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(partida['CostPrice'])
-                cantidad = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(partida['cantidad'])
+                costo = self._modelo.utilerias.convertir_valor_a_decimal(partida['CostPrice'])
+                cantidad = self._modelo.utilerias.convertir_valor_a_decimal(partida['cantidad'])
                 total = costo * cantidad
 
                 parametros = (
@@ -1369,7 +1374,7 @@ class ControladorCaptura:
 
         def insertar_partida_servicio_a_domicilio():
             delivery_cost_iva = self._modelo.documento.delivery_cost
-            self.costo_servicio_a_domicilio = self._modelo.utilerias.redondear_valor_cantidad_a_decimal(delivery_cost_iva)
+            self.costo_servicio_a_domicilio = self._modelo.utilerias.convertir_valor_a_decimal(delivery_cost_iva)
             delivery_cost = self._modelo.utilerias.calcular_monto_sin_iva(delivery_cost_iva)
 
             info_producto = self._modelo.buscar_info_productos_por_ids(5606, no_en_venta=True)

@@ -79,7 +79,7 @@ class InterfazCaptura:
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
         filas_tabla_producto = 20 if ancho <= 1367 else 30
 
-        if self.module_id in(21, 1400, 1319):
+        if self.module_id in(21, 1400, 1319): # mayoreo, minisuper, fgr
             filas_tabla_producto = 20
 
         componentes = {

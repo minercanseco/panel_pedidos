@@ -1,6 +1,11 @@
 import tkinter as tk
 from cayal.ventanas import Ventanas
 
+from herramientas.capturar_documento.herramientas_captura.editar_partida import EditarPartida
+from herramientas.capturar_documento.herramientas_captura.historial_cliente import HistorialCliente
+from herramientas.verificador_precios.controlador_verificador import ControladorVerificador
+from herramientas.verificador_precios.interfaz_verificador import InterfazVerificador
+
 
 class HerramientasPedido:
     def __init__(self, master, modelo, interfaz):
@@ -243,7 +248,7 @@ class HerramientasPedido:
         instancia = HistorialCliente(ventana,
                                      self._modelo.base_de_datos,
                                      self._utilerias,
-                                     self.cliente.business_entity_id
+                                     self._modelo.cliente.business_entity_id
                                      )
         ventana.wait_window()
 

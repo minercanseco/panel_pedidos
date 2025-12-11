@@ -1,8 +1,12 @@
 import tkinter as tk
+
+from cayal.cliente import Cliente
 from cayal.ventanas import Ventanas
 
+from herramientas.capturar_documento.herramientas_captura.editar_direccion_documento import EditarDireccionDocumento
 from herramientas.capturar_documento.herramientas_captura.editar_partida import EditarPartida
 from herramientas.capturar_documento.herramientas_captura.historial_cliente import HistorialCliente
+from herramientas.cliente.notebook_cliente import NoteBookCliente
 from herramientas.verificador_precios.controlador_verificador import ControladorVerificador
 from herramientas.verificador_precios.interfaz_verificador import InterfazVerificador
 
@@ -130,7 +134,7 @@ class HerramientasPedido:
     # -----------------------------------------------------------
     def _editar_cliente(self):
 
-        business_entity_id = self.cliente.business_entity_id
+        business_entity_id = self._modelo.cliente.business_entity_id
         if not business_entity_id or business_entity_id == 0:
             return
 
@@ -140,10 +144,10 @@ class HerramientasPedido:
 
             NoteBookCliente(
                 ventana,
-                self.base_de_datos,
+                self._base_de_datos,
                 self._parametros,
                 self._utilerias,
-                self.cliente
+                Cliente()
             )
             ventana.wait_window()
         finally:
@@ -166,7 +170,7 @@ class HerramientasPedido:
                 product_id = valores_fila['ProductID']
 
                 # la eliminacion del servicio a domicilio es de forma automatizada
-                if product_id == 5606 and self._module_id == 1687:
+                if product_id == 5606 and self._modelo.module_id == 1687:
                     self._modelo._mensajes_de_error(13)
                     return
 
@@ -175,8 +179,8 @@ class HerramientasPedido:
 
                 # si aplica remover de la bd
                 if document_item_id != 0:
-                    self.base_de_datos.exec_stored_procedure(
-                        'zvwBorrarPartidasDocumentoCayal', (self.documento.document_id,
+                    self._base_de_datos.exec_stored_procedure(
+                        'zvwBorrarPartidasDocumentoCayal', (self._modelo.documento.document_id,
                                                             self._parametros.id_modulo,
                                                             document_item_id,
                                                             self._parametros.id_usuario)
@@ -189,31 +193,31 @@ class HerramientasPedido:
                 # remover la partida de los items del documento
 
                 # filtrar de los items del documento
-                partida_items = [partida for partida in self.documento.items
+                partida_items = [partida for partida in self._modelo.documento.items
                                  if str(identificador) == str(partida['uuid'])][0]
 
-                nuevas_partidas = [partida for partida in self.documento.items
+                nuevas_partidas = [partida for partida in self._modelo.documento.items
                                    if str(identificador) != str(partida['uuid'])]
 
                 # asignar los nuevos items sin el item que ha sido removido
-                self.documento.items = nuevas_partidas
+                self._modelo.documento.items = nuevas_partidas
                 self._modelo.actualizar_totales_documento()
                 # ----------------------------------------------------------------------------------
 
                 # respalda la partida extra para tratamiento despues del cierre del documento
-                comentario = f'ELIMINADA POR {self._user_name}'
+                comentario = f'ELIMINADA POR {self._modelo.user_name}'
                 self._modelo.agregar_partida_items_documento_extra(partida_items, 'eliminar', comentario, identificador)
 
                 # Solo aplica para el módulo 1687 pedidos
-                if self._module_id == 1687:
+                if self._modelo.module_id == 1687:
                     # Si el total es menor a 200 y no se ha agregado aún, lo agrega
-                    if self.documento.total < 200 and not self.servicio_a_domicilio_agregado:
+                    if self._modelo.documento.total < 200 and not self.servicio_a_domicilio_agregado:
                         self._modelo.agregar_servicio_a_domicilio()
                         self.servicio_a_domicilio_agregado = True
 
                     # Si ya se agregó pero ahora el total (sin el servicio) es >= 200, lo remueve
                     elif self.servicio_a_domicilio_agregado and (
-                            self.documento.total - self._costo_servicio_a_domicilio) >= 200:
+                            self._modelo.documento.total - self._modelo.documento.delivery_cost) >= 200:
                         self._modelo.remover_servicio_a_domicilio()
                         self.servicio_a_domicilio_agregado = False
 
@@ -233,13 +237,13 @@ class HerramientasPedido:
             self._ventanas.mostrar_mensaje('No se puede editar la partida servicio a domicilio.')
             return
 
-        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master, 'Editar partida')
-        instancia = EditarPartida(ventana, self._interfaz, self._modelo, self._utilerias, self.base_de_datos,
+        ventana = self._ventanas.crear_popup_ttkbootstrap('Editar partida')
+        instancia = EditarPartida(ventana, self._interfaz, self._modelo, self._utilerias, self._base_de_datos,
                                   valores_fila)
         ventana.wait_window()
 
     def _verificador_precios(self):
-        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master)
+        ventana = self._ventanas.crear_popup_ttkbootstrap()
         vista = InterfazVerificador(ventana)
         controlador = ControladorVerificador(vista, self._parametros)
 
@@ -253,5 +257,7 @@ class HerramientasPedido:
         ventana.wait_window()
 
     def _editar_direccion_documento(self):
-        pass
+        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master)
+        _ = EditarDireccionDocumento(ventana, self._modelo, self._interfaz)
+        ventana.wait_window()
 

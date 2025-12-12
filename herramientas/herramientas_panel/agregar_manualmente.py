@@ -657,8 +657,8 @@ class AgregarPartidaManualmente:
                     self._ventanas.mostrar_mensaje('La cantidad de piezas deben ser valores no fraccionarios.')
                     return
 
-                self._modelo.agregar_partida_tabla(partida, document_item_id=0, tipo_captura=1, unidad_cayal=chk_pieza,
-                                                   monto_cayal=chk_monto)
+                self._modelo._agregar_partida_tabla(partida, document_item_id=0, tipo_captura=1, unidad_cayal=chk_pieza,
+                                                    monto_cayal=chk_monto)
 
                 self._ventanas.insertar_input_componente('tbx_cantidad', 1)
                 self._ventanas.limpiar_componentes('txt_comentario')

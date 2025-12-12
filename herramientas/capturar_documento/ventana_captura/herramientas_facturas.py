@@ -140,10 +140,12 @@ class HerramientasFacturas:
             self._modelo.documento.forma_pago = clave_seleccionada
             self._ventanas.insertar_input_componente('cbx_formapago', fp_seleccionada)
 
+
     # -----------------------------------------------------------
     # Funciones relacionadas con la sección
     # -----------------------------------------------------------
     def _verificador_precios(self):
+
         ventana = self._ventanas.crear_popup_ttkbootstrap(titulo='Verificador precios')
         interfaz = InterfazVerificador(ventana)
         controlador = ControladorVerificador(interfaz, self._parametros)

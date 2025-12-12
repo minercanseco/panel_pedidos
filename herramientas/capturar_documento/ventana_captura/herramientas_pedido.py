@@ -131,10 +131,19 @@ class HerramientasPedido:
 
         self._ventanas.agregar_hotkeys_forma(eventos)
 
+    def _validar_bloqueo(self):
+        if not self._cargar_shortcuts:
+            self._ventanas.mostrar_mensaje('El documento está bloqueado a la edición.')
+            return
+
+        return True
     #-----------------------------------------------------------
     # Funciones relacionadas con la sección
     # -----------------------------------------------------------
     def _editar_cliente(self):
+
+        if not self._validar_bloqueo():
+            return
 
         business_entity_id = self._modelo.cliente.business_entity_id
         if not business_entity_id or business_entity_id == 0:
@@ -158,6 +167,9 @@ class HerramientasPedido:
             self._parametros.id_principal = 0
 
     def _eliminar_partida(self):
+        if not self._validar_bloqueo():
+            return
+
         filas = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos')
         if not filas:
             return
@@ -203,7 +215,7 @@ class HerramientasPedido:
 
                 # asignar los nuevos items sin el item que ha sido removido
                 self._modelo.documento.items = nuevas_partidas
-                self._modelo.actualizar_totales_documento()
+                self._modelo._actualizar_totales_documento()
                 # ----------------------------------------------------------------------------------
 
                 # respalda la partida extra para tratamiento despues del cierre del documento
@@ -214,16 +226,19 @@ class HerramientasPedido:
                 if self._modelo.module_id == 1687:
                     # Si el total es menor a 200 y no se ha agregado aún, lo agrega
                     if self._modelo.documento.total < 200 and not self.servicio_a_domicilio_agregado:
-                        self._modelo.agregar_servicio_a_domicilio()
+                        self._modelo._agregar_servicio_a_domicilio()
                         self.servicio_a_domicilio_agregado = True
 
                     # Si ya se agregó pero ahora el total (sin el servicio) es >= 200, lo remueve
                     elif self.servicio_a_domicilio_agregado and (
                             self._modelo.documento.total - self._modelo.documento.delivery_cost) >= 200:
-                        self._modelo.remover_servicio_a_domicilio()
+                        self._modelo._remover_servicio_a_domicilio()
                         self.servicio_a_domicilio_agregado = False
 
     def _editar_partida(self):
+        if not self._validar_bloqueo():
+            return
+
         fila = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos')
 
         if not fila:
@@ -245,11 +260,17 @@ class HerramientasPedido:
         ventana.wait_window()
 
     def _verificador_precios(self):
+        if not self._validar_bloqueo():
+            return
+
         ventana = self._ventanas.crear_popup_ttkbootstrap()
         vista = InterfazVerificador(ventana)
         controlador = ControladorVerificador(vista, self._parametros)
 
     def _historial_cliente(self):
+        if not self._validar_bloqueo():
+            return
+
         ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
         instancia = HistorialCliente(ventana,
                                      self._modelo.base_de_datos,
@@ -259,6 +280,9 @@ class HerramientasPedido:
         ventana.wait_window()
 
     def _editar_direccion_documento(self):
+        if not self._validar_bloqueo():
+            return
+
         ventana = self._ventanas.crear_popup_ttkbootstrap(self._master)
         _ = EditarDireccionDocumento(ventana, self._modelo, self._interfaz)
         ventana.wait_window()

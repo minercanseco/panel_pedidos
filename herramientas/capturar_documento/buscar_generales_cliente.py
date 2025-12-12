@@ -1235,7 +1235,7 @@ class BuscarGeneralesCliente:
         self.documento.address_detail_id = direccion.get('AddressDetailID', 0)
         self.documento.address_name = direccion.get('AddressName', '')
         self.documento.business_entity_id = self.cliente.business_entity_id
-        self.documento.customer_type_id = self.cliente.cayal_customer_type_id
+        self.documento.customer_type_id = self.cliente.customer_type_id
         self.documento.delivery_cost = self._utilerias.redondear_valor_cantidad_a_decimal(direccion.get('DeliveryCost', 20))
 
     def _validar_restriccion_vales_cliente(self):

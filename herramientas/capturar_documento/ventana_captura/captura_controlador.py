@@ -51,7 +51,7 @@ class ControladorCaptura:
             self._interfaz.ventanas.enfocar_componente('tbx_buscar_manual')
 
         if self._modelo.documento.document_id == 0:  # nueva captura
-            self.agregar_servicio_a_domicilio()
+            self._agregar_servicio_a_domicilio()
             self._configurar_pedido()
             self._cargar_eventos_componentes()
 
@@ -60,7 +60,7 @@ class ControladorCaptura:
     # -------------------------------------------------------------------------
     def _crear_notebook_herramientas(self):
 
-        cargar_shortcuts = False if self.determinar_bloqueo_ventana() else True
+        cargar_shortcuts = False if self._determinar_bloqueo_ventana() else True
 
         info_pestanas = {
             'tab_ticket': ('Herramientas', [158]),
@@ -166,7 +166,7 @@ class ControladorCaptura:
         self._interfaz.ventanas.insertar_input_componente('lbl_modulo', nombre_modulo)
 
         if self._modelo.module_id in (21,1400,1319):
-            self._modelo.rellenar_cbxs_fiscales()
+            self._modelo._rellenar_cbxs_fiscales()
 
         self._cargar_info_inicial_componentes_captura_manual()
 
@@ -259,7 +259,7 @@ class ControladorCaptura:
                                                               self._copiar_portapapeles(),
                                                               con_saltos_de_linea=True)
 
-    def rellenar_cbxs_fiscales(self):
+    def _rellenar_cbxs_fiscales(self):
 
 
         # ==============
@@ -385,7 +385,7 @@ class ControladorCaptura:
                 if getattr(self._modelo.cliente, 'forma_pago', None) == '99':
                     self._interfaz.ventanas.bloquear_componente(componente)
 
-    def asignar_folio(self, document_id=0, order_document_id=0):
+    def _asignar_folio(self, document_id=0, order_document_id=0):
         folio = self._modelo.obtener_folio_documento(document_id, order_document_id)
 
         self._modelo.documento.folio = folio
@@ -393,7 +393,7 @@ class ControladorCaptura:
         self._modelo.documento.doc_folio = doc_folio
         self._interfaz.ventanas.insertar_input_componente('lbl_folio', doc_folio)
 
-    def determinar_bloqueo_ventana(self):
+    def _determinar_bloqueo_ventana(self):
         status = 'Bloqueado'
         if self._modelo.module_id == 1687:
             status = self._modelo.obtener_status_pedido(self._modelo.documento.document_id)
@@ -406,11 +406,12 @@ class ControladorCaptura:
                 'background': '#ff8000',
             }
 
-            frame = self._interfaz.ventanas.componentes_forma['frame_totales']
-            widgets = frame.winfo_children()
-
-            for widget in widgets:
-                widget.config(**estilo_cancelado)
+            frames = ['frame_totales_manual', 'frame_totales', 'frame_herramientas']
+            for nombre_frame in frames:
+                frame = self._interfaz.ventanas.componentes_forma[nombre_frame]
+                widgets = frame.winfo_children()
+                for widget in widgets:
+                    widget.config(**estilo_cancelado)
 
             return True
 
@@ -716,8 +717,8 @@ class ControladorCaptura:
             unidad_cayal = 0 if info_producto[0]['ClaveUnidad'] == 'KGM' else 1 # Del control de captura manual
             partida['Comments'] = ''
 
-            self._modelo.agregar_partida_tabla(partida, document_item_id=0, tipo_captura=0, unidad_cayal=unidad_cayal,
-                                               monto_cayal=0)
+            self._modelo._agregar_partida_tabla(partida, document_item_id=0, tipo_captura=0, unidad_cayal=unidad_cayal,
+                                                monto_cayal=0)
         finally:
             self._agregando_producto = False
             self._interfaz.ventanas.limpiar_componentes('tbx_clave')
@@ -753,8 +754,8 @@ class ControladorCaptura:
                     self._interfaz.ventanas.mostrar_mensaje('La cantidad de piezas deben ser valores no fraccionarios.')
                     return
 
-                self.agregar_partida_tabla(partida, document_item_id=0, tipo_captura=1, unidad_cayal=chk_pieza,
-                                                   monto_cayal=chk_monto)
+                self._agregar_partida_tabla(partida, document_item_id=0, tipo_captura=1, unidad_cayal=chk_pieza,
+                                            monto_cayal=chk_monto)
             finally:
                 self._agregando_producto = False
                 self._interfaz.ventanas.insertar_input_componente('tbx_cantidad_manual', 1)
@@ -1067,7 +1068,7 @@ class ControladorCaptura:
 
         return partida
 
-    def actualizar_totales_documento(self):
+    def _actualizar_totales_documento(self):
 
         impuestos_acumulado = 0
         ieps_acumulado = 0
@@ -1117,7 +1118,7 @@ class ControladorCaptura:
 
             self._modelo.documento.credit_exceeded_amount = excedido
 
-    def validar_restriccion_por_monto(self, partida, tipo_captura):
+    def _validar_restriccion_por_monto(self, partida, tipo_captura):
         total = self._modelo.documento.total
         total_partida = partida.get('total', 0)
         total_real = total_partida + total
@@ -1165,7 +1166,7 @@ class ControladorCaptura:
 
                 # 1) INSERTA PRIMERO LA PARTE "PERMITIDA" EN EL DOCUMENTO RELACIONADO
                 #    Evitar revalidación: usa document_item_id != 0 para saltar validar_restriccion_por_monto dentro de agregar_partida_tabla
-                self._modelo.agregar_partida_tabla(partida_anterior, document_item_id=-1, tipo_captura=tipo_captura)
+                self._modelo._agregar_partida_tabla(partida_anterior, document_item_id=-1, tipo_captura=tipo_captura)
 
                 # 2) AHORA sí marca como "finish_document = 1" y crea el folio Minisúper si no existe
                 self._modelo.documento.finish_document = 1
@@ -1176,7 +1177,7 @@ class ControladorCaptura:
 
                 # 3) Inserta la parte restante en el folio Minisúper
                 #    Puedes ir directo a items (sin tabla) o usar la tabla con document_item_id != 0 para saltar validación.
-                self._modelo.agregar_partida_items_documento(partida_nueva)
+                self._modelo._agregar_partida_items_documento(partida_nueva)
                 # o, si quieres que aparezca en el treeview de la UI:
                 # self.agregar_partida_tabla(partida_nueva, document_item_id=-1, tipo_captura=tipo_captura)
 
@@ -1196,7 +1197,7 @@ class ControladorCaptura:
 
         return True
 
-    def agregar_partida_tabla(self, partida, document_item_id, tipo_captura, unidad_cayal=0, monto_cayal=0):
+    def _agregar_partida_tabla(self, partida, document_item_id, tipo_captura, unidad_cayal=0, monto_cayal=0):
 
         if self._modelo.documento.finish_document == 2:
             self._mensajes_de_error(17)
@@ -1206,7 +1207,7 @@ class ControladorCaptura:
             if not self._filtrar_productos_no_permitidos(partida):
                 return
 
-            if not self.validar_restriccion_por_monto(partida, tipo_captura):
+            if not self._validar_restriccion_por_monto(partida, tipo_captura):
                 return
 
         if not self._agregando_partida_tabla:
@@ -1279,24 +1280,24 @@ class ControladorCaptura:
                 tabla_captura = self._interfaz.ventanas.componentes_forma['tvw_productos']
                 self._interfaz.ventanas.insertar_fila_treeview(tabla_captura, partida_tabla, al_principio=True)
 
-                self.agregar_partida_items_documento(partida)
-                self.actualizar_totales_documento()
+                self._agregar_partida_items_documento(partida)
+                self._actualizar_totales_documento()
 
                 # si aplica remueve el servicio a domicilio
                 if self._modelo.module_id == 1687 and self._servicio_a_domicilio_agregado == True:
                     if self._modelo.documento.total - self._modelo.documento.delivery_cost >= 200:
-                        self.remover_servicio_a_domicilio()
+                        self._remover_servicio_a_domicilio()
 
             finally:
                 self._agregando_partida_tabla = False
 
-    def remover_servicio_a_domicilio(self):
+    def _remover_servicio_a_domicilio(self):
         self._servicio_a_domicilio_agregado = False
         self._modelo.remover_partida_items_documento(5606)
-        self.remover_product_id_tabla(5606)
-        self.actualizar_totales_documento()
+        self._remover_product_id_tabla(5606)
+        self._actualizar_totales_documento()
 
-    def remover_product_id_tabla(self, product_id):
+    def _remover_product_id_tabla(self, product_id):
         filas = self._interfaz.ventanas.obtener_filas_treeview('tvw_productos')
 
         for fila in filas:
@@ -1305,7 +1306,7 @@ class ControladorCaptura:
             if product_id_tabla == product_id:
                 self._interfaz.ventanas.remover_fila_treeview('tvw_productos', fila)
 
-    def agregar_partida_items_documento(self, partida):
+    def _agregar_partida_items_documento(self, partida):
 
         self._modelo.documento.items.append(partida)
 
@@ -1314,7 +1315,7 @@ class ControladorCaptura:
                 document_id = self._modelo.crear_cabecera_documento()
                 self._modelo.documento.document_id = document_id
 
-                self.asignar_folio(document_id)
+                self._asignar_folio(document_id)
 
                 self._modelo.crear_cabecera_documento_relacionado()
 
@@ -1373,7 +1374,7 @@ class ControladorCaptura:
 
                 self._modelo.documento.finish_document = 2 # bandera de cierre final del documento
 
-    def agregar_servicio_a_domicilio(self):
+    def _agregar_servicio_a_domicilio(self):
 
         def insertar_partida_servicio_a_domicilio():
             delivery_cost_iva = self._modelo.documento.delivery_cost
@@ -1391,7 +1392,7 @@ class ControladorCaptura:
 
                 self.partida_servicio_domicilio = partida
                 partida['Comments'] = ''
-                self.agregar_partida_tabla(partida, document_item_id=0, tipo_captura=2, unidad_cayal=1, monto_cayal=0)
+                self._agregar_partida_tabla(partida, document_item_id=0, tipo_captura=2, unidad_cayal=1, monto_cayal=0)
 
                 self.servicio_a_domicilio_agregado = True
 
@@ -1448,5 +1449,5 @@ class ControladorCaptura:
             # Procesar la copia para evitar referencias compartidas
             partida_procesada = self._modelo.utilerias.crear_partida(partida_copia)
 
-            self._modelo.agregar_partida_tabla(partida_procesada, document_item_id=document_item_id, tipo_captura=tipo_captura,
-                                               unidad_cayal=chk_pieza, monto_cayal=chk_monto)
+            self._agregar_partida_tabla(partida_procesada, document_item_id=document_item_id, tipo_captura=tipo_captura,
+                                        unidad_cayal=chk_pieza, monto_cayal=chk_monto)

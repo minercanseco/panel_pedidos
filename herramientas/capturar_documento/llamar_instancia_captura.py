@@ -25,15 +25,13 @@ class LlamarInstanciaCaptura:
         master:   Toplevel / Frame / Window donde se monta la UI.
         parametros: objeto con al menos id_modulo, id_usuario.
         cliente, documento: instancias opcionales a reutilizar.
-        ofertas: dict opcional con info de productos ofertados, e.g.:
-            {
-                'consulta_productos_ofertados': ...,
-                'consulta_productos_ofertados_btn': ...,
-                'products_ids_ofertados': ...
-            }
+        ofertas: dict opcional con info de productos ofertados.
         """
         self._master = master
         self._parametros_contpaqi = parametros
+
+        self._module_id = getattr(self._parametros_contpaqi, "id_modulo", None)
+        self._user_id = getattr(self._parametros_contpaqi, "id_usuario", None)
 
         self._declarar_clases_auxiliares(cliente, documento)
         self._declarar_variables_instancia(ofertas)
@@ -50,7 +48,6 @@ class LlamarInstanciaCaptura:
     #----------------------------------------------------------------------
     # Inicialización de las variables iniciales de la forma
     #----------------------------------------------------------------------
-
     def _declarar_clases_auxiliares(self, cliente=None, documento=None):
         """
         Inicializa clases auxiliares. Si se proporcionan cliente/documento,
@@ -68,6 +65,7 @@ class LlamarInstanciaCaptura:
         # --- parámetros base ---
         self._module_id = getattr(self._parametros_contpaqi, "id_modulo", None)
         self._user_id = getattr(self._parametros_contpaqi, "id_usuario", None)
+        self._documento.document_id = getattr(self._parametros_contpaqi, "id_principal", 0)
 
         self._procesando_documento = False
         self._editando_documento = False
@@ -237,6 +235,7 @@ class LlamarInstanciaCaptura:
         self._documento.address_detail_id = info_direccion['address_detail_id']
         self._documento.address_details = info_direccion
         self._documento.prefix = 'NV'
+
 
     # ----------------------------------------------------------------------
     # Carga de cache
@@ -612,56 +611,187 @@ class LlamarInstanciaCaptura:
 
     def _llamar_instancia_pedidos(self):
 
+        def _homologar_direccion_fiscal(business_entity_id):
+            if business_entity_id <= 0:
+                return
+            # esta funcion es deuda tecnica de la homologacion entre la direccion fiscal
+            # y orgbusinessentitymaininfo que es la tabla donde nace los parametros
+            # de la direccion fiscal del cliente, esto es necesario para coherencia en
+            # la información y la impresion de los formatos del cliente
+
+            self._base_de_datos.command("""
+               DECLARE @business_entity_id INT = ?
+               UPDATE ADT
+                SET
+                    ADT.StateProvince      = EM.AddressFiscalStateProvince, 
+                    ADT.City               = EM.AddressFiscalCity,
+                    ADT.Municipality       = EM.AddressFiscalMunicipality,
+                    ADT.Street             = EM.AddressFiscalStreet,
+                    ADT.Comments           = EM.AddressFiscalComments,
+                    ADT.CountryCode        = EM.AddressFiscalCountryCode,
+                    ADT.CityCode           = EM.AddressFiscalCityCode, 
+                    ADT.MunicipalityCode   = EM.AddressFiscalMunicipalityCode, 
+                    ADT.Telefono           = EM.BusinessEntityPhone
+                FROM orgBusinessEntityMainInfo EM
+                INNER JOIN orgAddressDetail ADT 
+                    ON EM.AddressFiscalDetailID = ADT.AddressDetailID
+                WHERE
+                    ADT.AddressDetailID = (
+                        SELECT AddressFiscalDetailID
+                        FROM orgBusinessEntityMainInfo
+                        WHERE BusinessEntityID = @business_entity_id
+                    )
+                    AND (
+                        ISNULL(ADT.StateProvince, '')       <> ISNULL(EM.AddressFiscalStateProvince, '') OR
+                        ISNULL(ADT.City, '')                <> ISNULL(EM.AddressFiscalCity, '') OR
+                        ISNULL(ADT.Municipality, '')        <> ISNULL(EM.AddressFiscalMunicipality, '') OR
+                        ISNULL(ADT.Street, '')              <> ISNULL(EM.AddressFiscalStreet, '') OR
+                        ISNULL(ADT.Comments, '')            <> ISNULL(EM.AddressFiscalComments, '') OR
+                        ISNULL(ADT.CountryCode, '')         <> ISNULL(EM.AddressFiscalCountryCode, '') OR
+                        ISNULL(ADT.CityCode, '')            <> ISNULL(EM.AddressFiscalCityCode, '') OR
+                        ISNULL(ADT.MunicipalityCode, '')    <> ISNULL(EM.AddressFiscalMunicipalityCode, '') OR
+                        ISNULL(ADT.Telefono, '')            <> ISNULL(EM.BusinessEntityPhone, '')
+                    );
+            """, (business_entity_id,))
+
+        def _buscar_info_cliente_seleccionado(business_entity_id):
+            _homologar_direccion_fiscal(business_entity_id)
+            if business_entity_id != 0:
+                return self._base_de_datos.fetchall("""
+                  SELECT *
+                  FROM [dbo].[zvwBuscarInfoCliente-BusinessEntityID](?)
+                """, (business_entity_id,))
+
+        def _buscar_info_direcciones_cliente_seleccionado(business_entity_id):
+            return self._base_de_datos.buscar_direcciones_cliente(business_entity_id)
+
+        def _settear_info_cliente_y_direcciones_pedido(business_entity_id):
+            """
+            Busca la información del cliente por BusinessEntityID,
+            la carga en self.cliente y prepara documentos/ofertas.
+            """
+
+            # 1) Buscar info del cliente
+            _info_cliente_seleccionado = _buscar_info_cliente_seleccionado(business_entity_id)
+
+            # 2) Pasar la consulta al objeto Cliente y setear sus atributos
+            self._cliente.consulta = _info_cliente_seleccionado
+            self._cliente.settear_valores_consulta()
+
+            # 3) Cargar la informacion de las direcciones del cliente
+            self._cliente.addresses_details = []
+            direcciones_cliente = _buscar_info_direcciones_cliente_seleccionado(business_entity_id)
+            for direccion in direcciones_cliente:
+                self._cliente.add_address_detail(direccion)
+
+        def _asignar_parametros_a_documento_pedido():
+
+            if not getattr(self._documento, "address_detail_id", 0):
+                direcciones = getattr(self._cliente, "addresses_details", []) or []
+
+                if direcciones:
+                    direccion_defecto = None
+
+                    for d in direcciones:
+                        if d.get('AddressTypeID') == 1:
+                            direccion_defecto = d
+                            break
+
+                    if direccion_defecto is None:
+                        direccion_defecto = direcciones[0]
+
+                    self._documento.address_detail_id = direccion_defecto.get('AddressDetailID', 0)
+                else:
+                    self._documento.address_details = {}
+                    self._documento.depot_id = 0
+                    self._documento.depot_name = ''
+                    return
+
+            consulta = [
+                reg for reg in self._cliente.addresses_details
+                if reg['AddressDetailID'] == self._documento.address_detail_id
+            ]
+
+            if not consulta:
+                self._documento.address_details = {}
+                self._documento.depot_id = 0
+                self._documento.depot_name = ''
+                return
+
+            direccion = consulta[0]
+
+            depot_id = direccion.get('DepotID', 0)
+            depot_name = ''
+            if depot_id != 0:
+                depot_name_row = self._base_de_datos.fetchone(
+                    'SELECT DepotName FROM orgDepot WHERE DepotID = ?',
+                    (depot_id,)
+                )
+                depot_name = depot_name_row['DepotName'] if isinstance(depot_name_row, dict) else depot_name_row
+
+            self._documento.address_details = direccion
+            self._documento.depot_id = depot_id
+            self._documento.depot_name = depot_name
+            self._documento.address_detail_id = direccion.get('AddressDetailID', 0)
+            self._documento.address_name = direccion.get('AddressName', '')
+            self._documento.business_entity_id = self._cliente.business_entity_id
+            self._documento.customer_type_id = self._cliente.customer_type_id
+            self._documento.delivery_cost = self._utilerias.redondear_valor_cantidad_a_decimal(
+                direccion.get('DeliveryCost', 20)
+            )
+
         def _buscar_informacion_documento_existente():
-            # rellena la informacion relativa al documento
             consulta_info_pedido = self._base_de_datos.buscar_info_documento_pedido_cayal(
-                self.documento.document_id
+                self._documento.document_id
             )
             return consulta_info_pedido[0]
 
         def _rellenar_instancias_importadas(info_pedido):
 
-            # 1) Datos del pedido/documento
             info_pedido = info_pedido or {}
 
-            self.documento.depot_id = info_pedido.get('DepotID', 0)
-            self.documento.depot_name = info_pedido.get('DepotName', '')
-            self.documento.created_by = info_pedido.get('CreatedBy', 0)
-            self.documento.address_detail_id = info_pedido.get('AddressDetailID', 0)
-            self.documento.cancelled_on = info_pedido.get('CancelledOn', None)
-            self.documento.docfolio = info_pedido.get('DocFolio', '')
-            self.documento.comments = info_pedido.get('CommentsOrder', '')
-            self.documento.address_name = info_pedido.get('AddressName', '')
-            self.documento.business_entity_id = self._cliente.business_entity_id
-            self.documento.customer_type_id = self._cliente.cayal_customer_type_id
+            self._documento.depot_id = info_pedido.get('DepotID', 0)
+            self._documento.depot_name = info_pedido.get('DepotName', '')
+            self._documento.created_by = info_pedido.get('CreatedBy', 0)
+            self._documento.address_detail_id = info_pedido.get('AddressDetailID', 0)
+            self._documento.cancelled_on = info_pedido.get('CancelledOn', None)
+            self._documento.docfolio = info_pedido.get('DocFolio', '')
+            self._documento.comments = info_pedido.get('CommentsOrder', '')
+            self._documento.address_name = info_pedido.get('AddressName', '')
+            self._documento.customer_type_id = self._cliente.cayal_customer_type_id
 
-            # 2) Marcar en uso (solo si hay document_id > 0). Evita doble marcado en la misma instancia.
-            doc_id = int(self.documento.document_id or 0)
+            doc_id = int(self._documento.document_id or 0)
             if doc_id > 0:
                 pedido_flag = (self._module_id == 1687)
 
-                # Si ya está marcado por esta misma instancia, no lo marques de nuevo
-                already_locked_same_doc = getattr(self, "_locked_active", False) and \
-                                          getattr(self, "_locked_doc_id", 0) == doc_id
+                already_locked_same_doc = (
+                        getattr(self, "_locked_active", False)
+                        and getattr(self, "_locked_doc_id", 0) == doc_id
+                )
 
                 if not already_locked_same_doc:
-                    # Usa helper si existe; si no, usa la BD directamente
-                    if hasattr(self, "_mark_in_use") and callable(self._mark_in_use):
-                        self._mark_in_use(doc_id, pedido=pedido_flag)
+                    if hasattr(self, "_mark_in_use") and callable(self._marcar_en_uso):
+                        self._marcar_en_uso(doc_id, pedido=pedido_flag)
                     else:
-                        self._base_de_datos.marcar_documento_en_uso(doc_id, self._user_id, pedido=pedido_flag)
+                        self._base_de_datos.marcar_documento_en_uso(
+                            doc_id, self._user_id, pedido=pedido_flag
+                        )
 
-            # 3) Bandera de estado
             self._editando_documento = True
-        #--------------------------------------------------------------------------------------------------------------
-        if self._documento.document_id !=0:
+
+        # --------------------------------------------------------------------------------------------------------------
+
+        if self._documento.document_id != 0:
             info_pedido = _buscar_informacion_documento_existente()
             _rellenar_instancias_importadas(info_pedido)
+            _settear_info_cliente_y_direcciones_pedido(self._documento.business_entity_id)
+            _asignar_parametros_a_documento_pedido()
 
         try:
-            self._instancia_llamada = True
 
+            self._instancia_llamada = True
             if not self._ofertas:
+                self._buscar_ofertas()
                 ct_id = getattr(self._cliente, "customer_type_id", None)
                 if ct_id is not None and self._ofertas_por_lista:
                     self._ofertas = self._ofertas_por_lista.get(ct_id, {})
@@ -684,75 +814,21 @@ class LlamarInstanciaCaptura:
         finally:
             self._procesar_documento_pedido()
             if hasattr(self, "_unmark_in_use"):
-                self._unmark_in_use()
+                self._desmarcar_en_uso()
             else:
                 try:
                     doc_id = int(getattr(self._documento, "document_id", 0) or 0)
                     if doc_id > 0:
                         pedido_flag = (self._module_id == 1687)
-                        self._base_de_datos.desmarcar_documento_en_uso(doc_id, pedido=pedido_flag)
+                        self._base_de_datos.desmarcar_documento_en_uso(
+                            doc_id, pedido=pedido_flag
+                        )
                 except Exception:
                     pass
-        """
-
-            # --- callback que SIEMPRE guarda (si procede) y DESMARCA el bloqueo ---
-
-        def _on_close():
-            try:
-                self._procesar_documento_pedido()
-            finally:
-                # usa helper si existe; si no, fallback directo
-                if hasattr(self, "_unmark_in_use"):
-                    self._unmark_in_use()
-                else:
-                    try:
-                        doc_id = int(getattr(self.documento, "document_id", 0) or 0)
-                        if doc_id > 0:
-                            pedido_flag = (self._module_id == 1687)
-                            self._base_de_datos.desmarcar_documento_en_uso(doc_id, pedido=pedido_flag)
-                    except Exception:
-                        pass
-
-            # --- crea el popup como antes, pero usando _on_close ---
-
-        if not self._documento.cancelled_on:
-            pregunta = '¿Desea guardar el documento?'
-            ventana = self._ventanas.crear_popup_ttkbootstrap(
-                master=self._master,
-                titulo='Capturar pedido',
-                ocultar_master=True,
-                ejecutar_al_cierre=_on_close,
-                preguntar=pregunta
-            )
-        else:
-            ventana = self._ventanas.crear_popup_ttkbootstrap(
-                self._master,
-                titulo='Capturar pedido',
-                ocultar_master=True,
-                ejecutar_al_cierre=_on_close
-            )
-
-            # ----- Resto de tu flujo intacto -----
-        interfaz = InterfazCaptura(ventana, self._parametros_contpaqi.id_modulo)
-
-        modelo = ModeloCaptura(self._base_de_datos,
-                               self._utilerias,
-                               self._cliente,
-                               self._parametros_contpaqi,
-                               self._documento,
-                               self._ofertas
-                               )
-
-        controlador = ControladorCaptura(interfaz, modelo)
-
-        # asigna el valor del documento por posibles cambios que haya habido en el proceso de captura
-        self.documento = modelo.documento
-        """
-
     # ----------------------------------------------------------------------
     # Helpers relacionados con bloqueo del documento para prevenir colisiones
     # ----------------------------------------------------------------------
-    def _mark_in_use(self, document_id, pedido: bool):
+    def _marcar_en_uso(self, document_id, pedido: bool):
         self._locked_doc_id = int(document_id or 0)
         self._locked_is_pedido = bool(pedido)
         self._locked_active = self._locked_doc_id > 0
@@ -760,7 +836,7 @@ class LlamarInstanciaCaptura:
             self._base_de_datos.marcar_documento_en_uso(self._locked_doc_id, self._user_id,
                                                         pedido=self._locked_is_pedido)
 
-    def _unmark_in_use(self):
+    def _desmarcar_en_uso(self):
         # idempotente, por si se llama más de una vez
         if getattr(self, "_locked_active", False) and getattr(self, "_locked_doc_id", 0):
             try:
@@ -777,16 +853,16 @@ class LlamarInstanciaCaptura:
 
         def _solo_existe_servicio_domicilio_en_documento():
 
-            existe = [producto for producto in self.documento.items if producto['ProductID'] == 5606]
+            existe = [producto for producto in self._documento.items if producto['ProductID'] == 5606]
 
-            if existe and len(self.documento.items) == 1:
+            if existe and len(self._documento.items) == 1:
                 return True
 
             return False
 
         def _determinar_tipo_de_orden_produccion():
 
-            partidas = self.documento.items
+            partidas = self._documento.items
             tipos_productos = [partida['ProductTypeIDCayal'] for partida in partidas
                                if partida['ProductID'] != 5606]
 
@@ -825,14 +901,14 @@ class LlamarInstanciaCaptura:
 
             document_id = 0
 
-            parametros_pedido = self.documento.order_parameters
+            parametros_pedido = self._documento.order_parameters
             production_type_id = _determinar_tipo_de_orden_produccion()
             if parametros_pedido:
                 parametros = (
                     parametros_pedido.get('RelatedOrderID', 0),
                     parametros_pedido.get('BusinessEntityID'),
                     parametros_pedido.get('CreatedBy'),
-                    self.documento.comments,
+                    self._documento.comments,
                     parametros_pedido.get('ZoneID'),
                     parametros_pedido.get('AddressDetailID'),
                     parametros_pedido.get('DocumentTypeID'),
@@ -876,7 +952,7 @@ class LlamarInstanciaCaptura:
 
             if self._parametros_contpaqi.id_modulo == 1687:
 
-                for partida in self.documento.items:
+                for partida in self._documento.items:
                     # Crear una copia profunda para evitar referencias compartidas
                     partida_copia = copy.deepcopy(partida)
 
@@ -914,17 +990,17 @@ class LlamarInstanciaCaptura:
         def _insertar_partidas_extra_documento(document_id):
 
             def _buscar_document_item_id(uuid_partida):
-                for partida in self.documento.items:
+                for partida in self._documento.items:
                     if partida.get('uuid') == uuid_partida:
                         return int(partida.get('DocumentItemID', 0))
                 return 0  # o puedes lanzar una excepción controlada si prefieres
 
-            if not self.documento.items_extra:
+            if not self._documento.items_extra:
                 return
 
             if self._parametros_contpaqi.id_modulo == 1687:
 
-                for partida in self.documento.items_extra:
+                for partida in self._documento.items_extra:
 
                     accion_id = partida['ItemProductionStatusModified']
                     change_type_id = 0
@@ -955,9 +1031,9 @@ class LlamarInstanciaCaptura:
                                                                            comments=comentario)
 
         def _actualizar_totales_documento(document_id):
-            total = self.documento.total
-            subtotal = self.documento.subtotal
-            total_tax = self.documento.total_tax
+            total = self._documento.total
+            subtotal = self._documento.subtotal
+            total_tax = self._documento.total_tax
 
             if self._module_id == 1687:
                 self._base_de_datos.actualizar_totales_pedido_cayal(document_id,
@@ -1010,8 +1086,8 @@ class LlamarInstanciaCaptura:
 
                     # Si se generó ID, opcionalmente marca en uso ahora para evitar colisiones
                     if self._documento.document_id > 0:
-                        if hasattr(self, "_mark_in_use") and callable(self._mark_in_use):
-                            self._mark_in_use(self._documento.document_id, pedido=True)
+                        if hasattr(self, "_mark_in_use") and callable(self._marcar_en_uso):
+                            self._marcar_en_uso(self._documento.document_id, pedido=True)
                         else:
                             # Fallback directo si no tienes helper
                             self._base_de_datos.marcar_documento_en_uso(self._documento.document_id,

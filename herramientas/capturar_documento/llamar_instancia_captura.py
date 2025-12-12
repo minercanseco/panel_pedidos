@@ -787,9 +787,41 @@ class LlamarInstanciaCaptura:
             _settear_info_cliente_y_direcciones_pedido(self._documento.business_entity_id)
             _asignar_parametros_a_documento_pedido()
 
-        try:
+        locked_by_me = False
+        bloquear = False
 
-            self._instancia_llamada = True
+        def _on_close():
+            try:
+                self._procesar_documento_pedido()
+            finally:
+                if locked_by_me:
+                    self._desmarcar_en_uso()
+                try:
+                    self._master.destroy()
+                except Exception:
+                    pass
+
+        try:
+            status, motivo, locked_user_id = self._base_de_datos.obtener_status_bloqueo_pedido(
+                order_document_id=self._documento.document_id,
+                user_id=self._user_id
+            )
+
+            bloquear = (status != 'Desbloqueado')
+
+            if not bloquear:
+                locked_by_me = self._base_de_datos.intentar_marcar_en_uso_pedido_atomico(
+                    order_document_id=self._documento.document_id,
+                    user_id=self._user_id
+                )
+                if locked_by_me:
+                    # SOLO flags, NO UPDATE adicional (ideal)
+                    self._locked_doc_id = int(self._documento.document_id or 0)
+                    self._locked_is_pedido = True
+                    self._locked_active = True
+                else:
+                    bloquear = True
+
             if not self._ofertas:
                 self._buscar_ofertas()
                 ct_id = getattr(self._cliente, "customer_type_id", None)
@@ -799,7 +831,6 @@ class LlamarInstanciaCaptura:
                     self._ofertas = {}
 
             interfaz = InterfazCaptura(self._master, self._parametros_contpaqi.id_modulo)
-
             modelo = ModeloCaptura(
                 self._base_de_datos,
                 self._utilerias,
@@ -807,24 +838,15 @@ class LlamarInstanciaCaptura:
                 self._parametros_contpaqi,
                 self._documento,
                 self._ofertas,
+                bloquear=bloquear
             )
-
             controlador = ControladorCaptura(interfaz, modelo)
 
+            self._master.protocol("WM_DELETE_WINDOW", _on_close)
+
         finally:
-            self._procesar_documento_pedido()
-            if hasattr(self, "_unmark_in_use"):
-                self._desmarcar_en_uso()
-            else:
-                try:
-                    doc_id = int(getattr(self._documento, "document_id", 0) or 0)
-                    if doc_id > 0:
-                        pedido_flag = (self._module_id == 1687)
-                        self._base_de_datos.desmarcar_documento_en_uso(
-                            doc_id, pedido=pedido_flag
-                        )
-                except Exception:
-                    pass
+            pass
+
     # ----------------------------------------------------------------------
     # Helpers relacionados con bloqueo del documento para prevenir colisiones
     # ----------------------------------------------------------------------
@@ -840,7 +862,9 @@ class LlamarInstanciaCaptura:
         # idempotente, por si se llama más de una vez
         if getattr(self, "_locked_active", False) and getattr(self, "_locked_doc_id", 0):
             try:
-                self._base_de_datos.desmarcar_documento_en_uso(self._locked_doc_id, pedido=self._locked_is_pedido)
+                self._base_de_datos.desmarcar_documento_en_uso(self._locked_doc_id,
+                                                               pedido=self._locked_is_pedido,
+                                                               user_id=self._user_id)
             finally:
                 self._locked_active = False
                 self._locked_doc_id = 0

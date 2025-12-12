@@ -5,7 +5,7 @@ from cayal.impuestos import Impuestos
 
 
 class ModeloCaptura:
-    def __init__(self, base_de_datos, utilerias, cliente, parametros_contpaqi, documento, ofertas = None):
+    def __init__(self, base_de_datos, utilerias, cliente, parametros_contpaqi, documento, ofertas = None, bloquear=False):
         self.base_de_datos = base_de_datos
         self.utilerias = utilerias
         self.documento = documento
@@ -17,6 +17,7 @@ class ModeloCaptura:
         self.module_id = self.parametros.id_modulo
         self.user_id = self.parametros.id_usuario
         self.user_name = self.obtener_user_name()
+        self.bloquear_documento = bloquear
 
 
         self.consulta_productos = []
@@ -297,18 +298,8 @@ class ModeloCaptura:
     def obtener_direcciones_cliente(self, business_entity_id):
         return self.base_de_datos.buscar_direcciones_cliente(business_entity_id)
 
-    def obtener_status_pedido(self, order_document_id):
-        return self.base_de_datos.fetchone(
-            """
-            SELECT
-                CASE
-                    WHEN ISNULL(StatusID,0) = 0 AND ISNULL(UserID,0) = 0 THEN 'Desbloqueado'
-                    WHEN ISNULL(UserID,0) != 0 OR ISNULL(UserID,0) != 0 THEN 'Bloqueado'
-                END Status
-            FROM docDocumentOrderCayal WHERE OrderDocumentID = ?
-            """,
-            (order_document_id,)
-        )
+    def obtener_status_bloqueo_pedido(self, order_document_id, user_id):
+        return self.base_de_datos.obtener_status_bloqueo_pedido(order_document_id, user_id)
 
     def obtener_existencia_producto(self, product_id):
         return self.base_de_datos.buscar_existencia_productos(product_id)

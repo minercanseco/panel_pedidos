@@ -395,8 +395,11 @@ class ControladorCaptura:
 
     def _determinar_bloqueo_ventana(self):
         status = 'Bloqueado'
+        motivo_bloqueo = 'Sin motivo'
         if self._modelo.module_id == 1687:
-            status = self._modelo.obtener_status_pedido(self._modelo.documento.document_id)
+            status, motivo_bloqueo, bloquado_por = self._modelo.obtener_status_bloqueo_pedido(self._modelo.documento.document_id,
+                                                                                self._modelo.user_id
+                                                                                )
 
         if status == 'Bloqueado' or self._modelo.documento.cancelled_on:
             self._interfaz.ventanas.bloquear_forma('frame_herramientas')
@@ -412,6 +415,8 @@ class ControladorCaptura:
                 widgets = frame.winfo_children()
                 for widget in widgets:
                     widget.config(**estilo_cancelado)
+
+            self._interfaz.ventanas.mostrar_mensaje(f'El documento esta {status} debido a {motivo_bloqueo}')
 
             return True
 

@@ -142,7 +142,7 @@ class HerramientasCaptura:
         order_document_id = fila['OrderDocumentID']
         business_entity_id = fila['BusinessEntityID']
         try:
-            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Pedido', nombre_icono='icono_logo.ico')
             if status_id < 3:
                 self._parametros.id_principal = order_document_id
                 documento = Documento()

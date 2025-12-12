@@ -107,6 +107,8 @@ class HerramientasCaptura:
     def _capturar_nuevo_pedido(self):
 
         self._pausar_autorefresco()
+        nuevo_pedido = False
+        nueva_ventana = None
 
         try:
             # 1) Popup para seleccionar cliente
@@ -124,16 +126,25 @@ class HerramientasCaptura:
 
             # 2) Popup para captura
             nueva_ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap('Nueva captura')
-            _ = LlamarInstanciaCaptura(
+            captura = LlamarInstanciaCaptura(
                 nueva_ventana,
                 self._parametros,
                 instancia.cliente,
                 instancia.documento,
                 instancia.ofertas
             )
+            nueva_ventana.wait_window()
+
+            # si tu clase expone esto al cerrar:
+            nuevo_pedido = bool(getattr(captura, "nuevo_pedido", False))
+
         finally:
             self._parametros.id_principal = 0
-            #self._filtro_post_captura()
+
+            self._rellenar_tabla()
+            if nuevo_pedido:
+                self._filtro_post_captura()
+
             self._reanudar_autorefresco()
 
     def _editar_pedido(self):
@@ -173,50 +184,60 @@ class HerramientasCaptura:
         finally:
             self._modelo.actualizar_totales_pedido(order_document_id)
             self._rellenar_tabla()
+            if status_id == 1:
+                self._filtro_post_captura()
 
     def _editar_caracteristicas_pedido(self):
+        status_id = None
+        se_abrio_popup = False
         try:
             fila = self._obtener_valores_fila_pedido_seleccionado()
             if not fila:
                 return
 
-            status = fila['TypeStatusID']
+            status_id = fila['TypeStatusID']
 
-            if status == 10:
+            if status_id == 10:
                 self._interfaz.ventanas.mostrar_mensaje('NO se pueden editar pedidos cancelados.')
                 return
-
-            elif status >= 4:
-                self._interfaz.ventanas.mostrar_mensaje('Sólo se pueden afectar las caracteristicas de un pedido hasta el status  Por timbrar.')
+            elif status_id >= 4:
+                self._interfaz.ventanas.mostrar_mensaje(
+                    'Sólo se pueden afectar las caracteristicas de un pedido hasta el status Por timbrar.'
+                )
                 return
-            else:
-                order_document_id = fila['OrderDocumentID']
 
-                self._parametros.id_principal = order_document_id
-                ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
-                instancia = EditarCaracteristicasPedido(ventana,
-                                                        self._parametros,
-                                                        self._base_de_datos,
-                                                        self._utilerias)
-                ventana.wait_window()
+            order_document_id = fila['OrderDocumentID']
+            self._parametros.id_principal = order_document_id
+
+            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
+            se_abrio_popup = True
+            instancia = EditarCaracteristicasPedido(ventana, self._parametros, self._base_de_datos, self._utilerias)
+            ventana.wait_window()
+
         finally:
             self._parametros.id_principal = 0
+            if se_abrio_popup and status_id == 1:
+                self._filtro_post_captura()
 
     def _crear_ticket_pedido_cliente(self):
+        status_id = None  # <- para que exista siempre en finally
+
         order_document_id = self._obtener_valores_fila_pedido_seleccionado(valor='OrderDocumentID')
         if not order_document_id:
             return
 
         valores = self._modelo.obtener_status_entrega_pedido(order_document_id)
-
         if not valores:
             return
 
-        status_entrega = valores['status_entrega']
-        fecha_entrega = valores['fecha_entrega']
+        status_id = valores.get('status_id')
+        status_entrega = valores.get('status_entrega')
+        fecha_entrega = valores.get('fecha_entrega')
 
         if status_entrega == 0:
-            self._interfaz.ventanas.mostrar_mensaje('Debe definir la forma de pago del cliente antes de generar el ticket.')
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Debe definir la forma de pago del cliente antes de generar el ticket.'
+            )
             return
 
         try:
@@ -225,19 +246,27 @@ class HerramientasCaptura:
 
             if fecha_entrega > self._modelo.hoy:
                 respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
-                    'EL pedido es para una fecha de entrega posterior, ¿Desea actualizar los precios antes de generar el ticket?')
+                    'EL pedido es para una fecha de entrega posterior, ¿Desea actualizar los precios antes de generar el ticket?'
+                )
                 if respuesta:
                     self._base_de_datos.actualizar_precios_pedido(order_document_id)
 
             self._parametros.id_principal = order_document_id
             instancia = TicketPedidoCliente(self._base_de_datos, self._utilerias, self._parametros)
-            self._interfaz.ventanas.mostrar_mensaje(master=self._interfaz.master,
-                                                    mensaje='Comprobante generado.',
-                                                    tipo='info')
+
+            self._interfaz.ventanas.mostrar_mensaje(
+                master=self._interfaz.master,
+                mensaje='Comprobante generado.',
+                tipo='info'
+            )
             self._interfaz.master.iconify()
+
         finally:
             self._parametros.id_principal = 0
             self._rellenar_tabla()
+
+            if status_id == 1:
+                self._filtro_post_captura()
 
     def _mandar_a_producir(self):
 

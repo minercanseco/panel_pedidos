@@ -72,6 +72,7 @@ class LlamarInstanciaCaptura:
         self._editando_documento = False
         self._info_documento = {}
 
+        self.nuevo_pedido = False # esta bandera permite el que se filtre por usuario en pedidos abiertos en el panel
         self._locked_doc_id = 0
         self._locked_is_pedido = False
         self._locked_active = False
@@ -1119,6 +1120,9 @@ class LlamarInstanciaCaptura:
 
                     # Crear cabecera
                     self._documento.document_id = int(_crear_cabecera_pedido_cayal() or 0)
+
+                    if self._documento.document_id != 0:
+                        self.nuevo_pedido = True # esta bandera permite el filtrado del panel por pedidos abierto
 
                     # Si se generó ID, opcionalmente marca en uso ahora para evitar colisiones
                     if self._documento.document_id > 0:

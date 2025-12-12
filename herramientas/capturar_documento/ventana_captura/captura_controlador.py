@@ -24,9 +24,8 @@ class ControladorCaptura:
         self._master = interfaz.master
         self._modelo = modelo
 
-        self._crear_notebook_herramientas()
         self._cargar_informacion_general()
-        self._cargar_eventos_componentes()
+        self._crear_notebook_herramientas() # dentro se determina el bloqueo de la ventana
 
         # ------------------------------------------------------
         # Banderas de procesos y variables auxiliares de captura
@@ -37,31 +36,32 @@ class ControladorCaptura:
         self._servicio_a_domicilio_agregado = False
         self._cargar_shortcuts = True
         self._info_partida_seleccionada = {}
-        # -------------------------------------------------------------------------------------------------
-        # Esta validación determina si el flujo de inicialización se detiene debido al bloqueo de documento
-        # -------------------------------------------------------------------------------------------------
-        if not self.determinar_bloqueo_ventana():
-            # ----------------------------------------------------
-            # Acciones de inicialización relacionadas con captura
-            # ----------------------------------------------------
-            if self._modelo.module_id == 1687: # modulo de pedidos
-                self.agregar_servicio_a_domicilio()
-                self._configurar_pedido()
 
-            if self._modelo.module_id == 1687 and self._modelo.documento.document_id > 0: # modulo de pedidos
+        # ----------------------------------------------------
+        # Acciones de inicialización relacionadas con captura
+        # ----------------------------------------------------
+        self._buscar_ofertas()
+        self._interfaz.ventanas.situar_ventana_arriba(self._master)
+        self._interfaz.ventanas.enfocar_componente('tbx_clave')
+
+        if self._modelo.module_id == 1687: # modulo de pedidos
+            if self._modelo.documento.document_id > 0:  # capturado previamente
                 self._rellenar_desde_base_de_datos()
 
-            self._buscar_ofertas()
-            self._interfaz.ventanas.situar_ventana_arriba(self._master)
-            self._interfaz.ventanas.enfocar_componente('tbx_clave')
+            self._interfaz.ventanas.enfocar_componente('tbx_buscar_manual')
 
-            if self._modelo.module_id == 1687: # si es pedido
-                self._interfaz.ventanas.enfocar_componente('tbx_buscar_manual')
+        if self._modelo.documento.document_id == 0:  # nueva captura
+            self.agregar_servicio_a_domicilio()
+            self._configurar_pedido()
+            self._cargar_eventos_componentes()
 
     # -------------------------------------------------------------------------
     # Funciones relacionadas a herramientas y eventos de componentes de captura
     # -------------------------------------------------------------------------
     def _crear_notebook_herramientas(self):
+
+        cargar_shortcuts = False if self.determinar_bloqueo_ventana() else True
+
         info_pestanas = {
             'tab_ticket': ('Herramientas', [158]),
             'tab_pedido': ('Herramientas', [1687]),
@@ -114,21 +114,24 @@ class ControladorCaptura:
                 HerramientasTicket(
                     master=frame,
                     modelo=self._modelo,
-                    interfaz=self._interfaz
+                    interfaz=self._interfaz,
+                    cargar_shortcuts= cargar_shortcuts
                 )
 
             if 'pedido' in frame_name and self._modelo.module_id == 1687:
                 HerramientasPedido(
                     master=frame,
                     modelo=self._modelo,
-                    interfaz=self._interfaz
+                    interfaz=self._interfaz,
+                    cargar_shortcuts= cargar_shortcuts
                 )
 
             if 'facturas' in frame_name and self._modelo.module_id in (21, 1400, 1319, 1316, 967):
                 HerramientasFacturas(
                     master=frame,
                     modelo=self._modelo,
-                    interfaz=self._interfaz
+                    interfaz=self._interfaz,
+                    cargar_shortcuts=cargar_shortcuts
                 )
 
     def _cargar_eventos_componentes(self):

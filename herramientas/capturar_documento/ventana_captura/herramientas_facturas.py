@@ -11,11 +11,12 @@ from herramientas.verificador_precios.interfaz_verificador import InterfazVerifi
 
 
 class HerramientasFacturas:
-    def __init__(self, master, modelo, interfaz):
+    def __init__(self, master, modelo, interfaz, cargar_shortcuts):
         self._master = master
         self._ventanas = Ventanas(self._master)
         self._modelo = modelo
         self._interfaz = interfaz
+        self._cargar_shortcuts = cargar_shortcuts
 
         self._base_de_datos = self._modelo.base_de_datos
         self._parametros = self._modelo.parametros
@@ -25,7 +26,8 @@ class HerramientasFacturas:
         self._crear_frames()
         self._crear_barra_herramientas()
         self._cargar_eventos()
-        self._agregar_atajos()
+        if self._cargar_shortcuts:
+            self._agregar_atajos()
 
     def _crear_frames(self):
         frames = {

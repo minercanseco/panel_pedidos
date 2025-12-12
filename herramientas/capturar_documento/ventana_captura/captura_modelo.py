@@ -202,7 +202,6 @@ class ModeloCaptura:
 
             self.documento.destination_document_id = document_id
 
-
     def remover_partida_items_documento(self, product_id):
         partidas = self.documento.items
 

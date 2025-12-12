@@ -1,3 +1,4 @@
+import copy
 import os.path
 import os
 import gzip
@@ -39,8 +40,16 @@ class LlamarInstanciaCaptura:
 
         if self._module_id == 158:
             self._llamar_instancia_158()
+
+        elif self._module_id == 1687:
+            self._llamar_instancia_pedidos()
+
         else:
-            self._llamar_instancia()
+            self._llamar_instancia_contpaq()
+
+    #----------------------------------------------------------------------
+    # Inicialización de las variables iniciales de la forma
+    #----------------------------------------------------------------------
 
     def _declarar_clases_auxiliares(self, cliente=None, documento=None):
         """
@@ -59,6 +68,14 @@ class LlamarInstanciaCaptura:
         # --- parámetros base ---
         self._module_id = getattr(self._parametros_contpaqi, "id_modulo", None)
         self._user_id = getattr(self._parametros_contpaqi, "id_usuario", None)
+
+        self._procesando_documento = False
+        self._editando_documento = False
+        self._info_documento = {}
+
+        self._locked_doc_id = 0
+        self._locked_is_pedido = False
+        self._locked_active = False
 
         self._monto_recibido = self._utilerias.redondear_valor_cantidad_a_decimal(0)
         self._cambio_cliente = self._utilerias.redondear_valor_cantidad_a_decimal(0)
@@ -82,6 +99,9 @@ class LlamarInstanciaCaptura:
         self._ofertas = ofertas or {}
         self._ofertas_por_lista = {}
 
+    # ----------------------------------------------------------------------
+    # Helpers relacionados con busqueda de ofertas
+    # ----------------------------------------------------------------------
     def _buscar_productos_ofertados_cliente(self):
         try:
             from zoneinfo import ZoneInfo  # Py>=3.9
@@ -203,6 +223,9 @@ class LlamarInstanciaCaptura:
 
         self._buscar_productos_ofertados_cliente()
 
+    # ----------------------------------------------------------------------
+    # setteos especiales para modulo de tickets
+    # ----------------------------------------------------------------------
     def _settear_valores_cliente_pg(self):
         info_cliente = self._cargar_info_cliente_gzip()
 
@@ -215,6 +238,9 @@ class LlamarInstanciaCaptura:
         self._documento.address_details = info_direccion
         self._documento.prefix = 'NV'
 
+    # ----------------------------------------------------------------------
+    # Carga de cache
+    # ----------------------------------------------------------------------
     def _cargar_info_direccion_gzip(self, address_detail_id=15317, carpeta_base="cache/direcciones",
                                    force_refresh=False):
         """
@@ -360,7 +386,97 @@ class LlamarInstanciaCaptura:
 
         return data  # ← antes: return data, ruta
 
+    # ----------------------------------------------------------------------
+    # Llamada de instancia segun sea el caso
+    # ----------------------------------------------------------------------
     def _llamar_instancia_158(self):
+
+        def _crear_ticket_de_venta():
+            redondear = self._utilerias.redondear_valor_cantidad_a_decimal
+            ticket = Ticket158()
+
+            plantilla = Path(__file__).parent / "ticket_modulo_158.html"
+            ticket.set_plantilla(plantilla)
+            # O si el HTML está en memoria:
+            # ticket.set_plantilla_html(html_string)
+
+            # ---- Fecha (compacta) ----
+            fecha_expedicion = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+            # ---- Decidir si se muestra sección PAGO/CAMBIO (Decimal) ----
+            amt_raw = getattr(self._documento, "amount_received", Decimal("0"))
+            try:
+                amount_received = amt_raw if isinstance(amt_raw, Decimal) else Decimal(str(amt_raw or "0"))
+            except (InvalidOperation, TypeError, ValueError):
+                amount_received = Decimal("0")
+
+            mostrar_pago = (amount_received != Decimal("0"))
+
+            # ---- Datos para placeholders ----
+            ticket.set_datos(
+                folio=self._documento.folio,
+                uuid=self._parametros_contpaqi.uuid,
+                FechaExpedicion=fecha_expedicion,
+                SubTotal=redondear(self._documento.subtotal),
+                IEPS=redondear(self._documento.ieps),
+                IVA=redondear(self._documento.iva),
+                Total=redondear(self._documento.total),
+                cliente_pago_ticket="PAGO" if mostrar_pago else "",
+                pagado_ticket=amount_received if mostrar_pago else "",
+                cliente_cambio_ticket="CAMBIO" if mostrar_pago else "",
+                cambio_venta=self._documento.customer_change if mostrar_pago else "",
+                TotalPzas=len(self._documento.items),
+                CantidadConLetra=self._utilerias.cantidad_con_letra(self._documento.total)
+            )
+
+            # ---- Partidas ----
+            partidas = []
+            for partida in self._documento.items:
+                partidas.append({
+                    "Cantidad": redondear(partida["cantidad"]),
+                    "Descripcion": partida["ProductName"],
+                    "PrecioUnCIVA": redondear(partida["precio"]),
+                    "ImporteCIVA": redondear(partida["total"]),
+                })
+            ticket.set_partidas(partidas)
+
+            # ---- Generar HTML base ----
+            html = ticket.generar_html()
+
+            # ---- Limpiar bloque PAGO/CAMBIO si no corresponde mostrarlo ----
+            if not mostrar_pago:
+                # 1) Si tu plantilla tiene marcadores condicionales:
+                #    <!--IF_PAGADO--> ... <!--END_IF-->
+                if "<!--IF_PAGADO-->" in html:
+                    html = re.sub(r"<!--IF_PAGADO-->.*?<!--END_IF-->", "", html, flags=re.S)
+                else:
+                    # 2) Sin marcadores: elimina las filas <tr> que contienen esas dos secciones
+                    #    Buscamos filas donde aparezcan los labels/valores de pago y cambio.
+                    #    Es robusto a atributos y espacios.
+                    patron_pago = r"<tr[^>]*>\s*<td[^>]*>[^<]*PAGO[^<]*</td>.*?</tr>"
+                    patron_cambio = r"<tr[^>]*>\s*<td[^>]*>[^<]*CAMBIO[^<]*</td>.*?</tr>"
+                    html = re.sub(patron_pago, "", html, flags=re.S | re.I)
+                    html = re.sub(patron_cambio, "", html, flags=re.S | re.I)
+
+            # ---- Compactar espacios/saltos innecesarios para que quede “pegado” ----
+            html = re.sub(r">\s+<", "><", html)  # colapsa huecos entre etiquetas
+            html = re.sub(r"[ \t]{2,}", " ", html)  # espacios repetidos
+            html = html.strip()
+
+            # ---- Guardar ----
+            # Si tu Ticket158 guarda el último HTML interno, setéalo antes de guardar:
+            if hasattr(ticket, "_ultimo_html"):
+                ticket._ultimo_html = html
+                ruta = ticket.guardar_html()
+            else:
+                # Si no, escribe tú el archivo en la misma carpeta de salida de ticket.guardar_html()
+                ruta = ticket.guardar_html()  # crea carpeta/ruta base
+                # Sobrescribe con nuestro html limpio:
+                with open(ruta, "w", encoding="utf-8") as f:
+                    f.write(html)
+
+            return ruta
+
         try:
             self._settear_valores_cliente_pg()
             self._settear_valores_documento_pg()
@@ -374,14 +490,12 @@ class LlamarInstanciaCaptura:
             interfaz = InterfazCaptura(self._master, self._parametros_contpaqi.id_modulo)
 
             modelo = ModeloCaptura(self._base_de_datos,
-                                   interfaz.ventanas,
                                    self._utilerias,
                                    self._cliente,
                                    self._parametros_contpaqi,
                                    self._documento,
                                    self._ofertas
                                    )
-
             controlador = ControladorCaptura(interfaz, modelo)
             self._master.wait_window()
 
@@ -411,9 +525,30 @@ class LlamarInstanciaCaptura:
                     )
 
                 if self._module_id == 158:
-                    self._crear_ticket_de_venta()
+                    _crear_ticket_de_venta()
 
-    def _llamar_instancia(self):
+    def _llamar_instancia_contpaq(self):
+
+        def _actualizar_excedente_crediticio():
+            self._base_de_datos.command(
+                'UPDATE docDocument SET CreditExceededAmount = ? WHERE DocumentID = ?',
+                (self._documento.credit_exceeded_amount, self._documento.document_id)
+            )
+
+        def _actualizar_forma_pago_documento():
+            self._base_de_datos.command(
+                'UPDATE docDocumentCFD SET FormaPago = ? WHERE DocumentID = ?',
+                (
+                    self._documento.forma_pago,
+                    self._documento.document_id)
+            )
+
+        def _actualizar_comentario_documento():
+            self._base_de_datos.command(
+                'UPDATE docDocument SET Comments = ? WHERE DocumentID = ?',
+                (self._documento.comments, self._documento.document_id)
+            )
+
         try:
             self._instancia_llamada = True
 
@@ -470,122 +605,446 @@ class LlamarInstanciaCaptura:
                     )
 
                 if self._module_id in (1400, 21, 1319):
-                    self._actualizar_forma_pago_documento()
-                    self._actualizar_excedente_crediticio()
+                    _actualizar_forma_pago_documento()
+                    _actualizar_excedente_crediticio()
 
-                self._actualizar_comentario_documento()
+                _actualizar_comentario_documento()
 
-            if self._documento.order_document_id != 0 and self._module_id == 1687: # proceso válido para pedidos
-                self._actualizar_comentario_pedido()
+    def _llamar_instancia_pedidos(self):
 
-    def _actualizar_excedente_crediticio(self):
-        self._base_de_datos.command(
-            'UPDATE docDocument SET CreditExceededAmount = ? WHERE DocumentID = ?',
-            (self._documento.credit_exceeded_amount, self._documento.document_id)
-        )
+        def _buscar_informacion_documento_existente():
+            # rellena la informacion relativa al documento
+            consulta_info_pedido = self._base_de_datos.buscar_info_documento_pedido_cayal(
+                self.documento.document_id
+            )
+            return consulta_info_pedido[0]
 
-    def _actualizar_forma_pago_documento(self):
-        self._base_de_datos.command(
-            'UPDATE docDocumentCFD SET FormaPago = ? WHERE DocumentID = ?',
-            (
-                self._documento.forma_pago,
-                self._documento.document_id)
-        )
+        def _rellenar_instancias_importadas(info_pedido):
 
-    def _actualizar_comentario_documento(self):
-        self._base_de_datos.command(
-            'UPDATE docDocument SET Comments = ? WHERE DocumentID = ?',
-            (self._documento.comments, self._documento.document_id)
-        )
+            # 1) Datos del pedido/documento
+            info_pedido = info_pedido or {}
 
-    def _actualizar_comentario_pedido(self):
-        self._base_de_datos.command(
-            'UPDATE docDocumentOrderCayal SET CommentsOrder = ? WHERE OrderDocumentID = ?',
-            (self._documento.comments, self._documento.document_id)
-        )
+            self.documento.depot_id = info_pedido.get('DepotID', 0)
+            self.documento.depot_name = info_pedido.get('DepotName', '')
+            self.documento.created_by = info_pedido.get('CreatedBy', 0)
+            self.documento.address_detail_id = info_pedido.get('AddressDetailID', 0)
+            self.documento.cancelled_on = info_pedido.get('CancelledOn', None)
+            self.documento.docfolio = info_pedido.get('DocFolio', '')
+            self.documento.comments = info_pedido.get('CommentsOrder', '')
+            self.documento.address_name = info_pedido.get('AddressName', '')
+            self.documento.business_entity_id = self._cliente.business_entity_id
+            self.documento.customer_type_id = self._cliente.cayal_customer_type_id
 
-    def _crear_ticket_de_venta(self):
-        redondear = self._utilerias.redondear_valor_cantidad_a_decimal
-        ticket = Ticket158()
+            # 2) Marcar en uso (solo si hay document_id > 0). Evita doble marcado en la misma instancia.
+            doc_id = int(self.documento.document_id or 0)
+            if doc_id > 0:
+                pedido_flag = (self._module_id == 1687)
 
-        plantilla = Path(__file__).parent / "ticket_modulo_158.html"
-        ticket.set_plantilla(plantilla)
-        # O si el HTML está en memoria:
-        # ticket.set_plantilla_html(html_string)
+                # Si ya está marcado por esta misma instancia, no lo marques de nuevo
+                already_locked_same_doc = getattr(self, "_locked_active", False) and \
+                                          getattr(self, "_locked_doc_id", 0) == doc_id
 
-        # ---- Fecha (compacta) ----
-        fecha_expedicion = datetime.now().strftime("%Y-%m-%d %H:%M")
+                if not already_locked_same_doc:
+                    # Usa helper si existe; si no, usa la BD directamente
+                    if hasattr(self, "_mark_in_use") and callable(self._mark_in_use):
+                        self._mark_in_use(doc_id, pedido=pedido_flag)
+                    else:
+                        self._base_de_datos.marcar_documento_en_uso(doc_id, self._user_id, pedido=pedido_flag)
 
-        # ---- Decidir si se muestra sección PAGO/CAMBIO (Decimal) ----
-        amt_raw = getattr(self._documento, "amount_received", Decimal("0"))
+            # 3) Bandera de estado
+            self._editando_documento = True
+        #--------------------------------------------------------------------------------------------------------------
+        if self._documento.document_id !=0:
+            info_pedido = _buscar_informacion_documento_existente()
+            _rellenar_instancias_importadas(info_pedido)
+
         try:
-            amount_received = amt_raw if isinstance(amt_raw, Decimal) else Decimal(str(amt_raw or "0"))
-        except (InvalidOperation, TypeError, ValueError):
-            amount_received = Decimal("0")
+            self._instancia_llamada = True
 
-        mostrar_pago = (amount_received != Decimal("0"))
+            if not self._ofertas:
+                ct_id = getattr(self._cliente, "customer_type_id", None)
+                if ct_id is not None and self._ofertas_por_lista:
+                    self._ofertas = self._ofertas_por_lista.get(ct_id, {})
+                else:
+                    self._ofertas = {}
 
-        # ---- Datos para placeholders ----
-        ticket.set_datos(
-            folio=self._documento.folio,
-            uuid = self._parametros_contpaqi.uuid,
-            FechaExpedicion=fecha_expedicion,
-            SubTotal=redondear(self._documento.subtotal),
-            IEPS=redondear(self._documento.ieps),
-            IVA=redondear(self._documento.iva),
-            Total=redondear(self._documento.total),
-            cliente_pago_ticket="PAGO" if mostrar_pago else "",
-            pagado_ticket=amount_received if mostrar_pago else "",
-            cliente_cambio_ticket="CAMBIO" if mostrar_pago else "",
-            cambio_venta=self._documento.customer_change if mostrar_pago else "",
-            TotalPzas=len(self._documento.items),
-            CantidadConLetra=self._utilerias.cantidad_con_letra(self._documento.total)
-        )
+            interfaz = InterfazCaptura(self._master, self._parametros_contpaqi.id_modulo)
 
-        # ---- Partidas ----
-        partidas = []
-        for partida in self._documento.items:
-            partidas.append({
-                "Cantidad": redondear(partida["cantidad"]),
-                "Descripcion": partida["ProductName"],
-                "PrecioUnCIVA": redondear(partida["precio"]),
-                "ImporteCIVA": redondear(partida["total"]),
-            })
-        ticket.set_partidas(partidas)
+            modelo = ModeloCaptura(
+                self._base_de_datos,
+                self._utilerias,
+                self._cliente,
+                self._parametros_contpaqi,
+                self._documento,
+                self._ofertas,
+            )
 
-        # ---- Generar HTML base ----
-        html = ticket.generar_html()
+            controlador = ControladorCaptura(interfaz, modelo)
 
-        # ---- Limpiar bloque PAGO/CAMBIO si no corresponde mostrarlo ----
-        if not mostrar_pago:
-            # 1) Si tu plantilla tiene marcadores condicionales:
-            #    <!--IF_PAGADO--> ... <!--END_IF-->
-            if "<!--IF_PAGADO-->" in html:
-                html = re.sub(r"<!--IF_PAGADO-->.*?<!--END_IF-->", "", html, flags=re.S)
+        finally:
+            self._procesar_documento_pedido()
+            if hasattr(self, "_unmark_in_use"):
+                self._unmark_in_use()
             else:
-                # 2) Sin marcadores: elimina las filas <tr> que contienen esas dos secciones
-                #    Buscamos filas donde aparezcan los labels/valores de pago y cambio.
-                #    Es robusto a atributos y espacios.
-                patron_pago = r"<tr[^>]*>\s*<td[^>]*>[^<]*PAGO[^<]*</td>.*?</tr>"
-                patron_cambio = r"<tr[^>]*>\s*<td[^>]*>[^<]*CAMBIO[^<]*</td>.*?</tr>"
-                html = re.sub(patron_pago, "", html, flags=re.S | re.I)
-                html = re.sub(patron_cambio, "", html, flags=re.S | re.I)
+                try:
+                    doc_id = int(getattr(self._documento, "document_id", 0) or 0)
+                    if doc_id > 0:
+                        pedido_flag = (self._module_id == 1687)
+                        self._base_de_datos.desmarcar_documento_en_uso(doc_id, pedido=pedido_flag)
+                except Exception:
+                    pass
+        """
 
-        # ---- Compactar espacios/saltos innecesarios para que quede “pegado” ----
-        html = re.sub(r">\s+<", "><", html)  # colapsa huecos entre etiquetas
-        html = re.sub(r"[ \t]{2,}", " ", html)  # espacios repetidos
-        html = html.strip()
+            # --- callback que SIEMPRE guarda (si procede) y DESMARCA el bloqueo ---
 
-        # ---- Guardar ----
-        # Si tu Ticket158 guarda el último HTML interno, setéalo antes de guardar:
-        if hasattr(ticket, "_ultimo_html"):
-            ticket._ultimo_html = html
-            ruta = ticket.guardar_html()
+        def _on_close():
+            try:
+                self._procesar_documento_pedido()
+            finally:
+                # usa helper si existe; si no, fallback directo
+                if hasattr(self, "_unmark_in_use"):
+                    self._unmark_in_use()
+                else:
+                    try:
+                        doc_id = int(getattr(self.documento, "document_id", 0) or 0)
+                        if doc_id > 0:
+                            pedido_flag = (self._module_id == 1687)
+                            self._base_de_datos.desmarcar_documento_en_uso(doc_id, pedido=pedido_flag)
+                    except Exception:
+                        pass
+
+            # --- crea el popup como antes, pero usando _on_close ---
+
+        if not self._documento.cancelled_on:
+            pregunta = '¿Desea guardar el documento?'
+            ventana = self._ventanas.crear_popup_ttkbootstrap(
+                master=self._master,
+                titulo='Capturar pedido',
+                ocultar_master=True,
+                ejecutar_al_cierre=_on_close,
+                preguntar=pregunta
+            )
         else:
-            # Si no, escribe tú el archivo en la misma carpeta de salida de ticket.guardar_html()
-            ruta = ticket.guardar_html()  # crea carpeta/ruta base
-            # Sobrescribe con nuestro html limpio:
-            with open(ruta, "w", encoding="utf-8") as f:
-                f.write(html)
+            ventana = self._ventanas.crear_popup_ttkbootstrap(
+                self._master,
+                titulo='Capturar pedido',
+                ocultar_master=True,
+                ejecutar_al_cierre=_on_close
+            )
 
-        return ruta
+            # ----- Resto de tu flujo intacto -----
+        interfaz = InterfazCaptura(ventana, self._parametros_contpaqi.id_modulo)
+
+        modelo = ModeloCaptura(self._base_de_datos,
+                               self._utilerias,
+                               self._cliente,
+                               self._parametros_contpaqi,
+                               self._documento,
+                               self._ofertas
+                               )
+
+        controlador = ControladorCaptura(interfaz, modelo)
+
+        # asigna el valor del documento por posibles cambios que haya habido en el proceso de captura
+        self.documento = modelo.documento
+        """
+
+    # ----------------------------------------------------------------------
+    # Helpers relacionados con bloqueo del documento para prevenir colisiones
+    # ----------------------------------------------------------------------
+    def _mark_in_use(self, document_id, pedido: bool):
+        self._locked_doc_id = int(document_id or 0)
+        self._locked_is_pedido = bool(pedido)
+        self._locked_active = self._locked_doc_id > 0
+        if self._locked_active:
+            self._base_de_datos.marcar_documento_en_uso(self._locked_doc_id, self._user_id,
+                                                        pedido=self._locked_is_pedido)
+
+    def _unmark_in_use(self):
+        # idempotente, por si se llama más de una vez
+        if getattr(self, "_locked_active", False) and getattr(self, "_locked_doc_id", 0):
+            try:
+                self._base_de_datos.desmarcar_documento_en_uso(self._locked_doc_id, pedido=self._locked_is_pedido)
+            finally:
+                self._locked_active = False
+                self._locked_doc_id = 0
+                self._locked_is_pedido = False
+
+    # ----------------------------------------------------------------------
+    # Funcion principal de merge de captura pedido
+    # ----------------------------------------------------------------------
+    def _procesar_documento_pedido(self):
+
+        def _solo_existe_servicio_domicilio_en_documento():
+
+            existe = [producto for producto in self.documento.items if producto['ProductID'] == 5606]
+
+            if existe and len(self.documento.items) == 1:
+                return True
+
+            return False
+
+        def _determinar_tipo_de_orden_produccion():
+
+            partidas = self.documento.items
+            tipos_productos = [partida['ProductTypeIDCayal'] for partida in partidas
+                               if partida['ProductID'] != 5606]
+
+            tipos_productos = list(set(tipos_productos))
+
+            if tipos_productos:
+                if len(tipos_productos) == 1:
+                    tipo_producto = tipos_productos[0]
+
+                    # tipos de producto segun orgproduct
+                    orden_type_id = {
+                        0: 2,  # 0 tipo minisuper
+                        1: 1,  # 1 tipo produccion
+                        2: 3  # 2 tipo almacen
+                    }
+                    return orden_type_id[tipo_producto]
+
+                if len(tipos_productos) == 2:
+                    suma = sum(tipos_productos)
+
+                    orden_type_id = {
+                        1: 4,  # produccion y minisuper
+                        3: 5,  # produccion y almacen
+                        2: 6  # minisuper y almacen
+                    }
+                    return orden_type_id[suma]
+
+                if len(tipos_productos) == 3:
+                    return 7
+
+            return 1
+
+        def _crear_cabecera_pedido_cayal():
+
+            # aplica insercion especial a tabla de sistema de pedidos cayal
+
+            document_id = 0
+
+            parametros_pedido = self.documento.order_parameters
+            production_type_id = _determinar_tipo_de_orden_produccion()
+            if parametros_pedido:
+                parametros = (
+                    parametros_pedido.get('RelatedOrderID', 0),
+                    parametros_pedido.get('BusinessEntityID'),
+                    parametros_pedido.get('CreatedBy'),
+                    self.documento.comments,
+                    parametros_pedido.get('ZoneID'),
+                    parametros_pedido.get('AddressDetailID'),
+                    parametros_pedido.get('DocumentTypeID'),
+                    parametros_pedido.get('OrderTypeID'),
+                    parametros_pedido.get('OrderDeliveryTypeID'),
+                    parametros_pedido.get('SubTotal'),
+                    parametros_pedido.get('TotalTax'),
+                    parametros_pedido.get('Total'),
+                    production_type_id,
+                    parametros_pedido.get('HostName'),
+                    parametros_pedido.get('ScheduleID', 1),
+                    parametros_pedido.get('OrderDeliveryCost'),
+                    parametros_pedido.get('DepotID', 0)
+
+                )
+
+                document_id = self._base_de_datos.crear_pedido_cayal2(parametros)
+                if document_id:
+                    self._base_de_datos.insertar_registro_bitacora_pedidos(
+                        document_id, 1, parametros_pedido['CreatedBy'], parametros_pedido['CommentsOrder']
+                    )
+
+                # en caso que la orden sea un anexo o un pedido hay que actualizar dicho documento
+                if parametros_pedido['OrderTypeID'] in (2, 3):
+                    self._base_de_datos.command(
+                        """
+                        DECLARE @OrderID INT = ?
+                        UPDATE docDocumentOrderCayal
+                        SET NumberAdditionalOrders = (SELECT Count(OrderDocumentID)
+                                                     FROM docDocumentOrderCayal
+                                                     WHERE RelatedOrderID = @OrderID AND CancelledOn IS NULL),
+                            StatusID = 2 
+                        WHERE OrderDocumentID = @OrderID
+                        """,
+                        (parametros_pedido['RelatedOrderID'])
+                    )
+
+            return document_id
+
+        def _insertar_partidas_documento(document_id):
+
+            if self._parametros_contpaqi.id_modulo == 1687:
+
+                for partida in self.documento.items:
+                    # Crear una copia profunda para evitar referencias compartidas
+                    partida_copia = copy.deepcopy(partida)
+
+                    unidad = partida_copia.get('Unit', 'KILO')
+                    product_id = partida_copia.get('ProductID', 0)
+
+                    if unidad != 'KILO' and not self._utilerias.equivalencias_productos_especiales(product_id):
+                        partida_copia['CayalPiece'] = 0
+
+                    parametros = (
+                        document_id,
+                        partida_copia['ProductID'],
+                        2,  # DepotID
+                        partida_copia['cantidad'],
+                        partida_copia['precio'],
+                        partida_copia['CostPrice'],
+                        partida_copia['subtotal'],
+                        partida_copia['DocumentItemID'],
+                        partida_copia['TipoCaptura'],  # CaptureTypeID 0 lector, 1 manual, 2 automático
+                        partida_copia['CayalPiece'],  # Viene del control de captura manual
+                        partida_copia['CayalAmount'],  # Viene del control de tipo monto
+                        partida_copia['ItemProductionStatusModified'],  # Viene del status de edición de la partida
+                        partida_copia['Comments'],
+                        partida_copia['CreatedBy']
+                    )
+
+                    document_item_id = self._base_de_datos.insertar_partida_pedido_cayal(parametros)
+
+                    # Actualizar el objeto original solo con el nuevo ID generado
+                    partida['DocumentItemID'] = document_item_id
+
+            if self._parametros_contpaqi.id_modulo != 1687:
+                print('agrgar proceso de insercion convencional')
+
+        def _insertar_partidas_extra_documento(document_id):
+
+            def _buscar_document_item_id(uuid_partida):
+                for partida in self.documento.items:
+                    if partida.get('uuid') == uuid_partida:
+                        return int(partida.get('DocumentItemID', 0))
+                return 0  # o puedes lanzar una excepción controlada si prefieres
+
+            if not self.documento.items_extra:
+                return
+
+            if self._parametros_contpaqi.id_modulo == 1687:
+
+                for partida in self.documento.items_extra:
+
+                    accion_id = partida['ItemProductionStatusModified']
+                    change_type_id = 0
+                    comentario = ''
+                    uuid_partida = partida['uuid']
+
+                    # partida agregada
+                    if accion_id == 1:
+                        document_item_id = _buscar_document_item_id(uuid_partida)
+                        partida['DocumentItemID'] = document_item_id
+
+                        change_type_id = 15
+                        comentario = f"Agregado {partida['ProductName']} - Cant.{partida['cantidad']}"
+
+                    # partida editada
+                    if accion_id == 2:
+                        change_type_id = 16
+                        comentario = partida['Comments']
+
+                    # partida eliminada
+                    if accion_id == 3:
+                        change_type_id = 17
+                        comentario = f"Eliminado {partida['ProductName']} - Cant.{partida['cantidad']}"
+
+                    self._base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=document_id,
+                                                                           change_type_id=change_type_id,
+                                                                           user_id=self._user_id,
+                                                                           comments=comentario)
+
+        def _actualizar_totales_documento(document_id):
+            total = self.documento.total
+            subtotal = self.documento.subtotal
+            total_tax = self.documento.total_tax
+
+            if self._module_id == 1687:
+                self._base_de_datos.actualizar_totales_pedido_cayal(document_id,
+                                                                    subtotal,
+                                                                    total_tax,
+                                                                    total)
+
+        def _actualizar_parametros_cabecera_pedido(parametros):
+            self._base_de_datos.command("""
+                                DECLARE @ProductionTypeID INT = ?
+                                DECLARE @CommentsOrder NVARCHAR(MAX) = ?
+                                DECLARE @AddressDetailID INT = ?
+                                DECLARE @Total FLOAT = ?
+                                DECLARE @OrderDocumentID INT = ?
+
+                                DECLARE @StatusID INT = (SELECT StatusID
+                                                         FROM docDocumentOrderCayal 
+                                                         WHERE OrderDocumentID = @OrderDocumentID)
+
+                                IF @StatusID IN (1,2,3,4,11,12,16,17,18,13)
+                                BEGIN
+                                    UPDATE docDocumentOrderCayal 
+                                    SET CommentsOrder = @CommentsOrder,
+                                        AddressDetailID = @AddressDetailID,
+                                        ProductionTypeID = @ProductionTypeID
+                                    WHERE OrderDocumentID = @OrderDocumentID
+                                END
+
+                            """, parametros)
+
+        #-------------------------------------------------------------------------------------------------
+        if self._procesando_documento:
+            return  # ya se está procesando / se procesó
+
+        self._procesando_documento = True
+
+        try:
+            # 1) Documento nuevo: crear cabecera si aplica
+            if int(self._documento.document_id or 0) == 0:
+                if self._parametros_contpaqi.id_modulo == 1687:
+                    # Si solo hay servicio a domicilio o no hay partidas, no hay nada que guardar
+                    if _solo_existe_servicio_domicilio_en_documento():
+                        return
+
+                    if not self._documento.items:
+                        return
+
+                    # Crear cabecera
+                    self._documento.document_id = int(_crear_cabecera_pedido_cayal() or 0)
+
+                    # Si se generó ID, opcionalmente marca en uso ahora para evitar colisiones
+                    if self._documento.document_id > 0:
+                        if hasattr(self, "_mark_in_use") and callable(self._mark_in_use):
+                            self._mark_in_use(self._documento.document_id, pedido=True)
+                        else:
+                            # Fallback directo si no tienes helper
+                            self._base_de_datos.marcar_documento_en_uso(self._documento.document_id,
+                                                                        self._user_id, pedido=True)
+
+            # Si después de la fase anterior seguimos sin ID, no se puede persistir nada
+            if int(self._documento.document_id or 0) == 0:
+                return
+
+            # 2) Insert/merge de partidas
+            _insertar_partidas_documento(self._documento.document_id)
+            _insertar_partidas_extra_documento(self._documento.document_id)
+
+            # 3) Totales
+            _actualizar_totales_documento(self._documento.document_id)
+
+            # 4) Actualizaciones finales en cabecera (ProductionType y campos editables)
+            production_type_id = int(_determinar_tipo_de_orden_produccion() or 1)
+            comments = self._documento.comments or ''
+            address_detail_id = int(self._documento.address_detail_id or 0)
+            total = float(self._documento.total or 0)
+            parametros = (production_type_id,
+                          comments,
+                          address_detail_id,
+                          total,
+                          self._documento.document_id)
+            _actualizar_parametros_cabecera_pedido(parametros)
+
+        except Exception as e:
+            # Log simple; evita romper el cierre de la ventana.
+            try:
+                print(f"[procesar_documento] Error: {e}")
+            except Exception:
+                pass
+        finally:
+            pass

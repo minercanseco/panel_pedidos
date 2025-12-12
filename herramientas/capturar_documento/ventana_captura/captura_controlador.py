@@ -24,6 +24,7 @@ class ControladorCaptura:
         self._master = interfaz.master
         self._modelo = modelo
 
+        self._interfaz.ventanas.situar_ventana_arriba(self._master)
         self._cargar_informacion_general()
         self._crear_notebook_herramientas() # dentro se determina el bloqueo de la ventana
 
@@ -41,7 +42,6 @@ class ControladorCaptura:
         # Acciones de inicialización relacionadas con captura
         # ----------------------------------------------------
         self._buscar_ofertas()
-        self._interfaz.ventanas.situar_ventana_arriba(self._master)
         self._interfaz.ventanas.enfocar_componente('tbx_clave')
 
         if self._modelo.module_id == 1687: # modulo de pedidos

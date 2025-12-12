@@ -7,6 +7,7 @@ import re
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
+from tkinter import messagebox
 
 from cayal.util import Utilerias
 from cayal.documento import Documento
@@ -791,6 +792,17 @@ class LlamarInstanciaCaptura:
         bloquear = False
 
         def _on_close():
+            # Si NO está bloqueado, preguntar
+            if not bloquear:
+                respuesta = messagebox.askyesno(
+                    parent=self._master,
+                    title="Confirmar cierre",
+                    message="¿Desea cerrar y guardar el documento?"
+                )
+                if not respuesta:
+                    return  # ❌ No cerrar
+
+            # Cierre real (con limpieza garantizada)
             try:
                 self._procesar_documento_pedido()
             finally:

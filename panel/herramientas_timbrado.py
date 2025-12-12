@@ -1,6 +1,7 @@
 import re
 import tkinter as tk
 
+from cayal.documento import Documento
 from cayal.ventanas import Ventanas
 
 from herramientas.capturar_documento.llamar_instancia_captura import LlamarInstanciaCaptura
@@ -95,15 +96,19 @@ class HerramientasTimbrado:
 
         status_id = fila['TypeStatusID']
         order_document_id = fila['OrderDocumentID']
-
+        business_entity_id = fila['BusinessEntityID']
         try:
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap()
             if status_id < 3:
                 self._parametros.id_principal = order_document_id
+                documento = Documento()
+                documento.document_id = order_document_id
+                documento.business_entity_id = business_entity_id
 
                 _ = LlamarInstanciaCaptura(
                     ventana,
                     self._parametros,
+                    documento=documento
                 )
 
             elif status_id == 3:

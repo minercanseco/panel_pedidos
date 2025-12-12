@@ -52,6 +52,8 @@ class ControladorCaptura:
 
         if self._modelo.documento.document_id == 0:  # nueva captura
             self._agregar_servicio_a_domicilio()
+
+        if self._cargar_shortcuts: # esto activa la edicion en pedidos capturados previamente candidatos a edicion
             self._configurar_pedido()
             self._cargar_eventos_componentes()
 

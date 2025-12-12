@@ -79,6 +79,11 @@ class HerramientasCaptura:
         if fn:
             fn()
 
+    def _rellenar_tabla(self):
+        fn = self._callbacks_autorefresco.get("rellenar_tabla")
+        if fn:
+            fn()
+
     def _obtener_valores_fila_pedido_seleccionado(self, valor = None):
         if not self._interfaz.ventanas.validar_seleccion_una_fila_table_view('tbv_pedidos'):
             return
@@ -167,6 +172,7 @@ class HerramientasCaptura:
 
         finally:
             self._modelo.actualizar_totales_pedido(order_document_id)
+            self._rellenar_tabla()
 
     def _editar_caracteristicas_pedido(self):
         try:
@@ -214,7 +220,9 @@ class HerramientasCaptura:
             return
 
         try:
+            fecha_entrega = str(fecha_entrega)[0:10]
             fecha_entrega = self._utilerias.convertir_fecha_str_a_datetime(str(fecha_entrega))
+
             if fecha_entrega > self._modelo.hoy:
                 respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
                     'EL pedido es para una fecha de entrega posterior, ¿Desea actualizar los precios antes de generar el ticket?')
@@ -229,26 +237,31 @@ class HerramientasCaptura:
             self._interfaz.master.iconify()
         finally:
             self._parametros.id_principal = 0
+            self._rellenar_tabla()
 
     def _mandar_a_producir(self):
 
         filas = self._obtener_valores_filas_pedidos_seleccionados()
         if not filas:
             return
+        try:
+            for fila in filas:
+                order_document_id = fila['OrderDocumentID']
 
-        for fila in filas:
-            order_document_id = fila['OrderDocumentID']
-            valores = self._modelo.obtener_status_entrega_pedido(order_document_id)
+                valores = self._modelo.obtener_status_entrega_pedido(order_document_id)
+                status = valores['status_id']
+                entrega = valores['fecha_entrega']
+                folio = valores['doc_folio']
 
-            status = int(valores['status_id'])
-            entrega = int(valores['fecha_entrega'])
-            folio = valores['doc_folio']
+                if not entrega or entrega == 'None':
+                    self._interfaz.ventanas.mostrar_mensaje(
+                        f'Debe usar la herramienta de editar características para el pedido {folio}.')
+                    continue
 
-            if entrega == 0:
-                self._interfaz.ventanas.mostrar_mensaje(
-                    f'Debe usar la herramienta de editar características para el pedido {folio}.')
-                continue
+                if status == 1:
+                    self._modelo.mandar_pedido_a_producir(order_document_id)
 
-            if status == 1:
-                self._modelo.mandar_pedido_a_producir(order_document_id)
-
+                if status > 1:
+                    continue
+        finally:
+            self._rellenar_tabla()

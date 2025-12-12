@@ -396,6 +396,10 @@ class ControladorCaptura:
         self._interfaz.ventanas.insertar_input_componente('lbl_folio', doc_folio)
 
     def _determinar_bloqueo_ventana(self):
+
+        if self._modelo.documento.document_id == 0: #garantiza que las nuevas capturas no tengan bloqueo
+            return False
+
         status = 'Bloqueado'
         motivo_bloqueo = 'Sin motivo'
         if self._modelo.module_id == 1687:

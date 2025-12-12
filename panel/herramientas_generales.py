@@ -50,7 +50,7 @@ class HerramientasGenerales:
             {'nombre_icono': 'Partner32.ico', 'etiqueta': 'Clientes', 'nombre': 'buscar_cliente',
              'hotkey': None, 'comando': self._buscar_clientes},
 
-            {'nombre_icono': 'Customer32.ico', 'etiqueta': 'Nuevo', 'nombre': 'nuevo_cliente',
+            {'nombre_icono': 'Customer32.ico', 'etiqueta': 'N.Cliente', 'nombre': 'nuevo_cliente',
              'hotkey': None, 'comando': self._capturar_nuevo_cliente},
 
             {'nombre_icono': 'DocumentEdit32.ico', 'etiqueta': 'E.Cliente', 'nombre': 'editar_cliente',

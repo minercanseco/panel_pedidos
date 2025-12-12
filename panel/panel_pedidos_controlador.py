@@ -364,6 +364,7 @@ class ControladorPanelPedidos:
             return
 
         try:
+            fecha = self._interfaz.ventanas.obtener_input_componente('den_fecha') if not fecha else fecha
             self._actualizando_tabla = True
 
             # 1) Limpia filtros visuales de la tabla (no de los combos)
@@ -735,7 +736,8 @@ class ControladorPanelPedidos:
         callbacks_autorefresco = {
             "pausar": self._pausar_autorefresco,
             "reanudar": self._reanudar_autorefresco,
-            "postcaptura":self._filtrar_post_captura
+            "postcaptura":self._filtrar_post_captura,
+            "rellenar_tabla":self._actualizar_pedidos
         }
 
         # cada frame será el master de las subsecuentes ventanas

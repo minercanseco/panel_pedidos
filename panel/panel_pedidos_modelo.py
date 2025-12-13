@@ -21,9 +21,8 @@ class ModeloPanelPedidos:
         self.products_ids_ofertados = []
 
         self.user_id = self.parametros.id_usuario
-        self.user_name = self.base_de_datos.buscar_nombre_de_usuario(self.user_id)
-        self.user_group_id = self.base_de_datos.fetchone(
-            'SELECT UserGroupID FROM engUser WHERE UserID = ?', (self.user_id,))
+        self.user_name = self.buscar_nombre_de_usuario(self.user_id)
+        self.user_group_id = self.buscar_grupo_de_usuario(self.user_id)
 
         valores_puntualidad = self.obtener_valores_de_puntualidad()
 
@@ -40,6 +39,13 @@ class ModeloPanelPedidos:
 
     def buscar_pedidos(self, fecha_entrega):
         return self.base_de_datos.buscar_pedidos_panel_captura_cayal(fecha_entrega)
+
+    def buscar_nombre_de_usuario(self, user_id):
+        return self.base_de_datos.buscar_nombre_de_usuario(user_id)
+
+    def buscar_grupo_de_usuario(self, user_id):
+        return self.base_de_datos.fetchone(
+            'SELECT UserGroupID FROM engUser WHERE UserID = ?', (user_id,))
 
     def buscar_pedidos_sin_procesar(self):
         return self.base_de_datos.pedidos_sin_procesar('pedidos')

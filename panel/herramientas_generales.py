@@ -446,12 +446,15 @@ class HerramientasGenerales:
     def _cambiar_usuario(self):
 
         def rellenar_operador():
+            self._modelo.user_id = self._parametros.id_usuario
+            self._modelo.user_name = self._modelo.buscar_nombre_de_usuario(self._parametros.id_usuario)
+            self._modelo.user_group_id = self._modelo.buscar_grupo_de_usuario(self._parametros.id_usuario)
+
             operador_panel = self._modelo.user_name
             version_paquete = self._parametros.version_paquete
 
             texto = f'Paquete: {version_paquete} OPERADOR: {operador_panel}'
             self._interfaz.ventanas.actualizar_etiqueta_externa_tabla_view('tbv_pedidos', texto)
-            self._modelo.user_id = self._parametros.id_usuario
 
         def si_acceso_exitoso(parametros=None, master=None):
             self._parametros = parametros

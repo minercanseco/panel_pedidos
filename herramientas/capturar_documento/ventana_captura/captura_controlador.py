@@ -34,7 +34,7 @@ class ControladorCaptura:
         self._agregando_producto = False
         self._procesando_seleccion = False
         self._agregando_partida_tabla = False
-        self._servicio_a_domicilio_agregado = False
+        self.servicio_a_domicilio_agregado = False
         self._cargar_shortcuts = True
         self._info_partida_seleccionada = {}
 
@@ -1303,10 +1303,10 @@ class ControladorCaptura:
                                  )
 
                 if int(partida['ProductID']) == 5606:
-                    if self._servicio_a_domicilio_agregado:
+                    if self.servicio_a_domicilio_agregado:
                         return
 
-                    self._servicio_a_domicilio_agregado = True
+                    self.servicio_a_domicilio_agregado = True
 
                 # agregar tipo de captura
                 tabla_captura = self._interfaz.ventanas.componentes_forma['tvw_productos']
@@ -1316,7 +1316,7 @@ class ControladorCaptura:
                 self.actualizar_totales_documento()
 
                 # si aplica remueve el servicio a domicilio
-                if self._modelo.module_id == 1687 and self._servicio_a_domicilio_agregado == True:
+                if self._modelo.module_id == 1687 and self.servicio_a_domicilio_agregado == True:
                     if self._modelo.documento.total - self._modelo.documento.delivery_cost >= 200:
                         self.remover_servicio_a_domicilio()
 
@@ -1324,7 +1324,7 @@ class ControladorCaptura:
                 self._agregando_partida_tabla = False
 
     def remover_servicio_a_domicilio(self):
-        self._servicio_a_domicilio_agregado = False
+        self.servicio_a_domicilio_agregado = False
         self._modelo.remover_partida_items_documento(5606)
         self._remover_product_id_tabla(5606)
         self.actualizar_totales_documento()

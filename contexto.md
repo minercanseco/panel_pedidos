@@ -1742,7 +1742,7 @@ class ControladorCaptura:
 
         self._inicializar_variables_de_instancia()
 
-        self.servicio_a_domicilio_agregado = self._modelo._servicio_a_domicilio_agregado
+        self.servicio_a_domicilio_agregado = self._modelo.servicio_a_domicilio_agregado
         self._costo_servicio_a_domicilio = self._modelo.costo_servicio_a_domicilio
         self._partida_servicio_domicilio = None
 
@@ -6132,7 +6132,7 @@ class EditarPartida:
         if self._module_id == 1687:
             total_documento = self._documento.total
 
-            if self._modelo._servicio_a_domicilio_agregado:
+            if self._modelo.servicio_a_domicilio_agregado:
                 total_sin_servicio = total_documento - self._modelo.costo_servicio_a_domicilio
 
                 if total_sin_servicio >= 200:

@@ -415,7 +415,7 @@ class EditarPartida:
                 self._controlador.actualizar_totales_documento()
 
             # respalda la partida extra para tratamiento despues del cierre del documento
-            self._controlador.agregar_partida_items_documento_extra(partida_original, 'editar', comentario, uuid_partida)
+            self._modelo.agregar_partida_items_documento_extra(partida_original, 'editar', comentario, uuid_partida)
 
         # Solo aplica para el módulo de pedidos
         if self._module_id == 1687:

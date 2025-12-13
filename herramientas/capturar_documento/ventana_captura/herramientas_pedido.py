@@ -223,15 +223,15 @@ class HerramientasPedido:
                 # Solo aplica para el módulo 1687 pedidos
                 if self._modelo.module_id == 1687:
                     # Si el total es menor a 200 y no se ha agregado aún, lo agrega
-                    if self._modelo.documento.total < 200 and not self._controlador._servicio_a_domicilio_agregado:
+                    if self._modelo.documento.total < 200 and not self._controlador.servicio_a_domicilio_agregado:
                         self._controlador.agregar_servicio_a_domicilio()
-                        self._controlador._servicio_a_domicilio_agregado = True
+                        self._controlador.servicio_a_domicilio_agregado = True
 
                     # Si ya se agregó pero ahora el total (sin el servicio) es >= 200, lo remueve
-                    elif self._controlador._servicio_a_domicilio_agregado and (
+                    elif self._controlador.servicio_a_domicilio_agregado and (
                             self._modelo.documento.total - self._modelo.documento.delivery_cost) >= 200:
                         self._controlador.remover_servicio_a_domicilio()
-                        self._controlador._servicio_a_domicilio_agregado = False
+                        self._controlador.servicio_a_domicilio_agregado = False
 
     def _editar_partida(self):
         if not self._validar_bloqueo():

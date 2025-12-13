@@ -27,8 +27,10 @@ class HerramientasPedido:
 
         self._crear_frames()
         self._crear_barra_herramientas()
-        self._cargar_eventos()
+
+
         if self._cargar_shortcuts:
+            self._cargar_eventos()
             self._agregar_atajos()
 
     def _crear_frames(self):
@@ -106,8 +108,8 @@ class HerramientasPedido:
             'tvw_productos':  (lambda event: self._eliminar_partida(), 'suprimir')
         }
 
-        self._ventanas.cargar_eventos(evento_1)
-        self._ventanas.cargar_eventos(evento_2)
+        self._interfaz.ventanas.cargar_eventos(evento_1)
+        self._interfaz.ventanas.cargar_eventos(evento_2)
 
         ancho, alto = self._interfaz.ventanas.obtener_resolucion_pantalla()
 

@@ -209,54 +209,46 @@ class HerramientasTimbrado:
             return total_total, nuevas_partidas
 
         def cuantificar_valor_partidas_documento(filas, mismo_cliente=False):
-            # validar que el monto sea superior a 180 debito a que el cliente podria anexar un producto y con ello
-            # evitar generar la factura correspondiente
-
             total_acumulado = 0
             filas_filtradas = []
             partidas_pedidos = {}
+
             for fila in filas:
                 order_document_id = fila['OrderDocumentID']
                 total_documento, partidas_con_impuesto = calcular_total_pedido(order_document_id)
                 partidas_pedidos[order_document_id] = (total_documento, partidas_con_impuesto)
 
-                if total_documento < 200 and not mismo_cliente:
-                    cliente = fila['Cliente']
-                    pedido = fila['Pedido']
-
-                    respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
-                        f'El total de la orden {pedido} del cliente {cliente} '
-                        f'es de {total_documento}, ¿Desea omitir este pedido del proceso para consultar con el cliente un posible incremento en su pedido?'
-                        )
-                    if respuesta:
-                        continue
-
-                    filas_filtradas.append(fila)
-                    continue
-
                 if mismo_cliente:
                     total_acumulado += total_documento
                     continue
 
-                if total_documento > 199:
+                if total_documento < 200:
+                    cliente = fila['Cliente']
+                    pedido = fila['Pedido']
+                    respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                        f'El total de la orden {pedido} del cliente {cliente} '
+                        f'es de {total_documento}, ¿Desea omitir este pedido del proceso para consultar con el cliente un posible incremento en su pedido?'
+                    )
+                    if respuesta:
+                        continue
                     filas_filtradas.append(fila)
                     continue
 
-            if mismo_cliente and total_acumulado < 200:
-                cliente = filas[0]['Cliente']
+                filas_filtradas.append(fila)
 
-                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
-                    f'El total acumulado de las ordenes seleccionadas del cliente {cliente}'
-                    f'es de {total_acumulado}, ¿Desea consultar con el cliente un posible incremento en su pedido?'
-                )
+            if mismo_cliente:
+                if total_acumulado < 200:
+                    cliente = filas[0]['Cliente']
+                    respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                        f'El total acumulado de las ordenes seleccionadas del cliente {cliente}'
+                        f'es de {total_acumulado}, ¿Desea consultar con el cliente un posible incremento en su pedido?'
+                    )
+                    if respuesta:
+                        return [], partidas_pedidos
+                    return filas, partidas_pedidos
 
-                if respuesta:
-                    return []
-
-                return filas
-
-            if mismo_cliente and total_acumulado > 180:
-                return filas
+                # tu umbral (lo dejo igual)
+                return filas, partidas_pedidos
 
             return filas_filtradas, partidas_pedidos
 
@@ -564,16 +556,17 @@ class HerramientasTimbrado:
 
             # si hay mas de una fila primero valida que estas filas no tengan solo el mismo cliente
             # si lo tuvieran hay que ofrecer combinarlas en un documento
-            tienen_el_mismo_cliente = validar_si_los_pedidos_son_del_mismo_cliente(filas)
+            tienen_el_mismo_cliente = validar_si_los_pedidos_son_del_mismo_cliente(filas_filtradas)
             if tienen_el_mismo_cliente:
-                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('Los pedidos son del mismo cliente.'
-                                                                             '¿Desea combinarlos?')
+                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                    'Los pedidos son del mismo cliente. ¿Desea combinarlos?'
+                )
                 if respuesta:
-                    crear_documento(filas, combinado=True, mismo_cliente=True)
+                    crear_documento(filas_filtradas, combinado=True, mismo_cliente=True)
                     if pedidos_fuera_status_timbrado:
-                        if pedidos_fuera_status_timbrado:
-                            mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
+                        mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
                     return
+
 
             # del mismo modo que para una fila valida que no existan otras ordenes de un cliente en proceso
             # si lo hay para un cliente ese cliente debe excluirse de la seleccion

@@ -253,7 +253,7 @@ class HerramientasPedido:
             return
 
         ventana = self._ventanas.crear_popup_ttkbootstrap('Editar partida')
-        instancia = EditarPartida(ventana, self._interfaz, self._modelo, self._utilerias, self._base_de_datos,
+        instancia = EditarPartida(ventana, self._interfaz, self._modelo, self._controlador, self._utilerias, self._base_de_datos,
                                   valores_fila)
         ventana.wait_window()
 

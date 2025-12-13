@@ -5,12 +5,13 @@ from cayal.ventanas import Ventanas
 
 
 class EditarPartida:
-    def __init__(self, master, interfaz, modelo, utilerias, base_de_datos, valores_fila_tabla):
+    def __init__(self, master, interfaz, modelo, controlador, utilerias, base_de_datos, valores_fila_tabla):
         self._master = master
         self._interfaz = interfaz
 
         self._ventanas_interfaz = self._interfaz.ventanas
         self._modelo = modelo
+        self._controlador = controlador
         self._parametros_contpaqi = self._modelo.parametros
         self._documento = self._modelo.documento
         self._utilerias = utilerias
@@ -403,31 +404,31 @@ class EditarPartida:
                                                                                          valores_fila)
 
             # Redondear valores de cantidad
-            cantidad_original = self._utilerias.redondear_valor_cantidad_a_decimal(cantidad_original)
-            cantidad_nueva = self._utilerias.redondear_valor_cantidad_a_decimal(cantidad_nueva)
+            cantidad_original = self._utilerias.convertir_valor_a_decimal(cantidad_original)
+            cantidad_nueva = self._utilerias.convertir_valor_a_decimal(cantidad_nueva)
 
             if cantidad_original == cantidad_nueva:
                 comentario  = self._ventanas.obtener_input_componente('txt_comentario')
                 comentario = f'EDITADO POR {self._user_name}: {comentario}'
             else:
                 # actualiza los totales de la nota para posteriores modificaciones
-                self._modelo.actualizar_totales_documento()
+                self._controlador.actualizar_totales_documento()
 
             # respalda la partida extra para tratamiento despues del cierre del documento
-            self._modelo.agregar_partida_items_documento_extra(partida_original, 'editar', comentario, uuid_partida)
+            self._controlador.agregar_partida_items_documento_extra(partida_original, 'editar', comentario, uuid_partida)
 
         # Solo aplica para el módulo de pedidos
         if self._module_id == 1687:
             total_documento = self._documento.total
 
-            if self._modelo._servicio_a_domicilio_agregado:
-                total_sin_servicio = total_documento - self._modelo.costo_servicio_a_domicilio
+            if self._controlador.servicio_a_domicilio_agregado:
+                total_sin_servicio = total_documento - self._modelo.documento.delivery_cost
 
                 if total_sin_servicio >= 200:
-                    self._modelo.remover_servicio_a_domicilio()
+                    self._controlador.remover_servicio_a_domicilio()
             else:
                 if total_documento < 200:
-                    self._modelo._agregar_servicio_a_domicilio()
+                    self._controlador.agregar_servicio_a_domicilio()
 
         self._master.destroy()
 

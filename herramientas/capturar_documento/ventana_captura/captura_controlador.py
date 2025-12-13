@@ -1209,7 +1209,7 @@ class ControladorCaptura:
 
                 # 3) Inserta la parte restante en el folio Minisúper
                 #    Puedes ir directo a items (sin tabla) o usar la tabla con document_item_id != 0 para saltar validación.
-                self._modelo._agregar_partida_items_documento(partida_nueva)
+                self._modelo.agregar_partida_items_documento(partida_nueva)
                 # o, si quieres que aparezca en el treeview de la UI:
                 # self.agregar_partida_tabla(partida_nueva, document_item_id=-1, tipo_captura=tipo_captura)
 
@@ -1312,7 +1312,7 @@ class ControladorCaptura:
                 tabla_captura = self._interfaz.ventanas.componentes_forma['tvw_productos']
                 self._interfaz.ventanas.insertar_fila_treeview(tabla_captura, partida_tabla, al_principio=True)
 
-                self._agregar_partida_items_documento(partida)
+                self.agregar_partida_items_documento(partida)
                 self.actualizar_totales_documento()
 
                 # si aplica remueve el servicio a domicilio
@@ -1338,7 +1338,7 @@ class ControladorCaptura:
             if product_id_tabla == product_id:
                 self._interfaz.ventanas.remover_fila_treeview('tvw_productos', fila)
 
-    def _agregar_partida_items_documento(self, partida):
+    def agregar_partida_items_documento(self, partida):
 
         self._modelo.documento.items.append(partida)
 

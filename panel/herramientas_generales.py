@@ -220,7 +220,7 @@ class HerramientasGenerales:
             self._ticket.capturista = pedido.get('Captura', '')
             self._ticket.ruta = pedido.get('Ruta')
 
-            ruta, colonia = self._modelo.obtener_ruta_y_colonia(order_document_id)
+            ruta, colonia = self._modelo.obtener_ruta_y_colonia_pedido(order_document_id)
             self._ticket.ruta = ruta
             self._ticket.colonia = colonia
 

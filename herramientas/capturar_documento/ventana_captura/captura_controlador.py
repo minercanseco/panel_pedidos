@@ -155,6 +155,16 @@ class ControladorCaptura:
 
         self._interfaz.ventanas.cargar_eventos(eventos)
 
+        txt_comentario_pedido = self._interfaz.ventanas.componentes_forma.get('txt_comentario_documento', None)
+        if txt_comentario_pedido:
+            txt_comentario_pedido.bind("<FocusOut>", lambda event: self._actualizar_comentario_pedido())
+
+
+    def _actualizar_comentario_pedido(self):
+        comentario = self._interfaz.ventanas.obtener_input_componente('txt_comentario_documento')
+        comentario = comentario.upper().strip() if comentario else ''
+        self._modelo.documento.comments = comentario
+
     def _agregar_atajos(self):
         eventos = {
 
@@ -788,12 +798,12 @@ class ControladorCaptura:
 
                 self._agregar_partida_tabla(partida, document_item_id=0, tipo_captura=1, unidad_cayal=chk_pieza,
                                             monto_cayal=chk_monto)
-            finally:
-                self._agregando_producto = False
                 self._interfaz.ventanas.insertar_input_componente('tbx_cantidad_manual', 1)
                 self._interfaz.ventanas.limpiar_componentes('txt_comentario_manual')
                 self._interfaz.ventanas.limpiar_componentes('tbx_buscar_manual')
                 self._interfaz.ventanas.enfocar_componente('tbx_buscar_manual')
+            finally:
+                self._agregando_producto = False
 
     def _buscar_productos_manualmente(self, event=None):
 

@@ -793,7 +793,14 @@ class LlamarInstanciaCaptura:
         bloquear = False
 
         def _on_close():
-            # Si NO está bloqueado, preguntar
+            try:
+                if getattr(self, "_controlador_captura", None):
+                    # usa el método REAL que tengas en el controlador
+                    self._controlador_captura._actualizar_comentario_pedido()
+            except Exception as e:
+                # opcional: log
+                print("Error sincronizando comentario:", e)
+
             if not bloquear:
                 respuesta = messagebox.askyesno(
                     parent=self._master,
@@ -843,8 +850,8 @@ class LlamarInstanciaCaptura:
                 else:
                     self._ofertas = {}
 
-            interfaz = InterfazCaptura(self._master, self._parametros_contpaqi.id_modulo)
-            modelo = ModeloCaptura(
+            self._interfaz_captura = InterfazCaptura(self._master, self._parametros_contpaqi.id_modulo)
+            self._modelo_captura = ModeloCaptura(
                 self._base_de_datos,
                 self._utilerias,
                 self._cliente,
@@ -853,8 +860,7 @@ class LlamarInstanciaCaptura:
                 self._ofertas,
                 bloquear=bloquear
             )
-            controlador = ControladorCaptura(interfaz, modelo)
-
+            self._controlador_captura = ControladorCaptura(self._interfaz_captura, self._modelo_captura)
             self._master.protocol("WM_DELETE_WINDOW", _on_close)
 
         finally:
@@ -1101,9 +1107,7 @@ class LlamarInstanciaCaptura:
 
                             """, parametros)
 
-        def _actualizar_comentarios_pedido():
-            self._base_de_datos.command('UPDATE docDocumentOrderCayal SET CommentsOrder = ? WHERE OrderDocumentID =?',
-                                        (self._documento.comments, self._documento.document_id))
+
 
         #-------------------------------------------------------------------------------------------------
         if self._procesando_documento:
@@ -1159,6 +1163,7 @@ class LlamarInstanciaCaptura:
                           total,
                           self._documento.document_id)
             _actualizar_parametros_cabecera_pedido(parametros)
+            self._actualizar_comentarios_pedido()
 
         except Exception as e:
             # Log simple; evita romper el cierre de la ventana.
@@ -1167,5 +1172,8 @@ class LlamarInstanciaCaptura:
             except Exception:
                 pass
         finally:
-            if self._documento.document_id != 0:
-                _actualizar_comentarios_pedido()
+            self._desmarcar_en_uso()
+
+    def _actualizar_comentarios_pedido(self):
+        self._base_de_datos.command('UPDATE docDocumentOrderCayal SET CommentsOrder = ? WHERE OrderDocumentID =?',
+                                    (self._documento.comments, self._documento.document_id))

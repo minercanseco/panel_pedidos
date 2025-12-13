@@ -795,7 +795,7 @@ class ControladorPanelPedidos:
             partidas_procesadas = []
 
             for producto in consulta_partidas_con_impuestos:
-                print(producto)
+
                 precio = funcion(producto['precio'])
                 cantidad_decimal = funcion(producto['cantidad'])
                 total = funcion(producto['total'])
@@ -861,6 +861,7 @@ class ControladorPanelPedidos:
         partidas = self._modelo.buscar_partidas_pedido(order_document_id)
         if not partidas:
             return
+
 
         partidas_procesadas = procesar_partidas_pedido(partidas)
 

@@ -344,3 +344,5 @@ class ModeloCaptura:
                                                 self.user_id)
         )
 
+
+

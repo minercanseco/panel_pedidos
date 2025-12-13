@@ -111,14 +111,7 @@ class HerramientasPedido:
         self._interfaz.ventanas.cargar_eventos(evento_1)
         self._interfaz.ventanas.cargar_eventos(evento_2)
 
-        txt_comentario_pedido = self._interfaz.ventanas.componentes_forma.get('txt_comentario_documento',None)
-        if txt_comentario_pedido:
-            txt_comentario_pedido.bind("<FocusOut>", lambda event: self._actualizar_comentario_pedido())
 
-    def _actualizar_comentario_pedido(self):
-        comentario = self._ventanas.obtener_input_componente('txt_comentario_documento')
-        comentario = comentario.upper().strip() if comentario else ''
-        self._modelo.documento.comments = comentario
 
     def _agregar_atajos(self):
         eventos = {

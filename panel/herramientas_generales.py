@@ -14,7 +14,6 @@ from herramientas.herramientas_compartidas.generador_ticket_produccion import Ge
 from herramientas.herramientas_compartidas.historial_pedido import HistorialPedido
 from herramientas.herramientas_compartidas.horario_acumulado import HorarioslAcumulados
 from herramientas.herramientas_panel.editar_nombre_pedido import EditarNombrePedido
-from herramientas.cobrar_cartera.buscar_generales_cliente_cartera import BuscarGeneralesCliente
 
 
 class HerramientasGenerales:

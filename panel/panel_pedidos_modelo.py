@@ -548,7 +548,7 @@ class ModeloPanelPedidos:
             DECLARE @OrderDocumentID INT  = ?
 
             -- Actualizar la tabla docDocumentOrderCayal
-            UPDATE docDocumentOrderCayal
+            UPDATE docDocumentOrderCayal SET
                     StatusID = CASE WHEN StatusID = 3 AND OutputToDeliveryBy = 0 AND AssignedBy = 0 THEN 4
                                     ELSE StatusID 
                                     END,

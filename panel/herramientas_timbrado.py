@@ -67,6 +67,11 @@ class HerramientasTimbrado:
         if fn:
             fn()
 
+    def _rellenar_tabla(self):
+        fn = self._callbacks_autorefresco.get("rellenar_tabla")
+        if fn:
+            fn()
+
     def _obtener_valores_fila_pedido_seleccionado(self, valor = None):
         if not self._interfaz.ventanas.validar_seleccion_una_fila_table_view('tbv_pedidos'):
             return
@@ -133,7 +138,7 @@ class HerramientasTimbrado:
                 status_id = fila['TypeStatusID']
 
                 #  abierto, en proceso, cancelado, surtido parcialmente minisuper, produccion, almacen
-                if status_id not in (1, 2, 10, 12, 16, 17, 18):
+                if status_id in (1, 2, 10, 12, 16, 17, 18):
                     continue
 
                 filas_filtradas.append(fila)
@@ -333,7 +338,7 @@ class HerramientasTimbrado:
 
             comentarios = [f"{comentario}," for comentario in comentarios_pedidos]
             comentario_a_insertar = '\n'.join(comentarios)
-            comentario_a_insertar = filtrar_comentario_documento()
+            comentario_a_insertar = filtrar_comentario_documento(comentario_a_insertar)
 
             comentarios_taras = self._modelo.crear_comentario_taras(order_document_ids)
             comentarios_horarios = self._modelo.crear_comentario_horarios(order_document_ids)
@@ -500,52 +505,56 @@ class HerramientasTimbrado:
             return filas_filtradas
 
         # --------------------------------------------------------------------------------------------------------------
-        filas = self._obtener_valores_filas_pedidos_seleccionados()
+        try:
+            filas = self._obtener_valores_filas_pedidos_seleccionados()
 
-        if not filas:
-            return
-
-        # filtra por status no considerados válidos para generar el documento o documentos del cliente
-        filas_filtradas = filtrar_filas_facturables_por_status(filas)
-
-        if not filas_filtradas:
-            self._interfaz.ventanas.mostrar_mensaje('No hay pedidos con un status válido para facturar')
-            return
-
-        #--------------------------------------------------------------------------------------------------------------
-        # aqui comenzamos el procesamiento de las filas a facturar
-        # si es una seleccion unica valida primero si no hay otros pendientes del mimsmo cliente
-        if len(filas) == 1:
-            hay_pedidos_del_mismo_cliente = buscar_pedidos_en_proceso_del_mismo_cliente(filas)
-
-            if not hay_pedidos_del_mismo_cliente:
-                crear_documento(filas)
-
-            if hay_pedidos_del_mismo_cliente:
-                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('Hay otro pedido del mismo cliente en proceso o por timbrar.'
-                                                                             '¿Desea continuar?')
-                if respuesta:
-                    crear_documento(filas)
-            return
-
-        # si hay mas de una fila primero valida que estas filas no tengan solo el mismo cliente
-        # si lo tuvieran hay que ofrecer combinarlas en un documento
-        tienen_el_mismo_cliente = validar_si_los_pedidos_son_del_mismo_cliente(filas)
-        if tienen_el_mismo_cliente:
-            respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('Los pedidos son del mismo cliente.'
-                                                                         '¿Desea combinarlos?')
-            if respuesta:
-                crear_documento(filas, combinado=True, mismo_cliente=True)
+            if not filas:
                 return
 
-        # del mismo modo que para una fila valida que no existan otras ordenes de un cliente en proceso
-        # si lo hay para un cliente ese cliente debe excluirse de la seleccion
-        filas_filtradas = excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(filas)
-        if not filas_filtradas:
-            return
+            # filtra por status no considerados válidos para generar el documento o documentos del cliente
+            filas_filtradas = filtrar_filas_facturables_por_status(filas)
 
-        crear_documento(filas_filtradas)
-        return
+            if not filas_filtradas:
+                self._interfaz.ventanas.mostrar_mensaje('No hay pedidos con un status válido para facturar')
+                return
+
+            #--------------------------------------------------------------------------------------------------------------
+            # aqui comenzamos el procesamiento de las filas a facturar
+            # si es una seleccion unica valida primero si no hay otros pendientes del mimsmo cliente
+            if len(filas) == 1:
+                hay_pedidos_del_mismo_cliente = buscar_pedidos_en_proceso_del_mismo_cliente(filas)
+
+                if not hay_pedidos_del_mismo_cliente:
+                    crear_documento(filas)
+
+                if hay_pedidos_del_mismo_cliente:
+                    respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('Hay otro pedido del mismo cliente en proceso o por timbrar.'
+                                                                                 '¿Desea continuar?')
+                    if respuesta:
+                        crear_documento(filas)
+                return
+
+            # si hay mas de una fila primero valida que estas filas no tengan solo el mismo cliente
+            # si lo tuvieran hay que ofrecer combinarlas en un documento
+            tienen_el_mismo_cliente = validar_si_los_pedidos_son_del_mismo_cliente(filas)
+            if tienen_el_mismo_cliente:
+                respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('Los pedidos son del mismo cliente.'
+                                                                             '¿Desea combinarlos?')
+                if respuesta:
+                    crear_documento(filas, combinado=True, mismo_cliente=True)
+                    return
+
+            # del mismo modo que para una fila valida que no existan otras ordenes de un cliente en proceso
+            # si lo hay para un cliente ese cliente debe excluirse de la seleccion
+            filas_filtradas = excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(filas)
+            if not filas_filtradas:
+                return
+
+            crear_documento(filas_filtradas)
+            return
+        finally:
+            self._rellenar_tabla()
+            self._reanudar_autorefresco()
 
     def _capturado_vs_producido(self):
         fila = self._obtener_valores_fila_pedido_seleccionado()

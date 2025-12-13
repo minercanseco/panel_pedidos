@@ -443,6 +443,7 @@ class HerramientasGenerales:
             self._modelo.afectar_bitacora(order_document_id, self._modelo.user_id, comentario, change_type_id=19)
         finally:
             self._rellenar_tabla()
+            self._interfaz.ventanas.filtrar_table_view('tbv_pedidos', 'F.Pago', 'Transferencia')
 
     def _cambiar_usuario(self):
 

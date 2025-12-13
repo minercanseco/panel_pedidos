@@ -257,7 +257,6 @@ class HerramientasPedido:
                                   valores_fila)
         ventana.wait_window()
 
-
     def _verificador_precios(self):
         if not self._validar_bloqueo():
             return

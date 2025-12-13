@@ -421,26 +421,28 @@ class HerramientasGenerales:
         fila = self._obtener_valores_fila_pedido_seleccionado()
         if not fila:
             return
+        try:
+            order_document_id = fila['OrderDocumentID']
+            payment_confirmend_id = fila['PaymentConfirmedID']
+            status_id = fila['TypeStatusID']
 
-        order_document_id = fila['OrderDocumentID']
-        payment_confirmend_id = fila['PaymentConfirmedID']
-        status_id = fila['TypeStatusID']
+            if status_id in (1,10, 14,15): #abierto, cancelado, cobrado, en cartera
+                self._ventanas.mostrar_mensaje('El no tiene un status válido para confirmar la transferencia.')
+                return
 
-        if status_id in (1,10, 14,15): #abierto, cancelado, cobrado, en cartera
-            self._ventanas.mostrar_mensaje('El no tiene un status válido para confirmar la transferencia.')
-            return
+            if payment_confirmend_id == 1:
+                self._ventanas.mostrar_mensaje('El pedido seleccionado no es transferencia.')
+                return
 
-        if payment_confirmend_id == 1:
-            self._ventanas.mostrar_mensaje('El pedido seleccionado no es transferencia.')
-            return
+            if payment_confirmend_id == 3:
+                self._ventanas.mostrar_mensaje('La transferencia ha sido confirmada con anterioridad.')
+                return
 
-        if payment_confirmend_id == 3:
-            self._ventanas.mostrar_mensaje('La transferencia ha sido confirmada con anterioridad.')
-            return
-
-        self._modelo.confirmar_transferencia(self._modelo.user_id, order_document_id)
-        comentario = f"Transferencia confirmada por {self._modelo.user_name}"
-        self._modelo.afectar_bitacora(order_document_id, self._modelo.user_id, comentario, change_type_id=19)
+            self._modelo.confirmar_transferencia(self._modelo.user_id, order_document_id)
+            comentario = f"Transferencia confirmada por {self._modelo.user_name}"
+            self._modelo.afectar_bitacora(order_document_id, self._modelo.user_id, comentario, change_type_id=19)
+        finally:
+            self._rellenar_tabla()
 
     def _cambiar_usuario(self):
 

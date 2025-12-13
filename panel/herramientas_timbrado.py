@@ -130,19 +130,28 @@ class HerramientasTimbrado:
             self._modelo.actualizar_totales_pedido(order_document_id)
 
     def _facturar(self):
+
+        pedidos_fuera_status_timbrado = []
+        pedidos_fuera_status_timbrado_ids = []
+
         # --------------------------------------------------------------------------------------------------------------
         def filtrar_filas_facturables_por_status(filas):
             filas_filtradas = []
             # filtrar por status
             for fila in filas:
                 status_id = fila['TypeStatusID']
+                order_document_id = fila['OrderDocumentID']
+                cliente = fila['Cliente']
 
                 #  abierto, en proceso, cancelado, surtido parcialmente minisuper, produccion, almacen
                 if status_id in (1, 2, 10, 12, 16, 17, 18):
                     continue
 
                 filas_filtradas.append(fila)
-
+                if status_id != 3:
+                    print('aqui aqui auqi')
+                    pedidos_fuera_status_timbrado.append(cliente)
+                    pedidos_fuera_status_timbrado_ids.append(order_document_id)
             return filas_filtradas
 
         def buscar_pedidos_en_proceso_del_mismo_cliente(fila):
@@ -504,6 +513,21 @@ class HerramientasTimbrado:
                     f'Los clientes: {texto} tienen más órdenes en proceso o por timbrar.')
             return filas_filtradas
 
+        def mostrar_pedidos_refacturados(pedidos_refacturados):
+            """
+            Muestra un mensaje con la lista de pedidos refacturados.
+            `pedidos_refacturados` debe ser una lista de strings.
+            """
+            if not pedidos_refacturados:
+                return
+
+            # Formato legible: uno por línea
+            pedidos_texto = '\n'.join(f'• {pedido}' for pedido in pedidos_refacturados)
+
+            self._interfaz.ventanas.mostrar_mensaje(tipo='info', mensaje=
+                f'Pedidos refacturados:\n{pedidos_texto}'
+            )
+
         # --------------------------------------------------------------------------------------------------------------
         try:
             filas = self._obtener_valores_filas_pedidos_seleccionados()
@@ -526,12 +550,16 @@ class HerramientasTimbrado:
 
                 if not hay_pedidos_del_mismo_cliente:
                     crear_documento(filas)
+                    if pedidos_fuera_status_timbrado:
+                        mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
 
                 if hay_pedidos_del_mismo_cliente:
                     respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('Hay otro pedido del mismo cliente en proceso o por timbrar.'
                                                                                  '¿Desea continuar?')
                     if respuesta:
                         crear_documento(filas)
+                        if pedidos_fuera_status_timbrado:
+                            mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
                 return
 
             # si hay mas de una fila primero valida que estas filas no tengan solo el mismo cliente
@@ -542,6 +570,9 @@ class HerramientasTimbrado:
                                                                              '¿Desea combinarlos?')
                 if respuesta:
                     crear_documento(filas, combinado=True, mismo_cliente=True)
+                    if pedidos_fuera_status_timbrado:
+                        if pedidos_fuera_status_timbrado:
+                            mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
                     return
 
             # del mismo modo que para una fila valida que no existan otras ordenes de un cliente en proceso
@@ -551,7 +582,10 @@ class HerramientasTimbrado:
                 return
 
             crear_documento(filas_filtradas)
+            if pedidos_fuera_status_timbrado:
+                mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
             return
+
         finally:
             self._rellenar_tabla()
             self._reanudar_autorefresco()

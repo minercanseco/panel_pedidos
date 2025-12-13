@@ -857,6 +857,9 @@ class ControladorPanelPedidos:
             return
 
         partidas = self._modelo.buscar_partidas_pedido(order_document_id)
+        if not partidas:
+            return
+
         partidas_procesadas = procesar_partidas_pedido(partidas)
 
         self._interfaz.ventanas.limpiar_componentes(['tvw_detalle'])

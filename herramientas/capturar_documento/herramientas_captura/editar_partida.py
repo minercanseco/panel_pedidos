@@ -206,7 +206,7 @@ class EditarPartida:
 
             if valor_chk_monto == 1:
                 self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
-                self._modelo._mensajes_de_error(4)
+                self._modelo.mensajes_de_error(4)
 
             if equivalencia == 0:
                 return 'Unidad'
@@ -217,12 +217,12 @@ class EditarPartida:
         if clave_unidad == 'KGM':
 
             if valor_chk_pieza == 1 and equivalencia == 0:
-                self._modelo._mensajes_de_error(3)
+                self._modelo.mensajes_de_error(3)
                 self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'deseleccionado')
                 return 'Error'
 
             if valor_chk_monto == 1 and cantidad == 0:
-                self._modelo._mensajes_de_error(0)
+                self._modelo.mensajes_de_error(0)
                 self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
                 return 'Error'
 
@@ -239,7 +239,7 @@ class EditarPartida:
                 return 'Equivalencia'
 
             if valor_chk_monto == 1 and cantidad <= 1:
-                self._modelo._mensajes_de_error(2)
+                self._modelo.mensajes_de_error(2)
                 return 'Error'
 
             if valor_chk_monto == 1:
@@ -411,7 +411,7 @@ class EditarPartida:
                 comentario = f'EDITADO POR {self._user_name}: {comentario}'
             else:
                 # actualiza los totales de la nota para posteriores modificaciones
-                self._modelo._actualizar_totales_documento()
+                self._modelo.actualizar_totales_documento()
 
             # respalda la partida extra para tratamiento despues del cierre del documento
             self._modelo.agregar_partida_items_documento_extra(partida_original, 'editar', comentario, uuid_partida)
@@ -424,7 +424,7 @@ class EditarPartida:
                 total_sin_servicio = total_documento - self._modelo.costo_servicio_a_domicilio
 
                 if total_sin_servicio >= 200:
-                    self._modelo._remover_servicio_a_domicilio()
+                    self._modelo.remover_servicio_a_domicilio()
             else:
                 if total_documento < 200:
                     self._modelo._agregar_servicio_a_domicilio()

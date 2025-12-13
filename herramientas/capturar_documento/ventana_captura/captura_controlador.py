@@ -125,7 +125,8 @@ class ControladorCaptura:
                     master=frame,
                     modelo=self._modelo,
                     interfaz=self._interfaz,
-                    cargar_shortcuts= cargar_shortcuts
+                    controlador=self,
+                    cargar_shortcuts=cargar_shortcuts
                 )
 
             if 'facturas' in frame_name and self._modelo.module_id in (21, 1400, 1319, 1316, 967):
@@ -574,7 +575,7 @@ class ControladorCaptura:
             'equivalencia': equivalencia_decimal
         }
 
-    def _mensajes_de_error(self, numero_mensaje, master=None):
+    def mensajes_de_error(self, numero_mensaje, master=None):
 
         mensajes = {
             0: 'El valor de la cantidad no puede ser menor o igual a zero',
@@ -681,7 +682,7 @@ class ControladorCaptura:
             self._agregando_producto = True
 
             if not self._modelo.utilerias.es_codigo_barras(clave):
-                self._mensajes_de_error(7)
+                self.mensajes_de_error(7)
                 return
 
             valores_clave = self._modelo.utilerias.validar_codigo_barras(clave)
@@ -692,13 +693,13 @@ class ControladorCaptura:
             consulta_producto = self._modelo.buscar_productos(codigo_barras, 'Clave')
 
             if not consulta_producto:
-                self._mensajes_de_error(8)
+                self.mensajes_de_error(8)
                 return
 
             product_id = self._modelo.obtener_product_ids_consulta(consulta_producto)
 
             if not product_id:
-                self._mensajes_de_error(11)
+                self.mensajes_de_error(11)
                 return
 
             info_producto = self._modelo.buscar_info_productos_por_ids(product_id, no_en_venta=True)
@@ -707,15 +708,15 @@ class ControladorCaptura:
                 existencia = self._modelo.obtener_existencia_producto(product_id)
 
                 if not existencia:
-                    self._mensajes_de_error(11)
+                    self.mensajes_de_error(11)
                     return
 
-                self._mensajes_de_error(9)
+                self.mensajes_de_error(9)
                 return
 
             disponible_a_venta = info_producto[0]['AvailableForSale']
             if disponible_a_venta == 0:
-                self._mensajes_de_error(10)
+                self.mensajes_de_error(10)
                 return
 
             # permite que al capturar por clave se respeten los casos tipo reja de huevo
@@ -782,7 +783,7 @@ class ControladorCaptura:
         consulta = self._modelo.buscar_productos(termino_buscado, tipo_busqueda)
 
         if not consulta:
-            self._mensajes_de_error(6, self._master)
+            self.mensajes_de_error(6, self._master)
             self._limpiar_controles_captura_manual()
             self._interfaz.ventanas.enfocar_componente('tbx_buscar_manual')
             self._interfaz.ventanas.insertar_input_componente('tbx_cantidad_manual', 1.00)
@@ -900,7 +901,7 @@ class ControladorCaptura:
 
                 if valor_chk_monto == 1:
                     self._interfaz.ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
-                    self._mensajes_de_error(4, self._master)
+                    self.mensajes_de_error(4, self._master)
 
                 if equivalencia == 0:
                     return 'Unidad'
@@ -911,12 +912,12 @@ class ControladorCaptura:
             if clave_unidad == 'KGM':
 
                 if valor_chk_pieza == 1 and equivalencia == 0:
-                    self._mensajes_de_error(3, self._master)
+                    self.mensajes_de_error(3, self._master)
                     self._interfaz.ventanas.cambiar_estado_checkbutton('chk_pieza', 'deseleccionado')
                     return 'Error'
 
                 if valor_chk_monto == 1 and cantidad == 0:
-                    self._mensajes_de_error(0, self._master)
+                    self.mensajes_de_error(0, self._master)
                     self._interfaz.ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
                     return 'Error'
 
@@ -933,7 +934,7 @@ class ControladorCaptura:
                     return 'Equivalencia'
 
                 if valor_chk_monto == 1 and cantidad <= 1:
-                    self._mensajes_de_error(2, self._master)
+                    self.mensajes_de_error(2, self._master)
                     return 'Error'
 
                 if valor_chk_monto == 1:
@@ -1074,12 +1075,12 @@ class ControladorCaptura:
         if self._modelo.module_id == 1692: # restriccion por modulo vales
             linea = partida.get('Category1', '')
             if linea not in self._modelo.LINEAS_PRODUCTOS_PERMITIDOS_VALES:
-                self._mensajes_de_error(14)
+                self.mensajes_de_error(14)
                 return
 
         return partida
 
-    def _actualizar_totales_documento(self):
+    def actualizar_totales_documento(self):
 
         impuestos_acumulado = 0
         ieps_acumulado = 0
@@ -1211,7 +1212,7 @@ class ControladorCaptura:
     def _agregar_partida_tabla(self, partida, document_item_id, tipo_captura, unidad_cayal=0, monto_cayal=0):
 
         if self._modelo.documento.finish_document == 2:
-            self._mensajes_de_error(17)
+            self.mensajes_de_error(17)
             return
 
         if document_item_id == 0:
@@ -1292,21 +1293,21 @@ class ControladorCaptura:
                 self._interfaz.ventanas.insertar_fila_treeview(tabla_captura, partida_tabla, al_principio=True)
 
                 self._agregar_partida_items_documento(partida)
-                self._actualizar_totales_documento()
+                self.actualizar_totales_documento()
 
                 # si aplica remueve el servicio a domicilio
                 if self._modelo.module_id == 1687 and self._servicio_a_domicilio_agregado == True:
                     if self._modelo.documento.total - self._modelo.documento.delivery_cost >= 200:
-                        self._remover_servicio_a_domicilio()
+                        self.remover_servicio_a_domicilio()
 
             finally:
                 self._agregando_partida_tabla = False
 
-    def _remover_servicio_a_domicilio(self):
+    def remover_servicio_a_domicilio(self):
         self._servicio_a_domicilio_agregado = False
         self._modelo.remover_partida_items_documento(5606)
         self._remover_product_id_tabla(5606)
-        self._actualizar_totales_documento()
+        self.actualizar_totales_documento()
 
     def _remover_product_id_tabla(self, product_id):
         filas = self._interfaz.ventanas.obtener_filas_treeview('tvw_productos')

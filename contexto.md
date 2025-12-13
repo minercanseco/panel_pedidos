@@ -2000,7 +2000,7 @@ class ControladorCaptura:
 
     def _agregar_partida_por_clave_producto(self, clave):
         if not self._utilerias.es_codigo_barras(clave):
-            self._modelo._mensajes_de_error(7)
+            self._modelo.mensajes_de_error(7)
             return
 
         valores_clave = self._utilerias.validar_codigo_barras(clave)
@@ -2010,7 +2010,7 @@ class ControladorCaptura:
         consulta_producto = self._modelo.buscar_productos(codigo_barras, 'Término')
 
         if not consulta_producto:
-            self._modelo._mensajes_de_error(8)
+            self._modelo.mensajes_de_error(8)
             return
 
         producto_id = self._modelo.obtener_product_ids_consulta(consulta_producto)
@@ -2021,15 +2021,15 @@ class ControladorCaptura:
             existencia = self.base_de_datos.buscar_existencia_productos(producto_id)
 
             if not existencia:
-                self._modelo._mensajes_de_error(11)
+                self._modelo.mensajes_de_error(11)
                 return
 
-            self._modelo._mensajes_de_error(9)
+            self._modelo.mensajes_de_error(9)
             return
 
         disponible_a_venta = info_producto[0]['AvailableForSale']
         if disponible_a_venta == 0:
-            self._modelo._mensajes_de_error(10)
+            self._modelo.mensajes_de_error(10)
             return
 
         partida = self._utilerias.crear_partida(info_producto[0], cantidad)
@@ -2268,7 +2268,7 @@ class ControladorCaptura:
 
                 # la eliminacion del servicio a domicilio es de forma automatizada
                 if product_id == 5606 and self._module_id == 1687:
-                    self._modelo._mensajes_de_error(13)
+                    self._modelo.mensajes_de_error(13)
                     return
 
                 document_item_id = valores_fila['DocumentItemID']
@@ -2298,7 +2298,7 @@ class ControladorCaptura:
 
                 # asignar los nuevos items sin el item que ha sido removido
                 self.documento.items = nuevas_partidas
-                self._modelo._actualizar_totales_documento()
+                self._modelo.actualizar_totales_documento()
                 # ----------------------------------------------------------------------------------
 
                 # respalda la partida extra para tratamiento despues del cierre del documento
@@ -2315,7 +2315,7 @@ class ControladorCaptura:
                     # Si ya se agregó pero ahora el total (sin el servicio) es >= 200, lo remueve
                     elif self.servicio_a_domicilio_agregado and (
                             self.documento.total - self._costo_servicio_a_domicilio) >= 200:
-                        self._modelo._remover_servicio_a_domicilio()
+                        self._modelo.remover_servicio_a_domicilio()
                         self.servicio_a_domicilio_agregado = False
 
     def _editar_partida(self):
@@ -2494,7 +2494,7 @@ def _buscar_productos_manualmente(self, event=None):
     consulta = self._modelo.buscar_productos(termino_buscado, tipo_busqueda)
 
     if not consulta:
-        self._modelo._mensajes_de_error(6, self._master)
+        self._modelo.mensajes_de_error(6, self._master)
         self._limpiar_controles_captura_manual()
         self._ventanas.enfocar_componente('tbx_buscar_manual')
         self._ventanas.insertar_input_componente('tbx_cantidad_manual', 1.00)
@@ -5919,7 +5919,7 @@ class EditarPartida:
 
             if valor_chk_monto == 1:
                 self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
-                self._modelo._mensajes_de_error(4)
+                self._modelo.mensajes_de_error(4)
 
             if equivalencia == 0:
                 return 'Unidad'
@@ -5930,12 +5930,12 @@ class EditarPartida:
         if clave_unidad == 'KGM':
 
             if valor_chk_pieza == 1 and equivalencia == 0:
-                self._modelo._mensajes_de_error(3)
+                self._modelo.mensajes_de_error(3)
                 self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'deseleccionado')
                 return 'Error'
 
             if valor_chk_monto == 1 and cantidad == 0:
-                self._modelo._mensajes_de_error(0)
+                self._modelo.mensajes_de_error(0)
                 self._ventanas.cambiar_estado_checkbutton('chk_monto', 'deseleccionado')
                 return 'Error'
 
@@ -5952,7 +5952,7 @@ class EditarPartida:
                 return 'Equivalencia'
 
             if valor_chk_monto == 1 and cantidad <= 1:
-                self._modelo._mensajes_de_error(2)
+                self._modelo.mensajes_de_error(2)
                 return 'Error'
 
             if valor_chk_monto == 1:
@@ -6123,7 +6123,7 @@ class EditarPartida:
                 comentario = f'EDITADO POR {self._user_name}: {comentario}'
             else:
                 # actualiza los totales de la nota para posteriores modificaciones
-                self._modelo._actualizar_totales_documento()
+                self._modelo.actualizar_totales_documento()
 
             # respalda la partida extra para tratamiento despues del cierre del documento
             self._modelo.agregar_partida_items_documento_extra(partida_original, 'editar', comentario, uuid_partida)
@@ -6136,7 +6136,7 @@ class EditarPartida:
                 total_sin_servicio = total_documento - self._modelo.costo_servicio_a_domicilio
 
                 if total_sin_servicio >= 200:
-                    self._modelo._remover_servicio_a_domicilio()
+                    self._modelo.remover_servicio_a_domicilio()
             else:
                 if total_documento < 200:
                     self._modelo._agregar_servicio_a_domicilio()

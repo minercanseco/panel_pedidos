@@ -12,16 +12,17 @@ from herramientas.verificador_precios.interfaz_verificador import InterfazVerifi
 
 
 class HerramientasPedido:
-    def __init__(self, master, modelo, interfaz, cargar_shortcuts):
+    def __init__(self, master, modelo, interfaz, controlador, cargar_shortcuts=True):
         self._master = master
-        self._ventanas = Ventanas(self._master)
         self._modelo = modelo
         self._interfaz = interfaz
+        self._controlador = controlador
         self._cargar_shortcuts = cargar_shortcuts
 
         self._base_de_datos = self._modelo.base_de_datos
         self._parametros = self._modelo.parametros
         self._utilerias = self._modelo.utilerias
+        self._ventanas = Ventanas(self._master)
 
 
         self._crear_frames()
@@ -129,7 +130,7 @@ class HerramientasPedido:
             'Delete': lambda: self._eliminar_partida(),
         }
 
-        self._ventanas.agregar_hotkeys_forma(eventos)
+        self._interfaz.ventanas.agregar_hotkeys_forma(eventos)
 
     def _validar_bloqueo(self):
         if not self._cargar_shortcuts:
@@ -170,7 +171,7 @@ class HerramientasPedido:
         if not self._validar_bloqueo():
             return
 
-        filas = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos')
+        filas = self._interfaz.ventanas.obtener_seleccion_filas_treeview('tvw_productos')
         if not filas:
             return
 
@@ -180,12 +181,12 @@ class HerramientasPedido:
 
             production_status_modified = 0
             for fila in filas:
-                valores_fila = self._ventanas.procesar_fila_treeview('tvw_productos', fila)
+                valores_fila = self._interfaz.ventanas.procesar_fila_treeview('tvw_productos', fila)
                 product_id = valores_fila['ProductID']
 
                 # la eliminacion del servicio a domicilio es de forma automatizada
                 if product_id == 5606 and self._modelo.module_id == 1687:
-                    self._modelo._mensajes_de_error(13)
+                    self._controlador.mensajes_de_error(13)
                     return
 
                 document_item_id = valores_fila['DocumentItemID']
@@ -193,15 +194,10 @@ class HerramientasPedido:
 
                 # si aplica remover de la bd
                 if document_item_id != 0:
-                    self._base_de_datos.exec_stored_procedure(
-                        'zvwBorrarPartidasDocumentoCayal', (self._modelo.documento.document_id,
-                                                            self._parametros.id_modulo,
-                                                            document_item_id,
-                                                            self._parametros.id_usuario)
-                    )
+                    self._modelo.eliminar_partida_documento(document_item_id)
 
                 # remover del treeview
-                self._ventanas.remover_fila_treeview('tvw_productos', fila)
+                self._interfaz.ventanas.remover_fila_treeview('tvw_productos', fila)
 
                 # ----------------------------------------------------------------------------------
                 # remover la partida de los items del documento
@@ -215,7 +211,7 @@ class HerramientasPedido:
 
                 # asignar los nuevos items sin el item que ha sido removido
                 self._modelo.documento.items = nuevas_partidas
-                self._modelo._actualizar_totales_documento()
+                self._controlador.actualizar_totales_documento()
                 # ----------------------------------------------------------------------------------
 
                 # respalda la partida extra para tratamiento despues del cierre del documento
@@ -225,31 +221,31 @@ class HerramientasPedido:
                 # Solo aplica para el módulo 1687 pedidos
                 if self._modelo.module_id == 1687:
                     # Si el total es menor a 200 y no se ha agregado aún, lo agrega
-                    if self._modelo.documento.total < 200 and not self.servicio_a_domicilio_agregado:
-                        self._modelo._agregar_servicio_a_domicilio()
-                        self.servicio_a_domicilio_agregado = True
+                    if self._modelo.documento.total < 200 and not self._controlador._servicio_a_domicilio_agregado:
+                        self._controlador.agregar_servicio_a_domicilio()
+                        self._controlador._servicio_a_domicilio_agregado = True
 
                     # Si ya se agregó pero ahora el total (sin el servicio) es >= 200, lo remueve
-                    elif self.servicio_a_domicilio_agregado and (
+                    elif self._controlador._servicio_a_domicilio_agregado and (
                             self._modelo.documento.total - self._modelo.documento.delivery_cost) >= 200:
-                        self._modelo._remover_servicio_a_domicilio()
-                        self.servicio_a_domicilio_agregado = False
+                        self._controlador.remover_servicio_a_domicilio()
+                        self._controlador._servicio_a_domicilio_agregado = False
 
     def _editar_partida(self):
         if not self._validar_bloqueo():
             return
 
-        fila = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos')
+        fila = self._interfaz.ventanas.obtener_seleccion_filas_treeview('tvw_productos')
 
         if not fila:
+            self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar por lo menos un producto')
+            return
+
+        if not self._interfaz.ventanas.validar_seleccion_una_fila_treeview('tvw_productos'):
             self._ventanas.mostrar_mensaje('Debe seleccionar por lo menos un producto')
             return
 
-        if not self._ventanas.validar_seleccion_una_fila_treeview('tvw_productos'):
-            self._ventanas.mostrar_mensaje('Debe seleccionar por lo menos un producto')
-            return
-
-        valores_fila = self._ventanas.procesar_fila_treeview('tvw_productos', fila)
+        valores_fila = self._interfaz.ventanas.procesar_fila_treeview('tvw_productos', fila)
         if valores_fila['ProductID'] == 5606:
             self._ventanas.mostrar_mensaje('No se puede editar la partida servicio a domicilio.')
             return
@@ -258,6 +254,7 @@ class HerramientasPedido:
         instancia = EditarPartida(ventana, self._interfaz, self._modelo, self._utilerias, self._base_de_datos,
                                   valores_fila)
         ventana.wait_window()
+
 
     def _verificador_precios(self):
         if not self._validar_bloqueo():

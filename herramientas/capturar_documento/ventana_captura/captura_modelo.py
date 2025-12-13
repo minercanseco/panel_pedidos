@@ -336,3 +336,11 @@ class ModeloCaptura:
     def insertar_partida_documento(self, parametros):
         self.base_de_datos.insertar_partida_documento_cayal(parametros)
 
+    def eliminar_partida_documento(self, document_item_id):
+        self.base_de_datos.exec_stored_procedure(
+            'zvwBorrarPartidasDocumentoCayal', (self.documento.document_id,
+                                                self.module_id,
+                                                document_item_id,
+                                                self.user_id)
+        )
+

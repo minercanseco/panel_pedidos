@@ -1101,6 +1101,10 @@ class LlamarInstanciaCaptura:
 
                             """, parametros)
 
+        def _actualizar_comentarios_pedido():
+            self._base_de_datos.command('UPDATE docDocumentOrderCayal SET CommentsOrder = ? WHERE OrderDocumentID =?',
+                                        (self._documento.comments, self._documento.document_id))
+
         #-------------------------------------------------------------------------------------------------
         if self._procesando_documento:
             return  # ya se está procesando / se procesó
@@ -1163,4 +1167,5 @@ class LlamarInstanciaCaptura:
             except Exception:
                 pass
         finally:
-            pass
+            if self._documento.document_id != 0:
+                _actualizar_comentarios_pedido()

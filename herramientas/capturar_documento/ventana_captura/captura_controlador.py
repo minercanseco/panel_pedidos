@@ -56,6 +56,7 @@ class ControladorCaptura:
         if self._cargar_shortcuts: # esto activa la edicion en pedidos capturados previamente candidatos a edicion
             self._configurar_pedido()
             self._cargar_eventos_componentes()
+            self._agregar_atajos()
 
     # -------------------------------------------------------------------------
     # Funciones relacionadas a herramientas y eventos de componentes de captura
@@ -154,6 +155,25 @@ class ControladorCaptura:
 
         self._interfaz.ventanas.cargar_eventos(eventos)
 
+    def _agregar_atajos(self):
+        eventos = {
+
+            'F8': lambda: self._agregar_partida_manualmente(),
+            'F9': lambda: self._copiar_productos(),
+            'F10': lambda: self._activar_chk_pieza(),
+            'F11': lambda: self._activar_chk_monto(),
+            'F12': lambda: self._buscar_ofertas(),
+
+            'Ctrl+B': lambda: self._interfaz.ventanas.enfocar_componente('tbx_buscar_manual'),
+            'Ctrl+C': lambda: self._interfaz.ventanas.enfocar_componente('tbx_cantidad_manual'),
+            'Ctrl+F': lambda: self._interfaz.ventanas.enfocar_componente('cbx_tipo_busqueda_manual'),
+            'Ctrl+M': lambda: self._interfaz.ventanas.enfocar_componente('txt_comentario_manual'),
+            'Ctrl+T': lambda: self._interfaz.ventanas.enfocar_componente('tvw_productos_manual'),
+            'Ctrl+P': lambda: self._interfaz.ventanas.enfocar_componente('txt_portapapeles_manual'),
+            'Ctrl+E': lambda: self._agregar_especicificaciones(),
+
+        }
+        self._interfaz.ventanas.agregar_hotkeys_forma(eventos)
     #--------------------------------------------------------------------
     # Funciones relacionadas a información del documento y estado inicial
     # -------------------------------------------------------------------

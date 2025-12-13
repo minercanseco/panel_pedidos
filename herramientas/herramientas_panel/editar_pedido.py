@@ -261,10 +261,14 @@ class EditarPedido:
             if partida['ProductID'] == 5606:
                 continue
 
-            cantidad = self._utilerias.redondear_valor_cantidad_a_decimal(partida['Quantity'])
-            precio = self._utilerias.redondear_valor_cantidad_a_decimal(partida['SalePriceWithTaxes'])
-            total = cantidad * precio
+            cantidad = self._utilerias.convertir_valor_a_decimal(partida['cantidad'])
+            cantidad = f"{cantidad:.3f}"
+
+            precio = self._utilerias.convertir_valor_a_decimal(partida['precio'])
+
+            total = self._utilerias.convertir_valor_a_decimal(partida['total'])
             total = f"{total:.2f}"
+
             nueva_partida = {
                 'Quantity': cantidad,
                 'ProductKey': partida['ProductKey'],

@@ -806,6 +806,8 @@ class ControladorPanelPedidos:
                 comentario = producto.get('Comments', '')
                 comentario = '' if not comentario else comentario
                 comentario = comentario.strip()
+                piezas = producto.get('CayalPiece', 0)
+                producto['CayalPiece'] = piezas if float(piezas).is_integer() else 0
 
                 datos_fila = (
                     cantidad_decimal,

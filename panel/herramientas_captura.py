@@ -157,6 +157,12 @@ class HerramientasCaptura:
         status_id = fila['TypeStatusID']
         order_document_id = fila['OrderDocumentID']
         business_entity_id = fila['BusinessEntityID']
+
+        #  cancelado, modificando, surtido parcialmente minisuper, produccion, almacen, entregado, cobrado o cartera
+        if status_id in (10, 12, 16, 17, 18, 13, 14, 15):
+            self._interfaz.ventanas.mostrar_mensaje('El pedido no tiene un estatus válido para ser editado.')
+            return
+
         try:
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Pedido', nombre_icono='icono_logo.ico')
             if status_id < 3:
@@ -171,12 +177,12 @@ class HerramientasCaptura:
                     documento=documento
                 )
 
-            elif status_id == 3:
+            elif status_id >= 3:
                 _ = EditarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros, fila)
 
-            else:  # status_id > 3
+            else:
                 self._interfaz.ventanas.mostrar_mensaje(
-                    'No se pueden editar en este módulo documentos que no estén en status Por Timbrar.'
+                    'No hay acción válida para un pedido en este estado.'
                 )
 
             ventana.wait_window()

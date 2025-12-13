@@ -23,7 +23,7 @@ if __name__ == '__main__':
     ventana_login = ttk.Window()
     parametros_login = ParametrosContpaqi()
 
-    version_paquete = 'panel_pedidos_v113'
+    version_paquete = 'panel_pedidos_v114'
     parametros_login.version_paquete = version_paquete
 
     actualizador = ActualizadorDePaquetes(version_paquete)

@@ -444,7 +444,7 @@ class HerramientasTimbrado:
             business_entity_id = filas[0]['BusinessEntityID']
 
             # crea cabecera y bloqueala para evitar ediciones
-            document_id = self._modelo.crear_cabecera_documento(tipo_documento, filas[0])
+            document_id = crear_cabecera_documento(tipo_documento, filas[0])
 
             self._modelo.insertar_partidas_documento(order_document_id, document_id, partidas_acumuladas, total_acumulado,
                                               address_detail_id)

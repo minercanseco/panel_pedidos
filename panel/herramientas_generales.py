@@ -7,6 +7,8 @@ from cayal.cliente import Cliente
 from herramientas.cliente.buscar_clientes import BuscarClientes
 from herramientas.cliente.cliente_nuevo import ClienteNuevo
 from herramientas.cliente.notebook_cliente import NoteBookCliente
+from herramientas.cobrar_cartera.controlador_saldar_cartera import ControladorSaldarCartera
+from herramientas.cobrar_cartera.interfaz_saldar_cartera import InterfazSaldarCartera
 from herramientas.herramientas_compartidas.cancelar_pedido import CancelarPedido
 from herramientas.herramientas_compartidas.generador_ticket_produccion import GeneradorTicketProduccion
 from herramientas.herramientas_compartidas.historial_pedido import HistorialPedido
@@ -95,6 +97,16 @@ class HerramientasGenerales:
 
     def _reanudar_autorefresco(self):
         fn = self._callbacks_autorefresco.get("reanudar")
+        if fn:
+            fn()
+
+    def _filtro_post_captura(self):
+        fn = self._callbacks_autorefresco.get("postcaptura")
+        if fn:
+            fn()
+
+    def _rellenar_tabla(self):
+        fn = self._callbacks_autorefresco.get("rellenar_tabla")
         if fn:
             fn()
 
@@ -335,6 +347,7 @@ class HerramientasGenerales:
                                            valores_fila)
             ventana.wait_window()
         finally:
+            self._rellenar_tabla()
             self._parametros.id_principal = 0
 
     def _historial_pedido(self):
@@ -364,6 +377,7 @@ class HerramientasGenerales:
             instancia = CancelarPedido(ventana, self._parametros, self._base_de_datos)
             ventana.wait_window()
         finally:
+            self._rellenar_tabla()
             self._parametros.id_principal = 0
 
     def _buscar_clientes(self):
@@ -377,9 +391,31 @@ class HerramientasGenerales:
         ventana.wait_window()
 
     def _cobrar_cartera(self):
-        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(self._interfaz.master, 'Acumulados horarios')
-        instancia = BuscarGeneralesCliente(ventana, self._parametros)
-        ventana.wait_window()
+
+        fila = self._obtener_valores_fila_pedido_seleccionado()
+        if not fila:
+            return
+
+        status_id = fila['TypeStatusID']
+        business_entity_id = fila['BusinessEntityID']
+
+        if status_id in (1,2,3,10,11,12,16,17,18):
+            self._ventanas.mostrar_mensaje('Esta función solo es válida para pedidos que ya hayan timbrados y no cancelados.')
+            return
+        try:
+            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap('Cobrar cartera')
+            interfaz = InterfazSaldarCartera(ventana)
+
+            _info_cliente_seleccionado = self._modelo.buscar_info_cliente_seleccionado(business_entity_id)
+            cliente = Cliente()
+            cliente.consulta = _info_cliente_seleccionado
+            cliente.settear_valores_consulta()
+
+            controlador = ControladorSaldarCartera(
+                interfaz, self._modelo.base_de_datos, self._modelo.parametros, cliente)
+            ventana.wait_window()
+        finally:
+            self._rellenar_tabla()
 
     def _confirmar_transferencia(self):
 

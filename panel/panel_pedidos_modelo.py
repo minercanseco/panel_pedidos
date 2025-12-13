@@ -643,3 +643,10 @@ class ModeloPanelPedidos:
             """,
             (fecha,)
         )
+
+    def buscar_info_cliente_seleccionado(self, business_entity_id):
+        return self.base_de_datos.fetchall("""
+              SELECT *
+              FROM [dbo].[zvwBuscarInfoCliente-BusinessEntityID](?)
+            """, (business_entity_id,))
+

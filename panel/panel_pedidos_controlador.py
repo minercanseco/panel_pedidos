@@ -793,7 +793,9 @@ class ControladorPanelPedidos:
             consulta_partidas_con_impuestos = self._modelo.utilerias.agregar_impuestos_productos(partidas)
             funcion = self._modelo.utilerias.redondear_valor_cantidad_a_decimal
             partidas_procesadas = []
+
             for producto in consulta_partidas_con_impuestos:
+                print(producto)
                 precio = funcion(producto['precio'])
                 cantidad_decimal = funcion(producto['cantidad'])
                 total = funcion(producto['total'])

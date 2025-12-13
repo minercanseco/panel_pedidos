@@ -450,7 +450,7 @@ class HerramientasTimbrado:
                                               address_detail_id)
 
             # insertar comentario de los pedidos
-            self._modelo.crear_comentario_documento(all_order_document_ids,
+            crear_comentario_documento(all_order_document_ids,
                                              document_id,
                                              business_entity_id,
                                              total_acumulado,

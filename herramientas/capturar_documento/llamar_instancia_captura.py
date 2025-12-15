@@ -908,6 +908,28 @@ class LlamarInstanciaCaptura:
             # OJO: aquí NO desmarques, porque si este finally corre al terminar esta función,
             # estarías liberando el lock mientras la ventana sigue abierta.
             pass
+    # ----------------------------------------------------------------------
+    # Helpers relacionados con bloqueo del documento para prevenir colisiones
+    # ----------------------------------------------------------------------
+    def _marcar_en_uso(self, document_id, pedido: bool):
+        self._locked_doc_id = int(document_id or 0)
+        self._locked_is_pedido = bool(pedido)
+        self._locked_active = self._locked_doc_id > 0
+        if self._locked_active:
+            self._base_de_datos.marcar_documento_en_uso(self._locked_doc_id, self._user_id,
+                                                        pedido=self._locked_is_pedido)
+
+    def _desmarcar_en_uso(self):
+        # idempotente, por si se llama más de una vez
+        if getattr(self, "_locked_active", False) and getattr(self, "_locked_doc_id", 0):
+            try:
+                self._base_de_datos.desmarcar_documento_en_uso(self._locked_doc_id,
+                                                               pedido=self._locked_is_pedido,
+                                                               user_id=self._user_id)
+            finally:
+                self._locked_active = False
+                self._locked_doc_id = 0
+                self._locked_is_pedido = False
 
     # ----------------------------------------------------------------------
     # Funcion principal de merge de captura pedido

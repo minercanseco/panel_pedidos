@@ -69,10 +69,10 @@ class InterfazCaptura:
                                  )
             })
 
-        ancho, alto = self.ventanas.obtener_resolucion_pantalla()
-        if ancho <= 1366:
-            del frames['frame_comentario']
-
+        #ancho, alto = self.ventanas.obtener_resolucion_pantalla()
+        #if ancho <= 1366:
+        #    del frames['frame_comentario']
+        #
         self.ventanas.crear_frames(frames)
 
     def _cargar_componentes_forma(self):

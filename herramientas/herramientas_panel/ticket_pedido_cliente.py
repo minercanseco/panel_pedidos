@@ -107,6 +107,8 @@ class TicketPedidoCliente:
             piezas = partida.get('CayalPiece',0)
             cantidad = self._utilerias.redondear_valor_cantidad_a_decimal(partida['Quantity'])
             partida_con_impuesto  = self._utilerias.crear_partida(partida, cantidad)
+            partida_con_impuesto['Quantity'] = f"{partida_con_impuesto['Quantity']:.2f}"
+
 
             if piezas !=0:
                 equivalencia = self._base_de_datos.fetchone(

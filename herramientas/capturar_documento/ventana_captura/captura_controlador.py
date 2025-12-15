@@ -1284,7 +1284,7 @@ class ControladorCaptura:
                 equivalencia = 0 if not equivalencia else equivalencia
                 equivalencia_decimal = self._modelo.utilerias.convertir_valor_a_decimal(equivalencia)
 
-                if equivalencia_decimal > 0 and unidad_cayal == 1:
+                if equivalencia_decimal != 0 and unidad_cayal == 1:
                     cantidad_piezas = int((cantidad/equivalencia_decimal))
 
                 funcion = self._modelo.utilerias.convertir_valor_a_decimal

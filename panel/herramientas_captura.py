@@ -124,6 +124,8 @@ class HerramientasCaptura:
             if not instancia.seleccion_aceptada:
                 return
 
+            self._interfaz.master.iconify()
+
             # 2) Popup para captura
             nueva_ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap('Nueva captura')
             captura = LlamarInstanciaCaptura(

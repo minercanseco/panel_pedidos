@@ -175,33 +175,91 @@ class NoteBookCliente:
         # la información y la impresion de los formatos del cliente
 
         self._base_de_datos.command("""
-           DECLARE @business_entity_id INT = ?
-           UPDATE ADT
+           DECLARE @business_entity_id INT = ?;
+
+            DECLARE @CH TABLE
+            (
+                BusinessEntityID       INT PRIMARY KEY,
+                BusinessEntityEMail    NVARCHAR(255) NULL,
+                BusinessEntityPhone    NVARCHAR(50)  NULL,
+                Celular                NVARCHAR(50)  NULL
+            );
+            
+            INSERT INTO @CH (BusinessEntityID, BusinessEntityEMail, BusinessEntityPhone, Celular)
+            SELECT
+                oc.BusinessEntityID,
+            
+                COALESCE(
+                    MAX(CASE WHEN oc.ChannelTypeID = 1 AND oc.IsMainChannel = 1
+                             THEN NULLIF(LTRIM(RTRIM(oc.ChannelValue)), '') END),
+                    MAX(CASE WHEN oc.ChannelTypeID = 1
+                             THEN NULLIF(LTRIM(RTRIM(oc.ChannelValue)), '') END)
+                ) AS BusinessEntityEMail,
+            
+                COALESCE(
+                    MAX(CASE WHEN oc.ChannelTypeID = 2 AND oc.IsMainChannel = 1
+                             THEN NULLIF(LTRIM(RTRIM(oc.ChannelValue)), '') END),
+                    MAX(CASE WHEN oc.ChannelTypeID = 2
+                             THEN NULLIF(LTRIM(RTRIM(oc.ChannelValue)), '') END)
+                ) AS BusinessEntityPhone,
+            
+                COALESCE(
+                    MAX(CASE WHEN oc.ChannelTypeID = 3 AND oc.IsMainChannel = 1
+                             THEN NULLIF(LTRIM(RTRIM(oc.ChannelValue)), '') END),
+                    MAX(CASE WHEN oc.ChannelTypeID = 3
+                             THEN NULLIF(LTRIM(RTRIM(oc.ChannelValue)), '') END)
+                ) AS Celular
+            FROM orgCommunicationChannel oc
+            WHERE oc.BusinessEntityID = @business_entity_id
+              AND oc.DeletedOn IS NULL
+            GROUP BY oc.BusinessEntityID;
+            
+            -- 1) Refrescar orgBusinessEntityMainInfo
+            UPDATE EM
             SET
-                ADT.StateProvince      = EM.AddressFiscalStateProvince, 
+                EM.BusinessEntityEMail = COALESCE(CH.BusinessEntityEMail, EM.BusinessEntityEMail),
+                EM.BusinessEntityPhone = COALESCE(CH.BusinessEntityPhone, EM.BusinessEntityPhone),
+                EM.Celular             = COALESCE(CH.Celular, EM.Celular)
+            FROM orgBusinessEntityMainInfo EM
+            LEFT JOIN @CH CH
+                ON CH.BusinessEntityID = EM.BusinessEntityID
+            WHERE EM.BusinessEntityID = @business_entity_id
+              AND (
+                    ISNULL(EM.BusinessEntityEMail,'')  <> ISNULL(CH.BusinessEntityEMail,'')
+                 OR ISNULL(EM.BusinessEntityPhone,'') <> ISNULL(CH.BusinessEntityPhone,'')
+                 OR ISNULL(EM.Celular,'')             <> ISNULL(CH.Celular,'')
+              );
+            
+            -- 2) Refrescar dirección fiscal + teléfono
+            UPDATE ADT
+            SET
+                ADT.StateProvince      = EM.AddressFiscalStateProvince,
                 ADT.City               = EM.AddressFiscalCity,
                 ADT.Municipality       = EM.AddressFiscalMunicipality,
                 ADT.Street             = EM.AddressFiscalStreet,
                 ADT.Comments           = EM.AddressFiscalComments,
                 ADT.CountryCode        = EM.AddressFiscalCountryCode,
-                ADT.CityCode           = EM.AddressFiscalCityCode, 
-                ADT.MunicipalityCode   = EM.AddressFiscalMunicipalityCode, 
-                ADT.Telefono           = EM.BusinessEntityPhone
+                ADT.CityCode           = EM.AddressFiscalCityCode,
+                ADT.MunicipalityCode   = EM.AddressFiscalMunicipalityCode,
+                ADT.Telefono           = COALESCE(CH.BusinessEntityPhone, CH.Celular, ADT.Telefono)
             FROM orgBusinessEntityMainInfo EM
-            INNER JOIN orgAddressDetail ADT ON EM.AddressFiscalDetailID = ADT.AddressDetailID
-            WHERE
-                ADT.AddressDetailID = (SELECT AddressFiscalDetailID from orgBusinessEntityMainInfo WHERE BusinessEntityID = @business_entity_id)
-                AND (
-                    ISNULL(ADT.StateProvince, '')       <> ISNULL(EM.AddressFiscalStateProvince, '') OR
-                    ISNULL(ADT.City, '')                <> ISNULL(EM.AddressFiscalCity, '') OR
-                    ISNULL(ADT.Municipality, '')        <> ISNULL(EM.AddressFiscalMunicipality, '') OR
-                    ISNULL(ADT.Street, '')              <> ISNULL(EM.AddressFiscalStreet, '') OR
-                    ISNULL(ADT.Comments, '')            <> ISNULL(EM.AddressFiscalComments, '') OR
-                    ISNULL(ADT.CountryCode, '')         <> ISNULL(EM.AddressFiscalCountryCode, '') OR
-                    ISNULL(ADT.CityCode, '')            <> ISNULL(EM.AddressFiscalCityCode, '') OR
-                    ISNULL(ADT.MunicipalityCode, '')    <> ISNULL(EM.AddressFiscalMunicipalityCode, '') OR
-                    ISNULL(ADT.Telefono, '')            <> ISNULL(EM.BusinessEntityPhone, '')
-                );
+            INNER JOIN orgAddressDetail ADT
+                ON EM.AddressFiscalDetailID = ADT.AddressDetailID
+            LEFT JOIN @CH CH
+                ON CH.BusinessEntityID = EM.BusinessEntityID
+            WHERE EM.BusinessEntityID = @business_entity_id
+              AND ADT.AddressDetailID = EM.AddressFiscalDetailID
+              AND (
+                    ISNULL(ADT.StateProvince, '')    <> ISNULL(EM.AddressFiscalStateProvince, '') OR
+                    ISNULL(ADT.City, '')             <> ISNULL(EM.AddressFiscalCity, '') OR
+                    ISNULL(ADT.Municipality, '')     <> ISNULL(EM.AddressFiscalMunicipality, '') OR
+                    ISNULL(ADT.Street, '')           <> ISNULL(EM.AddressFiscalStreet, '') OR
+                    ISNULL(ADT.Comments, '')         <> ISNULL(EM.AddressFiscalComments, '') OR
+                    ISNULL(ADT.CountryCode, '')      <> ISNULL(EM.AddressFiscalCountryCode, '') OR
+                    ISNULL(ADT.CityCode, '')         <> ISNULL(EM.AddressFiscalCityCode, '') OR
+                    ISNULL(ADT.MunicipalityCode, '') <> ISNULL(EM.AddressFiscalMunicipalityCode, '') OR
+                    ISNULL(ADT.Telefono, '')         <> ISNULL(COALESCE(CH.BusinessEntityPhone, CH.Celular, ''), '')
+              );
         """, (business_entity_id,))
 
     def _buscar_direcciones_adicionales(self):

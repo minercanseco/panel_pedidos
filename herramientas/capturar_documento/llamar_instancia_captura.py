@@ -864,7 +864,8 @@ class LlamarInstanciaCaptura:
             self._master.protocol("WM_DELETE_WINDOW", _on_close)
 
         finally:
-            pass
+            if locked_by_me:
+                self._desmarcar_en_uso()
 
     # ----------------------------------------------------------------------
     # Helpers relacionados con bloqueo del documento para prevenir colisiones

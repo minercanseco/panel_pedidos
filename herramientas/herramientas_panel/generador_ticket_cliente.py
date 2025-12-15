@@ -2,6 +2,8 @@ import os
 import subprocess
 import sys
 import urllib.parse
+from decimal import Decimal
+
 from cayal.util import Utilerias
 
 
@@ -240,37 +242,59 @@ class GeneradorTicketCliente:
         # Crear el cuerpo del ticket
         total_general = 0  # Variable para acumular el total general
         cuerpo = ""
+
         for producto in self.productos:
 
-            precio = producto.get('precio', 0.00)
-            piezas = int(producto['CayalPiece'])
-            total_producto = 0
+            precio = Decimal(str(producto.get('precio', 0)))
+            piezas = int(producto.get('CayalPiece', 0) or 0)
+            total_producto = Decimal('0')
 
-            if piezas != 0:
+            if piezas > 0:
+                equivalencia_especial = self._utilerias.equivalencias_productos_especiales(
+                    producto['ProductID']
+                )
 
-                equivalencia_especial = self._utilerias.equivalencias_productos_especiales(producto['ProductID'])
                 if equivalencia_especial:
+                    # Productos con equivalencia especial (ej. kg por pieza)
                     unidad = equivalencia_especial[0].upper()
-                    cantidad = self._utilerias.redondear_valor_cantidad_a_decimal(producto['cantidad'])
-                    cantidad_especial = self._utilerias.redondear_valor_cantidad_a_decimal(equivalencia_especial[1])
-                    total_producto = cantidad_especial * precio if cantidad == cantidad_especial else cantidad * precio
-                    cantidad = piezas
-                else:
 
-                    precio_pieza = precio * producto['Equivalencia']
-                    cantidad = producto['CayalPiece']
+                    cantidad = self._utilerias.redondear_valor_cantidad_a_decimal(
+                        producto['cantidad']
+                    )
+                    cantidad_especial = self._utilerias.redondear_valor_cantidad_a_decimal(
+                        equivalencia_especial[1]
+                    )
+
+                    if cantidad == cantidad_especial:
+                        total_producto = cantidad_especial * precio
+                    else:
+                        total_producto = cantidad * precio
+
+                    cantidad = piezas  # solo visual / informativo
+
+                else:
+                    # Piezas normales
+                    equivalencia = Decimal(str(producto.get('Equivalencia', 1)))
+                    precio_pieza = precio * equivalencia
+
+                    cantidad = Decimal(piezas)  # 🔑 convertir a Decimal
                     unidad = 'PZS'
                     total_producto = cantidad * precio_pieza
+
             else:
-                cantidad = producto['cantidad']
+                # Venta por unidad / kilo directo
+                cantidad = self._utilerias.redondear_valor_cantidad_a_decimal(
+                    producto['cantidad']
+                )
                 unidad = 'PZS' if producto['ClaveUnidad'] == 'H87' else producto['ClaveUnidad']
-                cantidad = f"{cantidad}:.2f" if producto['ClaveUnidad'] != 'H87' else cantidad
-                total_producto = cantidad * precio  # Calcular el total por producto
+                total_producto = cantidad * precio
 
             descripcion = producto['ProductName']
-            total_general += total_producto  # Acumular el total general
 
-            observacion = producto.get("Comments", "").replace('\n', '').replace('\r', '').strip()
+            total_general += total_producto  # Decimal + Decimal ✔
+
+            observacion = producto.get("Comments", "")
+            observacion = observacion.replace('\n', '').replace('\r', '')
             observacion = observacion.replace('ESPECIFICACIÓN:', '').strip()
 
             # Fila del producto

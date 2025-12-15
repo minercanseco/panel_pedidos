@@ -192,7 +192,7 @@ class HerramientasGenerales:
 
                 producto = {
                     'clave': partida['ProductKey'],
-                    'cantidad': f"{partida['Quantity']}:.2f",
+                    'cantidad': f"{partida['Quantity']:.2f}",
                     'descripcion': partida['ProductName'],
                     'unidad': abreviatura_unidad,
                     'observacion': partida['Comments']

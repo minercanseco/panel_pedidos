@@ -791,27 +791,26 @@ class LlamarInstanciaCaptura:
 
         locked_by_me = False
         bloquear = False
-        cleanup_done = {"v": False}  # cierre idempotente sin variables de instancia
+        cleanup_done = {"v": False}  # idempotente
 
         def _cleanup_lock():
             if cleanup_done["v"]:
                 return
             cleanup_done["v"] = True
             try:
-                # no dependas de locked_by_me, usa tu helper idempotente
                 self._desmarcar_en_uso()
             except Exception as e:
                 print("Error desmarcando en uso:", e)
 
         def _on_close():
-            # 1) sincroniza comentario si aplica
+            # 1) sincroniza comentario
             try:
                 if getattr(self, "_controlador_captura", None):
                     self._controlador_captura._actualizar_comentario_pedido()
             except Exception as e:
                 print("Error sincronizando comentario:", e)
 
-            # 2) confirmar cierre si no está bloqueado
+            # 2) confirmar cierre
             if not bloquear:
                 respuesta = messagebox.askyesno(
                     parent=self._master,
@@ -821,78 +820,71 @@ class LlamarInstanciaCaptura:
                 if not respuesta:
                     return
 
-            # 3) guardar y destruir
+            # 3) guardar y cerrar
             try:
                 self._procesar_documento_pedido()
             finally:
-                # importante: liberar ANTES de destruir (por si destroy no corre destroy handler en algún edge)
                 _cleanup_lock()
                 try:
                     self._master.destroy()
                 except Exception:
                     pass
 
-        try:
-            status, motivo, locked_user_id = self._base_de_datos.obtener_status_bloqueo_pedido(
+        # --------------------------------------------------
+        # FLUJO PRINCIPAL
+        # --------------------------------------------------
+        status, motivo, locked_user_id = self._base_de_datos.obtener_status_bloqueo_pedido(
+            order_document_id=self._documento.document_id,
+            user_id=self._user_id
+        )
+
+        bloquear = (status != 'Desbloqueado')
+
+        if not bloquear:
+            locked_by_me = self._base_de_datos.intentar_marcar_en_uso_pedido_atomico(
                 order_document_id=self._documento.document_id,
                 user_id=self._user_id
             )
 
-            bloquear = (status != 'Desbloqueado')
+            if locked_by_me:
+                self._locked_doc_id = int(self._documento.document_id or 0)
+                self._locked_is_pedido = True
+                self._locked_active = True
+            else:
+                bloquear = True
 
-            if not bloquear:
-                locked_by_me = self._base_de_datos.intentar_marcar_en_uso_pedido_atomico(
-                    order_document_id=self._documento.document_id,
-                    user_id=self._user_id
-                )
-                if locked_by_me:
-                    # SOLO flags, NO UPDATE adicional (ideal)
-                    self._locked_doc_id = int(self._documento.document_id or 0)
-                    self._locked_is_pedido = True
-                    self._locked_active = True
-                else:
-                    bloquear = True
-
-            if not self._ofertas:
-                self._buscar_ofertas()
-                ct_id = getattr(self._cliente, "customer_type_id", None)
-                if ct_id is not None and self._ofertas_por_lista:
-                    self._ofertas = self._ofertas_por_lista.get(ct_id, {})
-                else:
-                    self._ofertas = {}
-
-            self._interfaz_captura = InterfazCaptura(self._master, self._parametros_contpaqi.id_modulo)
-            self._modelo_captura = ModeloCaptura(
-                self._base_de_datos,
-                self._utilerias,
-                self._cliente,
-                self._parametros_contpaqi,
-                self._documento,
-                self._ofertas,
-                bloquear=bloquear
+        if not self._ofertas:
+            self._buscar_ofertas()
+            ct_id = getattr(self._cliente, "customer_type_id", None)
+            self._ofertas = (
+                self._ofertas_por_lista.get(ct_id, {})
+                if ct_id is not None and self._ofertas_por_lista
+                else {}
             )
-            self._controlador_captura = ControladorCaptura(self._interfaz_captura, self._modelo_captura)
 
-            # protocol del X
-            self._master.protocol("WM_DELETE_WINDOW", _on_close)
+        self._interfaz_captura = InterfazCaptura(self._master, self._parametros_contpaqi.id_modulo)
+        self._modelo_captura = ModeloCaptura(
+            self._base_de_datos,
+            self._utilerias,
+            self._cliente,
+            self._parametros_contpaqi,
+            self._documento,
+            self._ofertas,
+            bloquear=bloquear
+        )
+        self._controlador_captura = ControladorCaptura(
+            self._interfaz_captura,
+            self._modelo_captura
+        )
 
-            # respaldo: si la ventana se destruye por cualquier motivo, libera el lock
-            # (ojo: <Destroy> dispara por TODOS los widgets; filtramos solo cuando se destruye la ventana)
-            self._master.bind("<Destroy>", lambda e: _cleanup_lock() if e.widget is self._master else None)
+        # cierre normal
+        self._master.protocol("WM_DELETE_WINDOW", _on_close)
 
-            # ---- FIX CRÍTICO ----
-            # Si por algún flujo se marcó en BD sin setear flags (documento nuevo marcado dentro de _procesar_documento_pedido),
-            # garantiza que el helper pueda desmarcar.
-            if getattr(self, "_locked_active", False) is False:
-                doc_id = int(getattr(self._documento, "document_id", 0) or 0)
-                if doc_id > 0:
-                    self._locked_doc_id = doc_id
-                    self._locked_is_pedido = True
-                    self._locked_active = True
-
-        finally:
-            # usa el idempotente; evita depender de locked_by_me y cubre salidas raras
-            _cleanup_lock()
+        # respaldo duro: si Tk destruye por cualquier causa
+        self._master.bind(
+            "<Destroy>",
+            lambda e: _cleanup_lock() if e.widget is self._master else None
+        )
 
     # ----------------------------------------------------------------------
     # Helpers relacionados con bloqueo del documento para prevenir colisiones

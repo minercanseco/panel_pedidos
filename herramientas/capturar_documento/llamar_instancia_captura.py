@@ -810,12 +810,14 @@ class LlamarInstanciaCaptura:
                     print("Error desmarcando en uso:", e)
 
         def _on_close():
+            # 1) sincroniza comentario si aplica
             try:
                 if getattr(self, "_controlador_captura", None):
                     self._controlador_captura._actualizar_comentario_pedido()
             except Exception as e:
                 print("Error sincronizando comentario:", e)
 
+            # 2) confirmar cierre si no está bloqueado
             if not bloquear:
                 respuesta = messagebox.askyesno(
                     parent=self._master,
@@ -825,6 +827,7 @@ class LlamarInstanciaCaptura:
                 if not respuesta:
                     return
 
+            # 3) guardar y destruir
             try:
                 self._procesar_documento_pedido()
             finally:
@@ -835,17 +838,16 @@ class LlamarInstanciaCaptura:
                     pass
 
         # ---------------------------------------------------------------------
-        # 1) Consultar status de bloqueo
+        # 1) Consultar status de bloqueo (reglas de negocio)
         # ---------------------------------------------------------------------
         status, motivo, locked_user_id = self._base_de_datos.obtener_status_bloqueo_pedido(
             order_document_id=self._documento.document_id,
             user_id=self._user_id
         )
-
         bloquear = (status != "Desbloqueado")
 
         # ---------------------------------------------------------------------
-        # 2) Si está permitido, intentar marcar y REVALIDAR (evita carrera)
+        # 2) Si está permitido, marcar en BD y validar que realmente quedó marcado por ti
         # ---------------------------------------------------------------------
         if not bloquear:
             try:
@@ -853,6 +855,7 @@ class LlamarInstanciaCaptura:
             except Exception:
                 hostname = None
 
+            # Intentar marcar (tu UPDATE con WHERE)
             self._base_de_datos.marcar_documento_en_uso(
                 document_id=self._documento.document_id,
                 user_id=self._user_id,
@@ -860,22 +863,25 @@ class LlamarInstanciaCaptura:
                 hostname=hostname
             )
 
-            status2, motivo2, locked_user_id2 = self._base_de_datos.obtener_status_bloqueo_pedido(
-                order_document_id=self._documento.document_id,
-                user_id=self._user_id
-            )
+            # Validación directa del UserID ya guardado (esto evita “parece que no marcó”)
+            try:
+                r = self._base_de_datos.fetchall(
+                    "SELECT ISNULL(UserID,0) AS UserID FROM docDocumentOrderCayal WHERE OrderDocumentID = ?",
+                    (self._documento.document_id,)
+                )
+                current_user_id = int((r[0]["UserID"] if r else 0) or 0)
+            except Exception as e:
+                print("Error validando lock:", e)
+                current_user_id = 0
 
-            # si después de marcar ya quedó bloqueado por otro → bloquear UI
-            if status2 != "Desbloqueado" or (locked_user_id2 not in (0, self._user_id)):
-                bloquear = True
-                locked_by_me = False
-                # opcional:
-                # self._interfaz.ventanas.mostrar_mensaje(motivo2)
+            if current_user_id == self._user_id:
+                locked_by_me = True
             else:
-                locked_by_me = (locked_user_id2 == self._user_id)
+                locked_by_me = False
+                bloquear = True  # alguien más lo tomó o no cumplió el WHERE
 
         # ---------------------------------------------------------------------
-        # 3) OFERTAS (tu bloque original, intacto)
+        # 3) OFERTAS (NO SE BORRA)
         # ---------------------------------------------------------------------
         if not self._ofertas:
             self._buscar_ofertas()
@@ -886,7 +892,7 @@ class LlamarInstanciaCaptura:
                 self._ofertas = {}
 
         # ---------------------------------------------------------------------
-        # 4) Construir UI con flag bloquear
+        # 4) Crear MVC y enganchar cierres
         # ---------------------------------------------------------------------
         self._interfaz_captura = InterfazCaptura(self._master, self._parametros_contpaqi.id_modulo)
         self._modelo_captura = ModeloCaptura(
@@ -901,6 +907,8 @@ class LlamarInstanciaCaptura:
         self._controlador_captura = ControladorCaptura(self._interfaz_captura, self._modelo_captura)
 
         self._master.protocol("WM_DELETE_WINDOW", _on_close)
+
+        # respaldo: si se destruye por cualquier razón, liberar lock
         self._master.bind("<Destroy>", lambda e: _cleanup_lock() if e.widget is self._master else None)
 
     # ----------------------------------------------------------------------

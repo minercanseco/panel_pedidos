@@ -183,10 +183,10 @@ class HerramientasGenerales:
 
                     cantidad_original = partida['Quantity']
                     if unidad_especial:
-                        partida[
-                            'Quantity'] = f"({cayal_piece} {unidad_especial}) {cantidad_original} {abreviatura_unidad}"
+                        partida['Quantity'] = f"({cayal_piece:.2f} {unidad_especial}) {cantidad_original:.2f} {abreviatura_unidad}"
+
                     else:
-                        partida['Quantity'] = f"({cayal_piece} {unidad_especial}) {cantidad_original}"
+                        partida['Quantity'] = f"({cayal_piece:.2f} {unidad_especial}) {cantidad_original:.2f}"
 
                     abreviatura_unidad = ''
 

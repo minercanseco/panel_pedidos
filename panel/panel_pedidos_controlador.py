@@ -584,7 +584,7 @@ class ControladorPanelPedidos:
 
         frame = self._interfaz.ventanas.componentes_forma['frame_captura']
         colors = self._interfaz.master.style.colors
-        numero_filas = 19 if ancho <= 1367 else 20
+        numero_filas = 20 #if ancho <= 1367 else 20
         componente = Tableview(
             master=frame,
             coldata=self._interfaz.crear_columnas_tabla(),

@@ -181,7 +181,7 @@ class HerramientasGenerales:
                     if not unidad_especial:
                         unidad_especial = 'Pz' if cayal_piece == 1 else 'Pzs'
 
-                    cantidad_original = partida['Quantity']
+                    cantidad_original = f"{partida['Quantity']}:.2f"
                     if unidad_especial:
                         partida['Quantity'] = f"({cayal_piece:.2f} {unidad_especial}) {cantidad_original:.2f} {abreviatura_unidad}"
 

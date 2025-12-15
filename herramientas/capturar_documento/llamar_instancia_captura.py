@@ -789,25 +789,19 @@ class LlamarInstanciaCaptura:
             _settear_info_cliente_y_direcciones_pedido(self._documento.business_entity_id)
             _asignar_parametros_a_documento_pedido()
 
-        import socket
-
         locked_by_me = False
         bloquear = False
-        cleanup_done = {"v": False}
+        cleanup_done = {"v": False}  # cierre idempotente sin variables de instancia
 
         def _cleanup_lock():
             if cleanup_done["v"]:
                 return
             cleanup_done["v"] = True
-            if locked_by_me:
-                try:
-                    self._base_de_datos.desmarcar_documento_en_uso(
-                        document_id=self._documento.document_id,
-                        user_id=self._user_id,
-                        pedido=True
-                    )
-                except Exception as e:
-                    print("Error desmarcando en uso:", e)
+            try:
+                # helper idempotente (usa tus flags internos _locked_active/_locked_doc_id)
+                self._desmarcar_en_uso()
+            except Exception as e:
+                print("Error desmarcando en uso:", e)
 
         def _on_close():
             # 1) sincroniza comentario si aplica
@@ -817,7 +811,7 @@ class LlamarInstanciaCaptura:
             except Exception as e:
                 print("Error sincronizando comentario:", e)
 
-            # 2) confirmar cierre si no está bloqueado
+            # 2) confirmar cierre solo si la forma NO está bloqueada
             if not bloquear:
                 respuesta = messagebox.askyesno(
                     parent=self._master,
@@ -837,80 +831,72 @@ class LlamarInstanciaCaptura:
                 except Exception:
                     pass
 
-        # ---------------------------------------------------------------------
-        # 1) Consultar status de bloqueo (reglas de negocio)
-        # ---------------------------------------------------------------------
-        status, motivo, locked_user_id = self._base_de_datos.obtener_status_bloqueo_pedido(
-            order_document_id=self._documento.document_id,
-            user_id=self._user_id
-        )
-        bloquear = (status != "Desbloqueado")
-
-        # ---------------------------------------------------------------------
-        # 2) Si está permitido, marcar en BD y validar que realmente quedó marcado por ti
-        # ---------------------------------------------------------------------
-        if not bloquear:
-            try:
-                hostname = socket.gethostname()
-            except Exception:
-                hostname = None
-
-            # Intentar marcar (tu UPDATE con WHERE)
-            self._base_de_datos.marcar_documento_en_uso(
-                document_id=self._documento.document_id,
-                user_id=self._user_id,
-                pedido=True,
-                hostname=hostname
+        try:
+            status, motivo, locked_user_id = self._base_de_datos.obtener_status_bloqueo_pedido(
+                order_document_id=self._documento.document_id,
+                user_id=self._user_id
             )
 
-            # Validación directa del UserID ya guardado (esto evita “parece que no marcó”)
-            try:
-                r = self._base_de_datos.fetchall(
-                    "SELECT ISNULL(UserID,0) AS UserID FROM docDocumentOrderCayal WHERE OrderDocumentID = ?",
-                    (self._documento.document_id,)
-                )
-                current_user_id = int((r[0]["UserID"] if r else 0) or 0)
-            except Exception as e:
-                print("Error validando lock:", e)
-                current_user_id = 0
+            # Esto SOLO afecta la UI (bloquear inputs), NO la decisión de marcar en uso
+            bloquear = (status != 'Desbloqueado')
 
-            if current_user_id == self._user_id:
-                locked_by_me = True
-            else:
+            # ------------------------------------------------------------
+            # MARCADO EN USO: solo depende de si está "en uso por otro"
+            # ------------------------------------------------------------
+            locked_user_id = int(locked_user_id or 0)
+
+            # Si está en uso por otro usuario → NO marcar
+            if locked_user_id != 0 and locked_user_id != int(self._user_id or 0):
                 locked_by_me = False
-                bloquear = True  # alguien más lo tomó o no cumplió el WHERE
-
-        # ---------------------------------------------------------------------
-        # 3) OFERTAS (NO SE BORRA)
-        # ---------------------------------------------------------------------
-        if not self._ofertas:
-            self._buscar_ofertas()
-            ct_id = getattr(self._cliente, "customer_type_id", None)
-            if ct_id is not None and self._ofertas_por_lista:
-                self._ofertas = self._ofertas_por_lista.get(ct_id, {})
             else:
-                self._ofertas = {}
+                # Intenta marcar (tu UPDATE ya trae la condición para no pisar a otro)
+                self._marcar_en_uso(self._documento.document_id, pedido=True)
 
-        # ---------------------------------------------------------------------
-        # 4) Crear MVC y enganchar cierres
-        # ---------------------------------------------------------------------
-        self._interfaz_captura = InterfazCaptura(self._master, self._parametros_contpaqi.id_modulo)
-        self._modelo_captura = ModeloCaptura(
-            self._base_de_datos,
-            self._utilerias,
-            self._cliente,
-            self._parametros_contpaqi,
-            self._documento,
-            self._ofertas,
-            bloquear=bloquear
-        )
-        self._controlador_captura = ControladorCaptura(self._interfaz_captura, self._modelo_captura)
+                # Verificación real (por si el UPDATE no afectó por carrera/condición)
+                status2, motivo2, locked_user_id2 = self._base_de_datos.obtener_status_bloqueo_pedido(
+                    order_document_id=self._documento.document_id,
+                    user_id=self._user_id
+                )
+                locked_user_id2 = int(locked_user_id2 or 0)
+                locked_by_me = (locked_user_id2 == int(self._user_id or 0))
 
-        self._master.protocol("WM_DELETE_WINDOW", _on_close)
+                # Si NO quedó marcado por mí, no dejes el flag activo
+                if not locked_by_me:
+                    self._desmarcar_en_uso()
 
-        # respaldo: si se destruye por cualquier razón, liberar lock
-        self._master.bind("<Destroy>", lambda e: _cleanup_lock() if e.widget is self._master else None)
+            # ------------------------------------------------------------
+            # OFERTAS (NO SE TOCA)
+            # ------------------------------------------------------------
+            if not self._ofertas:
+                self._buscar_ofertas()
+                ct_id = getattr(self._cliente, "customer_type_id", None)
+                if ct_id is not None and self._ofertas_por_lista:
+                    self._ofertas = self._ofertas_por_lista.get(ct_id, {})
+                else:
+                    self._ofertas = {}
 
+            self._interfaz_captura = InterfazCaptura(self._master, self._parametros_contpaqi.id_modulo)
+            self._modelo_captura = ModeloCaptura(
+                self._base_de_datos,
+                self._utilerias,
+                self._cliente,
+                self._parametros_contpaqi,
+                self._documento,
+                self._ofertas,
+                bloquear=bloquear
+            )
+            self._controlador_captura = ControladorCaptura(self._interfaz_captura, self._modelo_captura)
+
+            # protocol del X
+            self._master.protocol("WM_DELETE_WINDOW", _on_close)
+
+            # respaldo: si la ventana se destruye por cualquier motivo, libera el lock
+            self._master.bind("<Destroy>", lambda e: _cleanup_lock() if e.widget is self._master else None)
+
+        finally:
+            # OJO: aquí NO desmarques, porque si este finally corre al terminar esta función,
+            # estarías liberando el lock mientras la ventana sigue abierta.
+            pass
     # ----------------------------------------------------------------------
     # Helpers relacionados con bloqueo del documento para prevenir colisiones
     # ----------------------------------------------------------------------

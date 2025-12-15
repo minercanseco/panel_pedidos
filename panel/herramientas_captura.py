@@ -121,8 +121,10 @@ class HerramientasCaptura:
             ventana.wait_window()
 
             # Si el usuario cerró sin seleccionar cliente, salimos
-            if not getattr(instancia, "cliente", None):
+            if not instancia.seleccion_aceptada:
                 return
+
+
 
             # 2) Popup para captura
             nueva_ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap('Nueva captura')

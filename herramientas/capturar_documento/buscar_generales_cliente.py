@@ -83,6 +83,7 @@ class BuscarGeneralesCliente:
         # Resultado final que el panel leerá
         self.ofertas = {}              # ← se llenará al aceptar selección
         self._ofertas_por_lista = {}   # ← se llena en _buscar_ofertas()
+        self.seleccion_aceptada = False
 
     def _crear_instancias_de_clases(self):
         """
@@ -1114,6 +1115,7 @@ class BuscarGeneralesCliente:
 
         try:
             self._instancia_llamada = True
+            self.seleccion_aceptada = True
 
             self._asignar_parametros_a_documento()
 

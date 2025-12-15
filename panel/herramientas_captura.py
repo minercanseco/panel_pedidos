@@ -124,8 +124,6 @@ class HerramientasCaptura:
             if not instancia.seleccion_aceptada:
                 return
 
-
-
             # 2) Popup para captura
             nueva_ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap('Nueva captura')
             captura = LlamarInstanciaCaptura(
@@ -147,7 +145,7 @@ class HerramientasCaptura:
             if nuevo_pedido:
                 self._filtro_post_captura()
 
-            self._reanudar_autorefresco()
+            #self._reanudar_autorefresco()
 
     def _editar_pedido(self):
 

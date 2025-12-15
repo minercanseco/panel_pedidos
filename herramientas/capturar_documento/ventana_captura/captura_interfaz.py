@@ -77,7 +77,7 @@ class InterfazCaptura:
 
     def _cargar_componentes_forma(self):
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
-        filas_tabla_producto = 20 if ancho <= 1367 else 30
+        filas_tabla_producto = 15 if ancho <= 1367 else 30
 
         if self.module_id in(21, 1400, 1319): # mayoreo, minisuper, fgr
             filas_tabla_producto = 20
@@ -126,8 +126,8 @@ class InterfazCaptura:
                 'cbx_regimen': ('frame_fiscal', {'row': 0, 'column': 7, 'pady': 5, 'padx': 5},  None, None),
             })
 
-        if ancho <= 1366:
-            del componentes['txt_comentario_documento']
+        #if ancho <= 1366:
+        #    del componentes['txt_comentario_documento']
 
         self.ventanas.crear_componentes(componentes)
 

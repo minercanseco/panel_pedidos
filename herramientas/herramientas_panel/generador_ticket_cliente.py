@@ -275,7 +275,7 @@ class GeneradorTicketCliente:
             # Fila del producto
             cuerpo += f"""
                 <tr>
-                    <td>{cantidad}</td>
+                    <td>{cantidad:.2f}</td>
                     <td>{unidad}</td>
                     <td>{descripcion}</td>
                     <td style="text-align: right;">${precio:.2f}</td>

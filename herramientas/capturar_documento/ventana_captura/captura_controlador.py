@@ -42,6 +42,7 @@ class ControladorCaptura:
         # Acciones de inicialización relacionadas con captura
         # ----------------------------------------------------
         self._buscar_ofertas()
+        self._interfaz.ventanas.configurar_ventana_ttkbootstrap()
         self._interfaz.ventanas.enfocar_componente('tbx_clave')
 
         if self._modelo.module_id == 1687: # modulo de pedidos
@@ -58,7 +59,7 @@ class ControladorCaptura:
             self._cargar_eventos_componentes()
             self._agregar_atajos()
 
-        self._interfaz.ventanas.configurar_ventana_ttkbootstrap()
+
 
     # -------------------------------------------------------------------------
     # Funciones relacionadas a herramientas y eventos de componentes de captura

@@ -264,6 +264,7 @@ class GeneradorTicketCliente:
             else:
                 cantidad = producto['cantidad']
                 unidad = 'PZS' if producto['ClaveUnidad'] == 'H87' else producto['ClaveUnidad']
+                cantidad = f"{cantidad}:.2f" if producto['ClaveUnidad'] != 'H87' else cantidad
                 total_producto = cantidad * precio  # Calcular el total por producto
 
             descripcion = producto['ProductName']
@@ -275,7 +276,7 @@ class GeneradorTicketCliente:
             # Fila del producto
             cuerpo += f"""
                 <tr>
-                    <td>{cantidad:.2f}</td>
+                    <td>{cantidad}</td>
                     <td>{unidad}</td>
                     <td>{descripcion}</td>
                     <td style="text-align: right;">${precio:.2f}</td>

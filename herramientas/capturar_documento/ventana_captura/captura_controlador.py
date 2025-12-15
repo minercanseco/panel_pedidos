@@ -58,6 +58,8 @@ class ControladorCaptura:
             self._cargar_eventos_componentes()
             self._agregar_atajos()
 
+        self._interfaz.ventanas.configurar_ventana_ttkbootstrap()
+
     # -------------------------------------------------------------------------
     # Funciones relacionadas a herramientas y eventos de componentes de captura
     # -------------------------------------------------------------------------

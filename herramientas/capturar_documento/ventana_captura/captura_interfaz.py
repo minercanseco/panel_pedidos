@@ -16,8 +16,6 @@ class InterfazCaptura:
         self._agregar_validaciones()
         self._cargar_captura_manual()
 
-        self.ventanas.situar_ventana_arriba('frame_principal')
-
     def _cargar_frames(self):
         nombre_frame_anuncio = 'Captura manual'
         frames = {

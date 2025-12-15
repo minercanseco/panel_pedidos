@@ -181,12 +181,12 @@ class HerramientasGenerales:
                     if not unidad_especial:
                         unidad_especial = 'Pz' if cayal_piece == 1 else 'Pzs'
 
-                    cantidad_original = f"{partida['Quantity']}:.2f"
+                    cantidad_original = partida['Quantity']
                     if unidad_especial:
-                        partida['Quantity'] = f"({cayal_piece:.2f} {unidad_especial}) {cantidad_original:.2f} {abreviatura_unidad}"
+                        partida['Quantity'] = f"({cayal_piece} {unidad_especial}) {cantidad_original} {abreviatura_unidad}"
 
                     else:
-                        partida['Quantity'] = f"({cayal_piece:.2f} {unidad_especial}) {cantidad_original:.2f}"
+                        partida['Quantity'] = f"({cayal_piece} {unidad_especial}) {cantidad_original}"
 
                     abreviatura_unidad = ''
 
@@ -443,7 +443,7 @@ class HerramientasGenerales:
             self._modelo.afectar_bitacora(order_document_id, self._modelo.user_id, comentario, change_type_id=19)
         finally:
             self._rellenar_tabla()
-            self._interfaz.ventanas.filtrar_table_view('tbv_pedidos', 'F.Pago', 'Transferencia')
+            #self._interfaz.ventanas.filtrar_table_view('tbv_pedidos', 'F.Pago', 'Transferencia')
 
     def _cambiar_usuario(self):
 

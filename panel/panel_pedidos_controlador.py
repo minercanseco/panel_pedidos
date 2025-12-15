@@ -584,6 +584,7 @@ class ControladorPanelPedidos:
 
         frame = self._interfaz.ventanas.componentes_forma['frame_captura']
         colors = self._interfaz.master.style.colors
+        numero_filas = 19 if ancho <= 1367 else 20
         componente = Tableview(
             master=frame,
             coldata=self._interfaz.crear_columnas_tabla(),
@@ -591,9 +592,9 @@ class ControladorPanelPedidos:
             paginated=True,
             searchable=True,
             bootstyle=PRIMARY,
-            pagesize=19 if ancho <= 1367 else 24,
+            pagesize=numero_filas,
             stripecolor=None,  # (colors.light, None),
-            height=19 if ancho <= 1367 else 24,
+            height=numero_filas,
             autofit=False,
             callbacks=[self._colorear_filas_panel_horarios],
             callbacks_search=[self._buscar_pedidos_cliente_sin_fecha]
@@ -605,7 +606,8 @@ class ControladorPanelPedidos:
 
         operador_panel = self._modelo.user_name
         version_paquete = self._modelo.parametros.version_paquete
-        texto = f'Paquete: {version_paquete} OPERADOR: {operador_panel}'
+
+        texto = f'Max:{numero_filas} Paquete: {version_paquete} OPERADOR: {operador_panel}'
         self._interfaz.ventanas.actualizar_etiqueta_externa_tabla_view('tbv_pedidos', texto)
 
     def _buscar_nuevos_registros(self, fecha):

@@ -127,7 +127,7 @@ class HerramientasCaptura:
             self._interfaz.master.iconify()
 
             # 2) Popup para captura
-            nueva_ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap('Nueva captura')
+            nueva_ventana = self._ventanas.crear_popup_ttkbootstrap(titulo='Nueva captura',nombre_icono='icono_logo.ico')
             captura = LlamarInstanciaCaptura(
                 nueva_ventana,
                 self._parametros,

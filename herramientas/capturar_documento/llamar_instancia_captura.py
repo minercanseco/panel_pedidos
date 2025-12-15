@@ -791,16 +791,27 @@ class LlamarInstanciaCaptura:
 
         locked_by_me = False
         bloquear = False
+        cleanup_done = {"v": False}  # cierre idempotente sin variables de instancia
+
+        def _cleanup_lock():
+            if cleanup_done["v"]:
+                return
+            cleanup_done["v"] = True
+            try:
+                # no dependas de locked_by_me, usa tu helper idempotente
+                self._desmarcar_en_uso()
+            except Exception as e:
+                print("Error desmarcando en uso:", e)
 
         def _on_close():
+            # 1) sincroniza comentario si aplica
             try:
                 if getattr(self, "_controlador_captura", None):
-                    # usa el método REAL que tengas en el controlador
                     self._controlador_captura._actualizar_comentario_pedido()
             except Exception as e:
-                # opcional: log
                 print("Error sincronizando comentario:", e)
 
+            # 2) confirmar cierre si no está bloqueado
             if not bloquear:
                 respuesta = messagebox.askyesno(
                     parent=self._master,
@@ -808,18 +819,19 @@ class LlamarInstanciaCaptura:
                     message="¿Desea cerrar y guardar el documento?"
                 )
                 if not respuesta:
-                    return  # ❌ No cerrar
+                    return
 
-            # Cierre real (con limpieza garantizada)
+            # 3) guardar y destruir
             try:
                 self._procesar_documento_pedido()
             finally:
-                if locked_by_me:
-                    self._desmarcar_en_uso()
+                # importante: liberar ANTES de destruir (por si destroy no corre destroy handler en algún edge)
+                _cleanup_lock()
                 try:
                     self._master.destroy()
                 except Exception:
                     pass
+
 
         try:
             status, motivo, locked_user_id = self._base_de_datos.obtener_status_bloqueo_pedido(
@@ -861,7 +873,11 @@ class LlamarInstanciaCaptura:
                 bloquear=bloquear
             )
             self._controlador_captura = ControladorCaptura(self._interfaz_captura, self._modelo_captura)
+            # protocol del X
             self._master.protocol("WM_DELETE_WINDOW", _on_close)
+
+            # respaldo: si la ventana se destruye por cualquier motivo, libera el lock
+            self._master.bind("<Destroy>", lambda e: _cleanup_lock())
 
         finally:
             if locked_by_me:
@@ -1173,8 +1189,7 @@ class LlamarInstanciaCaptura:
             except Exception:
                 pass
         finally:
-            self._desmarcar_en_uso()
-
+            pass
     def _actualizar_comentarios_pedido(self):
         self._base_de_datos.command('UPDATE docDocumentOrderCayal SET CommentsOrder = ? WHERE OrderDocumentID =?',
                                     (self._documento.comments, self._documento.document_id))

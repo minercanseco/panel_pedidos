@@ -832,7 +832,6 @@ class LlamarInstanciaCaptura:
                 except Exception:
                     pass
 
-
         try:
             status, motivo, locked_user_id = self._base_de_datos.obtener_status_bloqueo_pedido(
                 order_document_id=self._documento.document_id,
@@ -873,15 +872,27 @@ class LlamarInstanciaCaptura:
                 bloquear=bloquear
             )
             self._controlador_captura = ControladorCaptura(self._interfaz_captura, self._modelo_captura)
+
             # protocol del X
             self._master.protocol("WM_DELETE_WINDOW", _on_close)
 
             # respaldo: si la ventana se destruye por cualquier motivo, libera el lock
-            self._master.bind("<Destroy>", lambda e: _cleanup_lock())
+            # (ojo: <Destroy> dispara por TODOS los widgets; filtramos solo cuando se destruye la ventana)
+            self._master.bind("<Destroy>", lambda e: _cleanup_lock() if e.widget is self._master else None)
+
+            # ---- FIX CRÍTICO ----
+            # Si por algún flujo se marcó en BD sin setear flags (documento nuevo marcado dentro de _procesar_documento_pedido),
+            # garantiza que el helper pueda desmarcar.
+            if getattr(self, "_locked_active", False) is False:
+                doc_id = int(getattr(self._documento, "document_id", 0) or 0)
+                if doc_id > 0:
+                    self._locked_doc_id = doc_id
+                    self._locked_is_pedido = True
+                    self._locked_active = True
 
         finally:
-            if locked_by_me:
-                self._desmarcar_en_uso()
+            # usa el idempotente; evita depender de locked_by_me y cubre salidas raras
+            _cleanup_lock()
 
     # ----------------------------------------------------------------------
     # Helpers relacionados con bloqueo del documento para prevenir colisiones
@@ -1190,6 +1201,7 @@ class LlamarInstanciaCaptura:
                 pass
         finally:
             pass
+
     def _actualizar_comentarios_pedido(self):
         self._base_de_datos.command('UPDATE docDocumentOrderCayal SET CommentsOrder = ? WHERE OrderDocumentID =?',
                                     (self._documento.comments, self._documento.document_id))

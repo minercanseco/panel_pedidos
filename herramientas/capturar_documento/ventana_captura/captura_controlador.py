@@ -795,9 +795,22 @@ class ControladorCaptura:
 
                 partida['Comments'] = comentarios
 
-                if chk_pieza == 1 and partida['CayalPiece'] % 1 != 0:
-                    self._interfaz.ventanas.mostrar_mensaje('La cantidad de piezas deben ser valores no fraccionarios.')
-                    return
+                if chk_pieza == 1:
+                    # Normaliza por errores de FLOAT (SQL) / conversión: 4.999999999 -> 5
+                    try:
+                        cp = self._modelo.utilerias.convertir_valor_a_decimal(partida.get('CayalPiece', 0))
+                        # tolerancia pequeña
+                        tol = self._modelo.utilerias.convertir_valor_a_decimal('0.000001')
+                        cp_red = self._modelo.utilerias.convertir_valor_a_decimal(int(round(float(cp))))
+                        if abs(cp - cp_red) <= tol:
+                            partida['CayalPiece'] = int(cp_red)  # fuerza entero real
+                    except Exception:
+                        pass
+
+                    if self._modelo.utilerias.convertir_valor_a_decimal(partida.get('CayalPiece', 0)) % 1 != 0:
+                        self._interfaz.ventanas.mostrar_mensaje(
+                            'La cantidad de piezas deben ser valores no fraccionarios.')
+                        return
 
                 self._agregar_partida_tabla(partida, document_item_id=0, tipo_captura=1, unidad_cayal=chk_pieza,
                                             monto_cayal=chk_monto)

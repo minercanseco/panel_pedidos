@@ -892,10 +892,12 @@ class ControladorCaptura:
         def calcular_cantidad_real(tipo_calculo, equivalencia, cantidad):
 
             if tipo_calculo == 'Equivalencia':
-                return cantidad * equivalencia
+                cantidad_decimal = self._modelo.utilerias.convertir_valor_a_decimal(cantidad)
+                equivalencia_decimal = self._modelo.utilerias.convertir_valor_a_decimal(equivalencia)
+                return cantidad_decimal * equivalencia_decimal
 
             if tipo_calculo in ('Unidad', 'Monto'):
-                return cantidad
+                return  self._modelo.utilerias.convertir_valor_a_decimal(cantidad)
 
         def _actualizar_clave_producto_manual():
             seleccion = self._interfaz.ventanas.obtener_seleccion_filas_treeview('tvw_productos_manual')
@@ -990,6 +992,18 @@ class ControladorCaptura:
 
             equivalencia = valores_controles['equivalencia']
             equivalencia_decimal = self._modelo.utilerias.convertir_valor_a_decimal(equivalencia)
+
+            # -------------------------------------------------------
+            # AJUSTE MÍNIMO: equivalencias pequeñas (gramos) consistentes
+            # Si tu regla de negocio es: 0.05 = 5 gramos, entonces 0.05 debe ser 0.005 kilos.
+            # -------------------------------------------------------
+            if tipo_calculo == 'Equivalencia':
+                if equivalencia_decimal > 0 and equivalencia_decimal < 1:
+                    # Caso típico "0.05" que en tu operación significa 5g (debe ser 0.005 kg)
+                    if equivalencia_decimal >= self._modelo.utilerias.convertir_valor_a_decimal(
+                            '0.01') and equivalencia_decimal < self._modelo.utilerias.convertir_valor_a_decimal('0.1'):
+                        equivalencia_decimal = equivalencia_decimal / self._modelo.utilerias.convertir_valor_a_decimal(
+                            '10')
 
             cantidad_real_decimal = calcular_cantidad_real(tipo_calculo, equivalencia_decimal, cantidad_decimal)
 
@@ -1287,8 +1301,17 @@ class ControladorCaptura:
                 equivalencia = 0 if not equivalencia else equivalencia
                 equivalencia_decimal = self._modelo.utilerias.convertir_valor_a_decimal(equivalencia)
 
+                # -------------------------------------------------------
+                # MISMO AJUSTE (sin helpers): mantener consistencia con captura manual
+                # -------------------------------------------------------
+                if equivalencia_decimal > 0 and equivalencia_decimal < 1:
+                    if equivalencia_decimal >= self._modelo.utilerias.convertir_valor_a_decimal(
+                            '0.01') and equivalencia_decimal < self._modelo.utilerias.convertir_valor_a_decimal('0.1'):
+                        equivalencia_decimal = equivalencia_decimal / self._modelo.utilerias.convertir_valor_a_decimal(
+                            '10')
+
                 if equivalencia_decimal != 0 and unidad_cayal == 1:
-                    cantidad_piezas = int((cantidad/equivalencia_decimal))
+                    cantidad_piezas = int((cantidad / equivalencia_decimal))
 
                 funcion = self._modelo.utilerias.convertir_valor_a_decimal
 

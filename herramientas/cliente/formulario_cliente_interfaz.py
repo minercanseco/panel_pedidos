@@ -138,7 +138,7 @@ class FormularioClienteInterfaz:
             'cbx_metodopago': 30,
             'cbx_usocfdi': 30,
 
-            'txt_correo': 35,
+            'txt_correo': 30,
         }
 
         for componente, valor in componentes.items():
@@ -146,3 +146,5 @@ class FormularioClienteInterfaz:
                 continue
 
             self.ventanas.ajustar_ancho_componente(componente, valor)
+
+        self.ventanas.ajustar_alto_componente('txt_correo', 50)

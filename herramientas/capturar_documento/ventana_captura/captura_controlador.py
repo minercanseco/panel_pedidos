@@ -1308,16 +1308,14 @@ class ControladorCaptura:
                 equivalencia = 0 if not equivalencia else equivalencia
                 equivalencia_decimal = self._modelo.utilerias.convertir_valor_a_decimal(equivalencia)
 
-                # -------------------------------------------------------
-                # MISMO AJUSTE (sin helpers): mantener consistencia con captura manual
-                # -------------------------------------------------------
-                if equivalencia_decimal > 0 and equivalencia_decimal < 1:
-                    if equivalencia_decimal >= self._modelo.utilerias.convertir_valor_a_decimal(
-                            '0.01') and equivalencia_decimal < self._modelo.utilerias.convertir_valor_a_decimal('0.1'):
-                        equivalencia_decimal = equivalencia_decimal / self._modelo.utilerias.convertir_valor_a_decimal(
-                            '10')
 
-                if equivalencia_decimal != 0 and unidad_cayal == 1:
+
+                if equivalencia_decimal != 0 and unidad_cayal == 1
+                    print("DEBUG piezas:",
+                          "ProductID=", partida.get('ProductID'),
+                          "cantidad(kg)=", cantidad,
+                          "equivalencia(kg/pza)=", equivalencia_decimal,
+                          "piezas_calc=", (cantidad / equivalencia_decimal) if equivalencia_decimal else None)
                     piezas_calc = cantidad / equivalencia_decimal
 
                     # si está "casi entero", redondea (tolerancia pequeña)

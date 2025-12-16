@@ -1758,7 +1758,7 @@ class ControladorCaptura:
         if not self._es_documento_bloqueado():
             self._agregar_atajos()
 
-        self._modelo._agregar_servicio_a_domicilio()
+        self._modelo.agregar_servicio_a_domicilio()
 
         self._rellenar_desde_base_de_datos()
 
@@ -2309,7 +2309,7 @@ class ControladorCaptura:
                 if self._module_id == 1687:
                     # Si el total es menor a 200 y no se ha agregado aún, lo agrega
                     if self.documento.total < 200 and not self.servicio_a_domicilio_agregado:
-                        self._modelo._agregar_servicio_a_domicilio()
+                        self._modelo.agregar_servicio_a_domicilio()
                         self.servicio_a_domicilio_agregado = True
 
                     # Si ya se agregó pero ahora el total (sin el servicio) es >= 200, lo remueve
@@ -6139,7 +6139,7 @@ class EditarPartida:
                     self._modelo.remover_servicio_a_domicilio()
             else:
                 if total_documento < 200:
-                    self._modelo._agregar_servicio_a_domicilio()
+                    self._modelo.agregar_servicio_a_domicilio()
 
         self._master.destroy()
 

@@ -52,7 +52,7 @@ class ControladorCaptura:
             self._interfaz.ventanas.enfocar_componente('tbx_buscar_manual')
 
         if self._modelo.documento.document_id == 0:  # nueva captura
-            self._agregar_servicio_a_domicilio()
+            self.agregar_servicio_a_domicilio()
 
         if self._cargar_shortcuts: # esto activa la edicion en pedidos capturados previamente candidatos a edicion
             self._configurar_pedido()
@@ -1457,7 +1457,7 @@ class ControladorCaptura:
 
                 self._modelo.documento.finish_document = 2 # bandera de cierre final del documento
 
-    def _agregar_servicio_a_domicilio(self):
+    def agregar_servicio_a_domicilio(self):
 
         def insertar_partida_servicio_a_domicilio():
             delivery_cost_iva = self._modelo.documento.delivery_cost

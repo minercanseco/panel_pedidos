@@ -847,14 +847,20 @@ class ControladorCaptura:
 
         def _insertar_equivalencia(equivalencia):
 
-            equivalencia = str(equivalencia)
+            # Mantener precisión al máximo: 0.005 NO debe convertirse a 0.01/0.00
             equivalencia_decimal = self._modelo.utilerias.convertir_valor_a_decimal(equivalencia)
 
+            # Inserta como string con 6 decimales y recorta ceros (sin helpers nuevos)
+            equivalencia_txt = f"{equivalencia_decimal:.6f}".rstrip('0').rstrip('.')
+            if equivalencia_txt == '':
+                equivalencia_txt = '0'
+
             self._interfaz.ventanas.desbloquear_componente('tbx_equivalencia_manual')
-            self._interfaz.ventanas.insertar_input_componente('tbx_equivalencia_manual', equivalencia_decimal)
+            self._interfaz.ventanas.insertar_input_componente('tbx_equivalencia_manual', equivalencia_txt)
             self._interfaz.ventanas.bloquear_componente('tbx_equivalencia_manual')
 
-            return equivalencia_decimal
+            # Relee como decimal desde el texto final (misma función)
+            return self._modelo.utilerias.convertir_valor_a_decimal(equivalencia_txt)
 
         clave_unidad = info_producto.get('ClaveUnidad', 'H87')
 
@@ -1005,18 +1011,6 @@ class ControladorCaptura:
 
             equivalencia = valores_controles['equivalencia']
             equivalencia_decimal = self._modelo.utilerias.convertir_valor_a_decimal(equivalencia)
-
-            # -------------------------------------------------------
-            # AJUSTE MÍNIMO: equivalencias pequeñas (gramos) consistentes
-            # Si tu regla de negocio es: 0.05 = 5 gramos, entonces 0.05 debe ser 0.005 kilos.
-            # -------------------------------------------------------
-            if tipo_calculo == 'Equivalencia':
-                if equivalencia_decimal > 0 and equivalencia_decimal < 1:
-                    # Caso típico "0.05" que en tu operación significa 5g (debe ser 0.005 kg)
-                    if equivalencia_decimal >= self._modelo.utilerias.convertir_valor_a_decimal(
-                            '0.01') and equivalencia_decimal < self._modelo.utilerias.convertir_valor_a_decimal('0.1'):
-                        equivalencia_decimal = equivalencia_decimal / self._modelo.utilerias.convertir_valor_a_decimal(
-                            '10')
 
             cantidad_real_decimal = calcular_cantidad_real(tipo_calculo, equivalencia_decimal, cantidad_decimal)
 
@@ -1324,7 +1318,17 @@ class ControladorCaptura:
                             '10')
 
                 if equivalencia_decimal != 0 and unidad_cayal == 1:
-                    cantidad_piezas = int((cantidad / equivalencia_decimal))
+                    piezas_calc = cantidad / equivalencia_decimal
+
+                    # si está "casi entero", redondea (tolerancia pequeña)
+                    tol = self._modelo.utilerias.convertir_valor_a_decimal('0.000001')
+                    piezas_red = self._modelo.utilerias.convertir_valor_a_decimal(int(round(float(piezas_calc))))
+
+                    if abs(piezas_calc - piezas_red) <= tol:
+                        cantidad_piezas = int(piezas_red)
+                    else:
+                        # deja el valor (puede ser fraccionario; tu regla decidirá)
+                        cantidad_piezas = piezas_calc
 
                 funcion = self._modelo.utilerias.convertir_valor_a_decimal
 

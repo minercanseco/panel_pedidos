@@ -147,4 +147,4 @@ class FormularioClienteInterfaz:
 
             self.ventanas.ajustar_ancho_componente(componente, valor)
 
-        self.ventanas.ajustar_alto_componente('txt_correo', 10)
+        self.ventanas.ajustar_alto_componente('txt_correo', 15)

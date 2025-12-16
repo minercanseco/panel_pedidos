@@ -1310,7 +1310,7 @@ class ControladorCaptura:
 
 
 
-                if equivalencia_decimal != 0 and unidad_cayal == 1
+                if equivalencia_decimal != 0 and unidad_cayal == 1:
                     print("DEBUG piezas:",
                           "ProductID=", partida.get('ProductID'),
                           "cantidad(kg)=", cantidad,

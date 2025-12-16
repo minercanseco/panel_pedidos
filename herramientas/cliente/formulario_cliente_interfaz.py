@@ -138,7 +138,7 @@ class FormularioClienteInterfaz:
             'cbx_metodopago': 30,
             'cbx_usocfdi': 30,
 
-            'txt_correo': 25,
+            'txt_correo': 35,
         }
 
         for componente, valor in componentes.items():

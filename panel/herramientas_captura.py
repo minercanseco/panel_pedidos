@@ -112,7 +112,7 @@ class HerramientasCaptura:
 
         try:
             # 1) Popup para seleccionar cliente
-            ventana = self._ventanas.crear_nuevo_popup_ttkbootstrap('Seleccionar cliente')
+            ventana = self._ventanas.crear_popup_ttkbootstrap('Seleccionar cliente')
             self._parametros.id_principal = 0
 
             instancia = BuscarGeneralesCliente(ventana, self._parametros)
@@ -127,7 +127,7 @@ class HerramientasCaptura:
             self._interfaz.master.iconify()
 
             # 2) Popup para captura
-            nueva_ventana = self._ventanas.crear_popup_ttkbootstrap(titulo='Nueva captura',nombre_icono='icono_logo.ico')
+            nueva_ventana = self._ventanas.crear_popup_ttkbootstrap_sin_bloqueo(titulo='Nueva captura',nombre_icono='icono_logo.ico')
             captura = LlamarInstanciaCaptura(
                 nueva_ventana,
                 self._parametros,

@@ -525,15 +525,63 @@ class EditarCaracteristicasPedido:
 
     def _procesar_seleccion_usuario(self):
 
-        tipo_pedido = self._ventanas.obtener_input_componente('tbx_tipo')
+        # OJO: aquí era tbx_tipo; tu UI usa cbx_tipo
+        tipo_pedido = self._ventanas.obtener_input_componente('cbx_tipo')
+
+        # ==========
+        # CASO ANEXO / CAMBIO
+        # ==========
         if tipo_pedido in ('Anexo', 'Cambio'):
+
+            # Partimos de lo que ya copiamos del pedido relacionado
+            valores_pedido = dict(self.parametros_pedido or {})
+
+            # 1) Dirección: permitir cambiarla
+            direccion_sel = self._ventanas.obtener_input_componente('cbx_direccion')
+            if direccion_sel in ('Seleccione', '', None):
+                self._ventanas.mostrar_mensaje('Debe seleccionar una dirección válida.')
+                return
+
+            address_detail_id = [
+                reg['AddressDetailID']
+                for reg in self._consulta_direcciones
+                if direccion_sel == reg['AddressName']
+            ][0]
+
+            valores_pedido['AddressDetailID'] = address_detail_id
+
+            # 2) Comentario (en anexos/cambios es obligatorio; ya lo validas antes)
+            comentario = self._ventanas.obtener_input_componente('txt_comentario')
+            valores_pedido['CommentsOrder'] = comentario.upper().strip() if comentario else ''
+
+            # 3) Costo envío depende de la dirección
+            valores_pedido['OrderDeliveryCost'] = self._base_de_datos.buscar_costo_servicio_domicilio(address_detail_id)
+
+            # 4) Sucursal (si aplica en ese cliente)
+            if not self._consulta_sucursales:
+                # mismo comportamiento actual
+                valores_pedido['DepotID'] = self.info_pedido['DepotID']
+            else:
+                depot_name = self._ventanas.obtener_input_componente('cbx_sucursal')
+                if depot_name not in ('Seleccione', '', None, 'No aplica'):
+                    depot_id = [
+                        tipo['DepotID'] for tipo in self._consulta_sucursales
+                        if depot_name == tipo['DepotName']
+                    ][0]
+                    valores_pedido['DepotID'] = depot_id
+                # si está en "Seleccione", NO lo toco para no romper lo copiado
+
+            # Guardar en memoria para que _guardar_parametros_pedido haga el update normal
+            self.parametros_pedido = valores_pedido
             return
 
+        # ==========
+        # CASO PEDIDO NORMAL (tu lógica actual intacta)
+        # ==========
         componentes = {
             'cbx_direccion': (self._consulta_direcciones, 'AddressDetailID', 'AddressName', 'AddressDetailID'),
             'cbx_tipo': (self._consulta_tipos_pedidos, 'ID', 'Value', 'OrderTypeID'),
             'cbx_documento': (self._consulta_tipo_documentos, 'ID', 'Value', 'DocumentTypeID'),
-
             'cbx_origen': (self._consulta_origen_pedidos, 'ID', 'Value', 'OrderTypeOriginID'),
             'cbx_horario': (self._consulta_horarios, 'ScheduleID', 'Value', 'ScheduleID'),
             'cbx_entrega': (
@@ -541,10 +589,10 @@ class EditarCaracteristicasPedido:
             'cbx_prioridad': (self._consulta_prioridad_pedidos, 'ID', 'Value', 'PriorityID'),
             'cbx_forma_pago': (self._consulta_formas_pago, 'PaymentTermID', 'PaymentTermName', 'WayToPayID')
         }
+
         valores_pedido = {}
         for nombre, (consulta, campo_consulta, seleccion_consulta, campo_tabla) in componentes.items():
             seleccion = self._ventanas.obtener_input_componente(nombre)
-
             valor = [reg[campo_consulta] for reg in consulta if seleccion == reg[seleccion_consulta]][0]
             valores_pedido[campo_tabla] = valor
 
@@ -556,29 +604,25 @@ class EditarCaracteristicasPedido:
         related_order_id = self.parametros_pedido.get('RelatedOrderID', 0)
         valores_pedido['RelatedOrderID'] = related_order_id
         valores_pedido['ZoneID'] = self.info_pedido['ZoneID']
-        valores_pedido['OrderDeliveryCost'] = self._base_de_datos.buscar_costo_servicio_domicilio(valores_pedido['AddressDetailID'])
+        valores_pedido['OrderDeliveryCost'] = self._base_de_datos.buscar_costo_servicio_domicilio(
+            valores_pedido['AddressDetailID'])
 
         way_to_pay_id = valores_pedido.get('WayToPayID', 1)
         payment_confirmed_id = 1
         delivery_type_id = valores_pedido.get('OrderDeliveryTypeID', 1)
 
-        # si la forma de pago es transferencia el id es transferencia no confirmada
         if way_to_pay_id == 6:
             payment_confirmed_id = 2
-
-        # si el tipo de entrga es viene y la fomra de pago NO es transferencia entonces la forma de pago es en tienda
         if delivery_type_id == 2 and way_to_pay_id != 6:
             payment_confirmed_id = 4
 
         valores_pedido['PaymentConfirmedID'] = payment_confirmed_id
 
-        #caso especial sucursales
         if not self._consulta_sucursales:
             valores_pedido['DepotID'] = self.info_pedido['DepotID']
         else:
             depot_name = self._ventanas.obtener_input_componente('cbx_sucursal')
-            depot_id = [tipo['DepotID'] for tipo in self._consulta_sucursales
-                          if depot_name == tipo['DepotName']][0]
+            depot_id = [tipo['DepotID'] for tipo in self._consulta_sucursales if depot_name == tipo['DepotName']][0]
             valores_pedido['DepotID'] = depot_id
 
         self.parametros_pedido = valores_pedido

@@ -1,9 +1,9 @@
 import tkinter as tk
 from cayal.ventanas import Ventanas
-from herramientas.cliente.formulario_cliente_interfaz import FormularioClienteInterfaz
-from herramientas.cliente.formulario_cliente_modelo import FormularioClienteModelo
-from herramientas.cliente.formulario_cliente_controlador import FormularioClienteControlador
-from herramientas.cliente.direccion_adicional import DireccionAdicional
+from formulario_cliente_interfaz import FormularioClienteInterfaz
+from formulario_cliente_modelo import FormularioClienteModelo
+from formulario_cliente_controlador import FormularioClienteControlador
+from direccion_adicional import DireccionAdicional
 
 class NoteBookCliente:
     def __init__(self, master, base_de_datos, parametros, utilerias, cliente):
@@ -176,7 +176,7 @@ class NoteBookCliente:
 
         self._base_de_datos.command("""
            DECLARE @business_entity_id INT = ?;
-
+        
             DECLARE @CH TABLE
             (
                 BusinessEntityID       INT PRIMARY KEY,

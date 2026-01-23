@@ -3,8 +3,9 @@ import webbrowser
 
 import pyperclip
 
-from herramientas.cliente.direccion_adicional import DireccionAdicional
-from herramientas.cliente.nombre_direccion import NombreDireccion
+from buscar_info_cif import BuscarInfoCif
+from direccion_adicional import DireccionAdicional
+from nombre_direccion import NombreDireccion
 
 
 class FormularioClienteControlador:
@@ -51,11 +52,9 @@ class FormularioClienteControlador:
             self._interfaz.ventanas.bloquear_componente('cbx_ruta')
 
         self._interfaz.ventanas.bloquear_componente('tbx_cliente')
-
-        if self._modelo.cliente.business_entity_id != 0 and self._modelo.buscar_tipo_ruta_id(self._modelo.cliente.zone_name) == 2:
+        if self._modelo.cliente.business_entity_id != 0 and self._modelo.buscar_tipo_ruta_id(
+                self._modelo.cliente.zone_name) == 2:
             self._interfaz.ventanas.bloquear_componente('cbx_ruta')
-
-
 
     def _visualizar_cif(self):
         cif = self._interfaz.ventanas.obtener_input_componente('tbx_cif')
@@ -74,9 +73,25 @@ class FormularioClienteControlador:
 
     def _actualizar_por_cif(self):
         cif = self._interfaz.ventanas.obtener_input_componente('tbx_cif')
+        rfc = self._interfaz.ventanas.obtener_input_componente('tbx_rfc')
 
         if not self._modelo.utilerias.es_cif(cif):
             return
+
+        if not self._modelo.utilerias.es_rfc(rfc):
+            return
+
+        inst = BuscarInfoCif(self._modelo.parametros, rfc, cif, self._modelo.cliente)
+        ok = inst.run()  # síncrono, sin ventana
+
+        if not ok:
+            # aquí decides cómo avisar (label, messagebox, log, etc.)
+            print("[CIF] error:", inst.error)
+
+            return
+
+        self._rellenar_componentes()
+
 
     def _rellenar_componentes(self):
         MAPEO_COMPONENTES_CLIENTE = {

@@ -1,8 +1,8 @@
 import tkinter as tk
 from cayal.cliente import Cliente
 from cayal.ventanas import Ventanas
-from herramientas.cliente.buscar_info_cif import BuscarInfoCif
-from herramientas.cliente.notebook_cliente import NoteBookCliente
+from buscar_info_cif import BuscarInfoCif
+from notebook_cliente import NoteBookCliente
 
 
 class ClienteNuevo:
@@ -106,17 +106,21 @@ class ClienteNuevo:
             rfc = self._ventanas.obtener_input_componente('tbx_rfc').strip()
             cif = self._ventanas.obtener_input_componente('tbx_cif').strip()
 
-            ventana = self._ventanas.crear_popup_ttkbootstrap('Scrapper CIF',ocultar_master=True)
-            instancia = BuscarInfoCif(ventana, self._parametros, rfc, cif, self._cliente)
-            ventana.wait_window()
+            inst = BuscarInfoCif(self._parametros, rfc, cif, self._cliente)
+            ok = inst.run()  # síncrono, sin ventana
+
+            if not ok:
+                # aquí decides cómo avisar (label, messagebox, log, etc.)
+                print("[CIF] error:", inst.error)
+                return
 
             self._settear_valores_cliente_factura(
                 self._cliente.official_name,
                 self._cliente.official_number,
                 self._cliente.cif
-
             )
             self._llamar_formulario_cliente()
+            return
 
         else:
             if not self._validaciones_captura_manual():

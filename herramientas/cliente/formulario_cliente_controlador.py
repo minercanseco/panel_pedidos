@@ -3,9 +3,9 @@ import webbrowser
 
 import pyperclip
 
-from buscar_info_cif import BuscarInfoCif
-from direccion_adicional import DireccionAdicional
-from nombre_direccion import NombreDireccion
+from herramientas.cliente.buscar_info_cif import BuscarInfoCif
+from herramientas.cliente.direccion_adicional import DireccionAdicional
+from herramientas.cliente.nombre_direccion import NombreDireccion
 
 
 class FormularioClienteControlador:

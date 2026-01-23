@@ -11,7 +11,7 @@ class ModeloPanelPedidos:
     def __init__(self, interfaz, parametros):
         self.parametros = parametros
         self.interfaz = interfaz
-        self.base_de_datos = ComandosBaseDatos(self.parametros.cadena_conexion)
+        self.base_de_datos = ComandosBaseDatos()
         self.utilerias = Utilerias()
         self.consulta_pedidos = []
 

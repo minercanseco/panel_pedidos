@@ -403,13 +403,21 @@ class EditarCaracteristicasPedido:
         if not consulta_order_document_id:
             return
 
-        componentes_actualizables_anexo = ['cbx_tipo', 'cbx_origen', 'cbx_horario', 'cbx_entrega',
-                                           'cbx_prioridad', 'cbx_forma_pago']
+        componentes_actualizables_anexo = [
+            'cbx_tipo', 'cbx_origen', 'cbx_horario', 'cbx_entrega',
+            'cbx_prioridad', 'cbx_forma_pago'
+        ]
 
-        componentes_actualizables_cambio_hoy = ['cbx_tipo', 'cbx_origen', 'cbx_horario', 'cbx_entrega',
-                                                'cbx_forma_pago']
+        componentes_actualizables_cambio_hoy = [
+            'cbx_tipo', 'cbx_origen', 'cbx_horario', 'cbx_entrega',
+            'cbx_forma_pago'
+        ]
 
-        componentes_actualizables_cambio_otros_dias = ['cbx_tipo', 'cbx_prioridad', 'cbx_forma_pago']
+        componentes_actualizables_cambio_otros_dias = [
+            'cbx_tipo', 'cbx_prioridad', 'cbx_forma_pago',
+            # (opcional) si quieres copiar también el horario del pedido relacionado:
+            # 'cbx_horario',
+        ]
 
         # asginar valores de la consulta de la bd a los componentes de la forma
         componentes = {
@@ -467,13 +475,27 @@ class EditarCaracteristicasPedido:
 
     def _bloquear_componentes_segun_tipo_pedido(self, tipo_pedido):
         # bloquear los componentes
-        componentes_a_bloquear_anexo = ['den_fecha', 'cbx_tipo', 'cbx_horario', 'cbx_origen', 'cbx_entrega',
-                                        'cbx_forma_pago', 'cbx_prioridad']
+        componentes_a_bloquear_anexo = [
+            'den_fecha', 'cbx_tipo', 'cbx_horario', 'cbx_origen', 'cbx_entrega',
+            'cbx_forma_pago', 'cbx_prioridad'
+        ]
 
-        componentes_a_bloquear_cambio = ['den_fecha', 'cbx_tipo',
-                                         'cbx_prioridad']
+        # CAMBIO: permitir que el "Cambio" pueda ajustar fecha y horario.
+        # Por lo tanto: NO bloquear 'den_fecha' ni 'cbx_horario'.
+        componentes_a_bloquear_cambio = [
+            'cbx_tipo',
+            'cbx_prioridad',
+            # Si NO quieres que cambie otras cosas en cambios, agrega aquí:
+            # 'cbx_origen',
+            # 'cbx_entrega',
+            # 'cbx_forma_pago',
+        ]
 
-        componentes_a_bloquear = componentes_a_bloquear_anexo if tipo_pedido == 'Anexo' else componentes_a_bloquear_cambio
+        componentes_a_bloquear = (
+            componentes_a_bloquear_anexo
+            if tipo_pedido == 'Anexo'
+            else componentes_a_bloquear_cambio
+        )
 
         for nombre in componentes_a_bloquear:
             self._ventanas.bloquear_componente(nombre)
@@ -637,31 +659,37 @@ class EditarCaracteristicasPedido:
             if tipo_pedido in ('Anexo', 'Cambio') and order_related_id == 0:
                 self._ventanas.mostrar_mensaje('Debe relacionar el anexo o el cambio con un pedido.')
                 self.parametros_pedido = {}
-            else:
+                return
 
-                # aqui actualiza el horario de un pedido de viene a hora de entrega a 1 hora despues de procesado
-                order_delivery_type_id = self.parametros_pedido['OrderDeliveryTypeID']
-                if order_delivery_type_id == 2:
-                    self._actualizar_horario_de_viene()
+            # aqui actualiza el horario de un pedido de viene a hora de entrega a 1 hora despues de procesado
+            order_delivery_type_id = self.parametros_pedido.get('OrderDeliveryTypeID')
+            if order_delivery_type_id == 2:
+                self._actualizar_horario_de_viene()
 
-                self._actualizar_docdocument_order_cayal(self._order_document_id, self.parametros_pedido)
+            # Actualiza docDocumentOrderCayal con los valores calculados
+            self._actualizar_docdocument_order_cayal(self._order_document_id, self.parametros_pedido)
 
-                # para el caso de anexo o cambio hay que marcarlos como urgentes en el horario mas cercano a realizar
-                # en caso que la orden sea un anexo o un pedido hay que actualizar dicho documento
-                if tipo_pedido in ('Anexo', 'Cambio'):
-                    consulta_completa = self._base_de_datos.buscar_horarios_pedido_cayal()
+            # para el caso de anexo o cambio hay que marcarlos como urgentes...
+            if tipo_pedido in ('Anexo', 'Cambio'):
+                consulta_completa = self._base_de_datos.buscar_horarios_pedido_cayal()
 
-                    horario_disponible = [hora for hora in consulta_completa if
-                                          datetime.strptime(hora['Value'], "%H:%M").time() > self._hora_actual()]
+                # ========
+                # ANEXO: se conserva tu comportamiento original (urgente/horario cercano)
+                # ========
+                if tipo_pedido == 'Anexo':
+                    horario_disponible = [
+                        hora for hora in consulta_completa
+                        if datetime.strptime(hora['Value'], "%H:%M").time() > self._hora_actual()
+                    ]
                     schedule_id = 1
-
-                    order_type_id = 2 if tipo_pedido == 'Anexo' else 3
+                    order_type_id = 2
 
                     if horario_disponible:
                         schedule_id = horario_disponible[0]['ScheduleID']
-                        schedule_id_order_related = [hora['ScheduleID'] for hora in consulta_completa
-                                                     if self._ventanas.obtener_input_componente('cbx_horario') == hora['Value']
-                                                    ][0]
+                        schedule_id_order_related = [
+                            hora['ScheduleID'] for hora in consulta_completa
+                            if self._ventanas.obtener_input_componente('cbx_horario') == hora['Value']
+                        ][0]
                         schedule_id = schedule_id_order_related if schedule_id <= schedule_id_order_related else schedule_id
 
                     self._base_de_datos.command(
@@ -680,7 +708,41 @@ class EditarCaracteristicasPedido:
                         (self._order_document_id, schedule_id, order_type_id)
                     )
 
-                self._master.destroy()
+                # ========
+                # CAMBIO: RESPETAR EL HORARIO QUE EL USUARIO ELIGIÓ
+                # ========
+                else:  # tipo_pedido == 'Cambio'
+                    # schedule_id debe venir del cbx_horario (ya filtrado por tu lógica)
+                    horario_sel = self._ventanas.obtener_input_componente('cbx_horario')
+
+                    schedule_id = None
+                    try:
+                        schedule_id = [
+                            h['ScheduleID'] for h in consulta_completa
+                            if h['Value'] == horario_sel
+                        ][0]
+                    except Exception:
+                        # fallback: si por algún motivo no está, deja el actual
+                        schedule_id = self.parametros_pedido.get('ScheduleID', self.info_pedido.get('ScheduleID'))
+
+                    order_type_id = 3  # Cambio
+
+                    self._base_de_datos.command(
+                        """
+                        DECLARE @OrderID INT = ?
+                        UPDATE docDocumentOrderCayal
+                        SET NumberAdditionalOrders = (SELECT Count(OrderDocumentID)
+                                                     FROM docDocumentOrderCayal
+                                                     WHERE RelatedOrderID = @OrderID AND CancelledOn IS NULL),
+                            StatusID = 2,
+                            ScheduleID = ?,
+                            OrderTypeID = ?
+                        WHERE OrderDocumentID = @OrderID
+                        """,
+                        (self._order_document_id, schedule_id, order_type_id)
+                    )
+
+            self._master.destroy()
 
     def _actualizar_docdocument_order_cayal(self, order_document_id, valores_actualizacion):
         """

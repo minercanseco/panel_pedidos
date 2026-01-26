@@ -235,19 +235,42 @@ class EditarCaracteristicasPedido:
         # 5) Arma los valores a mostrar
         valores = [reg['Value'] for reg in self._consulta_horarios]
 
-        # 6) Si el pedido ya tenía horario y es HOY, anteponer el horario original para permitir conservarlo
-        if self.info_pedido.get('DeliveryPromise') and fecha_entrega == self._hoy:
-            schedule_order_id = self.info_pedido['ScheduleID']
-            try:
-                horario_pedido = next(r for r in consulta_completa if int(r['ScheduleID']) == int(schedule_order_id))
-                if horario_pedido['Value'] not in valores:
-                    valores.insert(0, horario_pedido['Value'])
-                    self._consulta_horarios.insert(0, horario_pedido)
-            except StopIteration:
-                pass
+        # 6) Regla: permitir "conservar horario original" SOLO si aplica.
+        #    Para CAMBIO entregado HOY, NO se permite reinsertar un horario no válido.
+        tipo_pedido = self._ventanas.obtener_input_componente('cbx_tipo')
+
+        permitir_conservar_horario_original = (
+                fecha_entrega == self._hoy
+                and tipo_pedido not in ('Cambio',)  # <- aquí la corrección clave
+        )
+
+        if permitir_conservar_horario_original and self.info_pedido.get('DeliveryPromise'):
+            schedule_order_id = self.info_pedido.get('ScheduleID')
+            if schedule_order_id:
+                try:
+                    horario_pedido = next(
+                        r for r in consulta_completa
+                        if int(r.get('ScheduleID')) == int(schedule_order_id)
+                    )
+                    if horario_pedido['Value'] not in valores:
+                        valores.insert(0, horario_pedido['Value'])
+                        self._consulta_horarios.insert(0, horario_pedido)
+                except StopIteration:
+                    pass
+                except Exception:
+                    pass
 
         # 7) Rellenar el combo SIEMPRE desde la lista recién construida
         self._ventanas.rellenar_cbx('cbx_horario', valores)
+
+        # 8) (Opcional pero recomendado) si el valor actualmente seleccionado ya no existe,
+        #    seleccionar el primer horario disponible.
+        try:
+            actual = self._ventanas.obtener_input_componente('cbx_horario')
+            if valores and actual not in valores:
+                self._ventanas.insertar_input_componente('cbx_horario', valores[0])
+        except Exception:
+            pass
 
     def _settear_valores_pedido_desde_base_de_datos(self):
 

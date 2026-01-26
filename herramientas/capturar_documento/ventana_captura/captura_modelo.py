@@ -91,8 +91,13 @@ class ModeloCaptura:
         if no_en_venta:
             return self.base_de_datos.buscar_info_productos(productos_ids,
                                                             self.cliente.customer_type_id,
-                                                            no_en_venta=True)
-        return self.base_de_datos.buscar_info_productos(productos_ids, self.cliente.customer_type_id)
+                                                            no_en_venta=True,
+                                                            business_entity_id=self.cliente.business_entity_id
+                                                            )
+        return self.base_de_datos.buscar_info_productos(productos_ids,
+                                                        self.cliente.customer_type_id,
+                                                        business_entity_id=self.cliente.business_entity_id
+                                                        )
 
     def agregar_impuestos_productos(self, consulta_productos):
         consulta_procesada = []

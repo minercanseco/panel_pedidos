@@ -277,7 +277,8 @@ class ModeloPanelPedidos:
                              UPDATE docDocumentOrderCayal SET SentToPrepare = GETDATE(),
                                                             SentToPrepareBy = ?,
                                                             StatusID = 2,
-                                                            UserID = NULL
+                                                            UserID = NULL,
+                                                            PriorityID = (Case WHEN OrderTypeID = 1 THEN 1 ELSE 2 END)
                             WHERE OrderDocumentID = ?
                         """, (self.user_id, order_document_id,))
 

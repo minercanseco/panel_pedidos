@@ -354,12 +354,21 @@ class EditarPartida:
             self._ventanas.cambiar_estado_checkbutton('chk_pieza', 'seleccionado')
 
     def _actualizar_partida(self):
+        """
+        BUG: cuando el usuario trabaja con equivalencia (piezas -> peso), `valores_partida['cantidad']`
+        regresa el PESO (cantidad real), pero aquí se estaba intentando obtener las PIEZAS desde
+        `crear_partida(...cantidad_nueva_peso...)`. En algunos escenarios eso deja `CayalPiece` en 0
+        o inconsistente.
+
+        FIX: si aplica equivalencia y el usuario tiene seleccionado "Pieza", las piezas a guardar se
+        toman del input del usuario (tbx_cantidad), no del resultado de crear_partida con el peso.
+        """
         valores_partida = self._procesar_producto()
 
         if valores_partida:
             document_item_id = int(self._valores_fila['DocumentItemID'])
             cantidad_original = self._utilerias.redondear_valor_cantidad_a_decimal(self._valores_fila['Cantidad'])
-            cantidad_nueva = valores_partida['cantidad']
+            cantidad_nueva = valores_partida['cantidad']  # <-- cantidad real (peso) cuando aplica equivalencia
 
             comentario = f'EDITADO POR {self._user_name}: Cant {cantidad_original} --> Cant {cantidad_nueva}'
 
@@ -371,18 +380,33 @@ class EditarPartida:
             for partida in self._documento.items:
                 uuid_partida_items = str(partida['uuid'])
                 if uuid_partida == uuid_partida_items:
-                    # Crear partida actualizada solo si encontramos la partida correspondiente
+                    # Crear partida actualizada con la CANTIDAD REAL (peso)
                     partida_actualizada = self._utilerias.crear_partida(self._info_producto, cantidad_nueva)
 
+                    # =========================
+                    # FIX DE PIEZAS (CayalPiece)
+                    # =========================
                     valor_pieza = self._ventanas.obtener_input_componente('chk_pieza')
-                    piezas = partida_actualizada['CayalPiece'] if valor_pieza == 1 else 0
+                    clave_unidad = self._info_producto.get('ClaveUnidad', 'H87')
+
+                    equivalencia = self._ventanas.obtener_input_componente('tbx_equivalencia')
+                    equivalencia_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
+
+                    if clave_unidad == 'KGM' and valor_pieza == 1 and equivalencia_decimal != 0:
+                        # En modo equivalencia, tbx_cantidad representa PIEZAS capturadas por el usuario
+                        piezas_input = self._obtener_cantidad_partida()
+                        piezas = int(self._utilerias.redondear_numero_a_entero(piezas_input))
+                    else:
+                        # En cualquier otro modo (kilo normal / monto / unidades no KGM), no persistimos piezas
+                        piezas = 0
+                    # =========================
 
                     # Actualizar valores de la partida en el documento
                     partida['ItemProductionStatusModified'] = 2 if document_item_id > 0 else 0
                     partida['cantidad'] = cantidad_nueva
                     partida['subtotal'] = partida_actualizada['subtotal']
                     partida['total'] = partida_actualizada['total']
-                    partida['CayalPiece'] = piezas #self._ventanas.obtener_input_componente('chk_pieza')
+                    partida['CayalPiece'] = piezas
                     partida['monto_cayal'] = self._ventanas.obtener_input_componente('chk_monto')
                     partida['Comments'] = self._ventanas.obtener_input_componente('txt_comentario')
                     partida['CreatedBy'] = self._user_id
@@ -394,21 +418,22 @@ class EditarPartida:
                         valores_fila = self._ventanas_interfaz.procesar_fila_treeview('tvw_productos', fila)
                         uuid_tabla = str(valores_fila['UUID'])
                         if uuid_tabla == uuid_partida:
-
                             valores_fila['Cantidad'] = cantidad_nueva
                             valores_fila['Importe'] = "{:.2f}".format(partida_actualizada['subtotal'])
                             valores_fila['Impuestos'] = "{:.2f}".format(partida_actualizada['impuestos'])
                             valores_fila['Total'] = "{:.2f}".format(partida_actualizada['total'])
                             valores_fila['Piezas'] = piezas
-                            self._ventanas_interfaz.actualizar_fila_treeview_diccionario('tvw_productos', fila,
-                                                                                         valores_fila)
+
+                            self._ventanas_interfaz.actualizar_fila_treeview_diccionario(
+                                'tvw_productos', fila, valores_fila
+                            )
 
             # Redondear valores de cantidad
             cantidad_original = self._utilerias.convertir_valor_a_decimal(cantidad_original)
             cantidad_nueva = self._utilerias.convertir_valor_a_decimal(cantidad_nueva)
 
             if cantidad_original == cantidad_nueva:
-                comentario  = self._ventanas.obtener_input_componente('txt_comentario')
+                comentario = self._ventanas.obtener_input_componente('txt_comentario')
                 comentario = f'EDITADO POR {self._user_name}: {comentario}'
             else:
                 # actualiza los totales de la nota para posteriores modificaciones

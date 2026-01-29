@@ -170,6 +170,7 @@ class EditarPedido:
         valores_fila = self._ventanas.obtener_valores_fila_treeview('tvw_detalle', fila)
 
         ventana = self._ventanas.crear_popup_ttkbootstrap(titulo='Editar partida')
+
         instancia = EditarPartidaProduccion(ventana, self._base_de_datos, self._utilerias, valores_fila)
         ventana.wait_window()
 
@@ -178,7 +179,6 @@ class EditarPedido:
             self._ventanas.actualizar_fila_treeview('tvw_detalle',
                                                                          fila,
                                                                          instancia.valores_partida)
-
 
         total = self._calcular_total_pedido()
         self._actualizar_totales_documento(total)

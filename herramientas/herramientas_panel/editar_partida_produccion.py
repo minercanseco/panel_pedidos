@@ -67,7 +67,7 @@ class EditarPartidaProduccion:
 
         self.valores_partida[0] = cantidad_decimal
         self.valores_partida[4] = total
-
+        print(self.valores_partida)
         self.actualizar_cantidad = True
 
         self._master.destroy()

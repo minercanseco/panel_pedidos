@@ -725,7 +725,8 @@ class EditarCaracteristicasPedido:
                             StatusID = 2,
                             ScheduleID = ?, 
                             PriorityID = 2,
-                            OrderTypeID = ?
+                            OrderTypeID = ?,
+                            UserID = NULL
                         WHERE OrderDocumentID = @OrderID
                         """,
                         (self._order_document_id, schedule_id, order_type_id)
@@ -759,7 +760,9 @@ class EditarCaracteristicasPedido:
                                                      WHERE RelatedOrderID = @OrderID AND CancelledOn IS NULL),
                             StatusID = 2,
                             ScheduleID = ?,
-                            OrderTypeID = ?
+                            OrderTypeID = ?,
+                            PriorityID = 2,
+                            UserID = NULL
                         WHERE OrderDocumentID = @OrderID
                         """,
                         (self._order_document_id, schedule_id, order_type_id)

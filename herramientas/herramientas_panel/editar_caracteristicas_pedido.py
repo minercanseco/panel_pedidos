@@ -422,7 +422,6 @@ class EditarCaracteristicasPedido:
     def _asignar_valores_pedido_a_anexo_o_cambio(self, order_document_id, tipo_pedido):
 
         consulta_order_document_id = self._buscar_parametros_pedido_asignable(order_document_id)
-
         if not consulta_order_document_id:
             return
 
@@ -442,49 +441,50 @@ class EditarCaracteristicasPedido:
             # 'cbx_horario',
         ]
 
-        # asginar valores de la consulta de la bd a los componentes de la forma
         componentes = {
             'cbx_tipo': (self._consulta_tipos_pedidos, 'ID', 'Value', 'OrderTypeID'),
             'cbx_origen': (self._consulta_origen_pedidos, 'ID', 'Value', 'OrderTypeOriginID'),
             'cbx_horario': (self._consulta_horarios, 'ScheduleID', 'Value', 'ScheduleID'),
-            'cbx_entrega': (self._consulta_tipos_entrega,
-                            'DeliveryTypesID',
-                            'DeliveryTypesName',
-                            'OrderDeliveryTypeID'),
+            'cbx_entrega': (
+                self._consulta_tipos_entrega,
+                'DeliveryTypesID',
+                'DeliveryTypesName',
+                'OrderDeliveryTypeID'
+            ),
             'cbx_prioridad': (self._consulta_prioridad_pedidos, 'ID', 'Value', 'PriorityID'),
             'cbx_forma_pago': (self._consulta_formas_pago, 'PaymentTermID', 'PaymentTermName', 'WayToPayID')
         }
 
+        # FIX: normalizar CreatedOn a date para comparar contra self._hoy (date)
+        fecha_pedido_original = self._normalizar_a_date(consulta_order_document_id.get('CreatedOn'))
+
         for nombre, (consulta, campo_consulta, seleccion_consulta, campo_tabla) in componentes.items():
             valor_bd = self.parametros_pedido[campo_tabla]
 
-            #  setear el tipo de pedido segun el caso
-            if tipo_pedido == 'Anexo':
-                if nombre == 'cbx_tipo':
-                    valor_bd = 2
-
-            if tipo_pedido == 'Cambio':
-                if nombre == 'cbx_tipo':
-                    valor_bd = 3
+            # setear el tipo de pedido segun el caso
+            if tipo_pedido == 'Anexo' and nombre == 'cbx_tipo':
+                valor_bd = 2
+            if tipo_pedido == 'Cambio' and nombre == 'cbx_tipo':
+                valor_bd = 3
 
             valor_componente = [reg[seleccion_consulta] for reg in consulta if reg[campo_consulta] == valor_bd]
 
-            if valor_componente:
+            if not valor_componente:
+                continue
 
-                if tipo_pedido == 'Anexo':
-                    if nombre in componentes_actualizables_anexo:
+            if tipo_pedido == 'Anexo':
+                if nombre in componentes_actualizables_anexo:
+                    self._ventanas.insertar_input_componente(nombre, valor_componente[0])
+
+            elif tipo_pedido == 'Cambio':
+                # FIX: fecha_pedido_original ya es date
+                if fecha_pedido_original != self._hoy:
+                    if nombre in componentes_actualizables_cambio_otros_dias:
                         self._ventanas.insertar_input_componente(nombre, valor_componente[0])
 
-                if tipo_pedido == 'Cambio':
-                    fecha_pedido_original = consulta_order_document_id['CreatedOn']
-
-                    if fecha_pedido_original != self._hoy:
-                        if nombre in componentes_actualizables_cambio_otros_dias:
-                            self._ventanas.insertar_input_componente(nombre, valor_componente[0])
-
-                    if fecha_pedido_original == self._hoy:
-                        if nombre in componentes_actualizables_cambio_hoy:
-                            self._ventanas.insertar_input_componente(nombre, valor_componente[0])
+                if fecha_pedido_original == self._hoy:
+                    if nombre in componentes_actualizables_cambio_hoy:
+                        self._ventanas.insertar_input_componente(nombre, valor_componente[0])
 
         self._bloquear_componentes_segun_tipo_pedido(tipo_pedido)
         self._actualizar_parametros_nuevos_anexo_o_cambio(order_document_id, tipo_pedido)

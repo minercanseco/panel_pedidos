@@ -274,7 +274,7 @@ class ModeloPanelPedidos:
 
     def mandar_pedido_a_producir(self, order_document_id):
         self.base_de_datos.command("""
-                             UPDATE docDocumentOrderCayal SET SentToPrepare = GETDATE(),
+                             UPDATE docDocumentOrderCayal SET --SentToPrepare = GETDATE(),
                                                             SentToPrepareBy = ?,
                                                             StatusID = 2,
                                                             UserID = NULL,

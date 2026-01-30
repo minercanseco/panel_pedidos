@@ -569,7 +569,6 @@ class EditarCaracteristicasPedido:
         return True
 
     def _procesar_seleccion_usuario(self):
-
         # OJO: aquí era tbx_tipo; tu UI usa cbx_tipo
         tipo_pedido = self._ventanas.obtener_input_componente('cbx_tipo')
 
@@ -615,6 +614,27 @@ class EditarCaracteristicasPedido:
                     ][0]
                     valores_pedido['DepotID'] = depot_id
                 # si está en "Seleccione", NO lo toco para no romper lo copiado
+
+            # ==========================
+            # FIX: también persistir fecha (y horario si aplica) en ANEXO/CAMBIO
+            # ==========================
+            fecha_entrega = self._ventanas.obtener_input_componente('den_fecha')
+            valores_pedido['DeliveryPromise'] = fecha_entrega
+
+            # Si estás permitiendo cambiar horario en "Cambio" (y/o Anexo), persistir ScheduleID
+            horario_sel = self._ventanas.obtener_input_componente('cbx_horario')
+            if self._consulta_horarios and horario_sel not in ('Seleccione', '', None):
+                try:
+                    schedule_id = [
+                        h['ScheduleID'] for h in self._consulta_horarios
+                        if h['Value'] == horario_sel
+                    ][0]
+                    valores_pedido['ScheduleID'] = schedule_id
+                except Exception:
+                    # fallback: mantener el existente si algo falla
+                    valores_pedido['ScheduleID'] = valores_pedido.get(
+                        'ScheduleID', self.info_pedido.get('ScheduleID')
+                    )
 
             # Guardar en memoria para que _guardar_parametros_pedido haga el update normal
             self.parametros_pedido = valores_pedido

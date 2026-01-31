@@ -308,8 +308,7 @@ class HerramientasTimbrado:
         def filtrar_comentario_documento(comentario):
 
             palabras_a_eliminar = [
-                r'\bes un anexo\b',  # Nueva frase a eliminar
-                r'\banexo\b', r'\banexos\b',
+
                 r'\bllevar terminal\b',
                 # r'\bviene\b',
                 # r'\bes viene\b',

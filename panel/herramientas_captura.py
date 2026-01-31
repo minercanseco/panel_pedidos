@@ -107,47 +107,146 @@ class HerramientasCaptura:
     def _capturar_nuevo_pedido(self):
 
         self._pausar_autorefresco()
-        nuevo_pedido = False
-        nueva_ventana = None
+        self._parametros.id_principal = 0
 
-        try:
-            # 1) Popup para seleccionar cliente
-            ventana = self._ventanas.crear_popup_ttkbootstrap_async('Seleccionar cliente')
-            self._parametros.id_principal = 0
+        estado = {
+            "instancia": None,
+            "ventana_buscar": None,
+            "ventana_captura": None,
+            "captura": None,
+            "nuevo_pedido": False,
+            "finalizado": False,
+            "captura_abierta": False,
+            "watch_id": None,  # id del after para poder cancelar
+        }
 
-            instancia = BuscarGeneralesCliente(ventana, self._parametros)
+        def _finalizar():
+            if estado["finalizado"]:
+                return
+            estado["finalizado"] = True
 
-            # Esperar a que CIERRA la ventana de búsqueda
-            ventana.wait_window()
+            # cancelar watcher si quedó vivo
+            try:
+                if estado["watch_id"] is not None:
+                    self._interfaz.master.after_cancel(estado["watch_id"])
+            except Exception:
+                pass
 
-            # Si el usuario cerró sin seleccionar cliente, salimos
-            if not instancia.seleccion_aceptada:
+            try:
+                self._parametros.id_principal = 0
+            except Exception:
+                pass
+
+            try:
+                self._rellenar_tabla()
+                if estado["nuevo_pedido"]:
+                    self._filtro_post_captura()
+            finally:
+                try:
+                    self._reanudar_autorefresco()
+                except Exception:
+                    pass
+
+        def _cerrar_ventana(w):
+            try:
+                if w is not None and w.winfo_exists():
+                    w.destroy()
+            except Exception:
+                pass
+
+        def _abrir_captura():
+            if estado["captura_abierta"]:
+                return
+            estado["captura_abierta"] = True
+
+            # opcional: minimizar panel
+            try:
+                self._interfaz.master.iconify()
+            except Exception:
+                pass
+
+            vcap = self._ventanas.crear_popup_ttkbootstrap_async(
+                titulo="Nueva captura",
+                nombre_icono="icono_logo.ico",
+                ocultar_master=False
+            )
+            estado["ventana_captura"] = vcap
+
+            cap = LlamarInstanciaCaptura(
+                vcap,
+                self._parametros,
+                estado["instancia"].cliente,
+                estado["instancia"].documento,
+                estado["instancia"].ofertas
+            )
+            estado["captura"] = cap
+
+            def _on_close_captura():
+                try:
+                    estado["nuevo_pedido"] = bool(getattr(cap, "nuevo_pedido", False))
+                except Exception:
+                    estado["nuevo_pedido"] = False
+
+                _finalizar()
+                _cerrar_ventana(vcap)
+
+            # asegurar cierre por X y Escape
+            vcap.protocol("WM_DELETE_WINDOW", _on_close_captura)
+            vcap.bind("<Escape>", lambda e: _on_close_captura())
+
+        def _watch_buscar():
+            """
+            Observa el resultado de BuscarGeneralesCliente sin bloquear.
+            Esto funciona aunque la clase cierre el popup con master.destroy().
+            """
+            try:
+                inst = estado["instancia"]
+                vbus = estado["ventana_buscar"]
+
+                # 1) Si el usuario ya aceptó -> abrir captura
+                if inst is not None and getattr(inst, "seleccion_aceptada", False):
+                    # si la ventana sigue abierta, la cerramos
+                    _cerrar_ventana(vbus)
+                    _abrir_captura()
+                    return  # deja de watch, ya seguimos flujo
+
+                # 2) Si la ventana ya no existe y no aceptó -> cancelar flujo
+                if vbus is None or not vbus.winfo_exists():
+                    _finalizar()
+                    return
+
+            except Exception:
+                # si algo raro pasó, no te quedes colgado
+                _finalizar()
                 return
 
-            self._interfaz.master.iconify()
+            # reprogramar watcher
+            try:
+                estado["watch_id"] = self._interfaz.master.after(120, _watch_buscar)
+            except Exception:
+                _finalizar()
 
-            # 2) Popup para captura
-            nueva_ventana = self._ventanas.crear_popup_ttkbootstrap_async(titulo='Nueva captura',nombre_icono='icono_logo.ico')
-            captura = LlamarInstanciaCaptura(
-                nueva_ventana,
-                self._parametros,
-                instancia.cliente,
-                instancia.documento,
-                instancia.ofertas
-            )
-            nueva_ventana.wait_window()
+        # 1) Abrir búsqueda cliente (NO BLOQUEANTE)
+        vbus = self._ventanas.crear_popup_ttkbootstrap_async(
+            titulo="Seleccionar cliente",
+            nombre_icono="icono_logo.ico",
+            ocultar_master=False
+        )
+        estado["ventana_buscar"] = vbus
 
-            # si tu clase expone esto al cerrar:
-            nuevo_pedido = bool(getattr(captura, "nuevo_pedido", False))
+        inst = BuscarGeneralesCliente(vbus, self._parametros)
+        estado["instancia"] = inst
 
-        finally:
-            self._parametros.id_principal = 0
+        # si cierran con X/Esc, simplemente se destruirá la ventana;
+        # el watcher detecta y finaliza si no hubo selección
+        try:
+            vbus.bind("<Escape>", lambda e: _cerrar_ventana(vbus))
+            vbus.protocol("WM_DELETE_WINDOW", lambda: _cerrar_ventana(vbus))
+        except Exception:
+            pass
 
-            self._rellenar_tabla()
-            if nuevo_pedido:
-                self._filtro_post_captura()
-
-            #self._reanudar_autorefresco()
+        # arrancar watcher
+        _watch_buscar()
 
     def _editar_pedido(self):
 

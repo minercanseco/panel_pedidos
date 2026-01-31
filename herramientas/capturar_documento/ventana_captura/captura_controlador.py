@@ -59,8 +59,6 @@ class ControladorCaptura:
             self._cargar_eventos_componentes()
             self._agregar_atajos()
 
-
-
     # -------------------------------------------------------------------------
     # Funciones relacionadas a herramientas y eventos de componentes de captura
     # -------------------------------------------------------------------------
@@ -161,7 +159,6 @@ class ControladorCaptura:
         txt_comentario_pedido = self._interfaz.ventanas.componentes_forma.get('txt_comentario_documento', None)
         if txt_comentario_pedido:
             txt_comentario_pedido.bind("<FocusOut>", lambda event: self._actualizar_comentario_pedido())
-
 
     def _actualizar_comentario_pedido(self):
         comentario = self._interfaz.ventanas.obtener_input_componente('txt_comentario_documento')

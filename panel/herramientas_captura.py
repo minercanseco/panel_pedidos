@@ -107,47 +107,84 @@ class HerramientasCaptura:
     def _capturar_nuevo_pedido(self):
 
         self._pausar_autorefresco()
-        nuevo_pedido = False
-        nueva_ventana = None
+        self._parametros.id_principal = 0
 
-        try:
-            # 1) Popup para seleccionar cliente
-            ventana = self._ventanas.crear_popup_ttkbootstrap_sin_bloqueo('Seleccionar cliente')
-            self._parametros.id_principal = 0
-
-            instancia = BuscarGeneralesCliente(ventana, self._parametros)
-
-            # Esperar a que CIERRA la ventana de búsqueda
-            ventana.wait_window()
-
-            # Si el usuario cerró sin seleccionar cliente, salimos
-            if not instancia.seleccion_aceptada:
-                return
-
-            self._interfaz.master.iconify()
-
-            # 2) Popup para captura
-            nueva_ventana = self._ventanas.crear_popup_ttkbootstrap_sin_bloqueo(titulo='Nueva captura',nombre_icono='icono_logo.ico')
-            captura = LlamarInstanciaCaptura(
-                nueva_ventana,
-                self._parametros,
-                instancia.cliente,
-                instancia.documento,
-                instancia.ofertas
-            )
-            nueva_ventana.wait_window()
-
-            # si tu clase expone esto al cerrar:
-            nuevo_pedido = bool(getattr(captura, "nuevo_pedido", False))
-
-        finally:
-            self._parametros.id_principal = 0
+        def _post_final(nuevo_pedido: bool):
+            # lo que hoy haces en finally
+            try:
+                self._parametros.id_principal = 0
+            except Exception:
+                pass
 
             self._rellenar_tabla()
             if nuevo_pedido:
                 self._filtro_post_captura()
 
-            #self._reanudar_autorefresco()
+            # si tienes un método para reanudar autorefresco, llámalo aquí
+            try:
+                self._reanudar_autorefresco()
+            except Exception:
+                pass
+
+        # 1) Popup seleccionar cliente
+        ventana_buscar = self._ventanas.crear_popup_ttkbootstrap_async(
+            titulo='Seleccionar cliente',
+            nombre_icono='icono_logo.ico',
+            ocultar_master=False,
+            on_close=None
+        )
+
+        instancia = BuscarGeneralesCliente(ventana_buscar, self._parametros)
+
+        # En vez de wait_window, “enganchamos” el cierre:
+        def _on_close_buscar(_popup):
+            # Si cerró sin seleccionar, terminamos limpio
+            if not getattr(instancia, "seleccion_aceptada", False):
+                _post_final(False)
+                return
+
+            # Ocultar panel principal si lo deseas (tu lógica actual)
+            try:
+                self._interfaz.master.iconify()
+            except Exception:
+                pass
+
+            # 2) Popup captura
+            ventana_captura = self._ventanas.crear_popup_ttkbootstrap_async(
+                titulo='Nueva captura',
+                nombre_icono='icono_logo.ico',
+                ocultar_master=False,
+                on_close=None
+            )
+
+            captura = LlamarInstanciaCaptura(
+                ventana_captura,
+                self._parametros,
+                instancia.cliente,
+                instancia.documento,
+                instancia.ofertas
+            )
+
+            def _on_close_captura(_popup2):
+                nuevo = bool(getattr(captura, "nuevo_pedido", False))
+                _post_final(nuevo)
+
+            # reenganchar cierre captura
+            try:
+                ventana_captura.protocol("WM_DELETE_WINDOW",
+                                         lambda: (_on_close_captura(ventana_captura), ventana_captura.destroy()))
+                ventana_captura.bind("<Escape>",
+                                     lambda e: (_on_close_captura(ventana_captura), ventana_captura.destroy()))
+            except Exception:
+                pass
+
+        # reenganchar cierre buscar
+        try:
+            ventana_buscar.protocol("WM_DELETE_WINDOW",
+                                    lambda: (_on_close_buscar(ventana_buscar), ventana_buscar.destroy()))
+            ventana_buscar.bind("<Escape>", lambda e: (_on_close_buscar(ventana_buscar), ventana_buscar.destroy()))
+        except Exception:
+            pass
 
     def _editar_pedido(self):
 

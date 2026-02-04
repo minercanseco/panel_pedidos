@@ -106,7 +106,7 @@ class HerramientasCaptura:
 
     def _capturar_nuevo_pedido(self):
         import time
-
+        print('hola loaoa')
         self._pausar_autorefresco()
         self._parametros.id_principal = 0
 

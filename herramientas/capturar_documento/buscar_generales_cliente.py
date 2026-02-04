@@ -46,7 +46,7 @@ class BuscarGeneralesCliente:
 
         # --- Manejo seguro del cierre con “X” ---
         # Si el usuario cierra sin seleccionar, devolver valores neutros.
-        self._master.protocol("WM_DELETE_WINDOW", self._cerrar_sin_seleccion)
+        #self._master.protocol("WM_DELETE_WINDOW", self._cerrar_sin_seleccion)
 
     #-----------------------------------------
     # Construcción de la forma

@@ -271,7 +271,7 @@ class HerramientasCaptura:
             # Importante: re-pausar aquí
             self._pausar_autorefresco()
 
-            vcap = self._ventanas.crear_popup_ttkbootstrap_async(
+            vcap = self._ventanas.crear_popup_ttkbootstrap(
                 titulo="Nueva captura",
                 nombre_icono="icono_logo.ico",
                 ocultar_master=False
@@ -362,7 +362,7 @@ class HerramientasCaptura:
         # ============================================================
         # Abrir búsqueda cliente (se deja como la tienes para poder escribir)
         # ============================================================
-        vbus = self._ventanas.crear_popup_ttkbootstrap_async(
+        vbus = self._ventanas.crear_popup_ttkbootstrap(
             titulo="Seleccionar cliente",
             nombre_icono="icono_logo.ico",
             ocultar_master=False

@@ -105,34 +105,32 @@ class HerramientasCaptura:
         return filas
 
     def _capturar_nuevo_pedido(self):
-
         self._pausar_autorefresco()
         self._parametros.id_principal = 0
 
         estado = {
-            "instancia": None,
-            "ventana_buscar": None,
+            "inst_buscar": None,
+            "v_buscar": None,
             "watch_id": None,
-            "nuevo_pedido": False,
+            "abriendo_captura": False,
         }
 
-        def _release_grab_global():
-            """Rompe cualquier grab activo (el causante del 'no puedo enfocar otra ventana')."""
+        def _cerrar_ventana(w):
             try:
-                root = self._interfaz.master
-                g = root.grab_current()
-                if g is not None:
-                    g.grab_release()
+                if w is not None and w.winfo_exists():
+                    w.destroy()
             except Exception:
                 pass
 
-        def _finalizar_sin_captura():
+        def _cancel_watch():
             try:
                 if estado["watch_id"] is not None:
                     self._interfaz.master.after_cancel(estado["watch_id"])
             except Exception:
                 pass
             estado["watch_id"] = None
+
+        def _reanudar_seguro():
             try:
                 self._reanudar_autorefresco()
             except Exception:
@@ -149,20 +147,39 @@ class HerramientasCaptura:
                 if nuevo_pedido_flag:
                     self._filtro_post_captura()
             finally:
+                _reanudar_seguro()
+
+        def _make_grab_guard(win):
+            def _release_if_this_has_grab():
                 try:
-                    self._reanudar_autorefresco()
+                    g = win.grab_current()
+                    if g is not None:
+                        try:
+                            if str(g.winfo_toplevel()) == str(win):
+                                g.grab_release()
+                        except Exception:
+                            g.grab_release()
                 except Exception:
                     pass
 
-        def _cerrar(w):
             try:
-                if w is not None and w.winfo_exists():
-                    w.destroy()
+                self._interfaz.master.after(30, _release_if_this_has_grab)
+                self._interfaz.master.after(150, _release_if_this_has_grab)
+                self._interfaz.master.after(400, _release_if_this_has_grab)
+            except Exception:
+                _release_if_this_has_grab()
+
+            try:
+                win.bind("<FocusIn>", lambda e: _release_if_this_has_grab(), add="+")
+                win.bind("<Button-1>", lambda e: _release_if_this_has_grab(), add="+")
             except Exception:
                 pass
 
-        def _abrir_captura():
-            # Importante: re-pausar aquí (si ya se reanudó tras cerrar búsqueda)
+        def _abrir_captura_con(inst_buscar):
+            if estado["abriendo_captura"]:
+                return
+            estado["abriendo_captura"] = True
+
             self._pausar_autorefresco()
 
             vcap = self._ventanas.crear_popup_ttkbootstrap_async(
@@ -171,35 +188,20 @@ class HerramientasCaptura:
                 ocultar_master=False
             )
 
+            try:
+                vcap.attributes("-topmost", False)
+            except Exception:
+                pass
+
             cap = LlamarInstanciaCaptura(
                 vcap,
                 self._parametros,
-                estado["instancia"].cliente,
-                estado["instancia"].documento,
-                estado["instancia"].ofertas
+                inst_buscar.cliente,
+                inst_buscar.documento,
+                inst_buscar.ofertas
             )
 
-            # 🔑 Desmodalizar SOLO capturas (NO búsqueda):
-            def _desmodalizar():
-                _release_grab_global()
-                try:
-                    vcap.attributes("-topmost", False)
-                except Exception:
-                    pass
-
-            # un par de ticks por si la captura aplica grab después
-            try:
-                self._interfaz.master.after(30, _desmodalizar)
-                self._interfaz.master.after(180, _desmodalizar)
-            except Exception:
-                _desmodalizar()
-
-            # y cada vez que intentes enfocar esta captura, rompe grab para permitir alternar entre capturas
-            try:
-                vcap.bind("<FocusIn>", lambda e: _release_grab_global(), add="+")
-                vcap.bind("<Button-1>", lambda e: _release_grab_global(), add="+")
-            except Exception:
-                pass
+            _make_grab_guard(vcap)
 
             def _on_close():
                 nuevo = False
@@ -207,68 +209,164 @@ class HerramientasCaptura:
                     nuevo = bool(getattr(cap, "nuevo_pedido", False))
                 except Exception:
                     pass
-
-                _release_grab_global()
-                _cerrar(vcap)
+                _cerrar_ventana(vcap)
                 _post_cierre_captura(nuevo)
 
-            vcap.protocol("WM_DELETE_WINDOW", _on_close)
-            vcap.bind("<Escape>", lambda e: _on_close())
-
-            # si se destruye por dentro, igual refresca
             try:
-                vcap.bind("<Destroy>", lambda e: _post_cierre_captura(bool(getattr(cap, "nuevo_pedido", False)))
-                if e.widget is vcap else None)
+                vcap.protocol("WM_DELETE_WINDOW", _on_close)
+                vcap.bind("<Escape>", lambda e: _on_close())
             except Exception:
                 pass
 
-        def _watch_buscar():
             try:
-                inst = estado["instancia"]
-                vbus = estado["ventana_buscar"]
+                vcap.focus_force()
+            except Exception:
+                pass
 
-                if inst is not None and getattr(inst, "seleccion_aceptada", False):
-                    # cerrar búsqueda y abrir captura
-                    _cerrar(vbus)
+        # ------------------------------------------------------------
+        # Fallback: si la ventana se destruye, revisa selección 1 tick después
+        # ------------------------------------------------------------
+        def _on_buscar_destroyed():
+            # Espera un tick para que el handler interno alcance a setear flags
+            def _check():
+                try:
+                    inst = estado["inst_buscar"]
+                    if inst is not None and getattr(inst, "seleccion_aceptada", False):
+                        _abrir_captura_con(inst)
+                    else:
+                        _reanudar_seguro()
+                except Exception:
+                    _reanudar_seguro()
+
+            try:
+                self._interfaz.master.after(1, _check)
+            except Exception:
+                _check()
+
+        # ------------------------------------------------------------
+        # Hook del botón "Seleccionar"/"Aceptar" si existe
+        # ------------------------------------------------------------
+        def _try_hook_select_button(vbus, inst):
+            """
+            Busca un botón cuya etiqueta parezca 'Seleccionar'/'Aceptar'
+            y envuelve su command para abrir captura antes/después de cerrar.
+            """
+            try:
+                import tkinter as tk
+            except Exception:
+                tk = None
+
+            targets = {"seleccionar", "aceptar", "ok", "continuar"}
+
+            def _iter_widgets(w):
+                for child in w.winfo_children():
+                    yield child
+                    yield from _iter_widgets(child)
+
+            def _get_text(btn):
+                try:
+                    return (btn.cget("text") or "").strip().lower()
+                except Exception:
+                    return ""
+
+            def _wrap_command(btn):
+                # ttkbootstrap/ttk Button: invoke() existe; command no siempre es legible.
+                # Entonces: interceptamos el click con bind y dejamos que invoke corra.
+                def _on_click(_ev=None):
+                    # deja que el botón haga su lógica (set flag, etc.)
                     try:
-                        if estado["watch_id"] is not None:
-                            self._interfaz.master.after_cancel(estado["watch_id"])
+                        btn.invoke()
                     except Exception:
                         pass
-                    estado["watch_id"] = None
 
-                    # aquí NO hacemos anti-grab para no romper inputs; ya terminó búsqueda
-                    _abrir_captura()
+                    # luego, en el siguiente tick, evaluamos y abrimos
+                    def _after():
+                        try:
+                            if getattr(inst, "seleccion_aceptada", False):
+                                _cancel_watch()
+                                _cerrar_ventana(vbus)
+                                _abrir_captura_con(inst)
+                            else:
+                                # si no aceptó, no hacemos nada
+                                pass
+                        except Exception:
+                            pass
+
+                    try:
+                        self._interfaz.master.after(1, _after)
+                    except Exception:
+                        _after()
+
+                    return "break"
+
+                try:
+                    btn.bind("<Button-1>", _on_click, add="+")
+                    return True
+                except Exception:
+                    return False
+
+            try:
+                for w in _iter_widgets(vbus):
+                    # sólo botones
+                    cls = w.winfo_class().lower()
+                    if "button" not in cls:
+                        continue
+                    txt = _get_text(w)
+                    if txt and any(t in txt for t in targets):
+                        if _wrap_command(w):
+                            return True
+            except Exception:
+                pass
+            return False
+
+        # ------------------------------------------------------------
+        # Watcher mínimo (sólo como respaldo)
+        # ------------------------------------------------------------
+        def _watch_busqueda():
+            try:
+                inst = estado["inst_buscar"]
+                vbus = estado["v_buscar"]
+
+                if inst is not None and getattr(inst, "seleccion_aceptada", False):
+                    _cancel_watch()
+                    _cerrar_ventana(vbus)
+                    estado["v_buscar"] = None
+                    _abrir_captura_con(inst)
                     return
 
-                # si cerraron la búsqueda sin seleccionar -> terminar y reanudar
                 if vbus is None or not vbus.winfo_exists():
-                    _finalizar_sin_captura()
+                    _cancel_watch()
+                    # la destrucción la maneja _on_buscar_destroyed()
                     return
 
             except Exception:
-                _finalizar_sin_captura()
+                _cancel_watch()
+                _reanudar_seguro()
                 return
 
             try:
-                estado["watch_id"] = self._interfaz.master.after(120, _watch_buscar)
+                estado["watch_id"] = self._interfaz.master.after(120, _watch_busqueda)
             except Exception:
-                _finalizar_sin_captura()
+                _cancel_watch()
+                _reanudar_seguro()
 
-        # 1) Abrir búsqueda cliente (NO tocarla, para que puedas escribir)
+        # ============================================================
+        # Abrir búsqueda
+        # ============================================================
         vbus = self._ventanas.crear_popup_ttkbootstrap_async(
             titulo="Seleccionar cliente",
             nombre_icono="icono_logo.ico",
             ocultar_master=False
         )
-        estado["ventana_buscar"] = vbus
+        estado["v_buscar"] = vbus
 
         inst = BuscarGeneralesCliente(vbus, self._parametros)
-        estado["instancia"] = inst
+        estado["inst_buscar"] = inst
 
         def _cerrar_busqueda():
-            _cerrar(vbus)
-            _finalizar_sin_captura()
+            _cancel_watch()
+            _cerrar_ventana(vbus)
+            _reanudar_seguro()
 
         try:
             vbus.bind("<Escape>", lambda e: _cerrar_busqueda())
@@ -276,7 +374,17 @@ class HerramientasCaptura:
         except Exception:
             pass
 
-        _watch_buscar()
+        # ✅ clave: al destruir la búsqueda, revisamos si fue por selección
+        try:
+            vbus.bind("<Destroy>", lambda e: _on_buscar_destroyed() if e.widget is vbus else None, add="+")
+        except Exception:
+            pass
+
+        # ✅ clave: intentar hookear el botón seleccionar/aceptar (evita depender del polling)
+        _try_hook_select_button(vbus, inst)
+
+        # respaldo
+        _watch_busqueda()
 
     def _editar_pedido(self):
 

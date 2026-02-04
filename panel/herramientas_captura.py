@@ -105,6 +105,8 @@ class HerramientasCaptura:
         return filas
 
     def _capturar_nuevo_pedido(self):
+        import time
+
         self._pausar_autorefresco()
         self._parametros.id_principal = 0
 
@@ -150,6 +152,8 @@ class HerramientasCaptura:
                 _reanudar_seguro()
 
         def _make_grab_guard(win):
+            """Evita que una ventana deje grab colgado (Windows se pone más agresivo con el foco)."""
+
             def _release_if_this_has_grab():
                 try:
                     g = win.grab_current()
@@ -203,12 +207,34 @@ class HerramientasCaptura:
 
             _make_grab_guard(vcap)
 
+            # ✅ Windows: ayudar a que pinte y enfoque
+            try:
+                vcap.update_idletasks()
+            except Exception:
+                pass
+
+            def _lift_focus():
+                try:
+                    vcap.lift()
+                except Exception:
+                    pass
+                try:
+                    vcap.focus_force()
+                except Exception:
+                    pass
+
+            try:
+                self._interfaz.master.after_idle(_lift_focus)
+            except Exception:
+                _lift_focus()
+
             def _on_close():
                 nuevo = False
                 try:
                     nuevo = bool(getattr(cap, "nuevo_pedido", False))
                 except Exception:
                     pass
+
                 _cerrar_ventana(vcap)
                 _post_cierre_captura(nuevo)
 
@@ -218,19 +244,14 @@ class HerramientasCaptura:
             except Exception:
                 pass
 
-            try:
-                vcap.focus_force()
-            except Exception:
-                pass
-
         # ------------------------------------------------------------
-        # Fallback: si la ventana se destruye, revisa selección 1 tick después
+        # Fallback: si la ventana de búsqueda se destruye, revisa selección después (Windows: delay real)
         # ------------------------------------------------------------
         def _on_buscar_destroyed():
-            # Espera un tick para que el handler interno alcance a setear flags
             def _check():
                 try:
                     inst = estado["inst_buscar"]
+                    # print("[DESTROY CHECK]", getattr(inst, "seleccion_aceptada", None), "t=", time.time())
                     if inst is not None and getattr(inst, "seleccion_aceptada", False):
                         _abrir_captura_con(inst)
                     else:
@@ -239,23 +260,14 @@ class HerramientasCaptura:
                     _reanudar_seguro()
 
             try:
-                self._interfaz.master.after(1, _check)
+                self._interfaz.master.after(50, _check)  # ✅ CLAVE: 50ms en Windows
             except Exception:
                 _check()
 
         # ------------------------------------------------------------
-        # Hook del botón "Seleccionar"/"Aceptar" si existe
+        # Hook del botón "Seleccionar"/"Aceptar" (Windows: usar ButtonRelease-1)
         # ------------------------------------------------------------
         def _try_hook_select_button(vbus, inst):
-            """
-            Busca un botón cuya etiqueta parezca 'Seleccionar'/'Aceptar'
-            y envuelve su command para abrir captura antes/después de cerrar.
-            """
-            try:
-                import tkinter as tk
-            except Exception:
-                tk = None
-
             targets = {"seleccionar", "aceptar", "ok", "continuar"}
 
             def _iter_widgets(w):
@@ -270,44 +282,41 @@ class HerramientasCaptura:
                     return ""
 
             def _wrap_command(btn):
-                # ttkbootstrap/ttk Button: invoke() existe; command no siempre es legible.
-                # Entonces: interceptamos el click con bind y dejamos que invoke corra.
-                def _on_click(_ev=None):
-                    # deja que el botón haga su lógica (set flag, etc.)
+                # En Windows, ttk.Button ejecuta command típicamente en ButtonRelease
+                def _on_release(_ev=None):
+                    # 1) Deja que el botón ejecute su lógica (set flag / set cliente / etc.)
                     try:
                         btn.invoke()
                     except Exception:
                         pass
 
-                    # luego, en el siguiente tick, evaluamos y abrimos
+                    # 2) Espera un poco y evalúa
                     def _after():
                         try:
+                            # print("[BTN RELEASE AFTER]", getattr(inst, "seleccion_aceptada", None), "t=", time.time())
                             if getattr(inst, "seleccion_aceptada", False):
                                 _cancel_watch()
                                 _cerrar_ventana(vbus)
                                 _abrir_captura_con(inst)
-                            else:
-                                # si no aceptó, no hacemos nada
-                                pass
                         except Exception:
                             pass
 
                     try:
-                        self._interfaz.master.after(1, _after)
+                        self._interfaz.master.after(50, _after)  # ✅ CLAVE: 50ms
                     except Exception:
                         _after()
 
-                    return "break"
+                    # No romper propagación (evita efectos colaterales en Windows)
+                    return None
 
                 try:
-                    btn.bind("<Button-1>", _on_click, add="+")
+                    btn.bind("<ButtonRelease-1>", _on_release, add="+")
                     return True
                 except Exception:
                     return False
 
             try:
                 for w in _iter_widgets(vbus):
-                    # sólo botones
                     cls = w.winfo_class().lower()
                     if "button" not in cls:
                         continue
@@ -320,7 +329,7 @@ class HerramientasCaptura:
             return False
 
         # ------------------------------------------------------------
-        # Watcher mínimo (sólo como respaldo)
+        # Watcher mínimo (respaldo)
         # ------------------------------------------------------------
         def _watch_busqueda():
             try:
@@ -336,7 +345,7 @@ class HerramientasCaptura:
 
                 if vbus is None or not vbus.winfo_exists():
                     _cancel_watch()
-                    # la destrucción la maneja _on_buscar_destroyed()
+                    # la destrucción se maneja por _on_buscar_destroyed
                     return
 
             except Exception:
@@ -374,13 +383,13 @@ class HerramientasCaptura:
         except Exception:
             pass
 
-        # ✅ clave: al destruir la búsqueda, revisamos si fue por selección
+        # ✅ si se destruye, revisamos selección con delay (Windows)
         try:
             vbus.bind("<Destroy>", lambda e: _on_buscar_destroyed() if e.widget is vbus else None, add="+")
         except Exception:
             pass
 
-        # ✅ clave: intentar hookear el botón seleccionar/aceptar (evita depender del polling)
+        # ✅ hook al botón seleccionar/aceptar (si lo encontramos)
         _try_hook_select_button(vbus, inst)
 
         # respaldo

@@ -22,6 +22,7 @@ class HerramientasCaptura:
         self._parametros = self._modelo.parametros
         self._utilerias = self._modelo.utilerias
 
+        self._interfaz.ventanas._master.grab_release()
 
         self._crear_frames()
         self._crear_barra_herramientas()

@@ -41,12 +41,12 @@ class BuscarGeneralesCliente:
 
         # --- Apariencia inicial ---
         self._actualizar_apariencia_forma(solo_apariencia_inicial=True)
-        #self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
+        self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
         self._ventanas.enfocar_componente('tbx_buscar')
 
         # --- Manejo seguro del cierre con “X” ---
         # Si el usuario cierra sin seleccionar, devolver valores neutros.
-        #self._master.protocol("WM_DELETE_WINDOW", self._cerrar_sin_seleccion)
+        self._master.protocol("WM_DELETE_WINDOW", self._cerrar_sin_seleccion)
 
     #-----------------------------------------
     # Construcción de la forma

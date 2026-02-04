@@ -112,26 +112,33 @@ class HerramientasCaptura:
         estado = {
             "instancia": None,
             "ventana_buscar": None,
-            "ventana_captura": None,
-            "captura": None,
+            "watch_id": None,
             "nuevo_pedido": False,
-            "finalizado": False,
-            "captura_abierta": False,
-            "watch_id": None,  # id del after para poder cancelar
         }
 
-        def _finalizar():
-            if estado["finalizado"]:
-                return
-            estado["finalizado"] = True
+        def _release_grab_global():
+            """Rompe cualquier grab activo (el causante del 'no puedo enfocar otra ventana')."""
+            try:
+                root = self._interfaz.master
+                g = root.grab_current()
+                if g is not None:
+                    g.grab_release()
+            except Exception:
+                pass
 
-            # cancelar watcher si quedó vivo
+        def _finalizar_sin_captura():
             try:
                 if estado["watch_id"] is not None:
                     self._interfaz.master.after_cancel(estado["watch_id"])
             except Exception:
                 pass
+            estado["watch_id"] = None
+            try:
+                self._reanudar_autorefresco()
+            except Exception:
+                pass
 
+        def _post_cierre_captura(nuevo_pedido_flag: bool):
             try:
                 self._parametros.id_principal = 0
             except Exception:
@@ -139,7 +146,7 @@ class HerramientasCaptura:
 
             try:
                 self._rellenar_tabla()
-                if estado["nuevo_pedido"]:
+                if nuevo_pedido_flag:
                     self._filtro_post_captura()
             finally:
                 try:
@@ -147,7 +154,7 @@ class HerramientasCaptura:
                 except Exception:
                     pass
 
-        def _cerrar_ventana(w):
+        def _cerrar(w):
             try:
                 if w is not None and w.winfo_exists():
                     w.destroy()
@@ -155,22 +162,14 @@ class HerramientasCaptura:
                 pass
 
         def _abrir_captura():
-            if estado["captura_abierta"]:
-                return
-            estado["captura_abierta"] = True
-
-            # opcional: minimizar panel
-            try:
-                self._interfaz.master.iconify()
-            except Exception:
-                pass
+            # Importante: re-pausar aquí (si ya se reanudó tras cerrar búsqueda)
+            self._pausar_autorefresco()
 
             vcap = self._ventanas.crear_popup_ttkbootstrap_async(
                 titulo="Nueva captura",
                 nombre_icono="icono_logo.ico",
                 ocultar_master=False
             )
-            estado["ventana_captura"] = vcap
 
             cap = LlamarInstanciaCaptura(
                 vcap,
@@ -179,54 +178,84 @@ class HerramientasCaptura:
                 estado["instancia"].documento,
                 estado["instancia"].ofertas
             )
-            estado["captura"] = cap
 
-            def _on_close_captura():
+            # 🔑 Desmodalizar SOLO capturas (NO búsqueda):
+            def _desmodalizar():
+                _release_grab_global()
                 try:
-                    estado["nuevo_pedido"] = bool(getattr(cap, "nuevo_pedido", False))
+                    vcap.attributes("-topmost", False)
                 except Exception:
-                    estado["nuevo_pedido"] = False
+                    pass
 
-                _finalizar()
-                _cerrar_ventana(vcap)
+            # un par de ticks por si la captura aplica grab después
+            try:
+                self._interfaz.master.after(30, _desmodalizar)
+                self._interfaz.master.after(180, _desmodalizar)
+            except Exception:
+                _desmodalizar()
 
-            # asegurar cierre por X y Escape
-            vcap.protocol("WM_DELETE_WINDOW", _on_close_captura)
-            vcap.bind("<Escape>", lambda e: _on_close_captura())
+            # y cada vez que intentes enfocar esta captura, rompe grab para permitir alternar entre capturas
+            try:
+                vcap.bind("<FocusIn>", lambda e: _release_grab_global(), add="+")
+                vcap.bind("<Button-1>", lambda e: _release_grab_global(), add="+")
+            except Exception:
+                pass
+
+            def _on_close():
+                nuevo = False
+                try:
+                    nuevo = bool(getattr(cap, "nuevo_pedido", False))
+                except Exception:
+                    pass
+
+                _release_grab_global()
+                _cerrar(vcap)
+                _post_cierre_captura(nuevo)
+
+            vcap.protocol("WM_DELETE_WINDOW", _on_close)
+            vcap.bind("<Escape>", lambda e: _on_close())
+
+            # si se destruye por dentro, igual refresca
+            try:
+                vcap.bind("<Destroy>", lambda e: _post_cierre_captura(bool(getattr(cap, "nuevo_pedido", False)))
+                if e.widget is vcap else None)
+            except Exception:
+                pass
 
         def _watch_buscar():
-            """
-            Observa el resultado de BuscarGeneralesCliente sin bloquear.
-            Esto funciona aunque la clase cierre el popup con master.destroy().
-            """
             try:
                 inst = estado["instancia"]
                 vbus = estado["ventana_buscar"]
 
-                # 1) Si el usuario ya aceptó -> abrir captura
                 if inst is not None and getattr(inst, "seleccion_aceptada", False):
-                    # si la ventana sigue abierta, la cerramos
-                    _cerrar_ventana(vbus)
-                    _abrir_captura()
-                    return  # deja de watch, ya seguimos flujo
+                    # cerrar búsqueda y abrir captura
+                    _cerrar(vbus)
+                    try:
+                        if estado["watch_id"] is not None:
+                            self._interfaz.master.after_cancel(estado["watch_id"])
+                    except Exception:
+                        pass
+                    estado["watch_id"] = None
 
-                # 2) Si la ventana ya no existe y no aceptó -> cancelar flujo
+                    # aquí NO hacemos anti-grab para no romper inputs; ya terminó búsqueda
+                    _abrir_captura()
+                    return
+
+                # si cerraron la búsqueda sin seleccionar -> terminar y reanudar
                 if vbus is None or not vbus.winfo_exists():
-                    _finalizar()
+                    _finalizar_sin_captura()
                     return
 
             except Exception:
-                # si algo raro pasó, no te quedes colgado
-                _finalizar()
+                _finalizar_sin_captura()
                 return
 
-            # reprogramar watcher
             try:
                 estado["watch_id"] = self._interfaz.master.after(120, _watch_buscar)
             except Exception:
-                _finalizar()
+                _finalizar_sin_captura()
 
-        # 1) Abrir búsqueda cliente (NO BLOQUEANTE)
+        # 1) Abrir búsqueda cliente (NO tocarla, para que puedas escribir)
         vbus = self._ventanas.crear_popup_ttkbootstrap_async(
             titulo="Seleccionar cliente",
             nombre_icono="icono_logo.ico",
@@ -237,15 +266,16 @@ class HerramientasCaptura:
         inst = BuscarGeneralesCliente(vbus, self._parametros)
         estado["instancia"] = inst
 
-        # si cierran con X/Esc, simplemente se destruirá la ventana;
-        # el watcher detecta y finaliza si no hubo selección
+        def _cerrar_busqueda():
+            _cerrar(vbus)
+            _finalizar_sin_captura()
+
         try:
-            vbus.bind("<Escape>", lambda e: _cerrar_ventana(vbus))
-            vbus.protocol("WM_DELETE_WINDOW", lambda: _cerrar_ventana(vbus))
+            vbus.bind("<Escape>", lambda e: _cerrar_busqueda())
+            vbus.protocol("WM_DELETE_WINDOW", _cerrar_busqueda)
         except Exception:
             pass
 
-        # arrancar watcher
         _watch_buscar()
 
     def _editar_pedido(self):
@@ -401,3 +431,93 @@ class HerramientasCaptura:
                     continue
         finally:
             self._rellenar_tabla()
+
+    def _asegurar_admin_capturas(self):
+        """Inicializa estructuras para manejar múltiples capturas."""
+        if not hasattr(self, "_capturas_abiertas"):
+            self._capturas_abiertas = []  # lista de Toplevel
+        if not hasattr(self, "_guardian_grab_id"):
+            self._guardian_grab_id = None
+
+    def _registrar_captura(self, win):
+        self._asegurar_admin_capturas()
+        try:
+            if win not in self._capturas_abiertas:
+                self._capturas_abiertas.append(win)
+        except Exception:
+            pass
+        self._iniciar_guardian_grab()
+
+    def _desregistrar_captura(self, win):
+        self._asegurar_admin_capturas()
+        try:
+            self._capturas_abiertas = [w for w in self._capturas_abiertas if
+                                       w is not None and w.winfo_exists() and w != win]
+        except Exception:
+            self._capturas_abiertas = []
+        if not self._capturas_abiertas:
+            self._detener_guardian_grab()
+
+    def _iniciar_guardian_grab(self):
+        """
+        Guardian: mientras haya capturas abiertas, evita que un grab (modal) bloquee el enfoque.
+        Revienta cualquier grab activo (grab_set/grab_set_global) que se haya quedado.
+        """
+        self._asegurar_admin_capturas()
+
+        if self._guardian_grab_id is not None:
+            return
+
+        def _tick():
+            # si ya no hay capturas, parar
+            try:
+                vivos = []
+                for w in list(self._capturas_abiertas):
+                    if w is not None and w.winfo_exists():
+                        vivos.append(w)
+                self._capturas_abiertas = vivos
+            except Exception:
+                self._capturas_abiertas = []
+
+            if not self._capturas_abiertas:
+                self._detener_guardian_grab()
+                return
+
+            # 1) Revienta cualquier grab activo (esto es lo que impide enfocar otras ventanas)
+            try:
+                g = self._interfaz.master.grab_current()
+                if g is not None:
+                    try:
+                        g.grab_release()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+            # 2) Asegura que ninguna captura quede "topmost" (si algún código lo pone)
+            for w in list(self._capturas_abiertas):
+                try:
+                    w.attributes("-topmost", False)
+                except Exception:
+                    pass
+
+            # reprogramar
+            try:
+                self._guardian_grab_id = self._interfaz.master.after(120, _tick)
+            except Exception:
+                self._guardian_grab_id = None
+
+        # arrancar
+        try:
+            self._guardian_grab_id = self._interfaz.master.after(0, _tick)
+        except Exception:
+            self._guardian_grab_id = None
+
+    def _detener_guardian_grab(self):
+        self._asegurar_admin_capturas()
+        try:
+            if self._guardian_grab_id is not None:
+                self._interfaz.master.after_cancel(self._guardian_grab_id)
+        except Exception:
+            pass
+        self._guardian_grab_id = None

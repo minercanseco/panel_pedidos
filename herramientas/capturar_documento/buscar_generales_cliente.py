@@ -770,7 +770,7 @@ class BuscarGeneralesCliente:
 
         if solo_apariencia_inicial:
             apariencia_inicial()
-            self._master.place_window_center()
+            #self._master.place_window_center()
             return
 
         if self.cliente.cayal_customer_type_id in (1, 2):
@@ -784,7 +784,7 @@ class BuscarGeneralesCliente:
             posicion = {'row': 1, 'column': 0, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}
             self._ventanas.posicionar_frame('frame_direccion', posicion)
 
-        self._master.place_window_center()
+        #self._master.place_window_center()
 
     def _cargar_info_credito(self):
 

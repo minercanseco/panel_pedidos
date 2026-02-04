@@ -107,41 +107,43 @@ class HerramientasCaptura:
 
     def _capturar_nuevo_pedido(self):
         """
-        Objetivo:
-        - Abrir ventana de búsqueda de cliente (puede ser modal normal).
-        - Al seleccionar cliente, abrir captura en un Toplevel NO MODAL.
-        - Permitir múltiples capturas simultáneas y alternar foco (Windows/Mac).
+        Versión simple y 'Windows-safe':
+        - Crea popups con tk.Toplevel directamente (sin Ventanas.crear_popup_ttkbootstrap_async)
+        - NO usa grab_set / wait_window
+        - Abre captura al seleccionar cliente
+        - Permite múltiples ventanas independientes (no modal)
         """
-        import time
+
+        import tkinter as tk
+        import ttkbootstrap as ttk
 
         self._pausar_autorefresco()
         self._parametros.id_principal = 0
 
         estado = {
-            "inst_buscar": None,
-            "v_buscar": None,
+            "instancia": None,
+            "ventana_buscar": None,
             "watch_id": None,
+            "nuevo_pedido": False,
         }
 
-        # -------------------------
-        # helpers base
-        # -------------------------
-        def _cerrar_ventana(w):
+        def _release_grab_global():
+            """Rompe cualquier grab activo (muy común en Windows cuando un popup se crea como modal)."""
             try:
-                if w is not None and w.winfo_exists():
-                    w.destroy()
+                root = self._interfaz.master
+                g = root.grab_current()
+                if g is not None:
+                    g.grab_release()
             except Exception:
                 pass
 
-        def _cancel_watch():
+        def _finalizar_sin_captura():
             try:
                 if estado["watch_id"] is not None:
                     self._interfaz.master.after_cancel(estado["watch_id"])
             except Exception:
                 pass
             estado["watch_id"] = None
-
-        def _reanudar_seguro():
             try:
                 self._reanudar_autorefresco()
             except Exception:
@@ -158,136 +160,94 @@ class HerramientasCaptura:
                 if nuevo_pedido_flag:
                     self._filtro_post_captura()
             finally:
-                _reanudar_seguro()
+                try:
+                    self._reanudar_autorefresco()
+                except Exception:
+                    pass
 
-        # -------------------------
-        # GRAB CONTROL (Windows)
-        # -------------------------
-        def _release_any_grab():
-            """Rompe cualquier grab en el root (si existe)."""
+        def _cerrar(w):
             try:
-                root = self._interfaz.master
-                g = root.grab_current()
-                if g is not None:
-                    g.grab_release()
+                if w is not None and w.winfo_exists():
+                    w.destroy()
             except Exception:
                 pass
 
-        def _make_window_non_modal(win):
+        def _crear_popup_simple(titulo: str):
             """
-            Fuerza comportamiento NO modal en Windows.
-            - Rompe grab al abrir
-            - Evita que la ventana pueda aplicar grab (monkeypatch local)
-            - Watchdog que rompe grab periódicamente mientras exista
-            - Facilita foco alternable con lift/focus
+            Popup mínimo sin 'modalidad':
+            - no grab_set
+            - no wait_window
+            - no transient obligatorio
             """
-            # 1) romper grab inicial
-            _release_any_grab()
+            root = self._interfaz.master
+            w = tk.Toplevel(root)
+            w.title(titulo)
 
-            # 2) asegurar topmost off
+            # Icono (si existe, no falla si no)
             try:
-                win.attributes("-topmost", False)
+                # En Windows, iconbitmap funciona; en mac puede fallar con .ico
+                w.iconbitmap("icono_logo.ico")
             except Exception:
                 pass
 
-            # 3) monkeypatch: bloquear grab_set/grab_set_global SOLO en esta ventana
-            #    (para que si Captura intenta modalizarse, no lo logre)
+            # Tamaño/posición: simple, centrado relativo
             try:
-                if not hasattr(win, "_orig_grab_set"):
-                    win._orig_grab_set = win.grab_set
-                    win._orig_grab_set_global = win.grab_set_global
-
-                    def _blocked_grab_set(*args, **kwargs):
-                        # print("[BLOCK] grab_set", win)
-                        return None
-
-                    def _blocked_grab_set_global(*args, **kwargs):
-                        # print("[BLOCK] grab_set_global", win)
-                        return None
-
-                    win.grab_set = _blocked_grab_set
-                    win.grab_set_global = _blocked_grab_set_global
+                w.update_idletasks()
+                # Centrar aproximado
+                rw = root.winfo_width()
+                rh = root.winfo_height()
+                rx = root.winfo_rootx()
+                ry = root.winfo_rooty()
+                ww = 900
+                wh = 650
+                x = rx + max(0, (rw - ww) // 2)
+                y = ry + max(0, (rh - wh) // 2)
+                w.geometry(f"{ww}x{wh}+{x}+{y}")
             except Exception:
                 pass
 
-            # 4) cuando se enfoque o se haga click, rompe cualquier grab activo
+            # Asegurar que no se quede topmost
             try:
-                win.bind("<FocusIn>", lambda e: _release_any_grab(), add="+")
-                win.bind("<Button-1>", lambda e: _release_any_grab(), add="+")
+                w.attributes("-topmost", False)
             except Exception:
                 pass
 
-            # 5) watchdog: mientras la ventana exista, cada 150ms rompe grab
-            watchdog = {"id": None}
-
-            def _tick():
-                try:
-                    if win is None or not win.winfo_exists():
-                        watchdog["id"] = None
-                        return
-                    _release_any_grab()
-                    watchdog["id"] = self._interfaz.master.after(150, _tick)
-                except Exception:
-                    watchdog["id"] = None
-
+            # Importante: permitir foco libre y cortar grabs colgados
             try:
-                watchdog["id"] = self._interfaz.master.after(50, _tick)
-            except Exception:
-                _tick()
-
-            # 6) on destroy: cancelar watchdog
-            def _stop_watchdog(_e=None):
-                try:
-                    if watchdog["id"] is not None:
-                        self._interfaz.master.after_cancel(watchdog["id"])
-                except Exception:
-                    pass
-                watchdog["id"] = None
-
-            try:
-                win.bind("<Destroy>", _stop_watchdog, add="+")
+                w.bind("<FocusIn>", lambda e: _release_grab_global(), add="+")
+                w.bind("<Button-1>", lambda e: _release_grab_global(), add="+")
             except Exception:
                 pass
 
-            # 7) bring to front (Windows sometimes needs idle)
-            def _lift_focus():
-                try:
-                    win.lift()
-                except Exception:
-                    pass
-                try:
-                    win.focus_force()
-                except Exception:
-                    pass
+            return w
 
-            try:
-                self._interfaz.master.after_idle(_lift_focus)
-            except Exception:
-                _lift_focus()
-
-        # -------------------------
-        # abrir captura (no modal real)
-        # -------------------------
-        def _abrir_captura_con(inst_buscar):
-            # Importante: re-pausar aquí
+        def _abrir_captura():
+            # Re-pausar aquí
             self._pausar_autorefresco()
 
-            vcap = self._ventanas.crear_popup_ttkbootstrap_async(
-                titulo="Nueva captura",
-                nombre_icono="icono_logo.ico",
-                ocultar_master=False
-            )
-
-            # ✅ convertirla a NO modal (a prueba de Windows)
-            _make_window_non_modal(vcap)
+            vcap = _crear_popup_simple("Nueva captura")
 
             cap = LlamarInstanciaCaptura(
                 vcap,
                 self._parametros,
-                inst_buscar.cliente,
-                inst_buscar.documento,
-                inst_buscar.ofertas
+                estado["instancia"].cliente,
+                estado["instancia"].documento,
+                estado["instancia"].ofertas
             )
+
+            # Watchdog corto para evitar que algo aplique grab luego (Windows)
+            def _anti_grab_tick():
+                _release_grab_global()
+                try:
+                    if vcap.winfo_exists():
+                        vcap.after(200, _anti_grab_tick)
+                except Exception:
+                    pass
+
+            try:
+                vcap.after(50, _anti_grab_tick)
+            except Exception:
+                pass
 
             def _on_close():
                 nuevo = False
@@ -296,101 +256,102 @@ class HerramientasCaptura:
                 except Exception:
                     pass
 
-                _release_any_grab()
-                _cerrar_ventana(vcap)
+                _release_grab_global()
+                _cerrar(vcap)
                 _post_cierre_captura(nuevo)
 
+            vcap.protocol("WM_DELETE_WINDOW", _on_close)
+            vcap.bind("<Escape>", lambda e: _on_close())
+
+            # Si se destruye internamente, igual refresca
             try:
-                vcap.protocol("WM_DELETE_WINDOW", _on_close)
-                vcap.bind("<Escape>", lambda e: _on_close(), add="+")
+                vcap.bind(
+                    "<Destroy>",
+                    lambda e: _post_cierre_captura(bool(getattr(cap, "nuevo_pedido", False)))
+                    if e.widget is vcap else None
+                )
             except Exception:
                 pass
 
-        # -------------------------
-        # fallback Destroy buscar (Windows delay)
-        # -------------------------
-        def _on_buscar_destroyed():
-            def _check():
-                try:
-                    inst = estado["inst_buscar"]
-                    if inst is not None and getattr(inst, "seleccion_aceptada", False):
-                        _abrir_captura_con(inst)
-                    else:
-                        _reanudar_seguro()
-                except Exception:
-                    _reanudar_seguro()
-
+            # Enfocar sin forzar topmost
             try:
-                self._interfaz.master.after(80, _check)  # Windows-friendly
+                vcap.deiconify()
+                vcap.lift()
+                vcap.focus_set()
             except Exception:
-                _check()
+                pass
 
-        # -------------------------
-        # watcher (respaldo)
-        # -------------------------
-        def _watch_busqueda():
+        def _watch_buscar():
+            """
+            Polling mínimo, pero robusto:
+            - si inst.seleccion_aceptada -> abre captura
+            - si vbus ya no existe -> termina
+            """
             try:
-                inst = estado["inst_buscar"]
-                vbus = estado["v_buscar"]
+                inst = estado["instancia"]
+                vbus = estado["ventana_buscar"]
+
+                # Revienta grabs colgados siempre (Windows)
+                _release_grab_global()
 
                 if inst is not None and getattr(inst, "seleccion_aceptada", False):
-                    _cancel_watch()
-                    _cerrar_ventana(vbus)
-                    estado["v_buscar"] = None
+                    # Importante: dejar que Windows procese Destroy antes de abrir otra
+                    _cerrar(vbus)
 
-                    # Windows: deja que el destroy termine y luego abre captura
                     try:
-                        self._interfaz.master.after(60, lambda: _abrir_captura_con(inst))
+                        if estado["watch_id"] is not None:
+                            self._interfaz.master.after_cancel(estado["watch_id"])
                     except Exception:
-                        _abrir_captura_con(inst)
+                        pass
+                    estado["watch_id"] = None
+
+                    # Delay pequeño para evitar race de foco en Windows
+                    self._interfaz.master.after(80, _abrir_captura)
                     return
 
                 if vbus is None or not vbus.winfo_exists():
-                    _cancel_watch()
+                    _finalizar_sin_captura()
                     return
 
             except Exception:
-                _cancel_watch()
-                _reanudar_seguro()
+                _finalizar_sin_captura()
                 return
 
             try:
-                estado["watch_id"] = self._interfaz.master.after(120, _watch_busqueda)
+                estado["watch_id"] = self._interfaz.master.after(120, _watch_buscar)
             except Exception:
-                _cancel_watch()
-                _reanudar_seguro()
+                _finalizar_sin_captura()
 
-        # ============================================================
-        # Abrir búsqueda cliente (se deja como la tienes para poder escribir)
-        # ============================================================
-        vbus = self._ventanas.crear_popup_ttkbootstrap_async(
-            titulo="Seleccionar cliente",
-            nombre_icono="icono_logo.ico",
-            ocultar_master=False
-        )
-        estado["v_buscar"] = vbus
+        # 1) Abrir búsqueda cliente con popup simple
+        vbus = _crear_popup_simple("Seleccionar cliente")
+        estado["ventana_buscar"] = vbus
+
+        # IMPORTANTÍSIMO: justo después de crear, rompe grab por si algo externo lo puso
+        _release_grab_global()
 
         inst = BuscarGeneralesCliente(vbus, self._parametros)
-        estado["inst_buscar"] = inst
+        estado["instancia"] = inst
 
         def _cerrar_busqueda():
-            _cancel_watch()
-            _cerrar_ventana(vbus)
-            _reanudar_seguro()
+            _release_grab_global()
+            _cerrar(vbus)
+            _finalizar_sin_captura()
 
         try:
-            vbus.bind("<Escape>", lambda e: _cerrar_busqueda(), add="+")
+            vbus.bind("<Escape>", lambda e: _cerrar_busqueda())
             vbus.protocol("WM_DELETE_WINDOW", _cerrar_busqueda)
         except Exception:
             pass
 
-        # Destroy fallback
+        # Enfocar ventana buscar sin forzar topmost
         try:
-            vbus.bind("<Destroy>", lambda e: _on_buscar_destroyed() if e.widget is vbus else None, add="+")
+            vbus.deiconify()
+            vbus.lift()
+            vbus.focus_set()
         except Exception:
             pass
 
-        _watch_busqueda()
+        _watch_buscar()
 
     def _editar_pedido(self):
 

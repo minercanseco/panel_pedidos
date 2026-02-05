@@ -513,9 +513,10 @@ class BuscarGeneralesCliente:
         # 4) cargar la informacion de las direcciones del cliente
         self.cliente.addresses_details = []
         direcciones_cliente = self._buscar_info_direcciones_cliente_seleccionado(business_entity_id)
+        print(direcciones_cliente)
         for direccion in direcciones_cliente:
             self.cliente.add_address_detail(direccion)
-
+        self.cliente.addresses_details = direcciones_cliente
         self._rellenar_cbx_direccion()
 
         # 5) Preparar documentos / direcciones / sucursales según ese cliente

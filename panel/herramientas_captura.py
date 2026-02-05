@@ -106,6 +106,16 @@ class HerramientasCaptura:
         return filas
 
     def _capturar_nuevo_pedido(self):
+        """
+        Versión simple y 'Windows-safe':
+        - Crea popups con tk.Toplevel directamente (sin Ventanas.crear_popup_ttkbootstrap_async)
+        - NO usa grab_set / wait_window
+        - Abre captura al seleccionar cliente
+        - Permite múltiples ventanas independientes (no modal)
+        """
+
+        import tkinter as tk
+        import ttkbootstrap as ttk
 
         self._pausar_autorefresco()
         self._parametros.id_principal = 0
@@ -115,11 +125,10 @@ class HerramientasCaptura:
             "ventana_buscar": None,
             "watch_id": None,
             "nuevo_pedido": False,
-            "cerrando_captura": False,  # <-- evita dobles cierres
         }
 
         def _release_grab_global():
-            """Rompe cualquier grab activo (el causante del 'no puedo enfocar otra ventana')."""
+            """Rompe cualquier grab activo (muy común en Windows cuando un popup se crea como modal)."""
             try:
                 root = self._interfaz.master
                 g = root.grab_current()
@@ -163,32 +172,60 @@ class HerramientasCaptura:
             except Exception:
                 pass
 
-        def _centrar_toplevel(w):
-            """Centrado simple, sin depender de tu clase Ventanas."""
+        def _crear_popup_simple(titulo: str):
+            """
+            Popup mínimo sin 'modalidad':
+            - no grab_set
+            - no wait_window
+            - no transient obligatorio
+            """
+            root = self._interfaz.master
+            w = tk.Toplevel(root)
+            w.title(titulo)
+
+            # Icono (si existe, no falla si no)
             try:
-                w.update_idletasks()
-                width = w.winfo_reqwidth()
-                height = w.winfo_reqheight()
-                sw = w.winfo_screenwidth()
-                sh = w.winfo_screenheight()
-                x = max(0, (sw - width) // 2)
-                y = max(0, (sh - height) // 2)
-                w.geometry(f"{width}x{height}+{x}+{y}")
+                # En Windows, iconbitmap funciona; en mac puede fallar con .ico
+                w.iconbitmap("icono_logo.ico")
             except Exception:
                 pass
 
+            # Tamaño/posición: simple, centrado relativo
+            try:
+                w.update_idletasks()
+                # Centrar aproximado
+                rw = root.winfo_width()
+                rh = root.winfo_height()
+                rx = root.winfo_rootx()
+                ry = root.winfo_rooty()
+                ww = 900
+                wh = 650
+                x = rx + max(0, (rw - ww) // 2)
+                y = ry + max(0, (rh - wh) // 2)
+                w.geometry(f"{ww}x{wh}+{x}+{y}")
+            except Exception:
+                pass
+
+            # Asegurar que no se quede topmost
+            try:
+                w.attributes("-topmost", False)
+            except Exception:
+                pass
+
+            # Importante: permitir foco libre y cortar grabs colgados
+            try:
+                w.bind("<FocusIn>", lambda e: _release_grab_global(), add="+")
+                w.bind("<Button-1>", lambda e: _release_grab_global(), add="+")
+            except Exception:
+                pass
+
+            return w
+
         def _abrir_captura():
-            # Importante: re-pausar aquí (si ya se reanudó tras cerrar búsqueda)
+            # Re-pausar aquí
             self._pausar_autorefresco()
 
-            vcap = self._ventanas.crear_popup_ttkbootstrap_async(
-                titulo="Nueva captura",
-                nombre_icono="icono_logo.ico",
-                ocultar_master=False
-            )
-
-            # Centrar (opcional pero ayuda a estabilidad de foco)
-            _centrar_toplevel(vcap)
+            vcap = _crear_popup_simple("Nueva captura")
 
             cap = LlamarInstanciaCaptura(
                 vcap,
@@ -198,83 +235,69 @@ class HerramientasCaptura:
                 estado["instancia"].ofertas
             )
 
-            # 🔑 Desmodalizar SOLO capturas (NO búsqueda)
-            def _desmodalizar():
+            # Watchdog corto para evitar que algo aplique grab luego (Windows)
+            def _anti_grab_tick():
                 _release_grab_global()
                 try:
-                    vcap.attributes("-topmost", False)
+                    if vcap.winfo_exists():
+                        vcap.after(200, _anti_grab_tick)
                 except Exception:
                     pass
 
             try:
-                self._interfaz.master.after(30, _desmodalizar)
-                self._interfaz.master.after(180, _desmodalizar)
-            except Exception:
-                _desmodalizar()
-
-            # y cada vez que intentes enfocar esta captura, rompe grab
-            try:
-                vcap.bind("<FocusIn>", lambda e: _release_grab_global(), add="+")
-                vcap.bind("<Button-1>", lambda e: _release_grab_global(), add="+")
+                vcap.after(50, _anti_grab_tick)
             except Exception:
                 pass
 
-            # ✅ Cierre único e idempotente: Windows a veces no llama WM_DELETE_WINDOW
-            def _on_close_once():
-                if estado.get("cerrando_captura"):
-                    return
-                estado["cerrando_captura"] = True
-
+            def _on_close():
                 nuevo = False
                 try:
                     nuevo = bool(getattr(cap, "nuevo_pedido", False))
                 except Exception:
                     pass
 
-                try:
-                    _release_grab_global()
-                except Exception:
-                    pass
-
-                # OJO: primero destruir, luego post-cierre (para evitar que la captura siga viva)
-                try:
-                    if vcap is not None and vcap.winfo_exists():
-                        vcap.destroy()
-                except Exception:
-                    pass
-
+                _release_grab_global()
+                _cerrar(vcap)
                 _post_cierre_captura(nuevo)
 
-            # X (close)
+            vcap.protocol("WM_DELETE_WINDOW", _on_close)
+            vcap.bind("<Escape>", lambda e: _on_close())
+
+            # Si se destruye internamente, igual refresca
             try:
-                vcap.protocol("WM_DELETE_WINDOW", _on_close_once)
+                vcap.bind(
+                    "<Destroy>",
+                    lambda e: _post_cierre_captura(bool(getattr(cap, "nuevo_pedido", False)))
+                    if e.widget is vcap else None
+                )
             except Exception:
                 pass
 
-            # Escape
+            # Enfocar sin forzar topmost
             try:
-                vcap.bind("<Escape>", lambda e: _on_close_once(), add="+")
-            except Exception:
-                pass
-
-            # Destroy (si se destruye “por dentro” en Windows)
-            try:
-                def _on_destroy(e):
-                    if e.widget is vcap:
-                        _on_close_once()
-
-                vcap.bind("<Destroy>", _on_destroy, add="+")
+                vcap.deiconify()
+                vcap.lift()
+                vcap.focus_set()
             except Exception:
                 pass
 
         def _watch_buscar():
+            """
+            Polling mínimo, pero robusto:
+            - si inst.seleccion_aceptada -> abre captura
+            - si vbus ya no existe -> termina
+            """
             try:
                 inst = estado["instancia"]
                 vbus = estado["ventana_buscar"]
 
+                # Revienta grabs colgados siempre (Windows)
+                _release_grab_global()
+
                 if inst is not None and getattr(inst, "seleccion_aceptada", False):
-                    # cerrar búsqueda y abrir captura
+                    # Importante: dejar que Windows procese Destroy antes de abrir otra
                     _cerrar(vbus)
+
                     try:
                         if estado["watch_id"] is not None:
                             self._interfaz.master.after_cancel(estado["watch_id"])
@@ -282,10 +305,10 @@ class HerramientasCaptura:
                         pass
                     estado["watch_id"] = None
 
-                    _abrir_captura()
+                    # Delay pequeño para evitar race de foco en Windows
+                    self._interfaz.master.after(80, _abrir_captura)
                     return
 
-                # si cerraron la búsqueda sin seleccionar -> terminar y reanudar
                 if vbus is None or not vbus.winfo_exists():
                     _finalizar_sin_captura()
                     return
@@ -299,24 +322,32 @@ class HerramientasCaptura:
             except Exception:
                 _finalizar_sin_captura()
 
-        # 1) Abrir búsqueda cliente (NO tocarla, para que puedas escribir)
-        vbus = self._ventanas.crear_popup_ttkbootstrap_async(
-            titulo="Seleccionar cliente",
-            nombre_icono="icono_logo.ico",
-            ocultar_master=False
-        )
+        # 1) Abrir búsqueda cliente con popup simple
+        vbus = _crear_popup_simple("Seleccionar cliente")
         estado["ventana_buscar"] = vbus
+
+        # IMPORTANTÍSIMO: justo después de crear, rompe grab por si algo externo lo puso
+        _release_grab_global()
 
         inst = BuscarGeneralesCliente(vbus, self._parametros)
         estado["instancia"] = inst
 
         def _cerrar_busqueda():
+            _release_grab_global()
             _cerrar(vbus)
             _finalizar_sin_captura()
 
         try:
-            vbus.bind("<Escape>", lambda e: _cerrar_busqueda(), add="+")
+            vbus.bind("<Escape>", lambda e: _cerrar_busqueda())
             vbus.protocol("WM_DELETE_WINDOW", _cerrar_busqueda)
+        except Exception:
+            pass
+
+        # Enfocar ventana buscar sin forzar topmost
+        try:
+            vbus.deiconify()
+            vbus.lift()
+            vbus.focus_set()
         except Exception:
             pass
 

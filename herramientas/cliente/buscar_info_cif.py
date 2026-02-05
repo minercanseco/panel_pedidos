@@ -40,7 +40,7 @@ class BuscarInfoCif:
         self._cif = (cif or "").strip().upper()
         self.cliente = instancia_cliente
 
-        self._base_de_datos = BaseDatos(self._parametros.cadena_conexion)
+        self._base_de_datos = BaseDatos()
         self._utilerias = Utilerias()
 
         # Estados internos

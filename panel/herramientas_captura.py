@@ -108,14 +108,14 @@ class HerramientasCaptura:
     def _capturar_nuevo_pedido(self):
         """
         Versión simple y 'Windows-safe':
-        - Crea popups con tk.Toplevel directamente (sin Ventanas.crear_popup_ttkbootstrap_async)
+        - Popups con tk.Toplevel directamente
         - NO usa grab_set / wait_window
         - Abre captura al seleccionar cliente
         - Permite múltiples ventanas independientes (no modal)
+        - Anti-grab: SOLO ticks puntuales (sin loop infinito)
         """
 
         import tkinter as tk
-        import ttkbootstrap as ttk
 
         self._pausar_autorefresco()
         self._parametros.id_principal = 0
@@ -128,7 +128,7 @@ class HerramientasCaptura:
         }
 
         def _release_grab_global():
-            """Rompe cualquier grab activo (muy común en Windows cuando un popup se crea como modal)."""
+            """Rompe cualquier grab activo."""
             try:
                 root = self._interfaz.master
                 g = root.grab_current()
@@ -172,47 +172,43 @@ class HerramientasCaptura:
             except Exception:
                 pass
 
-        def _crear_popup_simple(titulo: str):
-            """
-            Popup mínimo sin 'modalidad':
-            - no grab_set
-            - no wait_window
-            - no transient obligatorio
-            """
-            root = self._interfaz.master
-            w = tk.Toplevel(root)
-            w.title(titulo)
-
-            # Icono (si existe, no falla si no)
+        def _centrar_popup(w, ww=900, wh=650):
+            """Centrado simple."""
             try:
-                # En Windows, iconbitmap funciona; en mac puede fallar con .ico
-                w.iconbitmap("icono_logo.ico")
-            except Exception:
-                pass
-
-            # Tamaño/posición: simple, centrado relativo
-            try:
+                root = self._interfaz.master
+                root.update_idletasks()
                 w.update_idletasks()
-                # Centrar aproximado
-                rw = root.winfo_width()
-                rh = root.winfo_height()
+
+                rw = max(root.winfo_width(), 1)
+                rh = max(root.winfo_height(), 1)
                 rx = root.winfo_rootx()
                 ry = root.winfo_rooty()
-                ww = 900
-                wh = 650
+
                 x = rx + max(0, (rw - ww) // 2)
                 y = ry + max(0, (rh - wh) // 2)
+
                 w.geometry(f"{ww}x{wh}+{x}+{y}")
             except Exception:
                 pass
 
-            # Asegurar que no se quede topmost
+        def _crear_popup_simple(titulo: str):
+            root = self._interfaz.master
+            w = tk.Toplevel(root)
+            w.title(titulo)
+
+            try:
+                w.iconbitmap("icono_logo.ico")
+            except Exception:
+                pass
+
+            _centrar_popup(w)
+
             try:
                 w.attributes("-topmost", False)
             except Exception:
                 pass
 
-            # Importante: permitir foco libre y cortar grabs colgados
+            # Permitir foco libre y cortar grabs colgados cuando el usuario interactúe
             try:
                 w.bind("<FocusIn>", lambda e: _release_grab_global(), add="+")
                 w.bind("<Button-1>", lambda e: _release_grab_global(), add="+")
@@ -235,21 +231,39 @@ class HerramientasCaptura:
                 estado["instancia"].ofertas
             )
 
-            # Watchdog corto para evitar que algo aplique grab luego (Windows)
-            def _anti_grab_tick():
+            # ✅ Anti-grab puntual (sin loop infinito)
+            tick_ids = {"t1": None, "t2": None, "t3": None}
+
+            def _anti_grab_once():
                 _release_grab_global()
                 try:
-                    if vcap.winfo_exists():
-                        vcap.after(200, _anti_grab_tick)
+                    vcap.attributes("-topmost", False)
                 except Exception:
                     pass
 
             try:
-                vcap.after(50, _anti_grab_tick)
+                tick_ids["t1"] = vcap.after(30, _anti_grab_once)
+                tick_ids["t2"] = vcap.after(180, _anti_grab_once)
+                tick_ids["t3"] = vcap.after(450, _anti_grab_once)
             except Exception:
                 pass
 
-            def _on_close():
+            # ✅ Cierre idempotente y cancela afters
+            cerrado = {"ok": False}
+
+            def _on_close_once():
+                if cerrado["ok"]:
+                    return
+                cerrado["ok"] = True
+
+                # cancelar ticks si siguen vivos
+                for k in ("t1", "t2", "t3"):
+                    try:
+                        if tick_ids.get(k) is not None and vcap.winfo_exists():
+                            vcap.after_cancel(tick_ids[k])
+                    except Exception:
+                        pass
+
                 nuevo = False
                 try:
                     nuevo = bool(getattr(cap, "nuevo_pedido", False))
@@ -260,30 +274,37 @@ class HerramientasCaptura:
                 _cerrar(vcap)
                 _post_cierre_captura(nuevo)
 
-            vcap.protocol("WM_DELETE_WINDOW", _on_close)
-            vcap.bind("<Escape>", lambda e: _on_close())
-
-            # Si se destruye internamente, igual refresca
+            # X / Escape
             try:
-                vcap.bind(
-                    "<Destroy>",
-                    lambda e: _post_cierre_captura(bool(getattr(cap, "nuevo_pedido", False)))
-                    if e.widget is vcap else None
-                )
+                vcap.protocol("WM_DELETE_WINDOW", _on_close_once)
+                vcap.bind("<Escape>", lambda e: _on_close_once(), add="+")
             except Exception:
                 pass
 
-            # Enfocar sin forzar topmost
+            # Si se destruye internamente (Windows), igual dispara el cierre UNA vez
+            try:
+                def _on_destroy(e):
+                    if e.widget is vcap:
+                        _on_close_once()
+
+                vcap.bind("<Destroy>", _on_destroy, add="+")
+            except Exception:
+                pass
+
+            # Enfocar sin topmost
             try:
                 vcap.deiconify()
                 vcap.lift()
-                vcap.focus_set()
+                try:
+                    vcap.focus_force()  # en Windows suele ser mejor que focus_set
+                except Exception:
+                    vcap.focus_set()
             except Exception:
                 pass
 
         def _watch_buscar():
             """
-            Polling mínimo, pero robusto:
+            Polling robusto:
             - si inst.seleccion_aceptada -> abre captura
             - si vbus ya no existe -> termina
             """
@@ -291,11 +312,7 @@ class HerramientasCaptura:
                 inst = estado["instancia"]
                 vbus = estado["ventana_buscar"]
 
-                # Revienta grabs colgados siempre (Windows)
-                _release_grab_global()
-
                 if inst is not None and getattr(inst, "seleccion_aceptada", False):
-                    # Importante: dejar que Windows procese Destroy antes de abrir otra
                     _cerrar(vbus)
 
                     try:
@@ -326,7 +343,7 @@ class HerramientasCaptura:
         vbus = _crear_popup_simple("Seleccionar cliente")
         estado["ventana_buscar"] = vbus
 
-        # IMPORTANTÍSIMO: justo después de crear, rompe grab por si algo externo lo puso
+        # Importante: liberar grab SOLO una vez al crear (no en loop)
         _release_grab_global()
 
         inst = BuscarGeneralesCliente(vbus, self._parametros)
@@ -338,16 +355,18 @@ class HerramientasCaptura:
             _finalizar_sin_captura()
 
         try:
-            vbus.bind("<Escape>", lambda e: _cerrar_busqueda())
+            vbus.bind("<Escape>", lambda e: _cerrar_busqueda(), add="+")
             vbus.protocol("WM_DELETE_WINDOW", _cerrar_busqueda)
         except Exception:
             pass
 
-        # Enfocar ventana buscar sin forzar topmost
         try:
             vbus.deiconify()
             vbus.lift()
-            vbus.focus_set()
+            try:
+                vbus.focus_force()
+            except Exception:
+                vbus.focus_set()
         except Exception:
             pass
 

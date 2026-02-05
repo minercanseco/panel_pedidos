@@ -779,13 +779,15 @@ class BuscarGeneralesCliente:
             self._ventanas.posicionar_frame('frame_informacion')
             self._ventanas.posicionar_frame('frame_direccion')
             self._cargar_info_credito()
+            self._ventanas.refrescar_tamano_forma()
         else:
             self._ventanas.posicionar_frame('frame_data')
             self._ventanas.ocultar_frame('frame_informacion')
             posicion = {'row': 1, 'column': 0, 'columnspan': 2, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}
             self._ventanas.posicionar_frame('frame_direccion', posicion)
+            self._ventanas.refrescar_tamano_forma()
 
-        #self._master.place_window_center()
+        self._ventanas.refrescar_tamano_forma()
 
     def _cargar_info_credito(self):
 

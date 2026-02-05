@@ -41,7 +41,7 @@ class BuscarGeneralesCliente:
 
         # --- Apariencia inicial ---
         self._actualizar_apariencia_forma(solo_apariencia_inicial=True)
-        self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
+        #self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
         self._ventanas.enfocar_componente('tbx_buscar')
 
         # --- Manejo seguro del cierre con “X” ---

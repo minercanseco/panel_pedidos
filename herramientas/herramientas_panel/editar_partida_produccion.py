@@ -24,7 +24,7 @@ class EditarPartidaProduccion:
         ]
         self._ventanas.crear_formulario_simple(componentes)
 
-        self._ventanas.agregar_validacion_tbx('tbx_cantidad_nueva', 'cantidad')
+        #self._ventanas.agregar_validacion_tbx('tbx_cantidad_nueva', 'cantidad')
 
     def _cargar_eventos(self):
         eventos = {

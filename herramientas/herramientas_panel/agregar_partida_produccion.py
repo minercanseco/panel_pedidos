@@ -102,7 +102,8 @@ class AgregarPartidaProduccion:
         self._ventanas.crear_componentes(componentes)
 
     def _agregar_validaciones(self):
-        self._ventanas.agregar_validacion_tbx('tbx_cantidad', 'cantidad')
+        pass
+        #self._ventanas.agregar_validacion_tbx('tbx_cantidad', 'cantidad')
 
     def _crear_columnas_detalle(self):
         return [

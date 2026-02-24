@@ -746,10 +746,12 @@ class EditarCaracteristicasPedido:
                             ScheduleID = ?, 
                             PriorityID = 2,
                             OrderTypeID = ?,
-                            UserID = NULL
+                            UserID = NULL,
+                            SentToPrepare= GETDATE(),
+                            SentToPrepareBy=?
                         WHERE OrderDocumentID = @OrderID
                         """,
-                        (self._order_document_id, schedule_id, order_type_id)
+                        (self._order_document_id, schedule_id, order_type_id, self._user_id)
                     )
 
                 # ========
@@ -782,10 +784,12 @@ class EditarCaracteristicasPedido:
                             ScheduleID = ?,
                             OrderTypeID = ?,
                             PriorityID = 2,
-                            UserID = NULL
+                            UserID = NULL,
+                            SentToPrepare= GETDATE(),
+                            SentToPrepareBy=?
                         WHERE OrderDocumentID = @OrderID
                         """,
-                        (self._order_document_id, schedule_id, order_type_id)
+                        (self._order_document_id, schedule_id, order_type_id, self._user_id)
                     )
 
             self._master.destroy()

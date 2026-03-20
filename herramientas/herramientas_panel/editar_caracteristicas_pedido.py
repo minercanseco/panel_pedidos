@@ -696,7 +696,9 @@ class EditarCaracteristicasPedido:
         if self._validar_inputs_formulario():
             self._procesar_seleccion_usuario()
 
-            order_related_id = self.parametros_pedido['RelatedOrderID']
+            order_related_id = self.parametros_pedido.get('RelatedOrderID',0)
+
+
             tipo_pedido = self._ventanas.obtener_input_componente('cbx_tipo')
 
             if tipo_pedido in ('Anexo', 'Cambio') and order_related_id == 0:

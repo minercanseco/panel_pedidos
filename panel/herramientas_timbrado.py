@@ -429,14 +429,13 @@ class HerramientasTimbrado:
                                                      ruta
                                                      )
 
-                    # relacionar documenrtosa con pedidos
-                    self._modelo.relacionar_pedidos_con_facturas(document_id, order_document_id)
+                    order_principal = resolver_order_document_id_principal(fila)
+                    if not order_principal:
+                        continue
 
-                    # agregar documento para recalculo
-                    self._modelo.insertar_pedido_a_recalcular(document_id, order_document_id)
-
-                    # afectar bitacora
-                    self._modelo.afectar_bitacora_de_cambios_en_pedidos(document_id, [order_document_id])
+                    self._modelo.relacionar_pedidos_con_facturas(document_id, order_principal)
+                    self._modelo.insertar_pedido_a_recalcular(document_id, order_principal)
+                    self._modelo.afectar_bitacora_de_cambios_en_pedidos(document_id, [order_principal])
 
                 else:
                     partidas_acumuladas.extend(partidas)
@@ -447,7 +446,11 @@ class HerramientasTimbrado:
                 return
 
             # aplica para documentos combinados
-            all_order_document_ids = [fila['OrderDocumentID'] for fila in filas]
+            all_order_document_ids = list({
+                resolver_order_document_id_principal(fila)
+                for fila in filas
+                if resolver_order_document_id_principal(fila)
+            })
             order_document_ids = sorted([fila['OrderDocumentID'] for fila in filas if fila['OrderTypeID'] == 1],
                                         reverse=True)
             if not order_document_ids:
@@ -488,16 +491,41 @@ class HerramientasTimbrado:
             # afectar la bitacora de cambios
             self._modelo.afectar_bitacora_de_cambios_en_pedidos(document_id, all_order_document_ids)
 
-        def validar_si_los_pedidos_son_del_mismo_cliente(filas):
-            business_entity_ids = []
-            for fila in filas:
-                business_entity_id = fila['BusinessEntityID']
-                business_entity_ids.append(business_entity_id)
+        def validar_si_se_pueden_combinar(filas):
+            clientes = {fila['BusinessEntityID'] for fila in filas}
+            if len(clientes) != 1:
+                return False
 
-            business_entity_ids = list(set(business_entity_ids))
-            if len(business_entity_ids) == 1:
-                return True
-            return False
+            pedidos = [fila for fila in filas if fila['OrderTypeID'] == 1]
+
+            # no mezclar dos pedidos reales
+            if len(pedidos) > 1:
+                return False
+
+            return True
+
+        def resolver_order_document_id_principal(fila):
+            """
+            Devuelve el OrderDocumentID principal que debe relacionarse con el documento generado.
+
+            Reglas:
+            - Pedido (OrderTypeID == 1): se relaciona consigo mismo.
+            - Anexo (OrderTypeID == 2) o cambio (OrderTypeID == 3): se relaciona con RelatedOrderID.
+            - Si un anexo/cambio no tiene RelatedOrderID válido, devuelve None.
+            """
+            order_type_id = int(fila.get('OrderTypeID') or 0)
+            order_document_id = fila.get('OrderDocumentID')
+            related_order_id = fila.get('RelatedOrderID')
+
+            if order_type_id == 1:
+                return order_document_id
+
+            if order_type_id in (2, 3):
+                if related_order_id not in (None, 0, '', '0'):
+                    return related_order_id
+                return None
+
+            return order_document_id
 
         def excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(filas):
 
@@ -536,9 +564,102 @@ class HerramientasTimbrado:
                 f'Pedidos refacturados:\n{pedidos_texto}'
             )
 
+        def buscar_fila_por_order_document_id(order_document_id):
+            filas_tabla = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos')
+            for fila_tabla in filas_tabla:
+                if fila_tabla['OrderDocumentID'] == order_document_id:
+                    return fila_tabla
+            return None
+
+        def normalizar_filas_para_facturar(filas):
+            """
+            Reglas:
+            - Pedido (1): sigue normal.
+            - Anexo (2) / cambio (3):
+                * debe tener RelatedOrderID válido
+                * si viene solo, se ofrece mezclarlo con su pedido relacionado
+                * si no acepta, se cancela el flujo
+            - evita duplicar el pedido si ya estaba seleccionado
+            """
+            if not filas:
+                return []
+
+            filas_normalizadas = list(filas)
+
+            # Caso: selección única
+            if len(filas_normalizadas) == 1:
+                fila = filas_normalizadas[0]
+                order_type_id = int(fila.get('OrderTypeID') or 0)
+
+                if order_type_id in (2, 3):
+                    related_order_id = fila.get('RelatedOrderID')
+
+                    if related_order_id in (None, 0, '', '0'):
+                        self._interfaz.ventanas.mostrar_mensaje(
+                            'La orden seleccionada no tiene un pedido relacionado. No se puede facturar de forma independiente.'
+                        )
+                        return []
+
+                    fila_pedido = buscar_fila_por_order_document_id(related_order_id)
+                    if not fila_pedido:
+                        self._interfaz.ventanas.mostrar_mensaje(
+                            f'No se encontró en la tabla el pedido relacionado ({related_order_id}) para la orden seleccionada.'
+                        )
+                        return []
+
+                    respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                        'La orden seleccionada es un anexo o cambio relacionado a un pedido.\n'
+                        '¿Desea mezclarla automáticamente con su pedido relacionado para facturar?'
+                    )
+                    if not respuesta:
+                        return []
+
+                    filas_normalizadas = [fila_pedido, fila]
+
+            # Caso: selección múltiple
+            order_document_ids_actuales = {fila['OrderDocumentID'] for fila in filas_normalizadas}
+            filas_a_agregar = []
+
+            for fila in filas_normalizadas:
+                order_type_id = int(fila.get('OrderTypeID') or 0)
+
+                if order_type_id in (2, 3):
+                    related_order_id = fila.get('RelatedOrderID')
+
+                    if related_order_id in (None, 0, '', '0'):
+                        pedido = fila.get('Pedido', fila.get('OrderDocumentID'))
+                        self._interfaz.ventanas.mostrar_mensaje(
+                            f'La orden {pedido} no tiene un pedido relacionado válido. No se puede facturar.'
+                        )
+                        return []
+
+                    if related_order_id not in order_document_ids_actuales:
+                        fila_pedido = buscar_fila_por_order_document_id(related_order_id)
+                        if not fila_pedido:
+                            self._interfaz.ventanas.mostrar_mensaje(
+                                f'No se encontró en la tabla el pedido relacionado ({related_order_id}) para una de las órdenes seleccionadas.'
+                            )
+                            return []
+
+                        filas_a_agregar.append(fila_pedido)
+                        order_document_ids_actuales.add(related_order_id)
+
+            if filas_a_agregar:
+                filas_normalizadas = filas_a_agregar + filas_normalizadas
+
+            return filas_normalizadas
         # --------------------------------------------------------------------------------------------------------------
         try:
             filas = self._obtener_valores_filas_pedidos_seleccionados()
+
+            if not filas:
+                return
+
+            # Normaliza la selección:
+            # - si se selecciona un anexo/cambio solo, ofrece mezclarlo con su pedido
+            # - si no tiene pedido relacionado válido, cancela
+            # - si en selección múltiple falta el pedido relacionado, lo agrega
+            filas = normalizar_filas_para_facturar(filas)
 
             if not filas:
                 return
@@ -550,32 +671,40 @@ class HerramientasTimbrado:
                 self._interfaz.ventanas.mostrar_mensaje('No hay pedidos con un status válido para facturar')
                 return
 
-            #--------------------------------------------------------------------------------------------------------------
+            # si hay anexo/cambio en selección, forzar combinado
+            if any(f['OrderTypeID'] in (2, 3) for f in filas_filtradas):
+                crear_documento(filas_filtradas, combinado=True, mismo_cliente=True)
+                if pedidos_fuera_status_timbrado:
+                    mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
+                return
+
+            # --------------------------------------------------------------------------------------------------------------
             # aqui comenzamos el procesamiento de las filas a facturar
-            # si es una seleccion unica valida primero si no hay otros pendientes del mimsmo cliente
-            if len(filas) == 1:
-                hay_pedidos_del_mismo_cliente = buscar_pedidos_en_proceso_del_mismo_cliente(filas)
+            # si es una seleccion unica valida primero si no hay otros pendientes del mismo cliente
+            if len(filas_filtradas) == 1:
+                hay_pedidos_del_mismo_cliente = buscar_pedidos_en_proceso_del_mismo_cliente(filas_filtradas)
 
                 if not hay_pedidos_del_mismo_cliente:
-                    crear_documento(filas)
+                    crear_documento(filas_filtradas)
                     if pedidos_fuera_status_timbrado:
                         mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
 
                 if hay_pedidos_del_mismo_cliente:
-                    respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta('Hay otro pedido del mismo cliente en proceso o por timbrar.'
-                                                                                 '¿Desea continuar?')
+                    respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                        'Hay otro pedido del mismo cliente en proceso o por timbrar. ¿Desea continuar?'
+                    )
                     if respuesta:
-                        crear_documento(filas)
+                        crear_documento(filas_filtradas)
                         if pedidos_fuera_status_timbrado:
                             mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
                 return
 
             # si hay mas de una fila primero valida que estas filas no tengan solo el mismo cliente
-            # si lo tuvieran hay que ofrecer combinarlas en un documento
-            tienen_el_mismo_cliente = validar_si_los_pedidos_son_del_mismo_cliente(filas_filtradas)
-            if tienen_el_mismo_cliente:
+            # y que no se mezclen múltiples pedidos reales
+            se_pueden_combinar = validar_si_se_pueden_combinar(filas_filtradas)
+            if se_pueden_combinar:
                 respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
-                    'Los pedidos son del mismo cliente. ¿Desea combinarlos?'
+                    'Las órdenes son del mismo cliente y pueden combinarse. ¿Desea combinarlas?'
                 )
                 if respuesta:
                     crear_documento(filas_filtradas, combinado=True, mismo_cliente=True)
@@ -583,10 +712,9 @@ class HerramientasTimbrado:
                         mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
                     return
 
-
             # del mismo modo que para una fila valida que no existan otras ordenes de un cliente en proceso
             # si lo hay para un cliente ese cliente debe excluirse de la seleccion
-            filas_filtradas = excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(filas)
+            filas_filtradas = excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(filas_filtradas)
             if not filas_filtradas:
                 return
 

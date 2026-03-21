@@ -149,37 +149,145 @@ class HerramientasTimbrado:
         pedidos_fuera_status_timbrado_ids = []
 
         # --------------------------------------------------------------------------------------------------------------
+        def normalizar_order_id(valor):
+            """
+            Convierte IDs relacionados a int cuando sea posible.
+            Soporta valores como:
+            - 115963
+            - '115963'
+            - 'PD115963'
+            """
+            if valor in (None, '', '0', 0):
+                return None
+
+            if isinstance(valor, str):
+                valor = valor.strip()
+                if not valor:
+                    return None
+
+                match = re.search(r'(\d+)$', valor)
+                if match:
+                    try:
+                        return int(match.group(1))
+                    except (TypeError, ValueError):
+                        return None
+
+            try:
+                return int(valor)
+            except (TypeError, ValueError):
+                return None
+
+        def obtener_order_document_id_de_fila(fila):
+            """
+            Obtiene el OrderDocumentID real de una fila usando varias llaves posibles.
+            """
+            posibles_llaves = (
+                'OrderDocumentID',
+                'Pedido',
+                'ID',
+                'OrderID',
+            )
+
+            for llave in posibles_llaves:
+                valor = normalizar_order_id(fila.get(llave))
+                if valor:
+                    return valor
+
+            return None
+
+        def obtener_order_relacionado(fila):
+            """
+            Obtiene el pedido relacionado usando distintas llaves posibles.
+            """
+            posibles_llaves = (
+                'RelatedOrderID',
+                'Relacion',
+                'RelatedOrderDocumentID',
+                'RetailatedOrderID',
+                'RetaledOrderID',
+            )
+
+            for llave in posibles_llaves:
+                valor = normalizar_order_id(fila.get(llave))
+                if valor:
+                    return valor
+
+            return None
+
+        def buscar_fila_por_order_document_id(order_document_id, filas_base=None):
+            """
+            Busca primero en las filas proporcionadas (por ejemplo, las seleccionadas),
+            y si no encuentra, busca en toda la tabla.
+            """
+            order_document_id = normalizar_order_id(order_document_id)
+            if not order_document_id:
+                return None
+
+            if filas_base:
+                for fila in filas_base:
+                    fila_order_document_id = obtener_order_document_id_de_fila(fila)
+                    if fila_order_document_id == order_document_id:
+                        return fila
+
+            filas_tabla = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos')
+            for fila_tabla in filas_tabla:
+                fila_order_document_id = obtener_order_document_id_de_fila(fila_tabla)
+                if fila_order_document_id == order_document_id:
+                    return fila_tabla
+
+            return None
+
+        def buscar_pedido_base_en_seleccion(fila_objetivo, filas_base):
+            """
+            Fallback controlado:
+            Si no se puede resolver el pedido base por ID exacto pero dentro de la selección
+            existe un único pedido real del mismo cliente, lo tomamos como base.
+            """
+            if not filas_base:
+                return None
+
+            business_entity_id = fila_objetivo.get('BusinessEntityID')
+            pedidos_reales = [
+                fila for fila in filas_base
+                if int(fila.get('OrderTypeID') or 0) == 1
+                   and fila.get('BusinessEntityID') == business_entity_id
+            ]
+
+            if len(pedidos_reales) == 1:
+                return pedidos_reales[0]
+
+            return None
+
         def filtrar_filas_facturables_por_status(filas):
             filas_filtradas = []
-            # filtrar por status
             for fila in filas:
                 status_id = fila['TypeStatusID']
-                order_document_id = fila['OrderDocumentID']
+                order_document_id = obtener_order_document_id_de_fila(fila)
                 cliente = fila['Cliente']
 
-                #  abierto, en proceso, cancelado, surtido parcialmente minisuper, produccion, almacen
+                # abierto, en proceso, cancelado, surtido parcialmente minisuper, produccion, almacen
                 if status_id in (1, 2, 10, 12, 16, 17, 18):
                     continue
 
                 filas_filtradas.append(fila)
                 if status_id != 3:
-                    print('aqui aqui auqi')
                     pedidos_fuera_status_timbrado.append(cliente)
                     pedidos_fuera_status_timbrado_ids.append(order_document_id)
+
             return filas_filtradas
 
         def buscar_pedidos_en_proceso_del_mismo_cliente(fila):
-            business_entity_id = fila[0]['BusinessEntityID'] if isinstance(fila, list) else fila['BusinessEntityID']
-            order_document_id = fila[0]['OrderDocumentID'] if isinstance(fila, list) else fila['OrderDocumentID']
+            fila_base = fila[0] if isinstance(fila, list) else fila
+            business_entity_id = fila_base['BusinessEntityID']
+            order_document_id = obtener_order_document_id_de_fila(fila_base)
 
             pedidos_del_mismo_cliente = 0
+            filas_tabla = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos')
 
-            filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos')
-
-            for fila in filas:
-                business_entity_id_fila = fila['BusinessEntityID']
-                order_document_id_fila = fila['OrderDocumentID']
-                status_id = fila['TypeStatusID']
+            for fila_tabla in filas_tabla:
+                business_entity_id_fila = fila_tabla['BusinessEntityID']
+                order_document_id_fila = obtener_order_document_id_de_fila(fila_tabla)
+                status_id = fila_tabla['TypeStatusID']
 
                 if order_document_id_fila == order_document_id:
                     continue
@@ -187,15 +295,10 @@ class HerramientasTimbrado:
                 if business_entity_id_fila == business_entity_id:
                     if status_id in (2, 3, 16, 17, 18):
                         pedidos_del_mismo_cliente += 1
-                        continue
 
-            if pedidos_del_mismo_cliente > 0:
-                return True
-
-            return False
+            return pedidos_del_mismo_cliente > 0
 
         def calcular_total_pedido(order_document_id):
-
             consulta_partidas = self._modelo.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
                 order_document_id, partidas_producidas=True)
 
@@ -204,9 +307,10 @@ class HerramientasTimbrado:
             total_tax = 0
             total_total = 0
             nuevas_partidas = []
+
             for producto in consulta_partidas_con_impuestos:
                 impuestos = producto['impuestos']
-                subtotal =  producto['subtotal']
+                subtotal = producto['subtotal']
                 total = producto['total']
                 product_id = producto['ProductID']
 
@@ -219,7 +323,6 @@ class HerramientasTimbrado:
 
                 nuevas_partidas.append(producto)
 
-
             return total_total, nuevas_partidas
 
         def cuantificar_valor_partidas_documento(filas, mismo_cliente=False):
@@ -228,7 +331,10 @@ class HerramientasTimbrado:
             partidas_pedidos = {}
 
             for fila in filas:
-                order_document_id = fila['OrderDocumentID']
+                order_document_id = obtener_order_document_id_de_fila(fila)
+                if not order_document_id:
+                    continue
+
                 total_documento, partidas_con_impuesto = calcular_total_pedido(order_document_id)
                 partidas_pedidos[order_document_id] = (total_documento, partidas_con_impuesto)
 
@@ -261,14 +367,11 @@ class HerramientasTimbrado:
                         return [], partidas_pedidos
                     return filas, partidas_pedidos
 
-                # tu umbral (lo dejo igual)
                 return filas, partidas_pedidos
 
             return filas_filtradas, partidas_pedidos
 
         def actualizar_forma_de_pago_documento(info_documento):
-
-            # equivalencias de forma de pago de pedidos
             way_to_pay_cfd = {
                 2: 1,  # efectivo
                 3: 28,  # tdb
@@ -279,42 +382,26 @@ class HerramientasTimbrado:
 
             way_to_pay_id = int(info_documento['WayToPayID'])
 
-            # si la forma de pago entra entre tdc,tdb, efectivo, transferencia o cheque, actualizala
-            """
-            1	Por Definir	El pago se definirá en el cobro
-            2	Efectivo	Efectivo
-            3	Tarjeta Debito	Llevar terminal
-            4	Tarjeta Crédito	Llevar terminal
-            5	Firma	Es a crédito
-            6	Transferencia	Transferencia
-            7	Cheque	Cheque
-            8	No aplica	No cobrar 
-            """
             if way_to_pay_id in (2, 3, 4, 6, 7):
                 return way_to_pay_cfd[way_to_pay_id]
 
             return 0
 
         def crear_cabecera_documento(document_type_id, fila):
-            # este valor hace que se inserte la configuracion del cliente que esta predeterminada
             way_to_pay_id = 0
 
-            # solo si el documento es factura realiza la actualización de tipo de pago
             if document_type_id == 0:
                 way_to_pay_id = actualizar_forma_de_pago_documento(info_documento=fila)
 
             return self._modelo.crear_cabecera_factura_mayoreo(document_type_id, way_to_pay_id, fila)
 
         def filtrar_comentario_documento(comentario):
-
             palabras_a_eliminar = [
-                r'\bes un anexo\b',  # Nueva frase a eliminar
+                r'\bes un anexo\b',
                 r'\banexo\b', r'\banexos\b',
                 r'\bes anexoo\b',
                 r'\banexoo\b',
                 r'\bllevar terminal\b',
-                # r'\bviene\b',
-                # r'\bes viene\b',
                 r'\btransferencia\b', r'\btransf\b', r'\bestransferencia\b',
                 r'\bcheque\b',
                 r'\bfolio\b',
@@ -324,32 +411,23 @@ class HerramientasTimbrado:
                 r'\bes credito\b',
             ]
 
-            # Expresión regular para eliminar frases no deseadas
             patron_palabras = re.compile(r"(,?\s*)?(" + "|".join(palabras_a_eliminar) + r")(,?\s*)?", re.IGNORECASE)
+            patron_guiones = re.compile(r'-{2,}')
 
-            # Expresión regular para reemplazar múltiples guiones por un solo guion
-            patron_guiones = re.compile(r'-{2,}')  # Busca "--", "---", etc.
-
-            # Eliminar palabras/frases no deseadas
             comentario_filtrado = patron_palabras.sub("", comentario)
-
-            # Reemplazar múltiples guiones por un solo guion
             comentario_filtrado = patron_guiones.sub("-", comentario_filtrado)
 
-            # Limpiar espacios y comas innecesarias después de la sustitución
-            comentario_filtrado = re.sub(r'\s*,\s*', ', ', comentario_filtrado)  # Espacios alrededor de comas
-            comentario_filtrado = re.sub(r',\s*$', '', comentario_filtrado)  # Coma al final
-            comentario_filtrado = comentario_filtrado.strip()  # Eliminar espacios en los extremos
+            comentario_filtrado = re.sub(r'\s*,\s*', ', ', comentario_filtrado)
+            comentario_filtrado = re.sub(r',\s*$', '', comentario_filtrado)
+            comentario_filtrado = comentario_filtrado.strip()
 
             return comentario_filtrado
 
-        def crear_comentario_documento(order_document_ids, document_id, business_entity_id, total_documento,
-                                        ruta):
+        def crear_comentario_documento(order_document_ids, document_id, business_entity_id, total_documento, ruta):
             comentarios_pedidos = []
-            comentario_a_insertar = ''
+
             for order in order_document_ids:
                 comentario = self._modelo.obtener_comentario_pedido(order)
-
                 if comentario:
                     comentarios_pedidos.append(comentario)
 
@@ -362,17 +440,40 @@ class HerramientasTimbrado:
             comentarios_forma_pago = self._modelo.crear_comentario_forma_pago(order_document_ids)
             comentarios_entrega = self._modelo.crear_comentario_entrega(order_document_ids)
 
-            comentario_a_insertar = f"{ruta}\n {comentario_a_insertar}\n {comentarios_taras}\n {comentarios_horarios}\n {comentarios_forma_pago}\n {comentarios_entrega}".upper()
-            comentario_a_insertar = self._modelo.validar_credito_documento_cliente(business_entity_id, comentario_a_insertar,
-                                                                            total_documento)
+            comentario_a_insertar = (
+                f"{ruta}\n {comentario_a_insertar}\n {comentarios_taras}\n "
+                f"{comentarios_horarios}\n {comentarios_forma_pago}\n {comentarios_entrega}"
+            ).upper()
+
+            comentario_a_insertar = self._modelo.validar_credito_documento_cliente(
+                business_entity_id,
+                comentario_a_insertar,
+                total_documento
+            )
 
             self._modelo.actualizar_comentario_document_id(comentario_a_insertar, document_id)
 
-        def crear_documento(filas, combinado=False, mismo_cliente=False):
+        def resolver_order_document_id_principal(fila):
+            """
+            Reglas:
+            - Pedido (1): se relaciona consigo mismo.
+            - Anexo (2) o cambio (3): se relacionan con el pedido base.
+            """
+            order_type_id = int(fila.get('OrderTypeID') or 0)
+            order_document_id = obtener_order_document_id_de_fila(fila)
+            related_order_id = obtener_order_relacionado(fila)
 
+            if order_type_id == 1:
+                return order_document_id
+
+            if order_type_id in (2, 3):
+                return related_order_id
+
+            return order_document_id
+
+        def crear_documento(filas, combinado=False, mismo_cliente=False):
             tipo_documento = 1  # remision
 
-            # determina el tipo de documento que se generará ya sea remision y/o factura
             if len(filas) > 1 and combinado:
                 tipos_documento = list(set([fila['DocumentTypeID'] for fila in filas]))
                 if len(tipos_documento) == 1:
@@ -385,32 +486,28 @@ class HerramientasTimbrado:
                         ventana.wait_window()
                         tipo_documento = instancia.tipo_documento
 
-            # cuantificamos el valor de todas las partidas involucradas excluyendo el servicio a domicilio
-            # y determinamos si superan el valor 200
-
             filas_valorizadas, partidas_pedidos = cuantificar_valor_partidas_documento(filas, mismo_cliente)
             if not filas_valorizadas:
                 self._interfaz.ventanas.mostrar_mensaje('No hay ningún documento que generar.')
                 return
 
-            # aqui creamos el o los documentos pertinentes
-            # si es un documento por cada orden no hay problema se toma el tipo desde la fila
             document_id = 0
             total_acumulado = 0
             partidas_acumuladas = []
 
             for fila in filas_valorizadas:
-                order_document_id = fila['OrderDocumentID']
+                order_document_id = obtener_order_document_id_de_fila(fila)
                 address_detail_id = fila['AddressDetailID']
                 business_entity_id = fila['BusinessEntityID']
                 ruta = fila['Ruta']
+
+                if not order_document_id:
+                    continue
 
                 info_documento = partidas_pedidos.get(order_document_id, None)
                 if not info_documento:
                     continue
 
-                # info documento es una tupla donde el primer elemento es el total del documento y el segundo las partidas
-                # en este punto los documentos valorizados ya estan filtrado despues de n validaciones
                 total_documento = info_documento[0]
                 partidas = info_documento[1]
 
@@ -418,16 +515,21 @@ class HerramientasTimbrado:
                     tipo_documento = fila['DocumentTypeID']
 
                     document_id = crear_cabecera_documento(tipo_documento, fila)
-                    self._modelo.insertar_partidas_documento(order_document_id, document_id, partidas, total_documento,
-                                                      address_detail_id)
+                    self._modelo.insertar_partidas_documento(
+                        order_document_id,
+                        document_id,
+                        partidas,
+                        total_documento,
+                        address_detail_id
+                    )
 
-                    # insertar comentarios desde el pedido
-                    crear_comentario_documento([order_document_id],
-                                                     document_id,
-                                                     business_entity_id,
-                                                     total_documento,
-                                                     ruta
-                                                     )
+                    crear_comentario_documento(
+                        [order_document_id],
+                        document_id,
+                        business_entity_id,
+                        total_documento,
+                        ruta
+                    )
 
                     order_principal = resolver_order_document_id_principal(fila)
                     if not order_principal:
@@ -441,54 +543,60 @@ class HerramientasTimbrado:
                     partidas_acumuladas.extend(partidas)
                     total_acumulado += total_documento
 
-            # proceso concluido si no fue combinado el documento
             if not combinado:
                 return
 
-            # aplica para documentos combinados
             all_order_document_ids = list({
                 resolver_order_document_id_principal(fila)
                 for fila in filas
                 if resolver_order_document_id_principal(fila)
             })
-            order_document_ids = sorted([fila['OrderDocumentID'] for fila in filas if fila['OrderTypeID'] == 1],
-                                        reverse=True)
+
+            order_document_ids = sorted(
+                [
+                    obtener_order_document_id_de_fila(fila)
+                    for fila in filas
+                    if int(fila.get('OrderTypeID') or 0) == 1 and obtener_order_document_id_de_fila(fila)
+                ],
+                reverse=True
+            )
+
             if not order_document_ids:
                 self._interfaz.ventanas.mostrar_mensaje(
-                    'Debe por lo menos haber un pedido dentro de las ordenes seleccionadas.')
+                    'Debe por lo menos haber un pedido dentro de las ordenes seleccionadas.'
+                )
                 return
 
             order_document_id = order_document_ids[0]
             address_detail_id = filas[0]['AddressDetailID']
             business_entity_id = filas[0]['BusinessEntityID']
 
-            # crea cabecera y bloqueala para evitar ediciones
             document_id = crear_cabecera_documento(tipo_documento, filas[0])
 
-            self._modelo.insertar_partidas_documento(order_document_id, document_id, partidas_acumuladas, total_acumulado,
-                                              address_detail_id)
+            self._modelo.insertar_partidas_documento(
+                order_document_id,
+                document_id,
+                partidas_acumuladas,
+                total_acumulado,
+                address_detail_id
+            )
 
-            # insertar comentario de los pedidos
-            crear_comentario_documento(all_order_document_ids,
-                                             document_id,
-                                             business_entity_id,
-                                             total_acumulado,
-                                             filas[0]['Ruta']
-                                             )
+            crear_comentario_documento(
+                all_order_document_ids,
+                document_id,
+                business_entity_id,
+                total_acumulado,
+                filas[0]['Ruta']
+            )
 
-            # relacionar pedidos con factura
             for order in all_order_document_ids:
                 self._modelo.relacionar_pedidos_con_facturas(document_id, order)
 
-            # relacionar pedido principal con pedidos
             for order in all_order_document_ids:
                 if order != order_document_id:
                     self._modelo.relacionar_pedido_con_pedidos(order_document_id, order)
 
-            # agregar documento para recalculo
             self._modelo.insertar_pedido_a_recalcular(document_id, order_document_id)
-
-            # afectar la bitacora de cambios
             self._modelo.afectar_bitacora_de_cambios_en_pedidos(document_id, all_order_document_ids)
 
         def validar_si_se_pueden_combinar(filas):
@@ -496,7 +604,7 @@ class HerramientasTimbrado:
             if len(clientes) != 1:
                 return False
 
-            pedidos = [fila for fila in filas if fila['OrderTypeID'] == 1]
+            pedidos = [fila for fila in filas if int(fila.get('OrderTypeID') or 0) == 1]
 
             # no mezclar dos pedidos reales
             if len(pedidos) > 1:
@@ -504,103 +612,84 @@ class HerramientasTimbrado:
 
             return True
 
-        def resolver_order_document_id_principal(fila):
-            """
-            Devuelve el OrderDocumentID principal que debe relacionarse con el documento generado.
-
-            Reglas:
-            - Pedido (OrderTypeID == 1): se relaciona consigo mismo.
-            - Anexo (OrderTypeID == 2) o cambio (OrderTypeID == 3): se relaciona con RelatedOrderID.
-            - Si un anexo/cambio no tiene RelatedOrderID válido, devuelve None.
-            """
-            order_type_id = int(fila.get('OrderTypeID') or 0)
-            order_document_id = fila.get('OrderDocumentID')
-            related_order_id = fila.get('RelatedOrderID')
-
-            if order_type_id == 1:
-                return order_document_id
-
-            if order_type_id in (2, 3):
-                if related_order_id not in (None, 0, '', '0'):
-                    return related_order_id
-                return None
-
-            return order_document_id
-
         def excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(filas):
-
             filas_filtradas = []
             clientes_en_proceso = []
-            order_document_ids = [filas[0]['OrderDocumentID']]  # agrega el primer pedido a la lista para comparaciones
+
+            order_document_ids = []
+            if filas:
+                primer_id = obtener_order_document_id_de_fila(filas[0])
+                if primer_id:
+                    order_document_ids.append(primer_id)
+
             for fila in filas:
                 hay_pedidos_del_mismo_cliente_en_proceso = buscar_pedidos_en_proceso_del_mismo_cliente(fila)
                 if not hay_pedidos_del_mismo_cliente_en_proceso:
                     filas_filtradas.append(fila)
                 else:
-                    order_document_id = fila['OrderDocumentID']
+                    order_document_id = obtener_order_document_id_de_fila(fila)
                     if order_document_id not in order_document_ids:
                         clientes_en_proceso.append(fila['Cliente'])
+
             texto = ''
             if clientes_en_proceso:
                 clientes_en_proceso = set(clientes_en_proceso)
                 for cliente in clientes_en_proceso:
                     texto = f'{texto} {cliente},'
                 self._interfaz.ventanas.mostrar_mensaje(
-                    f'Los clientes: {texto} tienen más órdenes en proceso o por timbrar.')
+                    f'Los clientes: {texto} tienen más órdenes en proceso o por timbrar.'
+                )
+
             return filas_filtradas
 
         def mostrar_pedidos_refacturados(pedidos_refacturados):
-            """
-            Muestra un mensaje con la lista de pedidos refacturados.
-            `pedidos_refacturados` debe ser una lista de strings.
-            """
             if not pedidos_refacturados:
                 return
 
-            # Formato legible: uno por línea
             pedidos_texto = '\n'.join(f'• {pedido}' for pedido in pedidos_refacturados)
 
-            self._interfaz.ventanas.mostrar_mensaje(tipo='info', mensaje=
-                f'Pedidos refacturados:\n{pedidos_texto}'
+            self._interfaz.ventanas.mostrar_mensaje(
+                tipo='info',
+                mensaje=f'Pedidos refacturados:\n{pedidos_texto}'
             )
-
-        def buscar_fila_por_order_document_id(order_document_id):
-            filas_tabla = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos')
-            for fila_tabla in filas_tabla:
-                if fila_tabla['OrderDocumentID'] == order_document_id:
-                    return fila_tabla
-            return None
 
         def normalizar_filas_para_facturar(filas):
             """
             Reglas:
             - Pedido (1): sigue normal.
             - Anexo (2) / cambio (3):
-                * debe tener RelatedOrderID válido
+                * debe tener pedido relacionado válido
                 * si viene solo, se ofrece mezclarlo con su pedido relacionado
-                * si no acepta, se cancela el flujo
-            - evita duplicar el pedido si ya estaba seleccionado
+                * si en selección múltiple ya existe un único pedido real del mismo cliente,
+                  se toma como base aunque no se encuentre por ID exacto
+                * si falta el pedido base, se agrega automáticamente
             """
             if not filas:
                 return []
 
             filas_normalizadas = list(filas)
 
+            # --------------------------
             # Caso: selección única
+            # --------------------------
             if len(filas_normalizadas) == 1:
                 fila = filas_normalizadas[0]
                 order_type_id = int(fila.get('OrderTypeID') or 0)
 
                 if order_type_id in (2, 3):
-                    related_order_id = fila.get('RelatedOrderID')
+                    related_order_id = obtener_order_relacionado(fila)
 
-                    if related_order_id in (None, 0, '', '0'):
+                    if not related_order_id:
                         self._interfaz.ventanas.mostrar_mensaje(
-                            'La orden seleccionada no tiene un pedido relacionado. No se puede facturar de forma independiente.'
+                            'La orden seleccionada no tiene un pedido relacionado válido. No se puede facturar de forma independiente.'
                         )
                         return []
 
-                    fila_pedido = buscar_fila_por_order_document_id(related_order_id)
+                    fila_pedido = buscar_fila_por_order_document_id(related_order_id, filas_normalizadas)
+
+                    if not fila_pedido:
+                        fila_pedido = buscar_pedido_base_en_seleccion(fila, filas_normalizadas)
+
                     if not fila_pedido:
                         self._interfaz.ventanas.mostrar_mensaje(
                             f'No se encontró en la tabla el pedido relacionado ({related_order_id}) para la orden seleccionada.'
@@ -616,38 +705,66 @@ class HerramientasTimbrado:
 
                     filas_normalizadas = [fila_pedido, fila]
 
+            # --------------------------
             # Caso: selección múltiple
-            order_document_ids_actuales = {fila['OrderDocumentID'] for fila in filas_normalizadas}
+            # --------------------------
+            order_document_ids_actuales = {
+                obtener_order_document_id_de_fila(fila)
+                for fila in filas_normalizadas
+                if obtener_order_document_id_de_fila(fila)
+            }
+
             filas_a_agregar = []
 
             for fila in filas_normalizadas:
                 order_type_id = int(fila.get('OrderTypeID') or 0)
 
                 if order_type_id in (2, 3):
-                    related_order_id = fila.get('RelatedOrderID')
+                    related_order_id = obtener_order_relacionado(fila)
 
-                    if related_order_id in (None, 0, '', '0'):
+                    if not related_order_id:
                         pedido = fila.get('Pedido', fila.get('OrderDocumentID'))
                         self._interfaz.ventanas.mostrar_mensaje(
                             f'La orden {pedido} no tiene un pedido relacionado válido. No se puede facturar.'
                         )
                         return []
 
-                    if related_order_id not in order_document_ids_actuales:
-                        fila_pedido = buscar_fila_por_order_document_id(related_order_id)
-                        if not fila_pedido:
-                            self._interfaz.ventanas.mostrar_mensaje(
-                                f'No se encontró en la tabla el pedido relacionado ({related_order_id}) para una de las órdenes seleccionadas.'
-                            )
-                            return []
+                    # si ya está seleccionado por ID, continúa
+                    if related_order_id in order_document_ids_actuales:
+                        continue
 
-                        filas_a_agregar.append(fila_pedido)
-                        order_document_ids_actuales.add(related_order_id)
+                    # intenta resolver por ID exacto
+                    fila_pedido = buscar_fila_por_order_document_id(related_order_id, filas_normalizadas)
+
+                    # fallback: si ya existe un único pedido real del mismo cliente en selección, úsalo
+                    if not fila_pedido:
+                        fila_pedido = buscar_pedido_base_en_seleccion(fila, filas_normalizadas)
+
+                    # si tampoco está en selección, intenta obtenerlo de la tabla
+                    if not fila_pedido:
+                        fila_pedido = buscar_fila_por_order_document_id(related_order_id)
+
+                    if not fila_pedido:
+                        self._interfaz.ventanas.mostrar_mensaje(
+                            f'No se encontró en la tabla el pedido relacionado ({related_order_id}) para una de las órdenes seleccionadas.'
+                        )
+                        return []
+
+                    pedido_base_id = obtener_order_document_id_de_fila(fila_pedido)
+
+                    # si el pedido base ya estaba en selección aunque no lo hubiéramos detectado por ID exacto, continúa
+                    if pedido_base_id in order_document_ids_actuales:
+                        continue
+
+                    filas_a_agregar.append(fila_pedido)
+                    if pedido_base_id:
+                        order_document_ids_actuales.add(pedido_base_id)
 
             if filas_a_agregar:
                 filas_normalizadas = filas_a_agregar + filas_normalizadas
 
             return filas_normalizadas
+
         # --------------------------------------------------------------------------------------------------------------
         try:
             filas = self._obtener_valores_filas_pedidos_seleccionados()
@@ -655,16 +772,10 @@ class HerramientasTimbrado:
             if not filas:
                 return
 
-            # Normaliza la selección:
-            # - si se selecciona un anexo/cambio solo, ofrece mezclarlo con su pedido
-            # - si no tiene pedido relacionado válido, cancela
-            # - si en selección múltiple falta el pedido relacionado, lo agrega
             filas = normalizar_filas_para_facturar(filas)
-
             if not filas:
                 return
 
-            # filtra por status no considerados válidos para generar el documento o documentos del cliente
             filas_filtradas = filtrar_filas_facturables_por_status(filas)
 
             if not filas_filtradas:
@@ -672,15 +783,13 @@ class HerramientasTimbrado:
                 return
 
             # si hay anexo/cambio en selección, forzar combinado
-            if any(f['OrderTypeID'] in (2, 3) for f in filas_filtradas):
+            if any(int(f.get('OrderTypeID') or 0) in (2, 3) for f in filas_filtradas):
                 crear_documento(filas_filtradas, combinado=True, mismo_cliente=True)
                 if pedidos_fuera_status_timbrado:
                     mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
                 return
 
-            # --------------------------------------------------------------------------------------------------------------
-            # aqui comenzamos el procesamiento de las filas a facturar
-            # si es una seleccion unica valida primero si no hay otros pendientes del mismo cliente
+            # selección única
             if len(filas_filtradas) == 1:
                 hay_pedidos_del_mismo_cliente = buscar_pedidos_en_proceso_del_mismo_cliente(filas_filtradas)
 
@@ -699,8 +808,6 @@ class HerramientasTimbrado:
                             mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
                 return
 
-            # si hay mas de una fila primero valida que estas filas no tengan solo el mismo cliente
-            # y que no se mezclen múltiples pedidos reales
             se_pueden_combinar = validar_si_se_pueden_combinar(filas_filtradas)
             if se_pueden_combinar:
                 respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
@@ -712,8 +819,6 @@ class HerramientasTimbrado:
                         mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
                     return
 
-            # del mismo modo que para una fila valida que no existan otras ordenes de un cliente en proceso
-            # si lo hay para un cliente ese cliente debe excluirse de la seleccion
             filas_filtradas = excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(filas_filtradas)
             if not filas_filtradas:
                 return

@@ -316,7 +316,7 @@ class HerramientasTimbrado:
             total_total = 0
             nuevas_partidas = []
 
-            for producto in consulta_partidas_con_impuesto:
+            for producto in consulta_partidas_con_impuestos:
                 impuestos = producto['impuestos']
                 subtotal = producto['subtotal']
                 total = producto['total']

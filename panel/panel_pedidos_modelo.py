@@ -546,34 +546,28 @@ class ModeloPanelPedidos:
         self.base_de_datos.command(
             """
             DECLARE @DocumentID INT = ?
-            DECLARE @OrderDocumentID INT  = ?
+            DECLARE @OrderDocumentID INT = ?
 
-            -- Actualizar la tabla docDocumentOrderCayal
-            UPDATE docDocumentOrderCayal SET
-                    StatusID = CASE WHEN StatusID = 3 AND OutputToDeliveryBy = 0 AND AssignedBy = 0 THEN 4
-                                    ELSE StatusID 
-                                    END,
-                    DocumentID = @DocumentID
+            UPDATE docDocumentOrderCayal
+            SET
+                StatusID = CASE
+                               WHEN StatusID = 3 AND OutputToDeliveryBy = 0 AND AssignedBy = 0 THEN 4
+                               ELSE StatusID
+                           END,
+                DocumentID = @DocumentID
             WHERE OrderDocumentID = @OrderDocumentID;
 
-            -- Insertar en la tabla OrderInvoiceDocumentCayal
             INSERT INTO OrderInvoiceDocumentCayal (OrderDocumentID, DocumentID)
             VALUES (@OrderDocumentID, @DocumentID);
-
             """,
             (document_id, order_document_id)
         )
 
     def relacionar_pedido_con_pedidos(self, order_document_id, order):
-        self.base_de_datos.command(
-            """
-            UPDATE docDocumentOrderCayal SET RelatedOrderID = ?,
-                    StatusID = CASE WHEN StatusID = 3 AND OutputToDeliveryBy = 0 AND AssignedBy = 0 THEN 4
-                                    ELSE StatusID 
-                                    END
-            WHERE OrderDocumentID = ?
-            """,
-            (order_document_id, order)
+        raise RuntimeError(
+            'La función relacionar_pedido_con_pedidos está bloqueada porque '
+            'no debe usarse en facturación. Relacionar pedidos entre sí mediante '
+            'RelatedOrderID provoca inconsistencias en logística y panel.'
         )
 
     def actualizar_totales_pedido(self, order_document_id, sin_servicio_domicilio=True):

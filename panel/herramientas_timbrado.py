@@ -144,6 +144,7 @@ class HerramientasTimbrado:
                 self._filtro_post_captura()
 
     def _facturar(self):
+        import re
 
         pedidos_fuera_status_timbrado = []
         pedidos_fuera_status_timbrado_ids = []
@@ -259,20 +260,27 @@ class HerramientasTimbrado:
             return None
 
         def filtrar_filas_facturables_por_status(filas):
+            """
+            Solo permite facturar pedidos en status 3.
+            Los demás se reportan pero ya no se procesan.
+            """
             filas_filtradas = []
+
             for fila in filas:
-                status_id = fila['TypeStatusID']
+                status_id = int(fila.get('TypeStatusID') or 0)
                 order_document_id = obtener_order_document_id_de_fila(fila)
-                cliente = fila['Cliente']
+                cliente = fila.get('Cliente', '')
 
                 # abierto, en proceso, cancelado, surtido parcialmente minisuper, produccion, almacen
                 if status_id in (1, 2, 10, 12, 16, 17, 18):
                     continue
 
-                filas_filtradas.append(fila)
                 if status_id != 3:
                     pedidos_fuera_status_timbrado.append(cliente)
                     pedidos_fuera_status_timbrado_ids.append(order_document_id)
+                    continue
+
+                filas_filtradas.append(fila)
 
             return filas_filtradas
 
@@ -308,7 +316,7 @@ class HerramientasTimbrado:
             total_total = 0
             nuevas_partidas = []
 
-            for producto in consulta_partidas_con_impuestos:
+            for producto in consulta_partidas_con_impuesto:
                 impuestos = producto['impuestos']
                 subtotal = producto['subtotal']
                 total = producto['total']
@@ -592,10 +600,6 @@ class HerramientasTimbrado:
             for order in all_order_document_ids:
                 self._modelo.relacionar_pedidos_con_facturas(document_id, order)
 
-            for order in all_order_document_ids:
-                if order != order_document_id:
-                    self._modelo.relacionar_pedido_con_pedidos(order_document_id, order)
-
             self._modelo.insertar_pedido_a_recalcular(document_id, order_document_id)
             self._modelo.afectar_bitacora_de_cambios_en_pedidos(document_id, all_order_document_ids)
 
@@ -650,7 +654,7 @@ class HerramientasTimbrado:
 
             self._interfaz.ventanas.mostrar_mensaje(
                 tipo='info',
-                mensaje=f'Pedidos refacturados:\n{pedidos_texto}'
+                mensaje=f'Pedidos omitidos por status distinto de 3:\n{pedidos_texto}'
             )
 
         def normalizar_filas_para_facturar(filas):
@@ -729,18 +733,14 @@ class HerramientasTimbrado:
                         )
                         return []
 
-                    # si ya está seleccionado por ID, continúa
                     if related_order_id in order_document_ids_actuales:
                         continue
 
-                    # intenta resolver por ID exacto
                     fila_pedido = buscar_fila_por_order_document_id(related_order_id, filas_normalizadas)
 
-                    # fallback: si ya existe un único pedido real del mismo cliente en selección, úsalo
                     if not fila_pedido:
                         fila_pedido = buscar_pedido_base_en_seleccion(fila, filas_normalizadas)
 
-                    # si tampoco está en selección, intenta obtenerlo de la tabla
                     if not fila_pedido:
                         fila_pedido = buscar_fila_por_order_document_id(related_order_id)
 
@@ -752,7 +752,6 @@ class HerramientasTimbrado:
 
                     pedido_base_id = obtener_order_document_id_de_fila(fila_pedido)
 
-                    # si el pedido base ya estaba en selección aunque no lo hubiéramos detectado por ID exacto, continúa
                     if pedido_base_id in order_document_ids_actuales:
                         continue
 
@@ -779,17 +778,17 @@ class HerramientasTimbrado:
             filas_filtradas = filtrar_filas_facturables_por_status(filas)
 
             if not filas_filtradas:
-                self._interfaz.ventanas.mostrar_mensaje('No hay pedidos con un status válido para facturar')
+                if pedidos_fuera_status_timbrado:
+                    mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
+                self._interfaz.ventanas.mostrar_mensaje('No hay pedidos con status válido para facturar')
                 return
 
-            # si hay anexo/cambio en selección, forzar combinado
             if any(int(f.get('OrderTypeID') or 0) in (2, 3) for f in filas_filtradas):
                 crear_documento(filas_filtradas, combinado=True, mismo_cliente=True)
                 if pedidos_fuera_status_timbrado:
                     mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
                 return
 
-            # selección única
             if len(filas_filtradas) == 1:
                 hay_pedidos_del_mismo_cliente = buscar_pedidos_en_proceso_del_mismo_cliente(filas_filtradas)
 
@@ -821,6 +820,8 @@ class HerramientasTimbrado:
 
             filas_filtradas = excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(filas_filtradas)
             if not filas_filtradas:
+                if pedidos_fuera_status_timbrado:
+                    mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
                 return
 
             crear_documento(filas_filtradas)

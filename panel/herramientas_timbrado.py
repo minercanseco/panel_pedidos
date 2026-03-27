@@ -275,11 +275,6 @@ class HerramientasTimbrado:
                 if status_id in (1, 2, 10, 12, 16, 17, 18):
                     continue
 
-                if status_id != 3:
-                    pedidos_fuera_status_timbrado.append(cliente)
-                    pedidos_fuera_status_timbrado_ids.append(order_document_id)
-                    continue
-
                 filas_filtradas.append(fila)
 
             return filas_filtradas

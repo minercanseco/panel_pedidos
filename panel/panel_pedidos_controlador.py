@@ -305,7 +305,7 @@ class ControladorPanelPedidos:
             if way_to_pay_id == 6:
                 return True
 
-            if 'transfer' in forma_pago:
+            if 'Transferencia' in forma_pago:
                 return True
 
             # deja esto solo como respaldo si tu consulta usa este campo para transferencias
@@ -458,7 +458,6 @@ class ControladorPanelPedidos:
         self._interfaz.ventanas.insertar_input_componente('cbx_status', 'Abierto')
         self._interfaz.ventanas.insertar_input_componente('chk_transferencias', 0)
         self._filtrar_por_status()
-
 
     def _limpiar_componentes(self):
         self._interfaz.ventanas.limpiar_componentes(['tbx_comentarios', 'tvw_detalle'])

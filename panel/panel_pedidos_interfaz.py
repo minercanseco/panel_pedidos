@@ -89,6 +89,10 @@ class InterfazPanelPedidos:
             'chk_sin_fecha': ('frame_chks',
                                  {'row': 5, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.W},
                                  'Sin fecha', None),
+
+            'chk_transferencias': ('frame_chks',
+                              {'row': 5, 'column': 3, 'pady': 0, 'padx': 0, 'sticky': tk.W},
+                              'Transferencias', None),
             'mtr_total': ('frame_meters', None, 'Total', tamano_meters),
             'mtr_en_tiempo': ('frame_meters', 'success', 'En tiempo', tamano_meters),
             'mtr_a_tiempo': ('frame_meters', 'warning', 'A tiempo', tamano_meters),

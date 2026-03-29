@@ -168,18 +168,20 @@ class ControladorPanelPedidos:
         return str(fecha) if fecha else None
 
     def _obtener_valores_cbx_filtros(self):
-        """Lee los valores actuales de los filtros de captura, horario y status."""
+        """Lee los valores actuales de los filtros de captura, horario, status y transferencias."""
         return {
             'cbx_capturista': self._interfaz.ventanas.obtener_input_componente('cbx_capturista'),
-            'cbx_horarios':   self._interfaz.ventanas.obtener_input_componente('cbx_horarios'),
-            'cbx_status':     self._interfaz.ventanas.obtener_input_componente('cbx_status'),
+            'cbx_horarios': self._interfaz.ventanas.obtener_input_componente('cbx_horarios'),
+            'cbx_status': self._interfaz.ventanas.obtener_input_componente('cbx_status'),
+            'chk_transferencias': self._interfaz.ventanas.obtener_input_componente('chk_transferencias'),
         }
 
     def _settear_valores_cbx_filtros(self, valores_cbx_filtros):
         """Restaura valores en los combos, respetando 'Seleccione'."""
         vlr_cbx_captura = valores_cbx_filtros.get('cbx_capturista', 'Seleccione')
         vlr_cbx_horarios = valores_cbx_filtros.get('cbx_horarios', 'Seleccione')
-        vlr_cbx_status   = valores_cbx_filtros.get('cbx_status', 'Seleccione')
+        vlr_cbx_status = valores_cbx_filtros.get('cbx_status', 'Seleccione')
+        vlr_chk_transferencias = valores_cbx_filtros.get('chk_transferencias', 0)
 
         if vlr_cbx_captura != 'Seleccione':
             self._interfaz.ventanas.insertar_input_componente('cbx_capturista', vlr_cbx_captura)
@@ -195,6 +197,8 @@ class ControladorPanelPedidos:
             self._interfaz.ventanas.insertar_input_componente('cbx_status', vlr_cbx_status)
         else:
             self._interfaz.ventanas.insertar_input_componente('cbx_status', 'Seleccione')
+
+        self._interfaz.ventanas.insertar_input_componente('chk_transferencias', 1 if vlr_chk_transferencias == 1 else 0)
 
     # ------------------------------
     # Carga de datos base
@@ -286,6 +290,30 @@ class ControladorPanelPedidos:
         - Si despues_de_captura=True → filtra por usuario actual y status 'Abierto'.
         - Si no hay ningún filtro activo → regresa la consulta tal cual.
         """
+
+        def es_transferencia(f):
+            payment_method_id = f.get('PaymentMethodID')
+            way_to_pay_id = f.get('WayToPayID')
+            payment_confirmed_id = f.get('PaymentConfirmedID')
+            forma_pago = str(
+                f.get('FormaPago') or f.get('PaymentMethodName') or f.get('WayToPay') or '').strip().lower()
+
+            if payment_method_id == 3:
+                return True
+
+            # en varios flujos tuyos WayToPayID 6 = transferencia
+            if way_to_pay_id == 6:
+                return True
+
+            if 'transfer' in forma_pago:
+                return True
+
+            # deja esto solo como respaldo si tu consulta usa este campo para transferencias
+            if payment_confirmed_id in (1, 2):
+                return True
+
+            return False
+
         # 1) Prioridad: "sin procesar"
         if self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar') == 1:
             self._interfaz.ventanas.limpiar_componentes('den_fecha')
@@ -294,21 +322,22 @@ class ControladorPanelPedidos:
         # 2) Después de capturar un pedido: solo mis pedidos abiertos
         if despues_de_captura:
             usuario = self._modelo.user_name
-            return [
+            consulta = [
                 f for f in consulta
                 if f.get('CapturadoPor') == usuario and f.get('Status') == 'Abierto'
             ]
 
-        # 3) Filtros normales
         vlr_cbx_captura = valores_filtros.get('cbx_capturista')
         vlr_cbx_horarios = valores_filtros.get('cbx_horarios')
         vlr_cbx_status = valores_filtros.get('cbx_status')
+        vlr_chk_transferencias = valores_filtros.get('chk_transferencias', 0)
 
         filtrar_captura = (vlr_cbx_captura and vlr_cbx_captura != 'Seleccione')
         filtrar_horario = (vlr_cbx_horarios and vlr_cbx_horarios != 'Seleccione')
-        filtrar_status  = (vlr_cbx_status   and vlr_cbx_status   != 'Seleccione')
+        filtrar_status = (vlr_cbx_status and vlr_cbx_status != 'Seleccione')
+        filtrar_transferencias = (vlr_chk_transferencias == 1)
 
-        if not (filtrar_captura or filtrar_horario or filtrar_status):
+        if not (filtrar_captura or filtrar_horario or filtrar_status or filtrar_transferencias):
             return consulta
 
         def ok(f):
@@ -317,6 +346,8 @@ class ControladorPanelPedidos:
             if filtrar_horario and f.get('HoraEntrega') != vlr_cbx_horarios:
                 return False
             if filtrar_status and f.get('Status') != vlr_cbx_status:
+                return False
+            if filtrar_transferencias and not es_transferencia(f):
                 return False
             return True
 
@@ -425,6 +456,7 @@ class ControladorPanelPedidos:
         self._actualizar_pedidos(self._fecha_seleccionada())
         self._interfaz.ventanas.insertar_input_componente('cbx_capturista', self._modelo.user_name)
         self._interfaz.ventanas.insertar_input_componente('cbx_status', 'Abierto')
+        self._interfaz.ventanas.insertar_input_componente('chk_transferencias', 0)
         self._filtrar_por_status()
 
 
@@ -546,6 +578,17 @@ class ControladorPanelPedidos:
         valores = sorted(list(set(valores)))
         self._interfaz.ventanas.rellenar_cbx('cbx_horarios', valores)
 
+    def _filtrar_transferencias(self):
+        self._limpiar_componentes()
+
+        valor_chk = self._interfaz.ventanas.obtener_input_componente('chk_transferencias')
+
+        if valor_chk == 1:
+            # opcionalmente desactiva "sin procesar" porque son filtros de naturaleza distinta
+            self._interfaz.ventanas.cambiar_estado_checkbutton('chk_sin_procesar', 'deseleccionado')
+
+        self._actualizar_pedidos(self._fecha_seleccionada())
+
     def _cargar_eventos(self):
         eventos = {
             'den_fecha': lambda event: self._actualizar_pedidos(self._fecha_seleccionada(), criteria=False),
@@ -555,6 +598,7 @@ class ControladorPanelPedidos:
             'cbx_horarios': lambda event: self._filtrar_por_horas(),
             'chk_sin_procesar': lambda *args: self._filtrar_no_procesados(),
             'chk_sin_fecha': lambda *args: self._sin_fecha(),
+            'chk_transferencias': lambda *args: self._filtrar_transferencias(),
         }
         self._interfaz.ventanas.cargar_eventos(eventos)
 
@@ -567,6 +611,7 @@ class ControladorPanelPedidos:
         self._interfaz.ventanas.insertar_input_componente('cbx_capturista', 'Seleccione')
         self._interfaz.ventanas.insertar_input_componente('cbx_status', 'Seleccione')
         self._interfaz.ventanas.insertar_input_componente('cbx_horarios', 'Seleccione')
+        self._interfaz.ventanas.insertar_input_componente('chk_transferencias', 0)
 
         valor_chk = self._interfaz.ventanas.obtener_input_componente('chk_sin_procesar')
         if valor_chk == 1:
@@ -576,7 +621,6 @@ class ControladorPanelPedidos:
         if valor_chk == 0:
             fecha = str(datetime.today().date())
             self._interfaz.ventanas.insertar_input_componente('den_fecha', fecha)
-
             self._actualizar_pedidos()
 
     def _crear_tabla_pedidos(self):

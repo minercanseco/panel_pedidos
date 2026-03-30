@@ -305,7 +305,7 @@ class ControladorPanelPedidos:
             if way_to_pay_id == 6:
                 return True
 
-            if 'Transferencia' in forma_pago:
+            if 'transferencia' in forma_pago:
                 return True
 
             # deja esto solo como respaldo si tu consulta usa este campo para transferencias

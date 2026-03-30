@@ -292,14 +292,9 @@ class ControladorPanelPedidos:
         """
 
         def es_transferencia(f):
-            payment_method_id = f.get('PaymentMethodID')
             way_to_pay_id = f.get('WayToPayID')
-            payment_confirmed_id = f.get('PaymentConfirmedID')
             forma_pago = str(
                 f.get('FormaPago') or f.get('PaymentMethodName') or f.get('WayToPay') or '').strip().lower()
-
-            if payment_method_id == 3:
-                return True
 
             # en varios flujos tuyos WayToPayID 6 = transferencia
             if way_to_pay_id == 6:
@@ -309,8 +304,8 @@ class ControladorPanelPedidos:
                 return True
 
             # deja esto solo como respaldo si tu consulta usa este campo para transferencias
-            if payment_confirmed_id in (1, 2):
-                return True
+            #if payment_confirmed_id in (1, 2):
+            #    return True
 
             return False
 

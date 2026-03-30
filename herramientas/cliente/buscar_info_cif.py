@@ -1,3 +1,4 @@
+import re
 import time
 import random
 import subprocess
@@ -312,55 +313,13 @@ class BuscarInfoCif:
     # ----------------------------
     # Parsing robusto (XHTML/XML)
     # ----------------------------
-    def _crear_soup_robusta(self, html: str) -> BeautifulSoup:
-        warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
-        try:
-            soup = BeautifulSoup(html, "lxml-xml")
-            print("[SAT] parser usado: lxml-xml")
-            return soup
-        except Exception:
-            pass
-
-        try:
-            soup = BeautifulSoup(html, "xml")
-            print("[SAT] parser usado: xml")
-            return soup
-        except Exception:
-            pass
-
-        soup = BeautifulSoup(html, "html.parser")
-        print("[SAT] parser usado: html.parser (fallback)")
-        return soup
 
     def _texto_normalizado(self, s: str) -> str:
         return " ".join((s or "").replace("\xa0", " ").split()).strip()
 
     def _contiene_texto(self, texto_completo: str, needle: str) -> bool:
         return self._texto_normalizado(needle) in self._texto_normalizado(texto_completo)
-
-    def _procesar_respuesta(self) -> bool:
-        if not self._respuesta:
-            return False
-
-        self._soup = self._crear_soup_robusta(self._respuesta)
-
-        if not self._buscar_mensaje_de_ok():
-            self._guardar_debug_txt(self._soup)
-            head = (self._texto_normalizado(self._soup.get_text(" ", strip=True)) or "")[:400]
-            print("[SAT] No se detectó estructura OK. Texto plano (head):", head.replace("\n", " | "))
-            return False
-
-        self._procesar_datos_identificacion()
-        self._procesar_datos_ubicacion()
-        self._procesar_datos_fiscales()
-        self._buscar_regimenes_fiscales_base_datos()
-        self._filtrar_regimenes_fiscales()
-        return True
-
-    def _buscar_mensaje_de_ok(self) -> bool:
-        txt = self._soup.get_text(" ", strip=True) or ""
-        return self._contiene_texto(txt, "Datos de Identificación") and self._contiene_texto(txt, "Características fiscales")
 
     def _find_section_anchor(self, titulo: str):
         titulo_n = self._texto_normalizado(titulo)
@@ -579,3 +538,130 @@ class BuscarInfoCif:
             if valor["City"] == colonia_filtrada:
                 return valor["CountryAddressID"]
         return 0
+
+
+    def _crear_soup_robusta(self, html: str) -> BeautifulSoup:
+        warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
+
+        # Para este sitio conviene priorizar html antes que xml
+        for parser in ("lxml", "html.parser", "lxml-xml", "xml"):
+            try:
+                soup = BeautifulSoup(html, parser)
+                print(f"[SAT] parser usado: {parser}")
+                return soup
+            except Exception:
+                continue
+
+        return BeautifulSoup(html, "html.parser")
+
+    def _texto_plano_respuesta(self) -> str:
+        if not self._soup:
+            return ""
+
+        texto = self._soup.get_text("\n", strip=True) or ""
+        texto = texto.replace("\xa0", " ")
+        texto = re.sub(r"[ \t]+", " ", texto)
+        texto = re.sub(r"\n{2,}", "\n", texto)
+        return texto.strip()
+
+    def _buscar_mensaje_de_ok(self) -> bool:
+        txt = self._texto_plano_respuesta()
+        return (
+                "Datos de Identificación" in txt
+                and "Características fiscales" in txt
+        )
+
+    def _extraer_bloque(self, texto: str, inicio: str, siguientes: list[str]) -> str:
+        pos_inicio = texto.find(inicio)
+        if pos_inicio == -1:
+            return ""
+
+        pos_inicio += len(inicio)
+
+        candidatos_fin = []
+        for s in siguientes:
+            pos = texto.find(s, pos_inicio)
+            if pos != -1:
+                candidatos_fin.append(pos)
+
+        pos_fin = min(candidatos_fin) if candidatos_fin else len(texto)
+        return texto[pos_inicio:pos_fin].strip()
+
+    def _extraer_campo(self, bloque: str, etiqueta: str) -> str:
+        """
+        Extrae 'Etiqueta:valor' hasta antes de la siguiente etiqueta o fin de línea.
+        """
+        if not bloque:
+            return ""
+
+        patron = rf"{re.escape(etiqueta)}\s*(.*?)(?=(?:\n[A-ZÁÉÍÓÚÑa-záéíóúñ].*?:)|\Z)"
+        m = re.search(patron, bloque, flags=re.IGNORECASE | re.DOTALL)
+        if not m:
+            return ""
+
+        valor = m.group(1).strip()
+        valor = re.sub(r"\s+", " ", valor)
+        return valor
+
+    def _extraer_regimenes(self, bloque: str) -> list[str]:
+        if not bloque:
+            return []
+
+        regimenes = re.findall(r"R[ée]gimen:\s*(.+)", bloque, flags=re.IGNORECASE)
+        return [re.sub(r"\s+", " ", r).strip() for r in regimenes if r.strip()]
+
+    def _procesar_respuesta(self) -> bool:
+        if not self._respuesta:
+            return False
+
+        self._soup = self._crear_soup_robusta(self._respuesta)
+        texto = self._texto_plano_respuesta()
+
+        if not self._buscar_mensaje_de_ok():
+            self._guardar_debug_txt(self._soup)
+            head = (texto or "")[:400]
+            print("[SAT] No se detectó estructura OK. Texto plano (head):", head.replace("\n", " | "))
+            return False
+
+        bloque_ident = self._extraer_bloque(
+            texto,
+            "Datos de Identificación",
+            ["Datos de Ubicación (domicilio fiscal, vigente)", "Datos de Ubicación",
+             "Características fiscales (vigente)", "Características fiscales"]
+        )
+
+        bloque_ubic = self._extraer_bloque(
+            texto,
+            "Datos de Ubicación (domicilio fiscal, vigente)" if "Datos de Ubicación (domicilio fiscal, vigente)" in texto else "Datos de Ubicación",
+            ["Características fiscales (vigente)", "Características fiscales"]
+        )
+
+        bloque_fisc = self._extraer_bloque(
+            texto,
+            "Características fiscales (vigente)" if "Características fiscales (vigente)" in texto else "Características fiscales",
+            []
+        )
+
+        self._informacion_identificacion = {
+            "Denominación o Razón Social:": self._extraer_campo(bloque_ident, "Denominación o Razón Social:"),
+            "Nombre:": self._extraer_campo(bloque_ident, "Nombre:"),
+            "Apellido Paterno:": self._extraer_campo(bloque_ident, "Apellido Paterno:"),
+            "Apellido Materno:": self._extraer_campo(bloque_ident, "Apellido Materno:"),
+        }
+
+        self._informacion_ubicacion = {
+            "Entidad Federativa:": self._extraer_campo(bloque_ubic, "Entidad Federativa:"),
+            "Municipio o delegación:": self._extraer_campo(bloque_ubic, "Municipio o delegación:"),
+            "Colonia:": self._extraer_campo(bloque_ubic, "Colonia:"),
+            "Tipo de vialidad:": self._extraer_campo(bloque_ubic, "Tipo de vialidad:"),
+            "Nombre de la vialidad:": self._extraer_campo(bloque_ubic, "Nombre de la vialidad:"),
+            "Número exterior:": self._extraer_campo(bloque_ubic, "Número exterior:"),
+            "CP:": self._extraer_campo(bloque_ubic, "CP:"),
+            "Correo electrónico:": self._extraer_campo(bloque_ubic, "Correo electrónico:"),
+        }
+
+        self._regimenes_sin_filtrar = self._extraer_regimenes(bloque_fisc)
+
+        self._buscar_regimenes_fiscales_base_datos()
+        self._filtrar_regimenes_fiscales()
+        return True

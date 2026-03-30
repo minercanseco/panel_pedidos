@@ -3,9 +3,9 @@ import webbrowser
 
 import pyperclip
 
-from herramientas.cliente.buscar_info_cif import BuscarInfoCif
-from herramientas.cliente.direccion_adicional import DireccionAdicional
-from herramientas.cliente.nombre_direccion import NombreDireccion
+from buscar_info_cif import BuscarInfoCif
+from direccion_adicional import DireccionAdicional
+from nombre_direccion import NombreDireccion
 
 
 class FormularioClienteControlador:
@@ -54,6 +54,9 @@ class FormularioClienteControlador:
         self._interfaz.ventanas.bloquear_componente('tbx_cliente')
         if self._modelo.cliente.business_entity_id != 0 and self._modelo.buscar_tipo_ruta_id(
                 self._modelo.cliente.zone_name) == 2:
+            self._interfaz.ventanas.bloquear_componente('cbx_ruta')
+
+        if self._modelo.user_group_id == 11:
             self._interfaz.ventanas.bloquear_componente('cbx_ruta')
 
     def _visualizar_cif(self):
@@ -165,7 +168,7 @@ class FormularioClienteControlador:
         rutas = [reg['ZoneName'] for reg in info_rutas]
         rutas = sorted(rutas)
         self._interfaz.ventanas.rellenar_cbx('cbx_ruta', rutas)
-        if self._modelo.business_entity_id != 0:
+        if self._modelo.cliente.business_entity_id != 0:
             self._interfaz.ventanas.insertar_input_componente('cbx_ruta',
                                                               self._modelo.cliente.zone_name
                                                               )
@@ -245,10 +248,19 @@ class FormularioClienteControlador:
         if not self._modelo.utilerias.es_codigo_postal(cp):
             return
 
+        colonia_actual = self._interfaz.ventanas.obtener_input_componente('cbx_colonia')
+        ruta_actual = self._interfaz.ventanas.obtener_input_componente('cbx_ruta')
+
         consulta = self._modelo.obtener_colonias(zip_code=cp)
-        colonias = [reg['City'] for reg in consulta]
-        colonias = sorted(colonias)
+        colonias = sorted({reg['City'] for reg in consulta if reg.get('City')})
+
         self._interfaz.ventanas.rellenar_cbx('cbx_colonia', colonias)
+
+        if colonia_actual in colonias:
+            self._interfaz.ventanas.insertar_input_componente('cbx_colonia', colonia_actual)
+
+        if ruta_actual and ruta_actual != 'Seleccione':
+            self._interfaz.ventanas.insertar_input_componente('cbx_ruta', ruta_actual)
 
     def _rellenar_cbx_colonias_por_ruta(self):
         if self._interfaz.ventanas.obtener_input_componente('cbx_colonia') != 'Seleccione':
@@ -288,17 +300,24 @@ class FormularioClienteControlador:
         if colonia == 'Seleccione':
             return
 
-        ruta = self._interfaz.ventanas.obtener_input_componente('cbx_ruta')
-
-        # si el cliente fue previamente guardado entonces
-        if self._modelo.buscar_tipo_ruta_id(ruta) == 2:
+        # Regla fuerte: si es grupo 11, la ruta siempre debe salir de la colonia
+        if self._modelo.user_group_id == 11:
+            consulta = self._modelo.consulta_colonias or []
+            consulta_ruta = [reg['ZoneName'] for reg in consulta if reg['City'] == colonia and reg.get('ZoneName')]
+            if consulta_ruta:
+                self._interfaz.ventanas.insertar_input_componente('cbx_ruta', consulta_ruta[0])
             return
 
-        consulta = self._modelo.consulta_colonias
-        consulta_ruta = [reg['ZoneName'] for reg in consulta if reg['City'] == colonia]
+        # Si el cliente ya existe y su ruta guardada es mayoreo, no tocarla
+        ruta_guardada = self._modelo.cliente.zone_name or ''
+        if self._modelo.cliente.business_entity_id != 0:
+            if self._modelo.buscar_tipo_ruta_id(ruta_guardada) == 2:
+                return
+
+        consulta = self._modelo.consulta_colonias or []
+        consulta_ruta = [reg['ZoneName'] for reg in consulta if reg['City'] == colonia and reg.get('ZoneName')]
         if consulta_ruta:
-            ruta = consulta_ruta[0]
-            self._interfaz.ventanas.insertar_input_componente('cbx_ruta', ruta)
+            self._interfaz.ventanas.insertar_input_componente('cbx_ruta', consulta_ruta[0])
 
     def _actualizar_municipio_y_estado(self):
         colonia = self._interfaz.ventanas.obtener_input_componente('cbx_colonia')

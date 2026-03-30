@@ -546,7 +546,28 @@ class ModeloPanelPedidos:
         self.base_de_datos.command(
             """
             DECLARE @DocumentID INT = ?
-            DECLARE @OrderDocumentID INT = ?
+            DECLARE @OrderDocumentIDEntrada INT = ?
+            DECLARE @OrderDocumentIDReal INT
+            DECLARE @OrderTypeID INT
+            DECLARE @RelatedOrderID INT
+
+            SELECT
+                @OrderTypeID = OrderTypeID,
+                @RelatedOrderID = RelatedOrderID
+            FROM docDocumentOrderCayal
+            WHERE OrderDocumentID = @OrderDocumentIDEntrada;
+
+            SET @OrderDocumentIDReal =
+                CASE
+                    WHEN @OrderTypeID = 1 THEN @OrderDocumentIDEntrada
+                    WHEN @OrderTypeID IN (2, 3) AND ISNULL(@RelatedOrderID, 0) > 0 THEN @RelatedOrderID
+                    ELSE NULL
+                END;
+
+            IF @OrderDocumentIDReal IS NULL
+            BEGIN
+                THROW 50001, 'No fue posible resolver el pedido base para relacionarlo con la factura.', 1;
+            END;
 
             UPDATE docDocumentOrderCayal
             SET
@@ -555,10 +576,18 @@ class ModeloPanelPedidos:
                                ELSE StatusID
                            END,
                 DocumentID = @DocumentID
-            WHERE OrderDocumentID = @OrderDocumentID;
+            WHERE OrderDocumentID = @OrderDocumentIDReal;
 
-            INSERT INTO OrderInvoiceDocumentCayal (OrderDocumentID, DocumentID)
-            VALUES (@OrderDocumentID, @DocumentID);
+            IF NOT EXISTS (
+                SELECT 1
+                FROM OrderInvoiceDocumentCayal
+                WHERE OrderDocumentID = @OrderDocumentIDReal
+                  AND DocumentID = @DocumentID
+            )
+            BEGIN
+                INSERT INTO OrderInvoiceDocumentCayal (OrderDocumentID, DocumentID)
+                VALUES (@OrderDocumentIDReal, @DocumentID);
+            END
             """,
             (document_id, order_document_id)
         )

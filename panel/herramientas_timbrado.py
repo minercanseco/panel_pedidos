@@ -180,21 +180,10 @@ class HerramientasTimbrado:
 
         def obtener_order_document_id_de_fila(fila):
             """
-            Obtiene el OrderDocumentID real de una fila usando varias llaves posibles.
+            Obtiene únicamente el OrderDocumentID real de la fila.
+            No debe usar el folio visible ('Pedido') como respaldo.
             """
-            posibles_llaves = (
-                'OrderDocumentID',
-                'Pedido',
-                'ID',
-                'OrderID',
-            )
-
-            for llave in posibles_llaves:
-                valor = normalizar_order_id(fila.get(llave))
-                if valor:
-                    return valor
-
-            return None
+            return normalizar_order_id(fila.get('OrderDocumentID'))
 
         def obtener_order_relacionado(fila):
             """

@@ -113,7 +113,7 @@ class InterfazPanelPedidos:
              'heading_anchor': tk.W, 'hide': 0},
             {"text": "Producido", "stretch": False, 'width': 68, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},
-            {"text": "TipoCaptura", "stretch": False, 'width': 60, 'column_anchor': tk.E,
+            {"text": "Tipo", "stretch": False, 'width': 50, 'column_anchor': tk.E,
              'heading_anchor': tk.W, 'hide': 0},
             {"text": "Clave", "stretch": False, 'width': 100, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},

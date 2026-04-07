@@ -854,7 +854,7 @@ class ControladorPanelPedidos:
                     'product_key': producto.get('ProductKey', ''),
                     'product_name': producto.get('ProductName', ''),
                     'tipo_captura': self._modelo.utilerias.resolver_icono(
-                        'inventario' if producto.get('TipoCaptura', 1) == 0 else 'kpi'),
+                        'inventario' if producto.get('TipoCaptura', 1) == 0 else 'manual'),
                     'precio': redondear(producto.get('precio', 0)),
                     'total': redondear(producto.get('total', 0)),
                     'esp': producto.get('Esp', ''),

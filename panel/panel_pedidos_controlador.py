@@ -829,45 +829,48 @@ class ControladorPanelPedidos:
 
         def procesar_partidas_pedido(partidas):
             if not partidas:
-                return
-            consulta_partidas_con_impuestos = self._modelo.utilerias.agregar_impuestos_productos(partidas)
-            funcion = self._modelo.utilerias.redondear_valor_cantidad_a_decimal
+                return []
+
+            consulta = self._modelo.utilerias.agregar_impuestos_productos(partidas) or []
+            redondear = self._modelo.utilerias.redondear_valor_cantidad_a_decimal
+            es_flotante = self._modelo.utilerias.es_flotante
+
             partidas_procesadas = []
 
-            for producto in consulta_partidas_con_impuestos:
+            for producto in consulta:
+                if not isinstance(producto, dict):
+                    continue
 
-                precio = funcion(producto['precio'])
-                cantidad_decimal = funcion(producto['cantidad'])
-                total = funcion(producto['total'])
-                product_id = producto['ProductID']
-
+                product_id = producto.get('ProductID')
                 if product_id == 5606:
                     continue
-                comentario = producto.get('Comments', '')
-                comentario = '' if not comentario else comentario
-                comentario = comentario.strip()
-                piezas = producto.get('CayalPiece', 0)
-                producto['CayalPiece'] = piezas if not self._modelo.utilerias.es_flotante(piezas) else 0
 
-                datos_fila = (
-                    cantidad_decimal,
-                    producto['ProductKey'],
-                    producto['ProductName'],
-                    precio,
-                    total,
-                    producto['Esp'],
-                    producto['ProductID'],
-                    producto['DocumentItemID'],
-                    producto['ItemProductionStatusModified'],
-                    producto['ClaveUnidad'],
-                    0,  # status surtido
-                    producto['UnitPrice'],
-                    producto['CayalPiece'],
-                    producto['CayalAmount'],
-                    comentario,
-                    producto['ProductTypeIDCayal']
-                )
-                partidas_procesadas.append(datos_fila)
+                comentario = (producto.get('Comments') or '').strip()
+                piezas = producto.get('CayalPiece', 0)
+                piezas = 0 if es_flotante(piezas) else piezas
+
+                registro = {
+                    'cantidad_producida': redondear(producto.get('cantidad', 0)),
+                    'product_key': producto.get('ProductKey', ''),
+                    'product_name': producto.get('ProductName', ''),
+                    'tipo_captura': self._modelo.utilerias.resolver_icono(
+                        'inventario' if producto.get('TipoCaptura', 1) == 0 else 'kpi'),
+                    'precio': redondear(producto.get('precio', 0)),
+                    'total': redondear(producto.get('total', 0)),
+                    'esp': producto.get('Esp', ''),
+                    'product_id': product_id,
+                    'document_item_id': producto.get('DocumentItemID'),
+                    'item_production_status_modified': producto.get('ItemProductionStatusModified', 0),
+                    'clave_unidad': producto.get('ClaveUnidad', ''),
+                    'status_surtido': 0,
+                    'unit_price': producto.get('UnitPrice', 0),
+                    'cayal_piece': piezas,
+                    'cayal_amount': producto.get('CayalAmount', 0),
+                    'comentario': comentario,
+                    'product_type_id_cayal': producto.get('ProductTypeIDCayal'),
+                }
+
+                partidas_procesadas.append(registro)
 
             return partidas_procesadas
 
@@ -878,39 +881,76 @@ class ControladorPanelPedidos:
 
             for fila in filas:
                 valores_fila = self._interfaz.ventanas.procesar_fila_treeview('tvw_detalle', fila)
-
-                estado_produccion_modificado = valores_fila['ItemProductionStatusModified']
-                if estado_produccion_modificado == 0:
+                if not valores_fila:
                     continue
 
-                # fila borrada
-                if estado_produccion_modificado == 3:
-                    self._interfaz.ventanas.colorear_fila_seleccionada_treeview('tvw_detalle', fila, color='danger')
+                estado = valores_fila.get('ItemProductionStatusModified', 0)
 
-                # fila agregada
-                if estado_produccion_modificado == 1:
-                    self._interfaz.ventanas.colorear_fila_seleccionada_treeview('tvw_detalle', fila, color='info')
-
-                # fila editada
-                if estado_produccion_modificado == 2:
-                    self._interfaz.ventanas.colorear_fila_seleccionada_treeview('tvw_detalle', fila,
-                                                                                color='warning')
+                if estado == 3:
+                    self._interfaz.ventanas.colorear_fila_seleccionada_treeview(
+                        'tvw_detalle', fila, color='danger'
+                    )
+                elif estado == 1:
+                    self._interfaz.ventanas.colorear_fila_seleccionada_treeview(
+                        'tvw_detalle', fila, color='info'
+                    )
+                elif estado == 2:
+                    self._interfaz.ventanas.colorear_fila_seleccionada_treeview(
+                        'tvw_detalle', fila, color='warning'
+                    )
 
         order_document_id = self._obtener_valores_fila_pedido_seleccionado('OrderDocumentID')
         if not order_document_id:
+            self._interfaz.ventanas.limpiar_componentes(['tvw_detalle'])
             return
 
-        partidas = self._modelo.buscar_partidas_pedido(order_document_id)
-        if not partidas:
-            return
-
-
-        partidas_procesadas = procesar_partidas_pedido(partidas)
+        partidas_producidas = self._modelo.buscar_partidas_pedido_producidas(order_document_id) or []
+        partidas_capturadas = self._modelo.buscar_partidas_pedido_capturadas(order_document_id) or []
 
         self._interfaz.ventanas.limpiar_componentes(['tvw_detalle'])
 
-        for partida in partidas_procesadas:
-            self._interfaz.ventanas.insertar_fila_treeview('tvw_detalle', partida)
+        if not partidas_producidas or not partidas_capturadas:
+            return
+
+        partidas_procesadas_producidas = procesar_partidas_pedido(partidas_producidas)
+        partidas_procesadas_capturadas = procesar_partidas_pedido(partidas_capturadas)
+
+        if not partidas_procesadas_producidas:
+            return
+
+        cantidades_capturadas_por_document_item_id = {}
+        for reg in partidas_procesadas_capturadas:
+            document_item_id = reg.get('document_item_id')
+            if document_item_id is None:
+                continue
+            cantidades_capturadas_por_document_item_id[document_item_id] = reg.get('cantidad_producida', 0)
+
+        for partida in partidas_procesadas_producidas:
+            document_item_id = partida.get('document_item_id')
+            cantidad_capturada = cantidades_capturadas_por_document_item_id.get(document_item_id, 0)
+
+            datos_fila = [
+                cantidad_capturada,
+                partida.get('cantidad_producida', 0),
+                partida.get('tipo_captura', 0),
+                partida.get('product_key', ''),
+                partida.get('product_name', ''),
+                partida.get('precio', 0),
+                partida.get('total', 0),
+                partida.get('esp', ''),
+                partida.get('product_id'),
+                partida.get('document_item_id'),
+                partida.get('item_production_status_modified', 0),
+                partida.get('clave_unidad', ''),
+                partida.get('status_surtido', 0),
+                partida.get('unit_price', 0),
+                partida.get('cayal_piece', 0),
+                partida.get('cayal_amount', 0),
+                partida.get('comentario', ''),
+                partida.get('product_type_id_cayal'),
+            ]
+
+            self._interfaz.ventanas.insertar_fila_treeview('tvw_detalle', datos_fila)
 
         colorear_partidas_detalle()
     #------------------------------------------------------------------------------------------------------------------

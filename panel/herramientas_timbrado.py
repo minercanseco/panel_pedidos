@@ -109,7 +109,7 @@ class HerramientasTimbrado:
         business_entity_id = fila['BusinessEntityID']
 
         #  cancelado, modificando, surtido parcialmente minisuper, produccion, almacen, entregado, cobrado o cartera
-        if status_id in (10, 12, 16, 17, 18, 13, 14, 15):
+        if status_id in (10, 12, 16, 17, 18, 15):
             self._interfaz.ventanas.mostrar_mensaje('El pedido no tiene un estatus válido para ser editado.')
             return
 

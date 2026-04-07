@@ -60,13 +60,21 @@ class ModeloPanelPedidos:
 
         return consulta[0]
 
-    def buscar_partidas_pedido(self, order_document_id):
+    def buscar_partidas_pedido_producidas(self, order_document_id):
         consulta = self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(order_document_id= order_document_id,
                                                                                 partidas_producidas=True,
                                                                                 partidas_eliminadas=True)
         if not consulta:
             return
         return consulta
+
+    def buscar_partidas_pedido_capturadas(self, order_document_id):
+        consulta =self.base_de_datos.fetchall("SELECT * FROM [dbo].[zvwBuscarPartidasPedidoCayal-DocumentID](?)",
+                                              (order_document_id,))
+        if not consulta:
+            return
+        return consulta
+
 
     def buscar_productos_ofertados_cliente(self):
 

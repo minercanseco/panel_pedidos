@@ -558,26 +558,60 @@ class ModeloPanelPedidos:
             DECLARE @OrderDocumentIDReal INT
             DECLARE @OrderTypeID INT
             DECLARE @RelatedOrderID INT
+            DECLARE @OrderTypeIDRelacionado INT
 
             SELECT
-                @OrderTypeID = OrderTypeID,
-                @RelatedOrderID = RelatedOrderID
-            FROM docDocumentOrderCayal
-            WHERE OrderDocumentID = @OrderDocumentIDEntrada;
+                @OrderTypeID = O.OrderTypeID,
+                @RelatedOrderID = O.RelatedOrderID
+            FROM dbo.docDocumentOrderCayal O
+            WHERE O.OrderDocumentID = @OrderDocumentIDEntrada;
 
-            SET @OrderDocumentIDReal =
-                CASE
-                    WHEN @OrderTypeID = 1 THEN @OrderDocumentIDEntrada
-                    WHEN @OrderTypeID IN (2, 3) AND ISNULL(@RelatedOrderID, 0) > 0 THEN @RelatedOrderID
-                    ELSE NULL
-                END;
-
-            IF @OrderDocumentIDReal IS NULL
+            IF @OrderTypeID IS NULL
             BEGIN
-                THROW 50001, 'No fue posible resolver el pedido base para relacionarlo con la factura.', 1;
+                THROW 50001, 'El OrderDocumentID recibido no existe en docDocumentOrderCayal.', 1;
             END;
 
-            UPDATE docDocumentOrderCayal
+            IF @OrderTypeID = 1
+            BEGIN
+                SET @OrderDocumentIDReal = @OrderDocumentIDEntrada;
+            END
+            ELSE IF @OrderTypeID IN (2, 3)
+            BEGIN
+                IF ISNULL(@RelatedOrderID, 0) <= 0
+                BEGIN
+                    THROW 50002, 'El anexo/cambio no tiene RelatedOrderID válido.', 1;
+                END;
+
+                SELECT
+                    @OrderTypeIDRelacionado = O.OrderTypeID
+                FROM dbo.docDocumentOrderCayal O
+                WHERE O.OrderDocumentID = @RelatedOrderID;
+
+                IF @OrderTypeIDRelacionado IS NULL
+                BEGIN
+                    THROW 50003, 'El pedido base relacionado no existe.', 1;
+                END;
+
+                IF @OrderTypeIDRelacionado <> 1
+                BEGIN
+                    THROW 50004, 'El RelatedOrderID no apunta a un pedido base válido.', 1;
+                END;
+
+                SET @OrderDocumentIDReal = @RelatedOrderID;
+            END
+            ELSE
+            BEGIN
+                THROW 50005, 'El tipo de orden recibido no puede relacionarse con factura.', 1;
+            END;
+
+            /* 1) Corregir SIEMPRE el origen del documento al pedido base */
+            UPDATE dbo.docDocument
+            SET OrderDocumentID = @OrderDocumentIDReal
+            WHERE DocumentID = @DocumentID
+              AND ISNULL(OrderDocumentID, 0) <> @OrderDocumentIDReal;
+
+            /* 2) Relacionar SOLO el pedido base */
+            UPDATE dbo.docDocumentOrderCayal
             SET
                 StatusID = CASE
                                WHEN StatusID = 3 AND OutputToDeliveryBy = 0 AND AssignedBy = 0 THEN 4
@@ -586,18 +620,35 @@ class ModeloPanelPedidos:
                 DocumentID = @DocumentID
             WHERE OrderDocumentID = @OrderDocumentIDReal;
 
+            /* 3) Limpiar cualquier relación incorrecta previa en anexos/cambios */
+            UPDATE dbo.docDocumentOrderCayal
+            SET DocumentID = 0
+            WHERE RelatedOrderID = @OrderDocumentIDReal
+              AND OrderTypeID IN (2, 3)
+              AND ISNULL(DocumentID, 0) <> 0;
+
             IF NOT EXISTS (
                 SELECT 1
-                FROM OrderInvoiceDocumentCayal
+                FROM dbo.OrderInvoiceDocumentCayal
                 WHERE OrderDocumentID = @OrderDocumentIDReal
                   AND DocumentID = @DocumentID
             )
             BEGIN
-                INSERT INTO OrderInvoiceDocumentCayal (OrderDocumentID, DocumentID)
+                INSERT INTO dbo.OrderInvoiceDocumentCayal (OrderDocumentID, DocumentID)
                 VALUES (@OrderDocumentIDReal, @DocumentID);
             END
             """,
             (document_id, order_document_id)
+        )
+
+    def corregir_origen_documento_a_pedido_base(self, document_id, order_document_id):
+        self.base_de_datos.command(
+            """
+            UPDATE dbo.docDocument
+            SET OrderDocumentID = ?
+            WHERE DocumentID = ?;
+            """,
+            (order_document_id, document_id)
         )
 
     def relacionar_pedido_con_pedidos(self, order_document_id, order):

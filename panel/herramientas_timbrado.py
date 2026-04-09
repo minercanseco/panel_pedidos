@@ -463,6 +463,24 @@ class HerramientasTimbrado:
 
             return order_document_id
 
+        def preparar_fila_para_creacion_documento(fila):
+            """
+            Prepara una copia segura de la fila para crear el documento SIEMPRE
+            usando como origen el pedido base, aunque la selección haya sido un anexo/cambio.
+            """
+            fila_documento = dict(fila)
+
+            order_document_id_original = obtener_order_document_id_de_fila(fila)
+            order_document_id_principal = resolver_order_document_id_principal(fila)
+
+            if not order_document_id_principal:
+                return None
+
+            fila_documento['OrderDocumentIDOriginal'] = order_document_id_original
+            fila_documento['OrderDocumentID'] = order_document_id_principal
+
+            return fila_documento
+
         def crear_documento(filas, combinado=False, mismo_cliente=False):
             tipo_documento = 1  # remision
 
@@ -488,15 +506,21 @@ class HerramientasTimbrado:
             partidas_acumuladas = []
 
             for fila in filas_valorizadas:
-                order_document_id = obtener_order_document_id_de_fila(fila)
+                order_document_id_original = obtener_order_document_id_de_fila(fila)
+                order_principal = resolver_order_document_id_principal(fila)
+
+                if not order_document_id_original or not order_principal:
+                    continue
+
+                fila_documento = preparar_fila_para_creacion_documento(fila)
+                if not fila_documento:
+                    continue
+
                 address_detail_id = fila['AddressDetailID']
                 business_entity_id = fila['BusinessEntityID']
                 ruta = fila['Ruta']
 
-                if not order_document_id:
-                    continue
-
-                info_documento = partidas_pedidos.get(order_document_id, None)
+                info_documento = partidas_pedidos.get(order_document_id_original, None)
                 if not info_documento:
                     continue
 
@@ -506,9 +530,15 @@ class HerramientasTimbrado:
                 if not combinado:
                     tipo_documento = fila['DocumentTypeID']
 
-                    document_id = crear_cabecera_documento(tipo_documento, fila)
+                    # 1) Crear cabecera usando SIEMPRE el pedido base como origen
+                    document_id = crear_cabecera_documento(tipo_documento, fila_documento)
+
+                    # 2) Blindaje adicional por si crear_cabecera_factura_mayoreo internamente
+                    #    tomó el OrderDocumentID incorrecto
+                    self._modelo.corregir_origen_documento_a_pedido_base(document_id, order_principal)
+
                     self._modelo.insertar_partidas_documento(
-                        order_document_id,
+                        order_principal,
                         document_id,
                         partidas,
                         total_documento,
@@ -516,16 +546,12 @@ class HerramientasTimbrado:
                     )
 
                     crear_comentario_documento(
-                        [order_document_id],
+                        [order_principal],
                         document_id,
                         business_entity_id,
                         total_documento,
                         ruta
                     )
-
-                    order_principal = resolver_order_document_id_principal(fila)
-                    if not order_principal:
-                        continue
 
                     self._modelo.relacionar_pedidos_con_facturas(document_id, order_principal)
                     self._modelo.insertar_pedido_a_recalcular(document_id, order_principal)
@@ -559,11 +585,22 @@ class HerramientasTimbrado:
                 )
                 return
 
+            # el documento combinado debe nacer del pedido base real
             order_document_id = order_document_ids[0]
             address_detail_id = filas[0]['AddressDetailID']
             business_entity_id = filas[0]['BusinessEntityID']
 
-            document_id = crear_cabecera_documento(tipo_documento, filas[0])
+            fila_documento = preparar_fila_para_creacion_documento(filas[0])
+            if not fila_documento:
+                self._interfaz.ventanas.mostrar_mensaje(
+                    'No fue posible resolver el pedido base para crear el documento.'
+                )
+                return
+
+            document_id = crear_cabecera_documento(tipo_documento, fila_documento)
+
+            # blindaje adicional
+            self._modelo.corregir_origen_documento_a_pedido_base(document_id, order_document_id)
 
             self._modelo.insertar_partidas_documento(
                 order_document_id,

@@ -1,5 +1,5 @@
 import tkinter as tk
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, time
 
 from cayal.ventanas import Ventanas
 
@@ -260,7 +260,16 @@ class EditarCaracteristicasPedido:
                 except Exception:
                     pass
 
-        valores = sorted(valores)
+        def _ordenar_horario(valor):
+            try:
+                return datetime.strptime(str(valor).strip(), '%H:%M').time()
+            except ValueError:
+                try:
+                    return datetime.strptime(str(valor).strip(), '%I:%M %p').time()
+                except ValueError:
+                    return time.max
+
+        valores = sorted(valores, key=_ordenar_horario)
         # 7) Rellenar el combo SIEMPRE desde la lista recién construida
         self._ventanas.rellenar_cbx('cbx_horario', valores)
 

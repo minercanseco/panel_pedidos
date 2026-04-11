@@ -98,7 +98,6 @@ class EditarCaracteristicasPedido:
         self._ventanas.cargar_eventos(eventos)
 
     def _actualizar_horario_de_viene(self):
-
         fecha_entrega = self.info_pedido['DeliveryPromise']
         if fecha_entrega != self._hoy:
             return
@@ -106,8 +105,16 @@ class EditarCaracteristicasPedido:
         hora_actual_mas_hora = self._hora_actual_mas_hora()
         consulta = self._base_de_datos.buscar_numero_pedidos_por_horario(fecha_entrega)
 
-        horas = [hora for hora in consulta if
-         datetime.strptime(hora['Value'], "%H:%M").time() > hora_actual_mas_hora]
+        horas = []
+        for hora in consulta:
+            hora_registro = self._parsear_hora_valor(hora.get('Value'))
+            if hora_registro and hora_registro > hora_actual_mas_hora:
+                horas.append(hora)
+
+        horas = self._ordenar_horarios(horas)
+
+        if not horas:
+            return
 
         hora_mas_cercana = horas[0]
         self.info_pedido['ScheduleID'] = hora_mas_cercana['ScheduleID']
@@ -166,11 +173,18 @@ class EditarCaracteristicasPedido:
         return datetime.strptime(hora_actual_str, "%H:%M").time()
 
     def _filtrar_hora_actual(self, consulta):
-
         tipo_pedido = self._ventanas.obtener_input_componente('cbx_tipo')
         hora_actual = self._hora_actual_mas_hora_y_media() if tipo_pedido != 'Cambio' else self._hora_actual()
-        return [hora for hora in consulta if
-                     datetime.strptime(hora['Value'], "%H:%M").time() > hora_actual]
+
+        horarios_filtrados = []
+        for hora in consulta:
+            hora_registro = self._parsear_hora_valor(hora.get('Value'))
+            if hora_registro and hora_registro > hora_actual:
+                horarios_filtrados.append(hora)
+
+        return self._ordenar_horarios(horarios_filtrados)
+
+
 
     def _inicializar_variables_de_instancia(self):
         self._consulta_tipos_pedidos = self._base_de_datos.buscar_tipos_pedidos_cayal()
@@ -252,24 +266,23 @@ class EditarCaracteristicasPedido:
                         r for r in consulta_completa
                         if int(r.get('ScheduleID')) == int(schedule_order_id)
                     )
-                    if horario_pedido['Value'] not in valores:
-                        valores.insert(0, horario_pedido['Value'])
-                        self._consulta_horarios.insert(0, horario_pedido)
+
+                    ya_existe = any(
+                        int(r.get('ScheduleID', 0)) == int(schedule_order_id)
+                        for r in self._consulta_horarios
+                    )
+
+                    if not ya_existe:
+                        self._consulta_horarios.append(horario_pedido)
+
                 except StopIteration:
                     pass
                 except Exception:
                     pass
 
-        def _ordenar_horario(valor):
-            try:
-                return datetime.strptime(str(valor).strip(), '%H:%M').time()
-            except ValueError:
-                try:
-                    return datetime.strptime(str(valor).strip(), '%I:%M %p').time()
-                except ValueError:
-                    return time.max
+        self._consulta_horarios = self._ordenar_horarios(self._consulta_horarios)
+        valores = [reg['Value'] for reg in self._consulta_horarios]
 
-        valores = sorted(valores, key=_ordenar_horario)
         # 7) Rellenar el combo SIEMPRE desde la lista recién construida
         self._ventanas.rellenar_cbx('cbx_horario', valores)
 
@@ -281,6 +294,21 @@ class EditarCaracteristicasPedido:
                 self._ventanas.insertar_input_componente('cbx_horario', valores[0])
         except Exception:
             pass
+
+    def _parsear_hora_valor(self, valor):
+        valor = str(valor or '').strip()
+        for fmt in ('%H:%M', '%I:%M %p'):
+            try:
+                return datetime.strptime(valor, fmt).time()
+            except ValueError:
+                continue
+        return None
+
+    def _ordenar_horarios(self, consulta):
+        return sorted(
+            consulta,
+            key=lambda reg: self._parsear_hora_valor(reg.get('Value')) or time.max
+        )
 
     def _settear_valores_pedido_desde_base_de_datos(self):
 
@@ -732,10 +760,14 @@ class EditarCaracteristicasPedido:
                 # ANEXO: se conserva tu comportamiento original (urgente/horario cercano)
                 # ========
                 if tipo_pedido == 'Anexo':
-                    horario_disponible = [
-                        hora for hora in consulta_completa
-                        if datetime.strptime(hora['Value'], "%H:%M").time() > self._hora_actual()
-                    ]
+                    horario_disponible = []
+                    for hora in consulta_completa:
+                        hora_registro = self._parsear_hora_valor(hora.get('Value'))
+                        if hora_registro and hora_registro > self._hora_actual():
+                            horario_disponible.append(hora)
+
+                    horario_disponible = self._ordenar_horarios(horario_disponible)
+
                     schedule_id = 1
                     order_type_id = 2
 

@@ -260,6 +260,7 @@ class EditarCaracteristicasPedido:
                 except Exception:
                     pass
 
+        valores = sorted(valores)
         # 7) Rellenar el combo SIEMPRE desde la lista recién construida
         self._ventanas.rellenar_cbx('cbx_horario', valores)
 

@@ -560,6 +560,11 @@ class ModeloPanelPedidos:
             DECLARE @RelatedOrderID INT
             DECLARE @OrderTypeIDRelacionado INT
 
+            DECLARE @ClienteDocumento INT
+            DECLARE @ClientePedido INT
+            DECLARE @FechaDocumento DATE
+            DECLARE @FechaPedido DATE
+
             SELECT
                 @OrderTypeID = O.OrderTypeID,
                 @RelatedOrderID = O.RelatedOrderID
@@ -602,6 +607,42 @@ class ModeloPanelPedidos:
             ELSE
             BEGIN
                 THROW 50005, 'El tipo de orden recibido no puede relacionarse con factura.', 1;
+            END;
+
+            /* Validar documento */
+            SELECT
+                @ClienteDocumento = D.BusinessEntityID,
+                @FechaDocumento = CAST(D.CreatedOn AS DATE)
+            FROM dbo.docDocument D
+            WHERE D.DocumentID = @DocumentID;
+
+            IF @ClienteDocumento IS NULL
+            BEGIN
+                THROW 50006, 'El documento a relacionar no existe.', 1;
+            END;
+
+            /* Validar pedido base */
+            SELECT
+                @ClientePedido = O.BusinessEntityID,
+                @FechaPedido = CAST(O.CreatedOn AS DATE)
+            FROM dbo.docDocumentOrderCayal O
+            WHERE O.OrderDocumentID = @OrderDocumentIDReal;
+
+            IF @ClientePedido IS NULL
+            BEGIN
+                THROW 50007, 'El pedido base no existe.', 1;
+            END;
+
+            /* Candado 1: mismo cliente */
+            IF @ClienteDocumento <> @ClientePedido
+            BEGIN
+                THROW 50008, 'El documento y el pedido base pertenecen a clientes distintos.', 1;
+            END;
+
+            /* Candado 2: diferencia absurda de fechas (ajusta si quieres más permisivo) */
+            IF ABS(DATEDIFF(DAY, @FechaPedido, @FechaDocumento)) > 15
+            BEGIN
+                THROW 50009, 'El pedido base y el documento tienen una diferencia de fechas no válida para relacionarse.', 1;
             END;
 
             /* 1) Corregir SIEMPRE el origen del documento al pedido base */

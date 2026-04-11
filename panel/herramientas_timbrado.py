@@ -204,49 +204,108 @@ class HerramientasTimbrado:
 
             return None
 
-        def buscar_fila_por_order_document_id(order_document_id, filas_base=None):
+        def buscar_fila_por_order_document_id(order_document_id, filas_base=None, validar_con=None):
             """
-            Busca primero en las filas proporcionadas (por ejemplo, las seleccionadas),
-            y si no encuentra, busca en toda la tabla.
+            Busca el pedido por OrderDocumentID.
+            Si se busca fuera de la selección, valida consistencia mínima contra la fila origen:
+            - mismo cliente
+            - fecha compatible
             """
             order_document_id = normalizar_order_id(order_document_id)
             if not order_document_id:
                 return None
 
+            def _fecha_fila(fila):
+                for llave in ('DeliveryPromise', 'F.Entrega', 'FechaEntrega', 'Fecha'):
+                    valor = fila.get(llave)
+                    if valor:
+                        try:
+                            return self._utilerias.convertir_fecha_str_a_datetime(valor)
+                        except Exception:
+                            pass
+                return None
+
+            # 1) Buscar primero en las filas dadas
             if filas_base:
                 for fila in filas_base:
                     fila_order_document_id = obtener_order_document_id_de_fila(fila)
                     if fila_order_document_id == order_document_id:
                         return fila
 
+            # 2) Buscar en toda la tabla, pero con validaciones fuertes
             filas_tabla = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos')
+            candidatos = []
+
             for fila_tabla in filas_tabla:
                 fila_order_document_id = obtener_order_document_id_de_fila(fila_tabla)
-                if fila_order_document_id == order_document_id:
-                    return fila_tabla
+                if fila_order_document_id != order_document_id:
+                    continue
+
+                if validar_con:
+                    cliente_origen = validar_con.get('BusinessEntityID')
+                    cliente_destino = fila_tabla.get('BusinessEntityID')
+
+                    if cliente_origen != cliente_destino:
+                        continue
+
+                    fecha_origen = _fecha_fila(validar_con)
+                    fecha_destino = _fecha_fila(fila_tabla)
+
+                    # si ambas fechas existen, deben coincidir
+                    if fecha_origen and fecha_destino and fecha_origen != fecha_destino:
+                        continue
+
+                candidatos.append(fila_tabla)
+
+            if len(candidatos) == 1:
+                return candidatos[0]
 
             return None
 
         def buscar_pedido_base_en_seleccion(fila_objetivo, filas_base):
             """
-            Fallback controlado:
-            Si no se puede resolver el pedido base por ID exacto pero dentro de la selección
-            existe un único pedido real del mismo cliente, lo tomamos como base.
+            Deshabilitado por seguridad.
+            No se debe inferir el pedido base solo por cliente,
+            porque puede tomar un pedido incorrecto.
             """
-            if not filas_base:
+            return None
+
+        def validar_relacion_pedido_base(fila_origen, fila_pedido):
+            """
+            Valida que el pedido base sea consistente con la orden origen.
+            """
+            if not fila_origen or not fila_pedido:
+                return False
+
+            try:
+                cliente_origen = fila_origen.get('BusinessEntityID')
+                cliente_pedido = fila_pedido.get('BusinessEntityID')
+                if cliente_origen != cliente_pedido:
+                    return False
+            except Exception:
+                return False
+
+            def _fecha_fila(fila):
+                for llave in ('DeliveryPromise', 'F.Entrega', 'FechaEntrega', 'Fecha'):
+                    valor = fila.get(llave)
+                    if valor:
+                        try:
+                            return self._utilerias.convertir_fecha_str_a_datetime(valor)
+                        except Exception:
+                            pass
                 return None
 
-            business_entity_id = fila_objetivo.get('BusinessEntityID')
-            pedidos_reales = [
-                fila for fila in filas_base
-                if int(fila.get('OrderTypeID') or 0) == 1
-                   and fila.get('BusinessEntityID') == business_entity_id
-            ]
+            fecha_origen = _fecha_fila(fila_origen)
+            fecha_pedido = _fecha_fila(fila_pedido)
 
-            if len(pedidos_reales) == 1:
-                return pedidos_reales[0]
+            # si ambas existen, deben coincidir
+            if fecha_origen and fecha_pedido and fecha_origen != fecha_pedido:
+                return False
 
-            return None
+            if int(fila_pedido.get('OrderTypeID') or 0) != 1:
+                return False
+
+            return True
 
         def filtrar_filas_facturables_por_status(filas):
             """
@@ -680,14 +739,14 @@ class HerramientasTimbrado:
 
         def normalizar_filas_para_facturar(filas):
             """
-            Reglas:
+            Reglas seguras:
             - Pedido (1): sigue normal.
             - Anexo (2) / cambio (3):
-                * debe tener pedido relacionado válido
-                * si viene solo, se ofrece mezclarlo con su pedido relacionado
-                * si en selección múltiple ya existe un único pedido real del mismo cliente,
-                  se toma como base aunque no se encuentre por ID exacto
-                * si falta el pedido base, se agrega automáticamente
+                * debe tener RelatedOrderID válido
+                * debe resolverse a un pedido real (OrderTypeID = 1)
+                * debe coincidir en cliente
+                * debe coincidir en fecha/contexto
+                * si no se encuentra de forma consistente, se aborta
             """
             if not filas:
                 return []
@@ -706,18 +765,31 @@ class HerramientasTimbrado:
 
                     if not related_order_id:
                         self._interfaz.ventanas.mostrar_mensaje(
-                            'La orden seleccionada no tiene un pedido relacionado válido. No se puede facturar de forma independiente.'
+                            'La orden seleccionada no tiene un pedido relacionado válido. No se puede facturar.'
                         )
                         return []
 
-                    fila_pedido = buscar_fila_por_order_document_id(related_order_id, filas_normalizadas)
+                    fila_pedido = buscar_fila_por_order_document_id(
+                        related_order_id,
+                        filas_base=filas_normalizadas,
+                        validar_con=fila
+                    )
 
                     if not fila_pedido:
-                        fila_pedido = buscar_pedido_base_en_seleccion(fila, filas_normalizadas)
+                        fila_pedido = buscar_fila_por_order_document_id(
+                            related_order_id,
+                            validar_con=fila
+                        )
 
                     if not fila_pedido:
                         self._interfaz.ventanas.mostrar_mensaje(
-                            f'No se encontró en la tabla el pedido relacionado ({related_order_id}) para la orden seleccionada.'
+                            f'No se encontró un pedido base válido para la orden relacionada ({related_order_id}).'
+                        )
+                        return []
+
+                    if not validar_relacion_pedido_base(fila, fila_pedido):
+                        self._interfaz.ventanas.mostrar_mensaje(
+                            'La orden relacionada apunta a un pedido inconsistente en cliente o fecha. No se puede facturar.'
                         )
                         return []
 
@@ -744,41 +816,62 @@ class HerramientasTimbrado:
             for fila in filas_normalizadas:
                 order_type_id = int(fila.get('OrderTypeID') or 0)
 
-                if order_type_id in (2, 3):
-                    related_order_id = obtener_order_relacionado(fila)
+                if order_type_id not in (2, 3):
+                    continue
 
-                    if not related_order_id:
-                        pedido = fila.get('Pedido', fila.get('OrderDocumentID'))
+                related_order_id = obtener_order_relacionado(fila)
+
+                if not related_order_id:
+                    pedido = fila.get('Pedido', fila.get('OrderDocumentID'))
+                    self._interfaz.ventanas.mostrar_mensaje(
+                        f'La orden {pedido} no tiene un pedido relacionado válido. No se puede facturar.'
+                    )
+                    return []
+
+                if related_order_id in order_document_ids_actuales:
+                    fila_existente = next(
+                        (f for f in filas_normalizadas if obtener_order_document_id_de_fila(f) == related_order_id),
+                        None
+                    )
+                    if not validar_relacion_pedido_base(fila, fila_existente):
                         self._interfaz.ventanas.mostrar_mensaje(
-                            f'La orden {pedido} no tiene un pedido relacionado válido. No se puede facturar.'
+                            'La selección contiene una relación anexo/pedido inconsistente en cliente o fecha.'
                         )
                         return []
+                    continue
 
-                    if related_order_id in order_document_ids_actuales:
-                        continue
+                fila_pedido = buscar_fila_por_order_document_id(
+                    related_order_id,
+                    filas_base=filas_normalizadas,
+                    validar_con=fila
+                )
 
-                    fila_pedido = buscar_fila_por_order_document_id(related_order_id, filas_normalizadas)
+                if not fila_pedido:
+                    fila_pedido = buscar_fila_por_order_document_id(
+                        related_order_id,
+                        validar_con=fila
+                    )
 
-                    if not fila_pedido:
-                        fila_pedido = buscar_pedido_base_en_seleccion(fila, filas_normalizadas)
+                if not fila_pedido:
+                    self._interfaz.ventanas.mostrar_mensaje(
+                        f'No se encontró un pedido base válido ({related_order_id}) para una de las órdenes seleccionadas.'
+                    )
+                    return []
 
-                    if not fila_pedido:
-                        fila_pedido = buscar_fila_por_order_document_id(related_order_id)
+                if not validar_relacion_pedido_base(fila, fila_pedido):
+                    self._interfaz.ventanas.mostrar_mensaje(
+                        'Una orden seleccionada apunta a un pedido inconsistente en cliente o fecha. No se puede facturar.'
+                    )
+                    return []
 
-                    if not fila_pedido:
-                        self._interfaz.ventanas.mostrar_mensaje(
-                            f'No se encontró en la tabla el pedido relacionado ({related_order_id}) para una de las órdenes seleccionadas.'
-                        )
-                        return []
+                pedido_base_id = obtener_order_document_id_de_fila(fila_pedido)
 
-                    pedido_base_id = obtener_order_document_id_de_fila(fila_pedido)
+                if pedido_base_id in order_document_ids_actuales:
+                    continue
 
-                    if pedido_base_id in order_document_ids_actuales:
-                        continue
-
-                    filas_a_agregar.append(fila_pedido)
-                    if pedido_base_id:
-                        order_document_ids_actuales.add(pedido_base_id)
+                filas_a_agregar.append(fila_pedido)
+                if pedido_base_id:
+                    order_document_ids_actuales.add(pedido_base_id)
 
             if filas_a_agregar:
                 filas_normalizadas = filas_a_agregar + filas_normalizadas

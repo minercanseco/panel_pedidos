@@ -309,18 +309,22 @@ class HerramientasTimbrado:
 
         def filtrar_filas_facturables_por_status(filas):
             """
-            Solo permite facturar pedidos en status 3.
-            Los demás se reportan pero ya no se procesan.
+            Permite facturar/refacturar pedidos en cualquier status
+            excepto: 1, 2, 10, 12, 16, 17, 18.
             """
             filas_filtradas = []
 
             for fila in filas:
                 status_id = int(fila.get('TypeStatusID') or 0)
-                order_document_id = obtener_order_document_id_de_fila(fila)
+                pedido = fila.get('Pedido', '')
                 cliente = fila.get('Cliente', '')
 
-                # abierto, en proceso, cancelado, surtido parcialmente minisuper, produccion, almacen
                 if status_id in (1, 2, 10, 12, 16, 17, 18):
+                    referencia = pedido or obtener_order_document_id_de_fila(fila) or 'Sin referencia'
+                    pedidos_fuera_status_timbrado.append(f'{referencia} - {cliente}')
+                    pedido_id = obtener_order_document_id_de_fila(fila)
+                    if pedido_id:
+                        pedidos_fuera_status_timbrado_ids.append(pedido_id)
                     continue
 
                 filas_filtradas.append(fila)

@@ -75,7 +75,6 @@ class ModeloPanelPedidos:
             return
         return consulta
 
-
     def buscar_productos_ofertados_cliente(self):
 
         consulta_productos_ofertados = self.base_de_datos.buscar_productos_en_oferta()
@@ -639,7 +638,7 @@ class ModeloPanelPedidos:
                 THROW 50008, 'El documento y el pedido base pertenecen a clientes distintos.', 1;
             END;
 
-            /* Candado 2: diferencia absurda de fechas (ajusta si quieres más permisivo) */
+            /* Candado 2: diferencia absurda de fechas */
             IF ABS(DATEDIFF(DAY, @FechaPedido, @FechaDocumento)) > 15
             BEGIN
                 THROW 50009, 'El pedido base y el documento tienen una diferencia de fechas no válida para relacionarse.', 1;
@@ -651,11 +650,15 @@ class ModeloPanelPedidos:
             WHERE DocumentID = @DocumentID
               AND ISNULL(OrderDocumentID, 0) <> @OrderDocumentIDReal;
 
-            /* 2) Relacionar SOLO el pedido base */
+            /* 2) Relacionar SOLO el pedido base
+                  Regla de negocio:
+                  - Si StatusID = 3 -> cambiar a 4
+                  - Si StatusID > 4 -> conservar status actual (refacturación)
+            */
             UPDATE dbo.docDocumentOrderCayal
             SET
                 StatusID = CASE
-                               WHEN StatusID = 3 AND OutputToDeliveryBy = 0 AND AssignedBy = 0 THEN 4
+                               WHEN StatusID = 3 THEN 4
                                ELSE StatusID
                            END,
                 DocumentID = @DocumentID
@@ -668,6 +671,7 @@ class ModeloPanelPedidos:
               AND OrderTypeID IN (2, 3)
               AND ISNULL(DocumentID, 0) <> 0;
 
+            /* 4) Registrar relación factura-pedido si no existe */
             IF NOT EXISTS (
                 SELECT 1
                 FROM dbo.OrderInvoiceDocumentCayal

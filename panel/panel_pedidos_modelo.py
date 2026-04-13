@@ -608,16 +608,19 @@ class ModeloPanelPedidos:
                 THROW 50005, 'El tipo de orden recibido no puede relacionarse con factura.', 1;
             END;
 
-            /* Validar documento */
+            /* Validar documento usando la vista/función correcta para BusinessEntityID */
             SELECT
-                @ClienteDocumento = D.BusinessEntityID,
+                @ClienteDocumento = X.BusinessEntityID
+            FROM dbo.[zvwBuscarBusinessEntityID-DocumentID](@DocumentID) X;
+
+            SELECT
                 @FechaDocumento = CAST(D.CreatedOn AS DATE)
             FROM dbo.docDocument D
             WHERE D.DocumentID = @DocumentID;
 
             IF @ClienteDocumento IS NULL
             BEGIN
-                THROW 50006, 'El documento a relacionar no existe.', 1;
+                THROW 50006, 'No fue posible resolver el BusinessEntityID correcto del documento.', 1;
             END;
 
             /* Validar pedido base */
@@ -651,9 +654,9 @@ class ModeloPanelPedidos:
               AND ISNULL(OrderDocumentID, 0) <> @OrderDocumentIDReal;
 
             /* 2) Relacionar SOLO el pedido base
-                  Regla de negocio:
-                  - Si StatusID = 3 -> cambiar a 4
-                  - Si StatusID > 4 -> conservar status actual (refacturación)
+                  Regla:
+                  - si StatusID = 3 -> cambiar a 4
+                  - si StatusID > 4 -> conservar
             */
             UPDATE dbo.docDocumentOrderCayal
             SET
@@ -671,7 +674,7 @@ class ModeloPanelPedidos:
               AND OrderTypeID IN (2, 3)
               AND ISNULL(DocumentID, 0) <> 0;
 
-            /* 4) Registrar relación factura-pedido si no existe */
+            /* 4) Registrar relación si no existe */
             IF NOT EXISTS (
                 SELECT 1
                 FROM dbo.OrderInvoiceDocumentCayal

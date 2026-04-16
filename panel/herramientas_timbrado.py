@@ -634,19 +634,20 @@ class HerramientasTimbrado:
             })
 
             order_document_ids = sorted(
-                [
-                    obtener_order_document_id_de_fila(fila)
+                {
+                    resolver_order_document_id_principal(fila)
                     for fila in filas
-                    if int(fila.get('OrderTypeID') or 0) == 1 and obtener_order_document_id_de_fila(fila)
-                ],
+                    if resolver_order_document_id_principal(fila)
+                },
                 reverse=True
             )
 
             if not order_document_ids:
                 self._interfaz.ventanas.mostrar_mensaje(
-                    'Debe por lo menos haber un pedido dentro de las ordenes seleccionadas.'
+                    'No fue posible resolver el pedido base de las órdenes seleccionadas.'
                 )
                 return
+
 
             # el documento combinado debe nacer del pedido base real
             order_document_id = order_document_ids[0]

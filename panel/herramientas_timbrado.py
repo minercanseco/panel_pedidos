@@ -179,11 +179,12 @@ class HerramientasTimbrado:
                 return None
 
         def obtener_order_document_id_de_fila(fila):
-            """
-            Obtiene únicamente el OrderDocumentID real de la fila.
-            No debe usar el folio visible ('Pedido') como respaldo.
-            """
-            return normalizar_order_id(fila.get('OrderDocumentID'))
+            valor = fila.get('OrderDocumentID')
+
+            if valor in (None, '', '0', 0):
+                return None
+
+            return normalizar_order_id(valor)
 
         def obtener_order_relacionado(fila):
             """
@@ -205,12 +206,6 @@ class HerramientasTimbrado:
             return None
 
         def buscar_fila_por_order_document_id(order_document_id, filas_base=None, validar_con=None):
-            """
-            Busca el pedido por OrderDocumentID.
-            Si se busca fuera de la selección, valida consistencia mínima contra la fila origen:
-            - mismo cliente
-            - fecha compatible
-            """
             order_document_id = normalizar_order_id(order_document_id)
             if not order_document_id:
                 return None
@@ -225,42 +220,44 @@ class HerramientasTimbrado:
                             pass
                 return None
 
-            # 1) Buscar primero en las filas dadas
+            # 1) Buscar en selección
             if filas_base:
                 for fila in filas_base:
-                    fila_order_document_id = obtener_order_document_id_de_fila(fila)
-                    if fila_order_document_id == order_document_id:
+                    if obtener_order_document_id_de_fila(fila) == order_document_id:
                         return fila
 
-            # 2) Buscar en toda la tabla, pero con validaciones fuertes
+            # 2) Buscar en tabla (solo si trae OrderDocumentID real)
             filas_tabla = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos')
-            candidatos = []
-
             for fila_tabla in filas_tabla:
-                fila_order_document_id = obtener_order_document_id_de_fila(fila_tabla)
-                if fila_order_document_id != order_document_id:
+                fila_id = fila_tabla.get('OrderDocumentID')
+                if not fila_id:
+                    continue
+
+                if normalizar_order_id(fila_id) != order_document_id:
                     continue
 
                 if validar_con:
                     cliente_origen = validar_con.get('BusinessEntityID')
                     cliente_destino = fila_tabla.get('BusinessEntityID')
 
-                    if cliente_origen != cliente_destino:
+                    if cliente_origen and cliente_destino and cliente_origen != cliente_destino:
                         continue
 
                     fecha_origen = _fecha_fila(validar_con)
                     fecha_destino = _fecha_fila(fila_tabla)
 
-                    # si ambas fechas existen, deben coincidir
                     if fecha_origen and fecha_destino and fecha_origen != fecha_destino:
                         continue
 
-                candidatos.append(fila_tabla)
+                return fila_tabla
 
-            if len(candidatos) == 1:
-                return candidatos[0]
+            # 3) 🔥 SI NO ESTÁ EN UI → BD OBLIGATORIO
+            fila_bd = self._modelo.buscar_pedido_por_id(order_document_id)
+            if fila_bd:
+                return fila_bd
 
             return None
+
 
         def buscar_pedido_base_en_seleccion(fila_objetivo, filas_base):
             """
@@ -271,60 +268,54 @@ class HerramientasTimbrado:
             return None
 
         def validar_relacion_pedido_base(fila_origen, fila_pedido):
-            """
-            Valida que el pedido base sea consistente con la orden origen.
-            """
             if not fila_origen or not fila_pedido:
                 return False
 
             try:
                 cliente_origen = fila_origen.get('BusinessEntityID')
                 cliente_pedido = fila_pedido.get('BusinessEntityID')
-                if cliente_origen != cliente_pedido:
+
+                if cliente_origen and cliente_pedido and cliente_origen != cliente_pedido:
                     return False
             except Exception:
-                return False
-
-            def _fecha_fila(fila):
-                for llave in ('DeliveryPromise', 'F.Entrega', 'FechaEntrega', 'Fecha'):
-                    valor = fila.get(llave)
-                    if valor:
-                        try:
-                            return self._utilerias.convertir_fecha_str_a_datetime(valor)
-                        except Exception:
-                            pass
-                return None
-
-            fecha_origen = _fecha_fila(fila_origen)
-            fecha_pedido = _fecha_fila(fila_pedido)
-
-            # si ambas existen, deben coincidir
-            if fecha_origen and fecha_pedido and fecha_origen != fecha_pedido:
                 return False
 
             if int(fila_pedido.get('OrderTypeID') or 0) != 1:
                 return False
 
+            def _fecha_fila_normalizada(fila):
+                for llave in ('DeliveryPromise', 'F.Entrega', 'FechaEntrega', 'Fecha'):
+                    valor = fila.get(llave)
+                    if valor:
+                        try:
+                            dt = self._utilerias.convertir_fecha_str_a_datetime(valor)
+                            return dt.date()  # 🔥 SOLO FECHA, sin hora
+                        except Exception:
+                            pass
+                return None
+
+            fecha_origen = _fecha_fila_normalizada(fila_origen)
+            fecha_pedido = _fecha_fila_normalizada(fila_pedido)
+
+            # 🔥 comparar solo si ambas existen
+            if fecha_origen and fecha_pedido and fecha_origen != fecha_pedido:
+                return False
+
             return True
 
         def filtrar_filas_facturables_por_status(filas):
-            """
-            Permite facturar/refacturar pedidos en cualquier status
-            excepto: 1, 2, 10, 12, 16, 17, 18.
-            """
             filas_filtradas = []
 
             for fila in filas:
                 status_id = int(fila.get('TypeStatusID') or 0)
-                pedido = fila.get('Pedido', '')
                 cliente = fila.get('Cliente', '')
+                order_id = obtener_order_document_id_de_fila(fila)
 
                 if status_id in (1, 2, 10, 12, 16, 17, 18):
-                    referencia = pedido or obtener_order_document_id_de_fila(fila) or 'Sin referencia'
+                    referencia = order_id or 'Sin referencia'
                     pedidos_fuera_status_timbrado.append(f'{referencia} - {cliente}')
-                    pedido_id = obtener_order_document_id_de_fila(fila)
-                    if pedido_id:
-                        pedidos_fuera_status_timbrado_ids.append(pedido_id)
+                    if order_id:
+                        pedidos_fuera_status_timbrado_ids.append(order_id)
                     continue
 
                 filas_filtradas.append(fila)
@@ -399,10 +390,9 @@ class HerramientasTimbrado:
 
                 if total_documento < 200:
                     cliente = fila['Cliente']
-                    pedido = fila['Pedido']
                     respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
-                        f'El total de la orden {pedido} del cliente {cliente} '
-                        f'es de {total_documento}, ¿Desea omitir este pedido del proceso para consultar con el cliente un posible incremento en su pedido?'
+                        f'El total de la orden {order_document_id} del cliente {cliente} '
+                        f'es de {total_documento}, ¿Desea omitir este pedido del proceso?'
                     )
                     if respuesta:
                         continue
@@ -416,7 +406,7 @@ class HerramientasTimbrado:
                     cliente = filas[0]['Cliente']
                     respuesta = self._interfaz.ventanas.mostrar_mensaje_pregunta(
                         f'El total acumulado de las ordenes seleccionadas del cliente {cliente}'
-                        f'es de {total_acumulado}, ¿Desea consultar con el cliente un posible incremento en su pedido?'
+                        f'es de {total_acumulado}, ¿Desea consultar incremento?'
                     )
                     if respuesta:
                         return [], partidas_pedidos
@@ -470,7 +460,7 @@ class HerramientasTimbrado:
             patron_guiones = re.compile(r'-{2,}')
 
             comentario_filtrado = patron_palabras.sub("", comentario)
-            comentario_filtrado = patron_guiones.sub("-", comentario_filtrado)
+            comentario_filtrado = patron_guiones.sub("-", comentario)
 
             comentario_filtrado = re.sub(r'\s*,\s*', ', ', comentario_filtrado)
             comentario_filtrado = re.sub(r',\s*$', '', comentario_filtrado)
@@ -648,7 +638,6 @@ class HerramientasTimbrado:
                 )
                 return
 
-
             # el documento combinado debe nacer del pedido base real
             order_document_id = order_document_ids[0]
             address_detail_id = filas[0]['AddressDetailID']
@@ -788,7 +777,7 @@ class HerramientasTimbrado:
 
                     if not fila_pedido:
                         self._interfaz.ventanas.mostrar_mensaje(
-                            f'No se encontró un pedido base válido para la orden relacionada ({related_order_id}).'
+                            f'No se encontró un pedido base válido ({related_order_id}) para una de las órdenes seleccionadas.'
                         )
                         return []
 
@@ -951,6 +940,8 @@ class HerramientasTimbrado:
         finally:
             self._rellenar_tabla()
             self._reanudar_autorefresco()
+
+
 
     def _capturado_vs_producido(self):
         fila = self._obtener_valores_fila_pedido_seleccionado()

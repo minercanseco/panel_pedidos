@@ -716,8 +716,7 @@ class ModeloPanelPedidos:
                 OrderTypeID,
                 StatusID AS TypeStatusID,
                 DeliveryPromise,
-                AddressDetailID,
-                1 AS FromDB
+                AddressDetailID
             FROM docDocumentOrderCayal
             WHERE OrderDocumentID = ?
             """,
@@ -728,6 +727,7 @@ class ModeloPanelPedidos:
             return None
 
         return resultado[0]
+
     def actualizar_totales_pedido(self, order_document_id, sin_servicio_domicilio=True):
         consulta_partidas = self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
             order_document_id, partidas_producidas=True)

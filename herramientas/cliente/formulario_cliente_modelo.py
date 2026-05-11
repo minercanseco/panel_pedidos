@@ -192,9 +192,9 @@ class FormularioClienteModelo:
         if not consulta:
             return 'Campeche', 'Campeche'
 
-    def buscar_tipo_ruta_id(self, nombre_ruta):
+    def buscar_tipo_ruta_id(self, ruta_id):
         consulta = [ruta['TipoRutaID'] for ruta in self.consulta_rutas
-                    if nombre_ruta == ruta['ZoneName']]
+                    if int(ruta_id) == int(ruta['ZoneID'])]
         # 1 = domicilio (por defecto si no la encuentra)
         return consulta[0] if consulta else 1
 

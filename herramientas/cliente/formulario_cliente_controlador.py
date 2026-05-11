@@ -53,7 +53,7 @@ class FormularioClienteControlador:
 
         self._interfaz.ventanas.bloquear_componente('tbx_cliente')
         if self._modelo.cliente.business_entity_id != 0 and self._modelo.buscar_tipo_ruta_id(
-                self._modelo.cliente.zone_name) == 2:
+                self._modelo.cliente.zone_id) == 2:
             self._interfaz.ventanas.bloquear_componente('cbx_ruta')
 
         if self._modelo.user_group_id == 11:
@@ -301,17 +301,20 @@ class FormularioClienteControlador:
             return
 
         # Regla fuerte: si es grupo 11, la ruta siempre debe salir de la colonia
-        if self._modelo.user_group_id == 11:
+        # Si el cliente ya existe y su ruta guardada es mayoreo, no tocarla
+        ruta_guardada = self._modelo.cliente.zone_id or 0
+        ruta_guardada_id = self._modelo.buscar_tipo_ruta_id(ruta_guardada)
+
+        # Si el cliente ya existe y su ruta guardada es mayoreo, no tocarla
+        if self._modelo.user_group_id == 11 and ruta_guardada_id != 2:
             consulta = self._modelo.consulta_colonias or []
             consulta_ruta = [reg['ZoneName'] for reg in consulta if reg['City'] == colonia and reg.get('ZoneName')]
             if consulta_ruta:
                 self._interfaz.ventanas.insertar_input_componente('cbx_ruta', consulta_ruta[0])
             return
 
-        # Si el cliente ya existe y su ruta guardada es mayoreo, no tocarla
-        ruta_guardada = self._modelo.cliente.zone_name or ''
         if self._modelo.cliente.business_entity_id != 0:
-            if self._modelo.buscar_tipo_ruta_id(ruta_guardada) == 2:
+            if ruta_guardada_id == 2:
                 return
 
         consulta = self._modelo.consulta_colonias or []
@@ -542,16 +545,16 @@ class FormularioClienteControlador:
 
         valores = self._obtener_inputs_usuario()
         ruta_seleccionada = valores['cbx_ruta']
-
-        tipo_ruta_id_sel = self._modelo.buscar_tipo_ruta_id(ruta_seleccionada)
         ruta_id_sel = self._modelo.buscar_ruta_id(ruta_seleccionada)
+        tipo_ruta_id_sel = self._modelo.buscar_tipo_ruta_id(ruta_id_sel)
 
         if not _validar_ruta(ruta_id_sel, tipo_ruta_id_sel):
             return
 
         # Si ya tenía ruta guardada, asumimos que se pretende cambiar
         if self._modelo.cliente.zone_id != 0:
-            ruta_guardada = self._modelo.cliente.zone_name
+            ruta_guardada = self._modelo.cliente.zone_id
+
             tipo_ruta_id_guardada = self._modelo.buscar_tipo_ruta_id(ruta_guardada)
             ruta_id_guardada = self._modelo.cliente.zone_id
 

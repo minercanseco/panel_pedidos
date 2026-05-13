@@ -19,6 +19,7 @@ class AsociarPedidoWeb:
         componentes = [
             ('cbx_accion', 'Acción:'),
             ('tbv_historial', self._crear_columnas_tabla()),
+            ('btn_guardar', 'Guardar')
         ]
 
         self._ventanas.crear_formulario_simple(componentes)

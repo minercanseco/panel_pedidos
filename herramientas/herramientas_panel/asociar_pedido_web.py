@@ -1,7 +1,6 @@
 from cayal.ventanas import Ventanas
 
 
-
 class AsociarPedidoWeb:
     def __init__(self, master, base_de_datos, utilerias, info_pedido):
         self._master = master
@@ -160,3 +159,4 @@ class AsociarPedidoWeb:
             ORDER BY 
                 E.OfficialName;
         """,(nombre, telefono, correo))
+

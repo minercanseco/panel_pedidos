@@ -16,7 +16,6 @@ class AsociarPedidoWeb:
 
         self._ventanas.configurar_ventana_ttkbootstrap()
 
-
     def _crear_componentes(self):
         componentes = [
             ('tbx_nombre', 'Nombre:'),
@@ -29,6 +28,7 @@ class AsociarPedidoWeb:
 
         self._ventanas.crear_formulario_simple(componentes)
         self._ventanas.ajustar_ancho_componente('tbx_nombre', 45)
+        self._ventanas.ajustar_ancho_componente('tbx_correo', 45)
 
     def _crear_columnas_tabla(self):
         return [
@@ -49,28 +49,36 @@ class AsociarPedidoWeb:
         telefono = info.get('Telefono', None)
         correo = info.get('Email', None)
 
-        componentes  = {
-            'tbx_nombre': nombre,
-            'tbx_telefono': telefono,
-            'tbx_correo': correo
-        }
-        for componente, valor in componentes.items():
-            self._ventanas.insertar_input_componente(componente, valor)
-            self._ventanas.bloquear_componente(componente)
+        if info:
+            componentes  = {
+                'tbx_nombre': nombre,
+                'tbx_telefono': telefono,
+                'tbx_correo': correo
+            }
+            for componente, valor in componentes.items():
+                self._ventanas.insertar_input_componente(componente, valor)
+                self._ventanas.bloquear_componente(componente)
 
 
-        consulta = self._buscar_clientes_probables(nombre, telefono, correo)
-        if consulta:
-            self._ventanas.rellenar_table_view('tbv_clientes', self._crear_columnas_tabla(), consulta)
+            consulta = self._buscar_clientes_probables(nombre, telefono, correo)
+            if consulta:
+                self._ventanas.rellenar_table_view('tbv_clientes', self._crear_columnas_tabla(), consulta)
 
     def _obtener_info_usuario(self):
+
+        uuid = self._base_de_datos.fetchone(
+            'SELECT UUID FROM docDocumentOrderCayal WHERE OrderDocumentID = ?',
+            (self._info_pedido['OrderDocumentID'])
+        )
+        if not uuid:
+            return {}
+
         info = self._base_de_datos.fetchall("""
             SELECT FullName, Email, NULL Telefono
             FROM engUserClient
-            WHERE FirstOrderUUID='c4ffe74e-3d7b-4486-9b83-d979b6635e9c'
-        """)
+            WHERE FirstOrderUUID= ?
+        """,(uuid,))
         return info[0] if info else {}
-
 
     def _buscar_clientes_probables(self, nombre, telefono, correo):
         return  self._base_de_datos.fetchall("""

@@ -112,6 +112,10 @@ class HerramientasTimbrado:
 
             business_entity_id = fila['BusinessEntityID']
 
+            if business_entity_id != 10276:
+                self._ventanas.mostrar_mensaje('El cliente no es válido para usar esta opción.')
+                return
+
             ventana = self._ventanas.crear_popup_ttkbootstrap('Asociar pedido')
             AsociarPedidoWeb(ventana, self._base_de_datos, self._utilerias, fila)
             ventana.wait_window()

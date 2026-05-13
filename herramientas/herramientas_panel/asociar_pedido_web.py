@@ -21,6 +21,7 @@ class AsociarPedidoWeb:
         componentes = [
             ('tbx_nombre', 'Nombre:'),
             ('tbx_telefono', 'Teléfono:'),
+            ('tbx_correo', 'Correo:'),
             ('cbx_accion', 'Acción:'),
             ('tbv_clientes', self._crear_columnas_tabla()),
             ('btn_guardar', 'Guardar')
@@ -48,7 +49,15 @@ class AsociarPedidoWeb:
         telefono = info.get('Telefono', None)
         correo = info.get('Email', None)
 
-        self._ventanas.insertar_input_componente('')
+        componentes  = {
+            'tbx_nombre': nombre,
+            'tbx_telefono': telefono,
+            'tbx_correo': correo
+        }
+        for componente, valor in componentes.items():
+            self._ventanas.insertar_input_componente(componente, valor)
+            self._ventanas.bloquear_componente(componente)
+
 
         consulta = self._buscar_clientes_probables(nombre, telefono, correo)
         if consulta:

@@ -51,7 +51,7 @@ class HerramientasTimbrado:
              'hotkey': None, 'comando': self._capturado_vs_producido},
 
             {'nombre_icono': 'asignar.ico', 'etiqueta': 'Asociar', 'nombre': 'asociar_pedido_a_cliente',
-             'hotkey': None, 'comando': self._capturado_vs_producido}
+             'hotkey': None, 'comando': self._asociar_pedido_a_cliente}
 
         ]
 

@@ -63,8 +63,8 @@ class AsociarPedidoWeb:
     def _buscar_clientes_probables(self, nombre, telefono, correo):
         return  self._base_de_datos.fetchall("""
             DECLARE @NombreBuscado   NVARCHAR(200) = ?;
-            DECLARE @TelefonoBuscado NVARCHAR(50)  = ?';
-            DECLARE @CorreoBuscado   NVARCHAR(200) = ?';
+            DECLARE @TelefonoBuscado NVARCHAR(50)  = ?;
+            DECLARE @CorreoBuscado   NVARCHAR(200) = ?;
             
             SELECT 
                 E.BusinessEntityID,

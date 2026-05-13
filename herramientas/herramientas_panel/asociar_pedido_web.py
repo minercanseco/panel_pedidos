@@ -27,6 +27,7 @@ class AsociarPedidoWeb:
         ]
 
         self._ventanas.crear_formulario_simple(componentes)
+        self._ventanas.ajustar_ancho_componente('tbx_nombre', 45)
 
     def _crear_columnas_tabla(self):
         return [
@@ -46,6 +47,8 @@ class AsociarPedidoWeb:
         nombre = info.get('FullName',None)
         telefono = info.get('Telefono', None)
         correo = info.get('Email', None)
+
+        self._ventanas.insertar_input_componente('')
 
         consulta = self._buscar_clientes_probables(nombre, telefono, correo)
         if consulta:

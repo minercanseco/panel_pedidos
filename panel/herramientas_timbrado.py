@@ -6,6 +6,7 @@ from cayal.ventanas import Ventanas
 
 from herramientas.capturar_documento.llamar_instancia_captura import LlamarInstanciaCaptura
 from herramientas.herramientas_compartidas.capturado_vs_producido import CapturadoVsProducido
+from herramientas.herramientas_panel.asociar_pedido_web import AsociarPedidoWeb
 from herramientas.herramientas_panel.editar_pedido import EditarPedido
 from herramientas.herramientas_panel.selector_tipo_documento import SelectorTipoDocumento
 
@@ -47,6 +48,9 @@ class HerramientasTimbrado:
              'hotkey': None, 'comando': self._facturar},
 
             {'nombre_icono': 'PrintSelectedItems.ico', 'etiqueta': 'Producido', 'nombre': 'capturado_vs_producido',
+             'hotkey': None, 'comando': self._capturado_vs_producido},
+
+            {'nombre_icono': 'asignar.ico', 'etiqueta': 'Asociar', 'nombre': 'asociar_pedido_a_cliente',
              'hotkey': None, 'comando': self._capturado_vs_producido}
 
         ]
@@ -96,6 +100,24 @@ class HerramientasTimbrado:
             return
 
         return filas
+
+    def _asociar_pedido_a_cliente(self):
+
+        try:
+            self._pausar_autorefresco()
+            fila = self._obtener_valores_fila_pedido_seleccionado()
+            if not fila:
+                self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar un pedido.')
+                return
+
+            business_entity_id = fila['BusinessEntityID']
+
+            ventana = self._ventanas.crear_popup_ttkbootstrap('Asociar pedido')
+            AsociarPedidoWeb(ventana, self._base_de_datos, self._utilerias, fila)
+            ventana.wait_window()
+
+        finally:
+            self._reanudar_autorefresco()
 
     def _editar_pedido(self):
 

@@ -170,7 +170,6 @@ class HerramientasTimbrado:
                 self._filtro_post_captura()
 
     def _facturar(self):
-        import re
 
         pedidos_fuera_status_timbrado = []
         pedidos_fuera_status_timbrado_ids = []
@@ -968,6 +967,15 @@ class HerramientasTimbrado:
 
             return filas_normalizadas
 
+        def filtrar_pedidos_cliente_no_definido(filas):
+            registro = [fila for fila in filas if fila['BusinessEntityID'] == 10276]
+            if registro:
+                self._ventanas.mostrar_mensaje('La selección contiene un pedido no asociado a un cliente, utilice la herramienta asociar pedido.')
+                return False
+
+            return True
+
+
         # --------------------------------------------------------------------------------------------------------------
         try:
             filas = self._obtener_valores_filas_pedidos_seleccionados()
@@ -980,6 +988,9 @@ class HerramientasTimbrado:
                 return
 
             filas_filtradas = filtrar_filas_facturables_por_status(filas)
+
+            if not filtrar_pedidos_cliente_no_definido(filas_filtradas):
+                return
 
             if not filas_filtradas:
                 if pedidos_fuera_status_timbrado:

@@ -117,7 +117,7 @@ class HerramientasTimbrado:
                 return
 
             ventana = self._ventanas.crear_popup_ttkbootstrap('Asociar pedido')
-            AsociarPedidoWeb(ventana, self._base_de_datos, self._utilerias, fila)
+            AsociarPedidoWeb(ventana, self._base_de_datos, self._utilerias, self._parametros, fila)
             ventana.wait_window()
 
         finally:

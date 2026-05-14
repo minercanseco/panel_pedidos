@@ -3,13 +3,15 @@ from cayal.cliente import Cliente
 
 
 class AsociarPedidoWeb:
-    def __init__(self, master, base_de_datos, utilerias, info_pedido):
+    def __init__(self, master, base_de_datos, utilerias, parametros, info_pedido):
         self._master = master
         self._base_de_datos = base_de_datos
         self._utilerias = utilerias
+        self._parametros = parametros
         self._ventanas = Ventanas(self._master)
 
         self._info_pedido = info_pedido
+        self._user_id = self._parametros.id_usuario
 
         self._crear_componentes()
         self._rellenar_cbx_acciones()
@@ -80,7 +82,7 @@ class AsociarPedidoWeb:
 
         uuid = self._base_de_datos.fetchone(
             'SELECT UUID FROM docDocumentOrderCayal WHERE OrderDocumentID = ?',
-            (self._info_pedido['OrderDocumentID'])
+            (self._info_pedido['OrderDocumentID'],)
         )
         if not uuid:
             return {}
@@ -99,10 +101,13 @@ class AsociarPedidoWeb:
             FROM engUserClient
             WHERE FirstOrderUUID= ?
         """,(uuid,))
+        if not info:
+            return {}
 
+        info = info[0]
         info['UUID'] = uuid
 
-        return info[0] if info else {}
+        return info
 
     def _buscar_clientes_probables(self, nombre, telefono, correo):
         return  self._base_de_datos.fetchall("""
@@ -220,8 +225,6 @@ class AsociarPedidoWeb:
                         WHERE UUID = @UUID 
            """,(business_entity_id, uuid, invoice, customer_type_id))
 
-
-
     def _obtener_valores_fila_pedido_seleccionado(self, valor=None):
         if not self._ventanas.validar_seleccion_una_fila_table_view('tbv_clientes'):
             return
@@ -231,12 +234,9 @@ class AsociarPedidoWeb:
         return valores_fila[valor]
 
     def _crear_cliente_desde_web(self):
-        business_entity_id = 0
-
         cliente = Cliente()
         self._settear_valores_formulario_a_cliente(cliente)
-
-        cliente.business_entity_id = 0
+        business_entity_id = self._base_de_datos.crear_cliente(cliente, self._user_id, crear_direccion=False)
 
         return business_entity_id
 

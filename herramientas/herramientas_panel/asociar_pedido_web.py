@@ -247,20 +247,18 @@ class AsociarPedidoWeb:
 
     def _asociar_informacion_y_pedido_cliente_existente(self, business_entity_id):
 
-
         uuid = self._info_pedido.get('UUID',None)
+        customer_type_id = 2
+        invoice = 0
 
         info_complementaria = self._base_de_datos.fetchall("""
             SELECT CustomerTypeID, CayalCustomerTypeID FROM [zvwBuscarInfoCliente-BusinessEntityID](?)
         """,(business_entity_id,))
 
-        if not info_complementaria:
-            return
-
-        customer_type_id = info_complementaria[0]['CustomerTypeID']
-        cayal_customer_type_id = info_complementaria[0]['CayalCustomerTypeID']
-        invoice = 0 if cayal_customer_type_id == 1 else 1
-
+        if info_complementaria:
+            customer_type_id = info_complementaria[0]['CustomerTypeID']
+            cayal_customer_type_id = info_complementaria[0]['CayalCustomerTypeID']
+            invoice = 0 if cayal_customer_type_id == 1 else 1
         if uuid:
             self._base_de_datos.command("""
                 DECLARE @BusinessEntityID INT = ?
@@ -279,6 +277,7 @@ class AsociarPedidoWeb:
                         WHERE FirstOrderUUID = @UUID 
            """,(business_entity_id, uuid, invoice, customer_type_id))
 
+
     def _obtener_valores_fila_pedido_seleccionado(self, valor=None):
         if not self._ventanas.validar_seleccion_una_fila_table_view('tbv_clientes'):
             return
@@ -291,6 +290,8 @@ class AsociarPedidoWeb:
         cliente = Cliente()
         self._settear_valores_formulario_a_cliente(cliente)
         business_entity_id = self._base_de_datos.crear_cliente(cliente, self._user_id, crear_direccion=False)
+        cliente.business_entity_id = business_entity_id
+        self._merge_direccion(cliente)
 
         return business_entity_id
 
@@ -334,9 +335,12 @@ class AsociarPedidoWeb:
         regimen_fiscal = info_usuario.get('CompanyTypeName', None)
 
         info_direccion = self._base_de_datos.buscar_detalle_de_direccion(address_detail_id=0, uuid=uuid_direccion)
+        if not info_direccion:
+            return
 
+        info_direccion = info_direccion[0]
         zone_id = self._base_de_datos.fetchone(
-            'SELECT ZoneID FROM zvwColoniasCampeche WHERE Colonia = ?',
+            'SELECT Top 1 ZoneID FROM zvwColoniasCampeche WHERE Colonia = ?',
             (info_direccion['City'],)
         )
         zone_name = self._base_de_datos.fetchone(
@@ -352,6 +356,7 @@ class AsociarPedidoWeb:
             'commercial_name': '',
             'phone': None,
             'cellphone': telefono,
+            'address_fiscal_detail_id': info_direccion.get('AddressDetailID',''),
             'address_fiscal_street': info_direccion.get('Street',''),
             'address_fiscal_ext_number': info_direccion.get('ExtNumber',''),
             'address_fiscal_comments': info_direccion.get('Comments',''),
@@ -390,3 +395,123 @@ class AsociarPedidoWeb:
             setattr(cliente, atributo_cliente, valor)
 
 
+    def _merge_direccion(self, cliente):
+        self._base_de_datos.command("""
+                            MERGE INTO orgBusinessEntityMainInfo AS target
+                            USING (
+                                VALUES (
+                                    ?, ?, ?, ?,       -- BusinessEntityID, OfficialNumber, Phone, Email
+                                    ?,                -- AddressFiscalDetailID
+                                    'Dirección fiscal', 'MEXICO',
+                                    ?, ?, ?, ?, ?, ?, ?,          -- State, City, Zip, Municipality, Street, ExtNumber, Comments
+                                    'MEX',
+                                    ?, ?, ?,          -- StateCode, CityCode, MunicipalityCode
+                                    0                 -- AddressDeliveryDetailID
+                                )
+                            ) AS source (
+                                BusinessEntityID,
+                                OfficialNumber,
+                                BusinessEntityPhone,
+                                BusinessEntityEmail,
+                                AddressFiscalDetailID,
+                                AddressFiscalName,
+                                AddressFiscalCountryName,
+                                AddressFiscalStateProvince,
+                                AddressFiscalCity,
+                                AddressFiscalZipCode,
+                                AddressFiscalMunicipality,
+                                AddressFiscalStreet,
+                                AddressFiscalExtNumber,
+                                AddressFiscalComments,
+                                AddressFiscalCountryCode,
+                                AddressFiscalStateProvinceCode,
+                                AddressFiscalCityCode,
+                                AddressFiscalMunicipalityCode,
+                                AddressDeliveryDetailID
+                            )
+                            ON target.BusinessEntityID = source.BusinessEntityID
+                            WHEN MATCHED THEN
+                                UPDATE SET
+                                    target.OfficialNumber                  = source.OfficialNumber,
+                                    target.BusinessEntityPhone             = source.BusinessEntityPhone,
+                                    target.BusinessEntityEmail             = source.BusinessEntityEmail,
+                                    target.AddressFiscalDetailID           = source.AddressFiscalDetailID,
+                                    target.AddressFiscalName               = source.AddressFiscalName,
+                                    target.AddressFiscalCountryName        = source.AddressFiscalCountryName,
+                                    target.AddressFiscalStateProvince      = source.AddressFiscalStateProvince,
+                                    target.AddressFiscalCity               = source.AddressFiscalCity,
+                                    target.AddressFiscalZipCode            = source.AddressFiscalZipCode,
+                                    target.AddressFiscalMunicipality       = source.AddressFiscalMunicipality,
+                                    target.AddressFiscalStreet             = source.AddressFiscalStreet,
+                                    target.AddressFiscalExtNumber          = source.AddressFiscalExtNumber,
+                                    target.AddressFiscalComments           = source.AddressFiscalComments,
+                                    target.AddressFiscalCountryCode        = source.AddressFiscalCountryCode,
+                                    target.AddressFiscalStateProvinceCode  = source.AddressFiscalStateProvinceCode,
+                                    target.AddressFiscalCityCode           = source.AddressFiscalCityCode,
+                                    target.AddressFiscalMunicipalityCode   = source.AddressFiscalMunicipalityCode,
+                                    target.AddressDeliveryDetailID         = source.AddressDeliveryDetailID
+                            WHEN NOT MATCHED THEN
+                                INSERT (
+                                    BusinessEntityID,
+                                    OfficialNumber,
+                                    BusinessEntityPhone,
+                                    BusinessEntityEmail,
+                                    AddressFiscalDetailID,
+                                    AddressFiscalName,
+                                    AddressFiscalCountryName,
+                                    AddressFiscalStateProvince,
+                                    AddressFiscalCity,
+                                    AddressFiscalZipCode,
+                                    AddressFiscalMunicipality,
+                                    AddressFiscalStreet,
+                                    AddressFiscalExtNumber,
+                                    AddressFiscalComments,
+                                    AddressFiscalCountryCode,
+                                    AddressFiscalStateProvinceCode,
+                                    AddressFiscalCityCode,
+                                    AddressFiscalMunicipalityCode,
+                                    AddressDeliveryDetailID
+                                )
+                                VALUES (
+                                    source.BusinessEntityID,
+                                    source.OfficialNumber,
+                                    source.BusinessEntityPhone,
+                                    source.BusinessEntityEmail,
+                                    source.AddressFiscalDetailID,
+                                    source.AddressFiscalName,
+                                    source.AddressFiscalCountryName,
+                                    source.AddressFiscalStateProvince,
+                                    source.AddressFiscalCity,
+                                    source.AddressFiscalZipCode,
+                                    source.AddressFiscalMunicipality,
+                                    source.AddressFiscalStreet,
+                                    source.AddressFiscalExtNumber,
+                                    source.AddressFiscalComments,
+                                    source.AddressFiscalCountryCode,
+                                    source.AddressFiscalStateProvinceCode,
+                                    source.AddressFiscalCityCode,
+                                    source.AddressFiscalMunicipalityCode,
+                                    source.AddressDeliveryDetailID
+                                );
+                        """, (
+                cliente.business_entity_id,
+                cliente.official_number,
+                cliente.phone,
+                cliente.email,
+                cliente.address_fiscal_detail_id,
+                cliente.address_fiscal_state_province,
+                cliente.address_fiscal_city,
+                cliente.address_fiscal_zip_code,
+                cliente.address_fiscal_municipality,
+                cliente.address_fiscal_street,
+                cliente.address_fiscal_ext_number,
+                cliente.address_fiscal_comments,
+                cliente.state_code,
+                cliente.city_code,
+                cliente.municipality_code
+            ))
+
+        self._base_de_datos.command(
+            'UPDATE orgAddress set AddressTypeID=1, IsMainAddress=1 where BusinessEntityID=?',
+            (cliente.business_entity_id,)
+        )

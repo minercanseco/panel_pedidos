@@ -1,3 +1,4 @@
+import tkinter as tk
 from cayal.ventanas import Ventanas
 from cayal.cliente import Cliente
 
@@ -13,24 +14,65 @@ class AsociarPedidoWeb:
         self._info_pedido = info_pedido
         self._user_id = self._parametros.id_usuario
 
+        self._crear_frames()
         self._crear_componentes()
         self._rellenar_cbx_acciones()
         self._rellenar_tabla()
         self._cargar_eventos()
 
         self._ventanas.configurar_ventana_ttkbootstrap()
+        self._ventanas.situar_ventana_arriba('frame_principal')
+
+    def _crear_frames(self):
+        frames = {
+
+            'frame_principal': ('master', None,
+                                {'row': 0, 'column': 0, 'sticky': tk.NSEW}),
+
+            'frame_cliente': ('frame_principal', 'Prospecto cliente:',
+                              {'row': 0,  'column': 0, 'pady': 2, 'padx': 2,
+                               'sticky': tk.NSEW}),
+
+            'frame_direccion': ('frame_principal', 'Dirección prospecto:',
+            {'row': 0, 'column': 1, 'pady': 2, 'padx': 2,
+             'sticky': tk.NSEW}),
+
+            'frame_acciones': ('frame_principal', None,
+                              {'row': 2, 'column': 0, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
+
+            'frame_cbx': ('frame_acciones', None,
+            {'row': 0, 'column': 0, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
+
+            'frame_botones': ('frame_acciones', None,
+                              {'row': 0, 'column': 1, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
+
+            'frame_tabla': ('frame_principal', 'Posibles coincidencias',
+                              {'row': 3, 'columnspan': 2, 'column': 0, 'pady': 2, 'padx': 2,
+                               'sticky': tk.NSEW}),
+
+
+        }
+        self._ventanas.crear_frames(frames)
 
     def _crear_componentes(self):
-        componentes = [
-            ('tbx_nombre', 'Nombre:'),
-            ('tbx_telefono', 'Teléfono:'),
-            ('tbx_correo', 'Correo:'),
-            ('cbx_accion', 'Acción:'),
-            ('tbv_clientes', self._crear_columnas_tabla()),
-            ('btn_guardar', 'Guardar')
-        ]
 
-        self._ventanas.crear_formulario_simple(componentes)
+        componentes = {
+            'tbv_clientes': ('frame_tabla', self._crear_columnas_tabla(), None, None),
+            'tbx_nombre': ('frame_cliente', None, 'Nombre:', None),
+            'tbx_telefono': ('frame_cliente', None, 'Teléfono:', None),
+            'tbx_correo': ('frame_cliente', None, 'Correo:', None),
+            'tbx_direccion': ('frame_direccion', None, 'Dirección:', None),
+            'tbx_calle': ('frame_direccion', None, 'Calle:', None),
+            'tbx_numero': ('frame_direccion', None, 'Número:', None),
+            'txt_comentarios': ('frame_direccion', None, 'Coms:', None),
+
+            'cbx_accion': ('frame_cbx', None, 'Acción:', None),
+            'btn_guardar': ('frame_botones', None, 'Guardar', None),
+            'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', None),
+
+        }
+        self._ventanas.crear_componentes(componentes)
+
         self._ventanas.ajustar_ancho_componente('tbx_nombre', 45)
         self._ventanas.ajustar_ancho_componente('tbx_correo', 45)
 
@@ -56,18 +98,30 @@ class AsociarPedidoWeb:
 
     def _rellenar_tabla(self):
         info = self._obtener_info_usuario()
+
+
         nombre = info.get('FullName',None)
         telefono = info.get('Telefono', None)
         correo = info.get('Email', None)
         uuid = info.get('UUID',None)
+
+        info_direccion = self._base_de_datos.buscar_detalle_de_direccion(address_detail_id=0, uuid=uuid)
+        if not info_direccion:
+            return
+        info_direccion =  info_direccion[0]
 
         self._info_pedido['UUID'] = uuid
 
         if info:
             componentes  = {
                 'tbx_nombre': nombre,
-                'tbx_telefono': telefono,
-                'tbx_correo': correo
+                'tbx_telefono': info_direccion.get('Celular', ''),
+                'tbx_correo': correo,
+                'tbx_direccion': info_direccion.get('AddressName', ''),
+                'tbx_calle': info_direccion.get('Street', ''),
+                'tbx_numero': info_direccion.get('ExtNumber', ''),
+                'txt_comentarios': info_direccion.get('Comments', ''),
+
             }
             for componente, valor in componentes.items():
                 self._ventanas.insertar_input_componente(componente, valor)
@@ -119,8 +173,8 @@ class AsociarPedidoWeb:
                 E.BusinessEntityID,
                 E.OfficialName,
                 E.CommercialName,
-                Correo.ChannelValue   AS Correo,
-                Telefono.ChannelValue AS Telefono
+                Telefono.ChannelValue AS Telefono,
+                Correo.ChannelValue   AS Correo
                 
             FROM orgBusinessEntity E
             
@@ -222,7 +276,7 @@ class AsociarPedidoWeb:
                                     BusinessEntityID = @BusinessEntityID,
                                     CustomerTypeID = @CustomerTypeID,
                                     Invoice = @Invoice
-                        WHERE UUID = @UUID 
+                        WHERE FirstOrderUUID = @UUID 
            """,(business_entity_id, uuid, invoice, customer_type_id))
 
     def _obtener_valores_fila_pedido_seleccionado(self, valor=None):
@@ -262,6 +316,8 @@ class AsociarPedidoWeb:
             business_entity_id = self._crear_cliente_desde_web()
 
         self._asociar_informacion_y_pedido_cliente_existente(business_entity_id)
+        self._ventanas.mostrar_mensaje(mensaje='Cliente asociado satisfactoriamente', tipo='info')
+        self._master.destroy()
 
     def _settear_valores_formulario_a_cliente(self, cliente):
 

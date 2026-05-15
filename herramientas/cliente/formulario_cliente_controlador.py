@@ -12,6 +12,9 @@ class FormularioClienteControlador:
     def __init__(self, interfaz, modelo):
         self._interfaz = interfaz
         self._modelo = modelo
+
+        self._actualizando_por_cif = False
+
         self._rellenar_componentes()
 
         # esto garantiza en teoria el poder contrastar la direccion fiscal modificada por el usuario con la de la bd
@@ -20,6 +23,8 @@ class FormularioClienteControlador:
             informacion_fiscal = self._crear_informacion_fiscal()
             self._modelo.cliente.add_fiscal_detail_backup(informacion_fiscal)
             self._modelo.cliente.add_address_detail_backup(direccion_fiscal)
+
+
 
         self._bloqueos_iniciales()
         self._cargar_eventos()
@@ -75,25 +80,29 @@ class FormularioClienteControlador:
         webbrowser.open(url)
 
     def _actualizar_por_cif(self):
-        cif = self._interfaz.ventanas.obtener_input_componente('tbx_cif')
-        rfc = self._interfaz.ventanas.obtener_input_componente('tbx_rfc')
+        try:
+            self._actualizando_por_cif = True
+            cif = self._interfaz.ventanas.obtener_input_componente('tbx_cif')
+            rfc = self._interfaz.ventanas.obtener_input_componente('tbx_rfc')
 
-        if not self._modelo.utilerias.es_cif(cif):
-            return
+            if not self._modelo.utilerias.es_cif(cif):
+                return
 
-        if not self._modelo.utilerias.es_rfc(rfc):
-            return
+            if not self._modelo.utilerias.es_rfc(rfc):
+                return
 
-        inst = BuscarInfoCif(self._modelo.parametros, rfc, cif, self._modelo.cliente)
-        ok = inst.run()  # síncrono, sin ventana
+            inst = BuscarInfoCif(self._modelo.parametros, rfc, cif, self._modelo.cliente)
+            ok = inst.run()  # síncrono, sin ventana
 
-        if not ok:
-            # aquí decides cómo avisar (label, messagebox, log, etc.)
-            print("[CIF] error:", inst.error)
+            if not ok:
+                # aquí decides cómo avisar (label, messagebox, log, etc.)
+                print("[CIF] error:", inst.error)
 
-            return
+                return
 
-        self._rellenar_componentes()
+            self._rellenar_componentes()
+        finally:
+            self._actualizando_por_cif = False
 
 
     def _rellenar_componentes(self):
@@ -163,7 +172,12 @@ class FormularioClienteControlador:
                                                               self._modelo.cliente.address_fiscal_city
                                                               )
         # ------------------------------------------------------------------------
+
+
         # rellenar cbx rutas
+        if self._actualizando_por_cif:
+            return
+
         info_rutas = self._modelo.obtener_todas_las_rutas()
         rutas = [reg['ZoneName'] for reg in info_rutas]
         rutas = sorted(rutas)
@@ -172,6 +186,7 @@ class FormularioClienteControlador:
             self._interfaz.ventanas.insertar_input_componente('cbx_ruta',
                                                               self._modelo.cliente.zone_name
                                                               )
+            self._interfaz.ventanas.bloquear_componente('cbx_ruta')
         # ------------------------------------------------------------------------
 
     def _agregar_direccion(self):
@@ -259,8 +274,12 @@ class FormularioClienteControlador:
         if colonia_actual in colonias:
             self._interfaz.ventanas.insertar_input_componente('cbx_colonia', colonia_actual)
 
+        if self._actualizando_por_cif:
+            return
+
         if ruta_actual and ruta_actual != 'Seleccione':
             self._interfaz.ventanas.insertar_input_componente('cbx_ruta', ruta_actual)
+            self._interfaz.ventanas.bloquear_componente('cbx_ruta')
 
     def _rellenar_cbx_colonias_por_ruta(self):
         if self._interfaz.ventanas.obtener_input_componente('cbx_colonia') != 'Seleccione':
@@ -296,6 +315,9 @@ class FormularioClienteControlador:
         self._interfaz.ventanas.insertar_input_componente('tbx_cp', cp)
 
     def _settear_ruta_colonia(self):
+        if self._actualizando_por_cif:
+            return
+
         colonia = self._interfaz.ventanas.obtener_input_componente('cbx_colonia')
         if colonia == 'Seleccione':
             return
@@ -311,6 +333,7 @@ class FormularioClienteControlador:
             consulta_ruta = [reg['ZoneName'] for reg in consulta if reg['City'] == colonia and reg.get('ZoneName')]
             if consulta_ruta:
                 self._interfaz.ventanas.insertar_input_componente('cbx_ruta', consulta_ruta[0])
+                self._interfaz.ventanas.bloquear_componente('cbx_ruta')
             return
 
         if self._modelo.cliente.business_entity_id != 0:
@@ -321,6 +344,7 @@ class FormularioClienteControlador:
         consulta_ruta = [reg['ZoneName'] for reg in consulta if reg['City'] == colonia and reg.get('ZoneName')]
         if consulta_ruta:
             self._interfaz.ventanas.insertar_input_componente('cbx_ruta', consulta_ruta[0])
+            self._interfaz.ventanas.bloquear_componente('cbx_ruta')
 
     def _actualizar_municipio_y_estado(self):
         colonia = self._interfaz.ventanas.obtener_input_componente('cbx_colonia')

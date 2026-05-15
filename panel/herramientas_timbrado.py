@@ -121,6 +121,7 @@ class HerramientasTimbrado:
             ventana.wait_window()
 
         finally:
+            self._rellenar_tabla()
             self._reanudar_autorefresco()
 
     def _editar_pedido(self):

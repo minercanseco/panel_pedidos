@@ -1,4 +1,6 @@
 import tkinter as tk
+from cmath import phase
+
 from cayal.ventanas import Ventanas
 from cayal.cliente import Cliente
 
@@ -334,6 +336,7 @@ class AsociarPedidoWeb:
         forma_pago = info_usuario.get('FormaPago', None)
         regimen_fiscal = info_usuario.get('CompanyTypeName', None)
 
+
         info_direccion = self._base_de_datos.buscar_detalle_de_direccion(address_detail_id=0, uuid=uuid_direccion)
         if not info_direccion:
             return
@@ -354,7 +357,7 @@ class AsociarPedidoWeb:
         atributos_equivalentes = {
             'official_name': nombre_cliente,
             'commercial_name': '',
-            'phone': None,
+            'phone': telefono,
             'cellphone': telefono,
             'address_fiscal_detail_id': info_direccion.get('AddressDetailID',''),
             'address_fiscal_street': info_direccion.get('Street',''),
@@ -378,7 +381,8 @@ class AsociarPedidoWeb:
             'cif': None,
             'forma_pago':forma_pago,
             'metodo_pago':metodo_pago,
-            'receptor_uso_cfdi':uso_cfdi
+            'receptor_uso_cfdi':uso_cfdi,
+            'customer_type_id':2
         }
 
         for atributo_cliente, valor in atributos_equivalentes.items():

@@ -263,22 +263,42 @@ class AsociarPedidoWeb:
             invoice = 0 if cayal_customer_type_id == 1 else 1
         if uuid:
             self._base_de_datos.command("""
-                DECLARE @BusinessEntityID INT = ?
-                DECLARE @UUID NVARCHAR(125) = ?
-                DECLARE @Invoice INT = ?
-                DECLARE @CustomerTypeID INT = ?
-                
-                UPDATE docDocumentOrderCayal SET BusinessEntityID = @BusinessEntityID WHERE UUID = @UUID 
-                
-                UPDATE orgAddress SET BusinessEntityID = @BusinessEntityID WHERE UUID = @UUID
-                
-                UPDATE engUserClient SET 
-                                    BusinessEntityID = @BusinessEntityID,
-                                    CustomerTypeID = @CustomerTypeID,
-                                    Invoice = @Invoice
-                        WHERE FirstOrderUUID = @UUID 
-           """,(business_entity_id, uuid, invoice, customer_type_id))
+                DECLARE @BusinessEntityID INT
+                DECLARE @UUID NVARCHAR(125)
+                DECLARE @Invoice INT
+                DECLARE @CustomerTypeID INT
+                DECLARE @OfficialName NVARCHAR(MAX)
 
+                SET @BusinessEntityID = ?
+                SET @UUID = ?
+                SET @Invoice = ?
+                SET @CustomerTypeID = ?
+
+                SELECT @OfficialName = OfficialName
+                FROM orgBusinessEntity
+                WHERE BusinessEntityID = @BusinessEntityID
+
+                UPDATE docDocumentOrderCayal
+                SET BusinessEntityID = @BusinessEntityID
+                WHERE UUID = @UUID
+
+                UPDATE orgAddress
+                SET BusinessEntityID = @BusinessEntityID
+                WHERE UUID = @UUID
+
+                UPDATE engUserClient
+                SET
+                    FullName = @OfficialName,
+                    BusinessEntityID = @BusinessEntityID,
+                    CustomerTypeID = @CustomerTypeID,
+                    Invoice = @Invoice
+                WHERE FirstOrderUUID = @UUID
+            """, (
+                business_entity_id,
+                uuid,
+                invoice,
+                customer_type_id
+            ))
 
     def _obtener_valores_fila_pedido_seleccionado(self, valor=None):
         if not self._ventanas.validar_seleccion_una_fila_table_view('tbv_clientes'):

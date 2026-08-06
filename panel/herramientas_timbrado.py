@@ -4,7 +4,7 @@ import tkinter as tk
 from cayal.documento import Documento
 from cayal.ventanas import Ventanas
 
-from herramientas.capturar_documento.llamar_instancia_captura import LlamarInstanciaCaptura
+from herramientas.capturar_documento.llamar_instancia_captura_pedido import LlamarInstanciaCaptura
 from herramientas.herramientas_compartidas.capturado_vs_producido import CapturadoVsProducido
 from herramientas.herramientas_panel.asociar_pedido_web import AsociarPedidoWeb
 from herramientas.herramientas_panel.editar_pedido import EditarPedido

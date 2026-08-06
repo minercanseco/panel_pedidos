@@ -1,8 +1,8 @@
 import tkinter as tk
 import unicodedata
-
 import pyperclip
 import ttkbootstrap as ttk
+import ttkbootstrap.dialogs
 import re
 
 from cayal.comandos_base_datos import ComandosBaseDatos
@@ -11,24 +11,17 @@ from cayal.ventanas import Ventanas
 from cayal.documento import Documento
 from cayal.util import Utilerias
 
-from capturar_documento.controlador_captura import ControladorCaptura
-from capturar_documento.interfaz_captura import InterfazCaptura
-from capturar_documento.modelo_captura import ModeloCaptura
-from capturar_documento.llamar_instancia_captura_pedido import (
-    LlamarInstanciaCapturaPedido,
-)
+from capturar_documento.herramientas.cobrar_cartera.controlador_saldar_cartera import ControladorSaldarCartera
+from capturar_documento.herramientas.cobrar_cartera.interfaz_saldar_cartera import InterfazSaldarCartera
 
-MODULO_VALES = 1692
-MODULO_PEDIDOS = 1687
-MODULOS_VENTAS = (21,1400,1316,1319)
 
-class BuscarGeneralesCliente:
+class BuscarGeneralesClienteCartera:
 
     def __init__(self, master, parametros):
 
-        self._master = master
         self._parametros_contpaqi = parametros
 
+        self._master = master
 
         self._declarar_variables_globales()
         self._crear_instancias_de_clases()
@@ -38,10 +31,10 @@ class BuscarGeneralesCliente:
         self._cargar_eventos_componentes_forma()
         self._cargar_hotkeys()
         self._ajustar_componentes()
-
         self._actualizar_apariencia_forma(solo_apariencia_inicial=True)
         self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
         self._ventanas.enfocar_componente('tbx_buscar')
+
 
     def _declarar_variables_globales(self):
         self._termino_buscado = None
@@ -52,19 +45,6 @@ class BuscarGeneralesCliente:
         self._consulta_sucursales = None
         self._procesando_documento = False
         self._tipo_documento = 0
-        self._cliente_documento_seleccionado_id = None
-
-        self._module_id = self._parametros_contpaqi.id_modulo
-        self._user_id = self._parametros_contpaqi.id_usuario
-        self._document_id = self._parametros_contpaqi.id_principal
-
-        self._customer_types_ids_ofertas = set()
-        self.consulta_productos = []
-        self.consulta_productos_ofertados = []
-        self.consulta_productos_ofertados_btn = []
-        self.products_ids_ofertados = []
-        self._ofertas = {}
-        self._ofertas_por_lista = {}
 
     def _crear_instancias_de_clases(self):
         self._base_de_datos = ComandosBaseDatos()
@@ -93,8 +73,7 @@ class BuscarGeneralesCliente:
             'frame_cbx_direccion': ('frame_cbxs', 'Dirección:',
                                {'row': 0, 'column': 1,  'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
 
-            'frame_cbx_documento': ('frame_cbxs', 'Documento:',
-                                    {'row': 0, 'column': 2, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
+
 
             'frame_informacion': ('frame_data', 'Generales:',
                                   {'row': 3, 'column': 0, 'columnspan': 2, 'padx': 1, 'pady': 1, 'sticky': tk.NSEW}),
@@ -114,9 +93,6 @@ class BuscarGeneralesCliente:
         componentes = {
             'tbx_buscar': ('frame_buscar', None, 'Buscar:', None),
             'cbx_resultados': ('frame_buscar', None, '  ', None),
-            'cbx_documento': ('frame_cbx_documento',
-                              {'row': 0, 'column': 0, 'padx': 1, 'pady': 1, 'sticky': tk.W},
-                              '  ', '[Ctrl+R] ó [Ctrl+F]'),
             'btn_seleccionar': ('frame_botones', 'primary', 'Seleccionar', '[F1]'),
             'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', '[Esc]'),
             'cbx_direccion': ('frame_cbx_direccion', None, '  ', None),
@@ -202,7 +178,6 @@ class BuscarGeneralesCliente:
             'lbl_txt_pcompra': ('frame_informacion', None, 'P.Compra:', None),
             'lbl_txt_comentario': ('frame_informacion', None, 'Comentario:', None),
             'lbl_txt_minisuper': ('frame_informacion', None, 'Minisuper:', None),
-            'lbl_txt_vales': ('frame_informacion', None, 'C.Empleados:', None),
             'lbl_txt_lista': ('frame_informacion', None, 'Lista:', None),
 
             'lbl_nombre': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
@@ -237,23 +212,9 @@ class BuscarGeneralesCliente:
                                                     'text': ''},
                               {'row': 8, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
 
-            'lbl_vales': ('frame_informacion', {'font': ('Arial', 9, 'bold'),
-                                                    'text': ''},
-                              {'row': 9, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
-
             'lbl_lista': ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-                          {'row': 10, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
+                          {'row': 9, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None),
         }
-
-
-        if self._module_id != 1692:
-            self._componentes_credito['lbl_lista'] = ('frame_informacion', {'font': ('Arial', 9, 'bold'), 'text': ''},
-                          {'row': 9, 'column': 1, 'padx': 1, 'pady': 1, 'sticky': tk.W}, None)
-
-            del self._componentes_credito['lbl_vales']
-            del self._componentes_credito['lbl_txt_vales']
-
-
         self._ventanas.crear_componentes(self._componentes_credito)
 
     def _ajustar_componentes(self):
@@ -274,30 +235,12 @@ class BuscarGeneralesCliente:
 
     def _cargar_hotkeys(self):
         hotkeys = {
-            'F1': lambda: (self._forzar_confirmar_cbx('cbx_resultados'), self._seleccionar_cliente()),
+            'F1': self._seleccionar_cliente,
             'F4': self._copiar_informacion_direccion,
-            'Ctrl+F': lambda: self._seleccionar_cliente_por_documento('factura'),
-            'Ctrl+R': lambda: self._seleccionar_cliente_por_documento('remision'),
+            'Ctrl+D': lambda  :self._ventanas.enfocar_componente('cbx_direccion'),
         }
+
         self._ventanas.agregar_hotkeys_forma(hotkeys)
-
-    def _seleccionar_cliente_por_documento(self, tipo):
-        if self._ventanas.obtener_input_componente('cbx_resultados') == 'Seleccione':
-            return
-
-        if tipo == 'factura':
-            if self._cliente.cayal_customer_type_id in (0, 1):
-                return
-
-            self._ventanas.insertar_input_componente('cbx_documento', 'Factura')
-            # Ejecutamos las funciones directamente, no con lambda suelta
-            self._forzar_confirmar_cbx('cbx_resultados')
-            self._seleccionar_cliente()
-
-        elif tipo == 'remision':
-            self._ventanas.insertar_input_componente('cbx_documento', 'Remisión')
-            self._forzar_confirmar_cbx('cbx_resultados')
-            self._seleccionar_cliente()
 
     def _copiar_informacion_direccion(self):
         business_entity_id = self._info_cliente_seleccionado[0]['BusinessEntityID']
@@ -322,102 +265,79 @@ class BuscarGeneralesCliente:
 
         return termino_buscado
 
-    def _buscar_info_y_setear_cliente(self, business_entity_id, abrir=False, actualizar=False):
-        """Busca info del cliente, setea en self._cliente y ejecuta la acción final."""
-        self._buscar_info_cliente_seleccionado(business_entity_id)
-        self._cliente.consulta = self._info_cliente_seleccionado
-        self._cliente.settear_valores_consulta()
-        self._rellenar_cbx_documento()
-
-
-        if abrir:
-            self._llamar_instancia()
-        if actualizar:
-            self._actualizar_apariencia_forma()
-
     def _buscar_termino(self, event=None):
         termino_buscado = self._validar_termino()
+
         if not termino_buscado:
             return
 
         termino_buscado = termino_buscado.upper().strip()
 
-        if termino_buscado != getattr(self, "_termino_buscado", None):
+        if termino_buscado != self._termino_buscado:
             self._termino_buscado = termino_buscado
 
-        # 1) Búsqueda por folio (prefijos)
+        # determina si la busqueda sera manual y por folio
         if termino_buscado.startswith(('FG', 'FM', 'FGR')):
+
             info_documento = self._buscar_info_document_id(folio_documento=termino_buscado)
             if not info_documento:
+
                 return
             business_entity_id = info_documento['BusinessEntityID']
-            self._buscar_info_y_setear_cliente(business_entity_id, abrir=True)
-            return
+            self._buscar_info_cliente_seleccionado(business_entity_id)
+            self._cliente.consulta = self._info_cliente_seleccionado
+            self._cliente.settear_valores_consulta()
+            self._llamar_instancia()
 
-        es_numero = self._utilerias.es_cantidad(termino_buscado)
+        # si termino buscado no es numerico entonces es por nombre de clientee
+        if not self._utilerias.es_cantidad(termino_buscado):
 
-        # 2) Búsqueda por nombre (no numérico)
-        if not es_numero:
-            self._consulta_clientes = self._buscar_clientes_por_nombre_similar(self._termino_buscado)
-            nombres_clientes = [reg['OfficialName'] for reg in (self._consulta_clientes or [])]
+            self._consulta_clientes = self._base_de_datos.buscar_clientes_por_nombre_similar(self._termino_buscado)
+
+            nombres_clientes = [reg['OfficialName'] for reg in self._consulta_clientes]
 
             if not nombres_clientes:
                 self._ventanas.bloquear_componente('btn_seleccionar')
                 self._ventanas.rellenar_cbx('cbx_resultados', None, 'sin seleccione')
                 self._ventanas.mostrar_mensaje('No se encontraron resultados.')
-                return
 
-            if len(nombres_clientes) > 1:
-                self._ventanas.rellenar_cbx('cbx_resultados', nombres_clientes)
             else:
-                self._ventanas.rellenar_cbx('cbx_resultados', nombres_clientes, 'sin seleccione')
-                cliente = nombres_clientes[0]
-                business_entity_id = self._buscar_busines_entity_id(cliente)
-                self._buscar_info_y_setear_cliente(business_entity_id, actualizar=True)
+                if len(nombres_clientes) > 1:
+                    self._ventanas.rellenar_cbx('cbx_resultados', nombres_clientes)
+                else:
+                    self._ventanas.rellenar_cbx('cbx_resultados', nombres_clientes, 'sin seleccione')
+                    cliente = nombres_clientes[0]
+                    business_entity_id = self._buscar_busines_entity_id(cliente)
+
+                    self._buscar_info_cliente_seleccionado(business_entity_id)
+                    self._cliente.consulta = self._info_cliente_seleccionado
+                    self._cliente.settear_valores_consulta()
+                    self._actualizar_apariencia_forma()
 
             self._ventanas.desbloquear_componente('btn_seleccionar')
             self._ventanas.enfocar_componente('cbx_resultados')
             self._ventanas.enfocar_componente('btn_seleccionar')
-            return
 
-        # 3) Búsqueda por código de barras (numérico)
-        if len(self._termino_buscado) < 12:
-            self._ventanas.mostrar_mensaje(f'El código {self._termino_buscado} es incorrecto.')
-            self._ventanas.enfocar_componente('tbx_buscar')
-            return
+        # busqueda por codigo de barras
+        if self._utilerias.es_cantidad(termino_buscado):
 
-        codigo = self._termino_buscado[0:11]
-        document_id = int(codigo.lstrip('0') or '0')
-        info_documento = self._buscar_info_document_id(document_id=document_id)
-        if not info_documento:
-            self._ventanas.mostrar_mensaje(f'La búsqueda del término {codigo} no devolvió resultados.')
-            return
+            if len(self._termino_buscado) < 12:
+                self._ventanas.mostrar_mensaje(f'El código {self._termino_buscado} es incorrecto.')
+                self._ventanas.enfocar_componente('tbx_buscar')
+                return
 
-        business_entity_id = info_documento['BusinessEntityID']
-        self._buscar_info_y_setear_cliente(business_entity_id, abrir=True)
+            codigo = self._termino_buscado[0:11]
+            document_id = int(codigo.lstrip('0') or '0')
+            info_documento = self._buscar_info_document_id(document_id=document_id)
+            if not info_documento:
+                self._ventanas.mostrar_mensaje(f'La búsqueda del término {codigo} no devolvió resultados.')
+                return
 
-    def _buscar_clientes_por_nombre_similar(self, termino_buscado):
-        # Dividir el término en palabras clave
-        palabras = termino_buscado.split()
-
-        # Construir dinámicamente la condición WHERE para incluir todas las palabras
-        condiciones = " AND ".join([f"E.OfficialName LIKE '%' + ? + '%'" for _ in palabras])
-
-        # Crear el query dinámico
-        query = f"""
-            SELECT E.BusinessEntityID, E.OfficialName
-            FROM orgCustomer C
-            INNER JOIN orgBusinessEntity E ON C.BusinessEntityID = E.BusinessEntityID
-            WHERE {condiciones}
-            AND C.DeletedOn IS NULL
-            AND E.DeletedOn IS NULL
-            AND E.BusinessEntityID NOT IN (1, 8179, 9277)
-        """
-
-        if self._module_id == 1692: #los vales de empleados estan limitados a ruta 7
-            query = f"{query} AND C.ZoneID = 1040"
-
-        return self._base_de_datos.fetchall(query, palabras)
+            business_entity_id = info_documento['BusinessEntityID']
+            self._buscar_info_cliente_seleccionado(business_entity_id)
+            self._cliente.consulta = self._info_cliente_seleccionado
+            self._cliente.settear_valores_consulta()
+            self._llamar_instancia()
 
     def _buscar_info_document_id(self, document_id=0, folio_documento=''):
         consulta = []
@@ -425,14 +345,26 @@ class BuscarGeneralesCliente:
 
         if document_id != 0:
             consulta = self._base_de_datos.fetchall("""
-                SELECT D.BusinessEntityID, E.OfficialName,
-                    ISNULL(D.FolioPrefix,'')+ISNULL(D.Folio,'') DocFolio,
-                    CASE WHEN D.CancelledOn IS NULL THEN 0 ELSE 1 END Cancelled,
-                    D.Balance, D.Total, D.TotalPaid, StatusPaidID
-                FROM docDocument D
-                INNER JOIN orgBusinessEntity E ON D.BusinessEntityID = E.BusinessEntityID
-                WHERE D.DocumentID = ? AND ISNULL(D.Custom3,0) =1040
-                AND D.ModuleID IN (21,1400,1319)
+                DECLARE @DocumentID INT = ?
+                DECLARE @BusinessEntityID INT
+
+                SELECT @BusinessEntityID = BusinessEntityID
+                FROM dbo.[zvwBuscarBusinessEntityID-DocumentID](@DocumentID);
+                
+                SELECT
+                    @BusinessEntityID AS BusinessEntityID,
+                    E.OfficialName,
+                    ISNULL(D.FolioPrefix, '') + ISNULL(D.Folio, '') AS DocFolio,
+                    CASE WHEN D.CancelledOn IS NULL THEN 0 ELSE 1 END AS Cancelled,
+                    D.Balance,
+                    D.Total,
+                    D.TotalPaid,
+                    D.StatusPaidID
+                FROM dbo.docDocument D
+                INNER JOIN dbo.orgBusinessEntity E
+                    ON E.BusinessEntityID = @BusinessEntityID
+                WHERE D.DocumentID = @DocumentID
+                  AND D.ModuleID IN (21, 1400, 1319);
             """, (document_id,))
 
         if folio_documento != '':
@@ -440,17 +372,38 @@ class BuscarGeneralesCliente:
             folio = re.sub(r"\D", "", folio_documento)  # Reemplaza todo lo que no es dígito
             prefijo = re.match(r"[A-Za-z]+", folio_documento).group()   # Solo letras al inicio
 
-            consulta =  self._base_de_datos.fetchall("""
-                SELECT D.BusinessEntityID, E.OfficialName,
-                    ISNULL(D.FolioPrefix,'')+ISNULL(D.Folio,'') DocFolio,
-                    CASE WHEN D.CancelledOn IS NULL THEN 0 ELSE 1 END Cancelled,
-                    D.Balance, D.Total, D.TotalPaid, StatusPaidID
-                FROM docDocument D
-                INNER JOIN orgBusinessEntity E ON D.BusinessEntityID = E.BusinessEntityID
-                WHERE D.FolioPrefix = ?
-                AND D.Folio = ?
-                AND D.ModuleID IN (21,1400,1319)
-            """,(prefijo, folio))
+            consulta = self._base_de_datos.fetchall("""
+                DECLARE @BusinessEntityID INT;
+                DECLARE @DocumentID INT;
+                DECLARE @FolioPrefix NVARCHAR(20) = ?;
+                DECLARE @Folio NVARCHAR(50) = ?;
+
+                SELECT TOP (1)
+                    @DocumentID = D.DocumentID
+                FROM dbo.docDocument D
+                WHERE ISNULL(D.FolioPrefix, '') = ISNULL(@FolioPrefix, '')
+                  AND D.Folio = @Folio
+                ORDER BY D.DocumentID DESC;
+
+                SELECT
+                    @BusinessEntityID = BusinessEntityID
+                FROM dbo.[zvwBuscarBusinessEntityID-DocumentID](@DocumentID);
+
+                SELECT
+                    @BusinessEntityID AS BusinessEntityID,
+                    E.OfficialName,
+                    ISNULL(D.FolioPrefix, '') + ISNULL(D.Folio, '') AS DocFolio,
+                    CASE WHEN D.CancelledOn IS NULL THEN 0 ELSE 1 END AS Cancelled,
+                    D.Balance,
+                    D.Total,
+                    D.TotalPaid,
+                    D.StatusPaidID
+                FROM dbo.docDocument D
+                INNER JOIN dbo.orgBusinessEntity E
+                    ON E.BusinessEntityID = @BusinessEntityID
+                WHERE ISNULL(D.FolioPrefix, '') = ISNULL(@FolioPrefix, '')
+                  AND D.Folio = @Folio;
+            """, (prefijo, folio))
 
         if consulta:
             info_documento = consulta[0]
@@ -480,37 +433,17 @@ class BuscarGeneralesCliente:
 
         if seleccion == 'Seleccione':
             self._cliente.reinicializar_atributos()
-            self._ventanas.mostrar_mensaje(mensaje='Debe seleccionar un cliente de la lista', master=self._master)
+            self._ventanas.mostrar_mensaje(mensaje= 'Debe seleccionar un cliente de la lista', master=self._master)
             self._ventanas.bloquear_componente('btn_seleccionar')
             return
 
-        # <<< NUEVO: cachear selección confirmada >>>
-        self._ultimo_cliente_texto = seleccion
-        self._ultimo_cliente_id = self._buscar_busines_entity_id(seleccion)
-
         self._ventanas.desbloquear_componente('btn_seleccionar')
-        self._buscar_info_y_setear_cliente(self._ultimo_cliente_id, actualizar=True)
-        self._actualizar_apariencia_forma()
+        business_entity_id = self._buscar_busines_entity_id(seleccion)
+        self._buscar_info_cliente_seleccionado(business_entity_id)
+        self._cliente.consulta = self._info_cliente_seleccionado
+        self._cliente.settear_valores_consulta()
 
-    def _forzar_confirmar_cbx(self, nombre_cbx):
-        """Si el combobox tiene un item resaltado pero no confirmado, confírmalo.
-           Si no hay nada confirmado, usa el último cliente cacheado o el primer valor."""
-        cbx = self._ventanas.componentes_forma.get(nombre_cbx)
-        if not cbx:
-            return
-        try:
-            cur = cbx.current()  # -1 si no hay confirmación
-            val = cbx.get()
-            vals = list(cbx['values']) if 'values' in cbx.keys() else []
-            if (cur == -1 or val == 'Seleccione') and vals:
-                # Si tenemos último confirmado, úsalo
-                if getattr(self, '_ultimo_cliente_texto', None) in vals:
-                    cbx.set(self._ultimo_cliente_texto)
-                else:
-                    cbx.current(0)  # al menos fija el primero
-                cbx.event_generate('<<ComboboxSelected>>')  # dispara tu flujo normal
-        except Exception:
-            pass
+        self._actualizar_apariencia_forma()
 
     def _buscar_busines_entity_id(self, cliente):
         business_entity_id = [valor['BusinessEntityID'] for valor in self._consulta_clientes if valor['OfficialName'] == cliente]
@@ -525,105 +458,46 @@ class BuscarGeneralesCliente:
             """, (business_entity_id,))
 
     def _seleccionar_cliente(self):
-        # Asegura selección consolidada por si llegamos aquí desde F1
-        self._forzar_confirmar_cbx('cbx_resultados')
+        seleccion = self._ventanas.obtener_input_componente('cbx_resultados')
 
-        seleccion = self._ventanas.obtener_input_componente('cbx_resultados') or ''
-        if seleccion == 'Seleccione' and getattr(self, '_ultimo_cliente_texto', None):
-            # usa el último confirmado si el cbx sigue en placeholder
-            seleccion = self._ultimo_cliente_texto
-
-        if not seleccion or seleccion == 'Seleccione':
-            self._ventanas.mostrar_mensaje(master=self._master, mensaje='Debe buscar y seleccionar un cliente.')
-            return
-
-        proceder = True
-
-        # Prepara datos (usa el id cacheado si existe; evita re-resolver por texto)
-        beid = getattr(self, '_ultimo_cliente_id', None)
-        if not beid:
-            beid = self._buscar_busines_entity_id(seleccion)
-
-        self._buscar_info_y_setear_cliente(beid, actualizar=False)  # ya venimos con selección hecha
-        self._cliente.consulta = self._info_cliente_seleccionado
-        self._cliente.settear_valores_consulta()
-        self._asignar_parametros_a_documento()
-
-        if self._cliente.depots > 0:
-            seleccion_direccion = (self._ventanas.obtener_input_componente('cbx_direccion') or '').upper()
-            if seleccion_direccion == 'DIRECCIÓN FISCAL' or not seleccion_direccion:
-                respuesta = ttk.dialogs.Messagebox.yesno(
-                    parent=self._master, message='El cliente tiene sucursales ¿Desea proceder sin seleccionar una?')
-                if respuesta == 'No':
-                    proceder = False
-
-        if proceder:
-            self._llamar_instancia()
-
-    def _rellenar_cbx_documento(self):
-        cbx_documento = self._ventanas.componentes_forma.get('cbx_documento')
-        cliente_id = self._cliente.business_entity_id
-        cambio_cliente = (
-            getattr(self, '_cliente_documento_seleccionado_id', None)
-            != cliente_id
-        )
-        self._cliente_documento_seleccionado_id = cliente_id
-
-        if self._cliente.cayal_customer_type_id == 2:
-            tipos_documento = ['Remisión', 'Factura']
-            self._ventanas.rellenar_cbx('cbx_documento', tipos_documento)
-
-            # El cliente anterior pudo dejar el selector deshabilitado y con
-            # "Remisión" seleccionada. Para un cliente que admite ambos tipos
-            # se restaura el estado y se obliga a realizar una nueva elección.
-            if cbx_documento is not None:
-                cbx_documento.configure(state='readonly')
-                if cambio_cliente:
-                    cbx_documento.set('Seleccione')
+        if not seleccion:
+            self._ventanas.mostrar_mensaje(master =self._master, mensaje='Debe buscar y seleccionar un cliente.')
+        elif seleccion == 'Seleccione':
+            self._ventanas.mostrar_mensaje(master=self._master, mensaje='Debe seleccionar un cliente de la lista.')
         else:
-            self._ventanas.mostrar_componente('cbx_documento')
-            tipos_documento = ['Remisión']
-            self._ventanas.rellenar_cbx('cbx_documento', tipos_documento, sin_seleccione=True)
-            if cbx_documento is not None:
-                cbx_documento.set('Remisión')
-            self._ventanas.bloquear_componente('cbx_documento')
+            proceder = True
+
+            if self._cliente.depots > 0:
+                seleccion_direccion = self._ventanas.obtener_input_componente('cbx_direccion')
+                seleccion_direccion = seleccion_direccion.upper()
+
+                if seleccion_direccion == 'DIRECCIÓN FISCAL' or not seleccion_direccion:
+                    respuesta = ttk.dialogs.Messagebox.yesno(parent =self._master, message='El cliente tiene sucursales '
+                                                            '¿Desea proceder sin seleccionar una?')
+                    if respuesta == 'No':
+                        proceder = False
+
+            if proceder:
+                self._llamar_instancia()
 
     def _documento_seleccionado(self):
-
-        prefijos = {
-            967: 'PM', 1692:'CE', 21:'FM', 1400: 'FG', 1316:'NVR', 1319:'FGR', 158:'NV'
-        }
-
 
         def es_remision():
             self._documento.cfd_type_id = 1
             self._documento.doc_type = 'REMISIÓN'
-            self._documento.forma_pago = '01'
-            self._documento.metodo_pago = 'PUE'
-            self._documento.receptor_uso_cfdi = 'S01'
 
         def es_factura():
             self._documento.cfd_type_id = 0
             self._documento.doc_type = 'FACTURA'
-            self._documento.forma_pago = self._cliente.forma_pago
-            self._documento.metodo_pago = self._cliente.metodo_pago
-            self._documento.receptor_uso_cfdi = self._cliente.receptor_uso_cfdi
-
-        self._documento.prefix = prefijos.get(self._module_id, 'CAYAL')
-
-        if self._module_id in (967,1692,1316):
-            es_remision()
-            return True
 
         if self._cliente.cayal_customer_type_id in (0, 1):
             es_remision()
             return True
-
         else:
             seleccion = self._ventanas.obtener_input_componente('cbx_documento')
 
             if seleccion == 'Seleccione':
-                self._ventanas.mostrar_mensaje('Debe seleccionar un tipo de documento.')
+                ttkbootstrap.dialogs.Messagebox.show_error(parent=self._master, message='Debe seleccionar un tipo de documento.')
                 return False
 
             es_factura() if seleccion == 'Factura' else es_remision()
@@ -791,7 +665,6 @@ class BuscarGeneralesCliente:
             'lbl_pcompra': self._ultimo_documento_en_cartera(self._cliente.business_entity_id),
             'lbl_comentario': self._cliente.credit_comments,
             'lbl_minisuper': self._credito_en_super(),
-            'lbl_vales': self._vales_empleados(),
             'lbl_lista': self._cliente.customer_type_name,
         }
         for nombre_componente, valores in self._componentes_credito.items():
@@ -826,15 +699,6 @@ class BuscarGeneralesCliente:
                 text = 'CRÉDITO EN MINISUPER PERMITIDO'
 
         return text
-
-    def _vales_empleados(self):
-        if self._cliente.coupons_block == 1:
-            return f"NO TIENE DERECHO"
-
-        if self._cliente.coupons != 0:
-            return f"COMPRA DEL MES REALIZADA"
-
-        return f"DISPONIBLE {self._cliente.remaining_coupons}"
 
     def _credito_autorizado(self):
         text = f'${self._cliente.authorized_credit}'
@@ -917,145 +781,38 @@ class BuscarGeneralesCliente:
 
         return texto
 
-    def _validar_restriccion_por_cliente(self):
-        if self._module_id == MODULO_VALES:
-            if self._cliente.coupons != 0 or self._cliente.coupons_block == 1:
-                texto = self._vales_empleados().lower().capitalize()
-
-                self._ventanas.mostrar_mensaje(texto)
-                return
-
-            if self._cliente.coupons_block == 1:
-                texto = self._vales_empleados()
-                self._ventanas.mostrar_mensaje(texto)
-                return
-
-        return True
-
     def _llamar_instancia(self):
-        if self._instancia_llamada or not self._documento_seleccionado():
-            return
+        if not self._instancia_llamada:
+            try:
+                self._instancia_llamada = True
 
-        if not self._validar_restriccion_por_cliente():
-            return
+                if self._info_cliente_seleccionado[0]['Debt'] == 0:
+                    self._ventanas.mostrar_mensaje('El cliente no tiene documentos en cartera.')
+                    return
 
-        tratamiento_pedido = None
-        try:
-            self._instancia_llamada = True
-
-            # busca el nombre del usuario que captura el documento
-            if self._document_id == -1:
-                self._parametros_contpaqi.nombre_usuario = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
+                # prepara datos
+                self._cliente.consulta = self._info_cliente_seleccionado
+                self._cliente.settear_valores_consulta()
 
 
 
-            # El aplicativo de captura es común. El tratamiento especial del
-            # pedido se prepara y persiste mediante la misma clase que también
-            # atiende pedidos existentes.
-            if self._module_id == MODULO_PEDIDOS:
-                tratamiento_pedido = LlamarInstanciaCapturaPedido(
-                    self._master,
-                    self._parametros_contpaqi,
-                    cliente=self._cliente,
-                    documento=self._documento,
-                    ofertas=self._ofertas,
-                    base_de_datos=self._base_de_datos,
-                    utilerias=self._utilerias,
-                    abrir_interfaz=False,
-                )
-                tratamiento_pedido.preparar()
 
-            # llama a la instancia de captura
-            solicitar_guardado = False if self._module_id != MODULO_PEDIDOS else True
-            interfaz = InterfazCaptura(self._master, self._parametros_contpaqi.id_modulo, solicitar_guardado=solicitar_guardado)
-
-            modelo = ModeloCaptura(self._base_de_datos,
-                                   self._utilerias,
-                                   self._cliente,
-                                   self._documento,
-                                   self._parametros_contpaqi,
-                                   ofertas=(
-                                       tratamiento_pedido.ofertas
-                                       if tratamiento_pedido is not None
-                                       else None
-                                   )
-                                   )
-
-            controlador = ControladorCaptura(interfaz, modelo)
-            self._master.wait_window()
-
-            if (
-                    tratamiento_pedido is not None
-                    and interfaz.guardar_documento is True):
-                tratamiento_pedido.guardar()
-
-        finally:
-
-            if tratamiento_pedido is not None:
-                tratamiento_pedido.finalizar()
-
-            if (
-                    self._documento.document_id != 0
-                    and self._module_id != MODULO_PEDIDOS):
-                self._base_de_datos.registrar_documento_a_recalcular(
-                    self._documento.document_id,
-                    self._documento.document_id,
-                    self._parametros_contpaqi.uuid
-                )
-
-                # en caso de algun modulo especial donde la captura tenga que estar relacionada a un proceso de salida
-                # o documento adicional
-                if self._documento.destination_document_id != 0:
-                    self._base_de_datos.registrar_documento_a_recalcular(
-                        self._documento.destination_document_id,
-                        self._documento.destination_document_id,
-                        self._parametros_contpaqi.uuid
+                if self._parametros_contpaqi.id_principal == -1:
+                    self._parametros_contpaqi.nombre_usuario = self._base_de_datos.buscar_nombre_de_usuario(
+                        self._parametros_contpaqi.id_usuario
                     )
 
-                if self._documento.adicional_document_id != 0:
-                    self._base_de_datos.registrar_documento_a_recalcular(
-                        self._documento.adicional_document_id,
-                        self._documento.adicional_document_id,
-                        self._parametros_contpaqi.uuid
-                    )
 
-                if self._module_id  in MODULOS_VENTAS:
-                    self._actualizar_forma_pago_documento()
-                    self._actualizar_excedente_crediticio()
+                popup = self._ventanas.crear_popup_ttkbootstrap(
+                    titulo="Saldar cartera", ocultar_master=True
+                )
 
-                self._actualizar_comentario_documento()
-
-            #self._master.destroy()
-
-    def _actualizar_excedente_crediticio(self):
-        self._base_de_datos.command(
-            'UPDATE docDocument SET CreditExceededAmount = ? WHERE DocumentID = ?',
-            (self._documento.credit_exceeded_amount, self._documento.document_id)
-        )
-
-    def _actualizar_forma_pago_documento(self):
-        self._base_de_datos.command(
-            'UPDATE docDocumentCFD SET FormaPago = ? WHERE DocumentID = ?',
-            (
-                self._documento.forma_pago,
-                self._documento.document_id)
-        )
-
-    def _actualizar_comentario_documento(self):
-        self._base_de_datos.command(
-            'UPDATE docDocument SET Comments = ? WHERE DocumentID = ?',
-            (self._documento.comments, self._documento.document_id)
-        )
-
-    def _asignar_parametros_a_documento(self):
-
-        # las propiedades  self._doc_type | self._cfd_type_id son aginadas por la funcion self._documento_seleccionado
-
-        datos_direccion_seleccionada = self._procesar_direccion_seleccionada()
-
-        self._documento.depot_id = datos_direccion_seleccionada.get('depot_id', 0)
-        self._documento.depot_name = datos_direccion_seleccionada.get('depot_name', '')
-        self._documento.address_detail_id = datos_direccion_seleccionada.get('address_detail_id', 0)
-        self._documento.address_name = datos_direccion_seleccionada.get('address_name', '')
-        self._documento.business_entity_id = self._cliente.business_entity_id
-        self._documento.customer_type_id = self._cliente.cayal_customer_type_id
+                interfaz = InterfazSaldarCartera(popup)
+                controlador = ControladorSaldarCartera(interfaz,
+                                                       self._base_de_datos,
+                                                       self._parametros_contpaqi,
+                                                       self._cliente)
+                popup.wait_window()
+                self._master.destroy()
+            finally:
+                self._instancia_llamada = False

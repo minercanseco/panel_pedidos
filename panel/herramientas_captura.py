@@ -111,6 +111,9 @@ class HerramientasCaptura:
         instancia = BuscarGeneralesCliente(ventana, self._parametros)
         ventana.wait_window()
 
+        self._rellenar_tabla()
+        self._filtro_post_captura()
+
     def _editar_pedido(self):
 
         fila = self._obtener_valores_fila_pedido_seleccionado()

@@ -4,7 +4,7 @@ from cayal.documento import Documento
 from cayal.ventanas import Ventanas
 
 from herramientas.capturar_documento.buscar_generales_cliente import BuscarGeneralesCliente
-from herramientas.capturar_documento.llamar_instancia_captura_pedido import LlamarInstanciaCaptura
+from herramientas.capturar_documento.llamar_instancia_captura_pedido import LlamarInstanciaCapturaPedido
 from herramientas.herramientas_panel.editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from herramientas.herramientas_panel.editar_pedido import EditarPedido
 from herramientas.herramientas_panel.ticket_pedido_cliente import TicketPedidoCliente
@@ -106,262 +106,10 @@ class HerramientasCaptura:
         return filas
 
     def _capturar_nuevo_pedido(self):
-        """
-        Versión simple y 'Windows-safe' + respeta el cierre interno de LlamarInstanciaCaptura:
-        - Popups con tk.Toplevel directo
-        - NO grab_set / wait_window
-        - NO sobreescribe WM_DELETE_WINDOW de la ventana de captura (lo maneja LlamarInstanciaCaptura)
-        - Post-cierre se ejecuta en <Destroy> de la ventana de captura (cuando ya cerró de verdad)
-        """
-
-        import tkinter as tk
-
-        self._pausar_autorefresco()
         self._parametros.id_principal = 0
-
-        estado = {
-            "instancia": None,
-            "ventana_buscar": None,
-            "watch_id": None,
-        }
-
-        def _release_grab_global():
-            try:
-                root = self._interfaz.master
-                g = root.grab_current()
-                if g is not None:
-                    g.grab_release()
-            except Exception:
-                pass
-
-        def _finalizar_sin_captura():
-            try:
-                if estado["watch_id"] is not None:
-                    self._interfaz.master.after_cancel(estado["watch_id"])
-            except Exception:
-                pass
-            estado["watch_id"] = None
-            try:
-                self._reanudar_autorefresco()
-            except Exception:
-                pass
-
-        def _post_cierre_captura(cap_instancia):
-            """
-            Aquí regresa tu comportamiento "perdido":
-            - refrescar tabla
-            - autofiltrado post-captura
-            - reanudar autorefresco
-            """
-            try:
-                self._parametros.id_principal = 0
-            except Exception:
-                pass
-
-            try:
-                self._rellenar_tabla()
-
-                # ✅ Antes lo tenías condicionado a nuevo_pedido;
-                #    pero en la práctica quieres el autofiltrado al cerrar (nuevo o editado).
-                #    Si quieres mantener la condición, cambia esto por:
-                #    if bool(getattr(cap_instancia, "nuevo_pedido", False)): ...
-                self._filtro_post_captura()
-
-            finally:
-                try:
-                    self._reanudar_autorefresco()
-                except Exception:
-                    pass
-
-        def _cerrar(w):
-            try:
-                if w is not None and w.winfo_exists():
-                    w.destroy()
-            except Exception:
-                pass
-
-        def _centrar_popup(w, ww=900, wh=650):
-            try:
-                root = self._interfaz.master
-                root.update_idletasks()
-                w.update_idletasks()
-
-                rw = max(root.winfo_width(), 1)
-                rh = max(root.winfo_height(), 1)
-                rx = root.winfo_rootx()
-                ry = root.winfo_rooty()
-
-                x = rx + max(0, (rw - ww) // 2)
-                y = ry + max(0, (rh - wh) // 2)
-
-                w.geometry(f"{ww}x{wh}+{x}+{y}")
-            except Exception:
-                pass
-
-        def _crear_popup_simple(titulo: str):
-            root = self._interfaz.master
-            w = tk.Toplevel(root)
-            w.title(titulo)
-
-            try:
-                w.iconbitmap("icono_logo.ico")
-            except Exception:
-                pass
-
-            _centrar_popup(w)
-
-            try:
-                w.attributes("-topmost", False)
-            except Exception:
-                pass
-
-            try:
-                w.bind("<FocusIn>", lambda e: _release_grab_global(), add="+")
-                w.bind("<Button-1>", lambda e: _release_grab_global(), add="+")
-            except Exception:
-                pass
-
-            return w
-
-        def _abrir_captura():
-            # Re-pausar aquí por si la búsqueda reanudó antes
-            self._pausar_autorefresco()
-
-            vcap = _crear_popup_simple("Nueva captura")
-
-            # instancia de captura (ella configura su propio WM_DELETE_WINDOW)
-            cap = LlamarInstanciaCaptura(
-                vcap,
-                self._parametros,
-                estado["instancia"].cliente,
-                estado["instancia"].documento,
-                estado["instancia"].ofertas
-            )
-
-            # ✅ Anti-grab puntual (sin loop)
-            tick_ids = {"t1": None, "t2": None, "t3": None}
-
-            def _anti_grab_once():
-                _release_grab_global()
-                try:
-                    vcap.attributes("-topmost", False)
-                except Exception:
-                    pass
-
-            try:
-                tick_ids["t1"] = vcap.after(30, _anti_grab_once)
-                tick_ids["t2"] = vcap.after(180, _anti_grab_once)
-                tick_ids["t3"] = vcap.after(450, _anti_grab_once)
-            except Exception:
-                pass
-
-            # ✅ NO cerrar desde aquí. Solo “pedirle” que cierre por su flujo oficial.
-            try:
-                vcap.bind("<Escape>", lambda e: vcap.event_generate("WM_DELETE_WINDOW"), add="+")
-            except Exception:
-                pass
-
-            # ✅ Post-cierre cuando realmente se destruye la ventana (después del guardado / confirmación)
-            cerrado = {"ok": False}
-
-            def _on_destroy(e):
-                if e.widget is not vcap:
-                    return
-                if cerrado["ok"]:
-                    return
-                cerrado["ok"] = True
-
-                # cancelar ticks pendientes
-                for k in ("t1", "t2", "t3"):
-                    try:
-                        if tick_ids.get(k) is not None:
-                            # si ya se destruyó, after_cancel puede fallar; por eso try
-                            vcap.after_cancel(tick_ids[k])
-                    except Exception:
-                        pass
-
-                _release_grab_global()
-                _post_cierre_captura(cap)
-
-            try:
-                vcap.bind("<Destroy>", _on_destroy, add="+")
-            except Exception:
-                pass
-
-            # Enfocar sin topmost
-            try:
-                vcap.deiconify()
-                vcap.lift()
-                try:
-                    vcap.focus_force()
-                except Exception:
-                    vcap.focus_set()
-            except Exception:
-                pass
-
-        def _watch_buscar():
-            try:
-                inst = estado["instancia"]
-                vbus = estado["ventana_buscar"]
-
-                if inst is not None and getattr(inst, "seleccion_aceptada", False):
-                    _cerrar(vbus)
-
-                    try:
-                        if estado["watch_id"] is not None:
-                            self._interfaz.master.after_cancel(estado["watch_id"])
-                    except Exception:
-                        pass
-                    estado["watch_id"] = None
-
-                    # Delay para evitar race de foco en Windows
-                    self._interfaz.master.after(80, _abrir_captura)
-                    return
-
-                if vbus is None or not vbus.winfo_exists():
-                    _finalizar_sin_captura()
-                    return
-
-            except Exception:
-                _finalizar_sin_captura()
-                return
-
-            try:
-                estado["watch_id"] = self._interfaz.master.after(120, _watch_buscar)
-            except Exception:
-                _finalizar_sin_captura()
-
-        # 1) Abrir búsqueda
-        vbus = _crear_popup_simple("Seleccionar cliente")
-        estado["ventana_buscar"] = vbus
-
-        _release_grab_global()
-
-        inst = BuscarGeneralesCliente(vbus, self._parametros)
-        estado["instancia"] = inst
-
-        def _cerrar_busqueda():
-            _release_grab_global()
-            _cerrar(vbus)
-            _finalizar_sin_captura()
-
-        try:
-            vbus.bind("<Escape>", lambda e: _cerrar_busqueda(), add="+")
-            vbus.protocol("WM_DELETE_WINDOW", _cerrar_busqueda)
-        except Exception:
-            pass
-
-        try:
-            vbus.deiconify()
-            vbus.lift()
-            try:
-                vbus.focus_force()
-            except Exception:
-                vbus.focus_set()
-        except Exception:
-            pass
-
-        _watch_buscar()
+        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Pedido', nombre_icono='icono_logo.ico')
+        instancia = BuscarGeneralesCliente(ventana, self._parametros)
+        ventana.wait_window()
 
     def _editar_pedido(self):
 
@@ -387,10 +135,9 @@ class HerramientasCaptura:
                 documento.document_id = order_document_id
                 documento.business_entity_id = business_entity_id
 
-                _ = LlamarInstanciaCaptura(
+                _ = LlamarInstanciaCapturaPedido(
                     ventana,
-                    self._parametros,
-                    documento=documento
+                    self._parametros
                 )
 
             elif status_id >= 3:

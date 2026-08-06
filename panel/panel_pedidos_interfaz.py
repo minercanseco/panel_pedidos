@@ -74,7 +74,7 @@ class InterfazPanelPedidos:
 
     def _cargar_componentes_forma(self):
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
-        tamano_meters =  75 if ancho <= 1367 else None
+        tamano_meters =  75
         componentes = {
             'cbx_horarios': ('frame_horarios', None, 'Horas:', None),
 

@@ -4,7 +4,7 @@ import tkinter as tk
 from cayal.documento import Documento
 from cayal.ventanas import Ventanas
 
-from herramientas.capturar_documento.llamar_instancia_captura_pedido import LlamarInstanciaCaptura
+from herramientas.capturar_documento.llamar_instancia_captura_pedido import LlamarInstanciaCapturaPedido
 from herramientas.herramientas_compartidas.capturado_vs_producido import CapturadoVsProducido
 from herramientas.herramientas_panel.asociar_pedido_web import AsociarPedidoWeb
 from herramientas.herramientas_panel.editar_pedido import EditarPedido
@@ -148,7 +148,7 @@ class HerramientasTimbrado:
                 documento.document_id = order_document_id
                 documento.business_entity_id = business_entity_id
 
-                _ = LlamarInstanciaCaptura(
+                _ = LlamarInstanciaCapturaPedido(
                     ventana,
                     self._parametros,
                     documento=documento

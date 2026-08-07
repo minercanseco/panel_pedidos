@@ -24,8 +24,6 @@ class EditarPartidaProduccion:
         ]
         self._ventanas.crear_formulario_simple(componentes)
 
-        #self._ventanas.agregar_validacion_tbx('tbx_cantidad_nueva', 'cantidad')
-
     def _cargar_eventos(self):
         eventos = {
             'tbx_cantidad_nueva': lambda event:self._actualizar_partida(),
@@ -51,7 +49,7 @@ class EditarPartidaProduccion:
             self._ventanas.mostrar_mensaje('Debe ingresar una cantidad válidad.')
             return
 
-        cantidad_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(cantidad)
+        cantidad_decimal = self._utilerias.convertir_valor_a_decimal(cantidad)
         clave_unidad = self.valores_partida[9]
         unit = 'KILO' if clave_unidad == 'KGM' else 'PIEZA'
 
@@ -60,14 +58,13 @@ class EditarPartidaProduccion:
             return
 
         precio = self.valores_partida[3]
-        precio_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(precio)
+        precio_decimal = self._utilerias.convertir_valor_a_decimal(precio)
 
         total = precio_decimal*cantidad_decimal
         total = f"{total:.2f}"
 
         self.valores_partida[0] = cantidad_decimal
         self.valores_partida[4] = total
-        print(self.valores_partida)
         self.actualizar_cantidad = True
 
         self._master.destroy()

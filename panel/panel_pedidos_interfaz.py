@@ -97,7 +97,7 @@ class InterfazPanelPedidos:
 
             'chk_sin_anexos_y_cambios': ('frame_chks',
                               {'row': 5, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.W},
-                              'anexo-cambios', None),
+                              'sin anexo-cambios', None),
 
             'chk_sin_fecha': ('frame_chks',
                                  {'row': 5, 'column': 3, 'pady': 0, 'padx': 0, 'sticky': tk.W},

@@ -8,6 +8,15 @@ class InterfazPanelPedidos:
         self.ventanas = Ventanas(self.master)
         self._cargar_frames()
         self._cargar_componentes_forma()
+        self.master.after_idle(self._hacer_panel_no_modal)
+
+    def _hacer_panel_no_modal(self):
+        """Libera únicamente el grab heredado que pertenezca al panel."""
+        try:
+            if self.master.grab_current() == self.master:
+                self.master.grab_release()
+        except tk.TclError:
+            pass
 
     def _cargar_frames(self):
 
@@ -203,4 +212,3 @@ class InterfazPanelPedidos:
             {"text": "CaptureBy", "stretch": False, "width": 0}
         ]
         return self.ventanas.ajustar_columnas_a_resolucion(columnas)
-

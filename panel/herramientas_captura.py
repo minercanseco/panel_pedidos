@@ -9,6 +9,8 @@ from herramientas.capturar_documento.llamar_instancia_captura_pedido import Llam
 from herramientas.herramientas_panel.editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from herramientas.herramientas_panel.editar_pedido import EditarPedido
 from herramientas.herramientas_panel.ticket_pedido_cliente import TicketPedidoCliente
+from herramientas.verificador_precios.controlador_verificador import ControladorVerificador
+from herramientas.verificador_precios.interfaz_verificador import InterfazVerificador
 
 
 class HerramientasCaptura:
@@ -56,6 +58,9 @@ class HerramientasCaptura:
 
             {'nombre_icono': 'lista-de-verificacion.ico', 'etiqueta': 'Editar', 'nombre': 'editar',
              'hotkey': None, 'comando': self._editar_pedido},
+
+            {'nombre_icono': 'Barcode.ico', 'etiqueta': 'Verificador', 'nombre': 'verificador',
+             'hotkey': None, 'comando': self._verificador_precios},
 
         ]
 
@@ -131,6 +136,11 @@ class HerramientasCaptura:
             return
 
         return filas
+
+    def _verificador_precios(self):
+        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master)
+        vista = InterfazVerificador(ventana)
+        controlador = ControladorVerificador(vista, self._parametros)
 
     def _capturar_nuevo_pedido(self):
         self._iniciar_captura()

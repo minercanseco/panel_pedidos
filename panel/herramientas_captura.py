@@ -1,3 +1,4 @@
+import copy
 import tkinter as tk
 
 from cayal.documento import Documento
@@ -21,8 +22,7 @@ class HerramientasCaptura:
         self._base_de_datos = self._modelo.base_de_datos
         self._parametros = self._modelo.parametros
         self._utilerias = self._modelo.utilerias
-
-        self._interfaz.ventanas._master.grab_release()
+        self._capturas_activas = 0
 
         self._crear_frames()
         self._crear_barra_herramientas()
@@ -75,6 +75,18 @@ class HerramientasCaptura:
         if fn:
             fn()
 
+    def _iniciar_captura(self):
+        """Pausa una sola vez aunque existan varias capturas abiertas."""
+        if self._capturas_activas == 0:
+            self._pausar_autorefresco()
+        self._capturas_activas += 1
+
+    def _finalizar_captura(self):
+        """Reanuda el refresco cuando cierre la última captura."""
+        self._capturas_activas = max(0, self._capturas_activas - 1)
+        if self._capturas_activas == 0:
+            self._reanudar_autorefresco()
+
     def _filtro_post_captura(self):
         fn = self._callbacks_autorefresco.get("postcaptura")
         if fn:
@@ -84,6 +96,21 @@ class HerramientasCaptura:
         fn = self._callbacks_autorefresco.get("rellenar_tabla")
         if fn:
             fn()
+
+    def _crear_parametros_captura(self, document_id=0):
+        """Aísla los parámetros mutables de cada ventana de captura."""
+        parametros = copy.copy(self._parametros)
+        parametros.id_principal = document_id
+        return parametros
+
+    @staticmethod
+    def _hacer_ventana_no_modal(ventana):
+        """Permite interactuar con el panel y abrir otras capturas."""
+        try:
+            if ventana.grab_current() == ventana:
+                ventana.grab_release()
+        except tk.TclError:
+            pass
 
     def _obtener_valores_fila_pedido_seleccionado(self, valor = None):
         if not self._interfaz.ventanas.validar_seleccion_una_fila_table_view('tbv_pedidos'):
@@ -106,13 +133,26 @@ class HerramientasCaptura:
         return filas
 
     def _capturar_nuevo_pedido(self):
-        self._parametros.id_principal = 0
-        ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Pedido', nombre_icono='icono_logo.ico')
-        instancia = BuscarGeneralesCliente(ventana, self._parametros)
-        ventana.wait_window()
+        self._iniciar_captura()
+        try:
+            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(
+                titulo='Pedido',
+                nombre_icono='icono_logo.ico',
+            )
+            BuscarGeneralesCliente(
+                ventana,
+                self._crear_parametros_captura(),
+            )
 
-        self._rellenar_tabla()
-        self._filtro_post_captura()
+            # BuscarGeneralesCliente configura la ventana con grab_set().
+            # Se libera después de construirlo para mantener abierto el panel.
+            self._hacer_ventana_no_modal(ventana)
+            ventana.wait_window()
+
+            self._rellenar_tabla()
+            self._filtro_post_captura()
+        finally:
+            self._finalizar_captura()
 
     def _editar_pedido(self):
 
@@ -130,34 +170,40 @@ class HerramientasCaptura:
             self._interfaz.ventanas.mostrar_mensaje('El pedido no tiene un estatus válido para ser editado.')
             return
 
+        captura_pedido = status_id < 3
+        if captura_pedido:
+            self._iniciar_captura()
+
         try:
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Pedido', nombre_icono='icono_logo.ico')
+            self._hacer_ventana_no_modal(ventana)
             if status_id < 3:
-                self._parametros.id_principal = order_document_id
                 documento = Documento()
                 documento.document_id = order_document_id
                 documento.business_entity_id = business_entity_id
 
-                _ = LlamarInstanciaCapturaPedido(
+                LlamarInstanciaCapturaPedido(
                     ventana,
-                    self._parametros
+                    self._crear_parametros_captura(order_document_id),
+                    documento=documento,
                 )
 
             elif status_id >= 3:
-                _ = EditarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros, fila)
+                EditarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros, fila)
+                ventana.wait_window()
 
             else:
                 self._interfaz.ventanas.mostrar_mensaje(
                     'No hay acción válida para un pedido en este estado.'
                 )
 
-            ventana.wait_window()
-
         finally:
             self._modelo.actualizar_totales_pedido(order_document_id)
             self._rellenar_tabla()
             if status_id == 1:
                 self._filtro_post_captura()
+            if captura_pedido:
+                self._finalizar_captura()
 
     def _editar_caracteristicas_pedido(self):
         status_id = None
@@ -266,93 +312,3 @@ class HerramientasCaptura:
                     continue
         finally:
             self._rellenar_tabla()
-
-    def _asegurar_admin_capturas(self):
-        """Inicializa estructuras para manejar múltiples capturas."""
-        if not hasattr(self, "_capturas_abiertas"):
-            self._capturas_abiertas = []  # lista de Toplevel
-        if not hasattr(self, "_guardian_grab_id"):
-            self._guardian_grab_id = None
-
-    def _registrar_captura(self, win):
-        self._asegurar_admin_capturas()
-        try:
-            if win not in self._capturas_abiertas:
-                self._capturas_abiertas.append(win)
-        except Exception:
-            pass
-        self._iniciar_guardian_grab()
-
-    def _desregistrar_captura(self, win):
-        self._asegurar_admin_capturas()
-        try:
-            self._capturas_abiertas = [w for w in self._capturas_abiertas if
-                                       w is not None and w.winfo_exists() and w != win]
-        except Exception:
-            self._capturas_abiertas = []
-        if not self._capturas_abiertas:
-            self._detener_guardian_grab()
-
-    def _iniciar_guardian_grab(self):
-        """
-        Guardian: mientras haya capturas abiertas, evita que un grab (modal) bloquee el enfoque.
-        Revienta cualquier grab activo (grab_set/grab_set_global) que se haya quedado.
-        """
-        self._asegurar_admin_capturas()
-
-        if self._guardian_grab_id is not None:
-            return
-
-        def _tick():
-            # si ya no hay capturas, parar
-            try:
-                vivos = []
-                for w in list(self._capturas_abiertas):
-                    if w is not None and w.winfo_exists():
-                        vivos.append(w)
-                self._capturas_abiertas = vivos
-            except Exception:
-                self._capturas_abiertas = []
-
-            if not self._capturas_abiertas:
-                self._detener_guardian_grab()
-                return
-
-            # 1) Revienta cualquier grab activo (esto es lo que impide enfocar otras ventanas)
-            try:
-                g = self._interfaz.master.grab_current()
-                if g is not None:
-                    try:
-                        g.grab_release()
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-
-            # 2) Asegura que ninguna captura quede "topmost" (si algún código lo pone)
-            for w in list(self._capturas_abiertas):
-                try:
-                    w.attributes("-topmost", False)
-                except Exception:
-                    pass
-
-            # reprogramar
-            try:
-                self._guardian_grab_id = self._interfaz.master.after(120, _tick)
-            except Exception:
-                self._guardian_grab_id = None
-
-        # arrancar
-        try:
-            self._guardian_grab_id = self._interfaz.master.after(0, _tick)
-        except Exception:
-            self._guardian_grab_id = None
-
-    def _detener_guardian_grab(self):
-        self._asegurar_admin_capturas()
-        try:
-            if self._guardian_grab_id is not None:
-                self._interfaz.master.after_cancel(self._guardian_grab_id)
-        except Exception:
-            pass
-        self._guardian_grab_id = None

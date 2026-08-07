@@ -952,6 +952,8 @@ class BuscarGeneralesCliente:
             # El aplicativo de captura es común. El tratamiento especial del
             # pedido se prepara y persiste mediante la misma clase que también
             # atiende pedidos existentes.
+
+
             if self._module_id == MODULO_PEDIDOS:
                 tratamiento_pedido = LlamarInstanciaCapturaPedido(
                     self._master,

@@ -122,6 +122,8 @@ class ControladorCaptura:
             self.parametros_pedido = self._modelo.crear_parametros_pedido()
             self._ventanas.enfocar_componente('tbx_buscar_manual')
 
+        self._interfaz.cambiar_titulo_ventana(self.cliente.official_name)
+
     def _inicializar_captura_manual(self):
 
         self._procesando_seleccion = False

@@ -184,6 +184,10 @@ class InterfazCaptura:
         if self.solicitar_guardado:
             self._configurar_confirmacion_guardado()
 
+    def cambiar_titulo_ventana(self, titulo):
+        """Cambia únicamente el título de la ventana actual."""
+        self.master.title(str(titulo))
+
     def _configurar_confirmacion_guardado(self):
         """Intercepta los cierres solicitados por el usuario."""
         self.master.protocol('WM_DELETE_WINDOW', self.solicitar_cierre)

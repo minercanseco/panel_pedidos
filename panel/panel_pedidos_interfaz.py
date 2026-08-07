@@ -86,12 +86,16 @@ class InterfazPanelPedidos:
                           'normal',   None
                           , None),
 
+            'chk_sin_anexos_y_cambios': ('frame_chks',
+                              {'row': 5, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.W},
+                              'anexo-cambios', None),
+
             'chk_sin_fecha': ('frame_chks',
-                                 {'row': 5, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.W},
+                                 {'row': 5, 'column': 3, 'pady': 0, 'padx': 0, 'sticky': tk.W},
                                  'Sin fecha', None),
 
             'chk_transferencias': ('frame_chks',
-                              {'row': 5, 'column': 3, 'pady': 0, 'padx': 0, 'sticky': tk.W},
+                              {'row': 5, 'column': 5, 'pady': 0, 'padx': 0, 'sticky': tk.W},
                               'Transferencias', None),
             'mtr_total': ('frame_meters', None, 'Total', tamano_meters),
             'mtr_en_tiempo': ('frame_meters', 'success', 'En tiempo', tamano_meters),
@@ -142,7 +146,7 @@ class InterfazPanelPedidos:
              'heading_anchor': tk.W, 'hide': 0},
             {"text": "Monto", "stretch": False, 'width': 60, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},
-            {"text": "Especificaciones", "stretch": False, 'width': 440, 'column_anchor': tk.W,
+            {"text": "Especificaciones", "stretch": False, 'width': 390, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 0},
             {"text": "ProductTypeIDCayal", "stretch": False, 'width': 100, 'column_anchor': tk.W,
              'heading_anchor': tk.W, 'hide': 1},

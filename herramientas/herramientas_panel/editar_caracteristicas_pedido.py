@@ -44,7 +44,7 @@ class EditarCaracteristicasPedido:
             self._ventanas.bloquear_componente('btn_guardar')
 
 
-        self._ventanas.configurar_ventana_ttkbootstrap(titulo='Editar caracteristicas', master=self._master)
+        self._ventanas.configurar_ventana_ttkbootstrap(titulo='Editar caracteristicas', master=self._master, bloquear=False)
 
     def _crear_columnas_tabla(self):
         return [
@@ -65,23 +65,70 @@ class EditarCaracteristicasPedido:
         ]
 
     def _cargar_componentes_forma(self):
-        componentes = [
-            ('cbx_tipo', 'Tipo:'),
-            ('cbx_documento', 'Documento:'),
-            ('cbx_direccion', 'Dirección:'),
-            ('cbx_sucursal', 'Sucursal:'),
-            ('cbx_prioridad', 'Prioridad:'),
-            ('den_fecha', 'Entrega:'),
-            ('cbx_horario', 'Horario:'),
-            ('cbx_origen', 'Origen:'),
-            ('cbx_entrega', 'Entrega:'),
-            ('cbx_forma_pago', 'F.Pago:'),
-            ('txt_comentario', 'Com.:'),
-            ('tvw_pedidos', self._crear_columnas_tabla()),
-            ('btn_guardar', 'Guardar')
-        ]
+        frames = {
+            'frame_principal': (
+                'master',
+                None,
+                {'row': 0, 'column': 0, 'sticky': tk.NSEW},
+            ),
+            'frame_componentes': (
+                'frame_principal',
+                'Detalles Pedido:',
+                {
+                    'row': 0,
+                    'column': 0,
+                    'pady': 2,
+                    'padx': 2,
+                    'sticky': tk.W,
+                },
+            ),
+            'frame_tabla': (
+                'frame_principal',
+                'Pedidos:',
+                {
+                    'row': 1,
+                    'column': 0,
+                    'pady': 2,
+                    'padx': 2,
+                    'sticky': tk.NSEW,
+                },
+            ),
+            'frame_botones': (
+                'frame_principal',
+                None,
+                {
+                    'row': 2,
+                    'column': 0,
+                    'pady': 5,
+                    'padx': 0,
+                    'sticky': tk.W,
+                },
+            ),
+        }
+        self._ventanas.crear_frames(frames)
 
-        self._ventanas.crear_formulario_simple(componentes, 'Detalles Pedido:', 'Pedidos:')
+        componentes = {
+            'cbx_tipo': ('frame_componentes', None, 'Tipo:', None),
+            'cbx_documento': ('frame_componentes', None, 'Documento:', None),
+            'cbx_direccion': ('frame_componentes', None, 'Dirección:', None),
+            'cbx_sucursal': ('frame_componentes', None, 'Sucursal:', None),
+            'cbx_prioridad': ('frame_componentes', None, 'Prioridad:', None),
+            'den_fecha': ('frame_componentes', None, 'Entrega:', None),
+            'cbx_horario': ('frame_componentes', None, 'Horario:', None),
+            'cbx_origen': ('frame_componentes', None, 'Origen:', None),
+            'cbx_entrega': ('frame_componentes', None, 'Entrega:', None),
+            'cbx_forma_pago': ('frame_componentes', None, 'F.Pago:', None),
+            'txt_comentario': ('frame_componentes', None, 'Com.:', None),
+            'tvw_pedidos': (
+                'frame_tabla',
+                self._crear_columnas_tabla(),
+                5,
+                None,
+            ),
+            'btn_guardar': ('frame_botones', 'primary', 'Guardar', None),
+            'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', None),
+        }
+        self._ventanas.crear_componentes(componentes)
         self._ventanas.ajustar_ancho_componente('txt_comentario', 63)
 
     def _cargar_eventos(self):
@@ -368,12 +415,16 @@ class EditarCaracteristicasPedido:
                         if address_detail_id == tipo['AddressDetailID']][0]
 
 
-        delivery_promise = self.info_pedido['DeliveryPromise']
+        delivery_promise = self._normalizar_a_date(
+            self.info_pedido['DeliveryPromise']
+        )
 
         self._ventanas.insertar_input_componente('cbx_documento', self.info_pedido['DocumentType'])
         self._ventanas.insertar_input_componente('cbx_direccion', address_name)
         self._ventanas.insertar_input_componente('cbx_prioridad', priority)
-        self._ventanas.insertar_input_componente('den_fecha', delivery_promise)
+        self._ventanas.componentes_forma['den_fecha'].set_date(
+            delivery_promise
+        )
         self._ventanas.insertar_input_componente('cbx_entrega', order_delivery_type)
         self._ventanas.insertar_input_componente('cbx_origen', order_type_origin)
         self._ventanas.insertar_input_componente('cbx_tipo', order_type)

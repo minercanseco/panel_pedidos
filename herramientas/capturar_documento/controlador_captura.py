@@ -1436,19 +1436,18 @@ class ControladorCaptura:
         return 'Error'
 
     def _rellenar_cbxs_fiscales(self):
-
         es_remision_o_pg = (
-                getattr(self.documento, 'cfd_type_id', None) == 1
-                or getattr(self.cliente, 'cayal_customer_type_id', None) in (0, 1)
-                or getattr(self.cliente, 'business_entity_id', None) == 9277
-                or getattr(self.cliente, 'business_entitity_id', None) == 9277
+                getattr(self.documento, "cfd_type_id", None) == 1
+                or getattr(self.cliente, "cayal_customer_type_id", None) in (0, 1)
+                or getattr(self.cliente, "business_entity_id", None) == 9277
+                or getattr(self.cliente, "business_entitity_id", None) == 9277
         )
 
         valores_fiscales_default = {
-            'cbx_regimen': '616 - Sin obligaciones fiscales',
-            'cbx_metodopago': 'PUE - Pago en una sola exhibición',
-            'cbx_formapago': '01 - Efectivo',
-            'cbx_usocfdi': 'S01 - Sin efectos fiscales.'
+            "cbx_regimen": "616 - Sin obligaciones fiscales",
+            "cbx_metodopago": "PUE - Pago en una sola exhibición",
+            "cbx_formapago": "01 - Efectivo",
+            "cbx_usocfdi": "S01 - Sin efectos fiscales.",
         }
 
         if es_remision_o_pg:
@@ -1456,21 +1455,16 @@ class ControladorCaptura:
                 self._interfaz.ventanas.rellenar_cbx(
                     componente,
                     [valor],
-                    sin_seleccione=False
+                    sin_seleccione=False,
                 )
-
                 self._interfaz.ventanas.insertar_input_componente(
                     componente,
-                    valor
+                    valor,
                 )
-
                 self._interfaz.ventanas.bloquear_componente(componente)
 
             return
 
-        # ==============
-        # Helpers locales
-        # ==============
         def _today_str():
             return datetime.now().strftime("%Y%m%d")
 
@@ -1479,31 +1473,29 @@ class ControladorCaptura:
             base.mkdir(parents=True, exist_ok=True)
             return base
 
-        def _fiscales_cache_path(kind: str, day: str):
+        def _fiscales_cache_path(kind, day):
             return _cache_dir() / f"fiscales_{kind}_{day}.pkl.gz"
 
-        def _cache_save_today(kind: str, data):
-            day = _today_str()
-            path = _fiscales_cache_path(kind, day)
+        def _cache_save_today(kind, data):
+            path = _fiscales_cache_path(kind, _today_str())
 
             try:
-                with gzip.open(path, "wb") as f:
+                with gzip.open(path, "wb") as archivo:
                     pickle.dump(
                         data,
-                        f,
-                        protocol=pickle.HIGHEST_PROTOCOL
+                        archivo,
+                        protocol=pickle.HIGHEST_PROTOCOL,
                     )
             except Exception:
                 pass
 
-        def _cache_load_if_today(kind: str):
-            day = _today_str()
-            path = _fiscales_cache_path(kind, day)
+        def _cache_load_if_today(kind):
+            path = _fiscales_cache_path(kind, _today_str())
 
             try:
                 if path.exists():
-                    with gzip.open(path, "rb") as f:
-                        return pickle.load(f)
+                    with gzip.open(path, "rb") as archivo:
+                        return pickle.load(archivo)
             except Exception:
                 return None
 
@@ -1512,50 +1504,58 @@ class ControladorCaptura:
         def _cache_cleanup_not_today():
             day = _today_str()
 
-            for f in _cache_dir().glob("fiscales_*.pkl.gz"):
-                if not f.name.endswith(f"_{day}.pkl.gz"):
-                    try:
-                        f.unlink(missing_ok=True)
-                    except Exception:
-                        pass
+            for archivo in _cache_dir().glob("fiscales_*.pkl.gz"):
+                if archivo.name.endswith(f"_{day}.pkl.gz"):
+                    continue
 
-        # ==============
-        # Lógica normal con caché / BD
-        # ==============
+                try:
+                    archivo.unlink(missing_ok=True)
+                except Exception:
+                    pass
+
         if not hasattr(self, "_fiscales_cache_mem"):
             self._fiscales_cache_mem = {
-                'metodopago': None,
-                'formapago': None,
-                'regimen': None,
-                'usocfdi': None,
+                "metodopago": None,
+                "formapago": None,
+                "regimen": None,
+                "usocfdi": None,
             }
 
         parametros = {
-            'cbx_metodopago': (
-                'metodopago',
-                'consulta_metodos_pago',
-                self._modelo.buscar_info_fiscal('metodos_de_pago')
+            "cbx_metodopago": (
+                "metodopago",
+                "consulta_metodos_pago",
+                lambda: self._modelo.buscar_info_fiscal(
+                    "metodos_de_pago"
+                ),
             ),
-            'cbx_formapago': (
-                'formapago',
-                'consulta_formas_pago',
-                self._modelo.buscar_info_fiscal('formas_de_pago')
+            "cbx_formapago": (
+                "formapago",
+                "consulta_formas_pago",
+                lambda: self._modelo.buscar_info_fiscal(
+                    "formas_de_pago"
+                ),
             ),
-            'cbx_regimen': (
-                'regimen',
-                'consulta_regimenes',
-                self._modelo.buscar_info_fiscal('regimenes_fiscales')
+            "cbx_regimen": (
+                "regimen",
+                "consulta_regimenes",
+                lambda: self._modelo.buscar_info_fiscal(
+                    "regimenes_fiscales"
+                ),
             ),
-            'cbx_usocfdi': (
-                'usocfdi',
-                'consulta_uso_cfdi',
-                self._modelo.buscar_info_fiscal('usos_de_cfdi')
+            "cbx_usocfdi": (
+                "usocfdi",
+                "consulta_uso_cfdi",
+                lambda: self._modelo.buscar_info_fiscal(
+                    "usos_de_cfdi"
+                ),
             ),
         }
 
         datos_por_tipo = {}
+        _cache_cleanup_not_today()
 
-        for componente, (tipo, attr_name, funcion) in parametros.items():
+        for componente, (tipo, attr_name, proveedor) in parametros.items():
             lista = self._fiscales_cache_mem.get(tipo)
 
             if lista is None:
@@ -1564,43 +1564,45 @@ class ControladorCaptura:
                 if lista is not None:
                     self._fiscales_cache_mem[tipo] = lista
                     setattr(self, attr_name, lista)
-                    _cache_cleanup_not_today()
 
             if lista is None:
-                lista = funcion()
+                lista = proveedor() or []
                 self._fiscales_cache_mem[tipo] = lista
                 setattr(self, attr_name, lista)
                 _cache_save_today(tipo, lista)
-                _cache_cleanup_not_today()
 
             datos_por_tipo[tipo] = lista or []
 
-        for componente, (tipo, attr_name, _) in parametros.items():
+        for componente, (tipo, _, _) in parametros.items():
             lista = datos_por_tipo.get(tipo, [])
-            valores_cbx = [reg.get('Value') for reg in lista]
+            valores_cbx = [
+                registro.get("Value")
+                for registro in lista
+                if registro.get("Value") is not None
+            ]
 
             self._interfaz.ventanas.rellenar_cbx(
                 componente,
                 valores_cbx,
-                sin_seleccione=True
+                sin_seleccione=True,
             )
 
         parametros_cliente = {
-            'cbx_metodopago': (
-                datos_por_tipo['metodopago'],
-                getattr(self.cliente, 'metodo_pago', None)
+            "cbx_metodopago": (
+                datos_por_tipo["metodopago"],
+                getattr(self.cliente, "metodo_pago", None),
             ),
-            'cbx_formapago': (
-                datos_por_tipo['formapago'],
-                getattr(self.cliente, 'forma_pago', None)
+            "cbx_formapago": (
+                datos_por_tipo["formapago"],
+                getattr(self.cliente, "forma_pago", None),
             ),
-            'cbx_regimen': (
-                datos_por_tipo['regimen'],
-                getattr(self.cliente, 'company_type_name', None)
+            "cbx_regimen": (
+                datos_por_tipo["regimen"],
+                getattr(self.cliente, "company_type_name", None),
             ),
-            'cbx_usocfdi': (
-                datos_por_tipo['usocfdi'],
-                getattr(self.cliente, 'receptor_uso_cfdi', None)
+            "cbx_usocfdi": (
+                datos_por_tipo["usocfdi"],
+                getattr(self.cliente, "receptor_uso_cfdi", None),
             ),
         }
 
@@ -1610,44 +1612,51 @@ class ControladorCaptura:
 
             seleccionado = None
 
-            if componente != 'cbx_regimen' and clave is not None:
-                match = [
-                    reg.get('Value')
-                    for reg in lista
-                    if reg.get('Clave') == clave
-                ]
+            if componente != "cbx_regimen" and clave is not None:
+                seleccionado = next(
+                    (
+                        registro.get("Value")
+                        for registro in lista
+                        if registro.get("Clave") == clave
+                    ),
+                    None,
+                )
 
-                if match:
-                    seleccionado = match[0]
-
+                if seleccionado is not None:
                     self._interfaz.ventanas.insertar_input_componente(
                         componente,
-                        seleccionado
+                        seleccionado,
                     )
 
-                    if componente != 'cbx_formapago':
-                        self._interfaz.ventanas.bloquear_componente(componente)
+                    if componente != "cbx_formapago":
+                        self._interfaz.ventanas.bloquear_componente(
+                            componente
+                        )
 
             if seleccionado is None and clave is not None:
-                match = [
-                    reg.get('Value')
-                    for reg in lista
-                    if reg.get('Value') == clave
-                ]
+                seleccionado = next(
+                    (
+                        registro.get("Value")
+                        for registro in lista
+                        if registro.get("Value") == clave
+                    ),
+                    None,
+                )
 
-                if match:
-                    seleccionado = match[0]
-
+                if seleccionado is not None:
                     self._interfaz.ventanas.insertar_input_componente(
                         componente,
-                        seleccionado
+                        seleccionado,
+                    )
+                    self._interfaz.ventanas.bloquear_componente(
+                        componente
                     )
 
-                    self._interfaz.ventanas.bloquear_componente(componente)
-
-            if componente == 'cbx_formapago':
-                if getattr(self.cliente, 'forma_pago', None) == '99':
-                    self._interfaz.ventanas.bloquear_componente(componente)
+            if (
+                    componente == "cbx_formapago"
+                    and getattr(self.cliente, "forma_pago", None) == "99"
+            ):
+                self._interfaz.ventanas.bloquear_componente(componente)
 
     def _mensajes_de_error(self, numero_mensaje, master=None):
 

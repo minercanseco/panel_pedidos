@@ -4,7 +4,7 @@ from cayal.comandos_base_datos import ComandosBaseDatos
 from cayal.util import Utilerias
 from cayal.cobros import Cobros
 
-from capturar_documento.herramientas.abrir_cajon import CajonCobro
+from herramientas.capturar_documento.herramientas.abrir_cajon import CajonCobro
 
 class ControladorCobroRapido:
     def __init__(self, interfaz, parametros, monto=0):

@@ -228,9 +228,11 @@ class HerramientasCaptura:
             if status_id == 10:
                 self._interfaz.ventanas.mostrar_mensaje('NO se pueden editar pedidos cancelados.')
                 return
-            elif status_id >= 4:
+
+
+            elif status_id >= 5: #superior a en logistica
                 self._interfaz.ventanas.mostrar_mensaje(
-                    'Sólo se pueden afectar las caracteristicas de un pedido hasta el status Por timbrar.'
+                    'Sólo se pueden afectar las caracteristicas de un pedido hasta el status Por asignar.'
                 )
                 return
 

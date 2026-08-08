@@ -367,6 +367,8 @@ class BuscarGeneralesProveedor:
                 ofertas=None,
             )
             controlador = ControladorCaptura(interfaz, modelo)
+
+
             self._master.wait_window()
 
             if not interfaz.guardar_documento or not self._documento.items:
@@ -380,13 +382,22 @@ class BuscarGeneralesProveedor:
 
             if partidas:
                 for partida in partidas:
+                    estado_modificacion = int(
+                        partida.get('ItemProductionStatusModified', 0) or 0
+                    )
+                    # Maniobras se conserva en memoria como origen reversible,
+                    # pero después del prorrateo queda marcada como eliminada.
+                    # No debe insertarse además del importe ya distribuido.
+                    if estado_modificacion == 3:
+                        continue
+
                     parametros = (
                         document_id,
                         partida['ProductID'],
                         2,  # depot id minisuper
                         partida['cantidad'],
                         partida['precio'],
-                        0,  # costo
+                        partida.get('CostPrice', partida['precio']),
                         partida['subtotal'],
                         partida['TipoCaptura'],
                         self._module_id,

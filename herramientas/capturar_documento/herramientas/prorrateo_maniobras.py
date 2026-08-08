@@ -1,7 +1,7 @@
 import copy
 import tkinter as tk
 import uuid
-from decimal import Decimal, InvalidOperation, ROUND_DOWN
+from decimal import Decimal, InvalidOperation, ROUND_DOWN, ROUND_HALF_UP
 
 import ttkbootstrap as ttk
 
@@ -11,6 +11,9 @@ class ProrrateoManiobras:
 
     ESTADO_ELIMINADO = 3
     ESTADO_EDITADO = 2
+    TAX_TYPE_ID_IVA = 5
+    TAX_TYPE_ID_TASA_CERO = 10
+    DIFERENCIA_MAXIMA_AJUSTABLE = Decimal('5.00')
 
     COLUMNAS = (
         ('codigo', 'Código', 105, tk.W),
@@ -29,6 +32,9 @@ class ProrrateoManiobras:
         'TaxPerc', 'UnitPrice', 'CostPrice', 'precio', 'subtotal',
         'descuento', 'subtotal_con_descuento', 'iva', 'impuestos', 'total',
         'total_con_descuento', 'IEPSAmount', 'IVABase', 'IVAImport',
+        'subtotal_raw', 'descuento_raw', 'subtotal_con_descuento_raw',
+        'iva_raw', 'ieps_raw', 'ret_raw', 'iva_con_descuento_raw',
+        'ieps_con_descuento_raw', 'retenciones_con_descuento_raw',
         'DocumentItemID', 'TipoCaptura', 'Comments',
         'ItemProductionStatusModified', 'ProrrateoManiobras',
         'ProrrateoManiobrasOperationID', 'uuid',
@@ -83,6 +89,8 @@ class ProrrateoManiobras:
         self._maniobras_existia = False
 
         self.var_costo = tk.StringVar(value='0.00')
+        self.var_subtotal_factura = tk.StringVar(value='')
+        self.var_total_factura = tk.StringVar(value='')
         self._crear_interfaz()
         self._cargar_estado_inicial()
 
@@ -130,9 +138,21 @@ class ProrrateoManiobras:
     @classmethod
     def _moneda(cls, valor):
         numero = cls._decimal(valor).quantize(
-            Decimal('0.01'), rounding=ROUND_DOWN
+            Decimal('0.01'), rounding=ROUND_HALF_UP
         )
         return f'$ {numero:,.2f}'
+
+    @classmethod
+    def _redondear_moneda(cls, valor):
+        return cls._decimal(valor).quantize(
+            Decimal('0.01'), rounding=ROUND_HALF_UP
+        )
+
+    @classmethod
+    def _redondear_seis(cls, valor):
+        return cls._decimal(valor).quantize(
+            Decimal('0.000001'), rounding=ROUND_HALF_UP
+        )
 
     @classmethod
     def _truncar_moneda(cls, valor):
@@ -172,9 +192,59 @@ class ProrrateoManiobras:
         )
         self.lbl_total = self._crear_indicador(resumen, 3, 'TOTAL')
 
+        ttk.Label(resumen, text='Subtotal de la factura:').grid(
+            row=1, column=0, padx=5, pady=(8, 0), sticky=tk.E
+        )
+        self.tbx_subtotal_factura = ttk.Entry(
+            resumen,
+            textvariable=self.var_subtotal_factura,
+            width=14,
+            justify=tk.RIGHT,
+        )
+        self.tbx_subtotal_factura.grid(
+            row=1, column=1, padx=5, pady=(8, 0)
+        )
+        self.tbx_subtotal_factura.bind(
+            '<KeyRelease>', self._actualizar_vista_previa
+        )
+        self.tbx_subtotal_factura.bind(
+            '<FocusOut>', self._actualizar_vista_previa
+        )
+
+        ttk.Label(resumen, text='Total de la factura:').grid(
+            row=2, column=0, padx=5, pady=(8, 0), sticky=tk.E
+        )
+        self.tbx_total_factura = ttk.Entry(
+            resumen,
+            textvariable=self.var_total_factura,
+            width=14,
+            justify=tk.RIGHT,
+        )
+        self.tbx_total_factura.grid(
+            row=2, column=1, padx=5, pady=(8, 0)
+        )
+        self.tbx_total_factura.bind(
+            '<KeyRelease>', self._actualizar_vista_previa
+        )
+        self.tbx_total_factura.bind(
+            '<FocusOut>', self._actualizar_vista_previa
+        )
+        ttk.Label(resumen, text='DIFERENCIA').grid(
+            row=2, column=2, padx=(12, 4), pady=(8, 0), sticky=tk.E
+        )
+        self.lbl_diferencia = ttk.Label(
+            resumen,
+            text='$ 0.00',
+            font=('Consolas', 12, 'bold'),
+            bootstyle='warning',
+        )
+        self.lbl_diferencia.grid(
+            row=2, column=3, padx=4, pady=(8, 0), sticky=tk.E
+        )
+
         detalle = ttk.LabelFrame(
             principal,
-            text='Productos con IVA que recibirán el costo',
+            text='Productos que recibirán el costo y el ajuste fiscal',
             padding=6,
         )
         detalle.grid(row=1, column=0, pady=(10, 0), sticky=tk.NSEW)
@@ -263,6 +333,13 @@ class ProrrateoManiobras:
         ), None)
 
     def _tasa_iva_partida(self, partida):
+        # La tasa fiscal declarada es la fuente principal. Inferirla mediante
+        # IVA / subtotal puede producir 0.15998... cuando el impuesto de la
+        # partida ya fue redondeado y terminar excluyendo un producto gravado.
+        tasa_declarada = self._normalizar_tasa(partida.get('TaxPerc', 0))
+        if tasa_declarada > 0:
+            return tasa_declarada
+
         subtotal = self._decimal(
             partida.get(
                 'subtotal_con_descuento',
@@ -272,7 +349,7 @@ class ProrrateoManiobras:
         iva = self._decimal(partida.get('iva', 0))
         if subtotal > 0 and iva > 0:
             return iva / subtotal
-        return self._normalizar_tasa(partida.get('TaxPerc', 0))
+        return Decimal('0')
 
     def _partidas_aplicables(self):
         return [
@@ -284,10 +361,25 @@ class ProrrateoManiobras:
                 partida.get('cantidad', partida.get('Quantity', 0))
             ) > 0
             and self._decimal(partida.get('subtotal', 0)) > 0
-            and self._tasa_iva_partida(partida) > 0
-            and abs(
-                self._tasa_iva_partida(partida) - self.tasa_iva_maniobras
-            ) <= Decimal('0.000001')
+            # En compras, TaxTypeID=5 identifica de forma directa las
+            # partidas gravadas con IVA. TaxPerc y los importes calculados
+            # pueden perder precisión y no deben decidir la elegibilidad.
+            and self._decimal(partida.get('TaxTypeID', 0))
+            == Decimal(str(self.TAX_TYPE_ID_IVA))
+        ]
+
+    def _partidas_tasa_cero(self):
+        return [
+            partida for partida in self.documento.items
+            if not self._esta_eliminada(partida)
+            and int(partida.get('ProductID', 0) or 0)
+            != self.product_id_maniobras
+            and self._decimal(
+                partida.get('cantidad', partida.get('Quantity', 0))
+            ) > 0
+            and self._decimal(partida.get('subtotal', 0)) > 0
+            and self._decimal(partida.get('TaxTypeID', 0))
+            == Decimal(str(self.TAX_TYPE_ID_TASA_CERO))
         ]
 
     def _costo_efectivo(self, partida):
@@ -306,6 +398,72 @@ class ProrrateoManiobras:
         if not costo.is_finite() or costo < 0:
             raise ValueError('El costo de Maniobras no puede ser negativo.')
         return costo
+
+    def _leer_total_factura(self):
+        texto = str(
+            self.var_total_factura.get() or ''
+        ).replace(',', '').strip()
+        if not texto:
+            raise ValueError('Debe capturar el total de la factura.')
+        try:
+            total = Decimal(texto)
+        except (InvalidOperation, TypeError, ValueError):
+            raise ValueError('El total de la factura debe ser numérico.')
+        if not total.is_finite() or total <= 0:
+            raise ValueError('El total de la factura debe ser mayor que cero.')
+        return self._redondear_moneda(total)
+
+    def _leer_subtotal_factura(self):
+        texto = str(
+            self.var_subtotal_factura.get() or ''
+        ).replace(',', '').strip()
+        if not texto:
+            raise ValueError('Debe capturar el subtotal de la factura.')
+        try:
+            subtotal = Decimal(texto)
+        except (InvalidOperation, TypeError, ValueError):
+            raise ValueError('El subtotal de la factura debe ser numérico.')
+        if not subtotal.is_finite() or subtotal <= 0:
+            raise ValueError(
+                'El subtotal de la factura debe ser mayor que cero.'
+            )
+        return self._redondear_moneda(subtotal)
+
+    def _subtotal_documento_sin_maniobras(self):
+        return sum(
+            (
+                self._decimal(partida.get('subtotal', 0))
+                for partida in self.documento.items
+                if not self._esta_eliminada(partida)
+                and int(partida.get('ProductID', 0) or 0)
+                != self.product_id_maniobras
+            ),
+            Decimal('0'),
+        )
+
+    def _impuestos_documento_sin_maniobras(self):
+        return sum(
+            (
+                self._decimal(partida.get('impuestos', 0))
+                for partida in self.documento.items
+                if not self._esta_eliminada(partida)
+                and int(partida.get('ProductID', 0) or 0)
+                != self.product_id_maniobras
+            ),
+            Decimal('0'),
+        )
+
+    def _total_documento_sin_maniobras(self):
+        return sum(
+            (
+                self._decimal(partida.get('total', 0))
+                for partida in self.documento.items
+                if not self._esta_eliminada(partida)
+                and int(partida.get('ProductID', 0) or 0)
+                != self.product_id_maniobras
+            ),
+            Decimal('0'),
+        )
 
     def _obtener_subtotal_bruto_desde_neto(
             self,
@@ -338,77 +496,140 @@ class ProrrateoManiobras:
         subtotal_bruto = subtotal_neto + descuento
         return subtotal_bruto, descuento
 
-    def _calcular_plan(self, costo_maniobras):
-        partidas = self._partidas_aplicables()
-        if not partidas:
+    def _calcular_plan(
+            self, costo_maniobras, total_factura=None,
+            subtotal_factura=None,
+    ):
+        partidas_iva = self._partidas_aplicables()
+        if not partidas_iva:
             raise ValueError(
                 'No se puede crear Maniobras porque el documento no tiene '
                 'productos vigentes con IVA.'
             )
 
-        base = sum(
-            (self._decimal(p.get('subtotal', 0)) for p in partidas),
-            Decimal('0'),
-        )
-        if base <= 0:
-            raise ValueError('La base del prorrateo es cero.')
+        monto_iva = costo_maniobras
+        monto_cero = Decimal('0')
+        if total_factura is not None or subtotal_factura is not None:
+            if total_factura is None or subtotal_factura is None:
+                raise ValueError(
+                    'Debe capturar tanto el subtotal como el total de la factura.'
+                )
+            if subtotal_factura > total_factura:
+                raise ValueError(
+                    'El subtotal no puede ser mayor que el total de la factura.'
+                )
 
-        impuesto_maniobras = self._truncar_moneda(
-            costo_maniobras * self.tasa_iva_maniobras
-        )
+            subtotal_actual = self._subtotal_documento_sin_maniobras()
+            total_actual = self._total_documento_sin_maniobras()
+            subtotal_teorico = self._redondear_moneda(
+                subtotal_actual + costo_maniobras
+            )
+            total_teorico = self._redondear_moneda(
+                total_actual + costo_maniobras
+                + costo_maniobras * self.tasa_iva_maniobras
+            )
+            diferencia_subtotal = subtotal_factura - subtotal_teorico
+            diferencia_total = total_factura - total_teorico
+            if (
+                abs(diferencia_subtotal) > self.DIFERENCIA_MAXIMA_AJUSTABLE
+                or abs(diferencia_total) > self.DIFERENCIA_MAXIMA_AJUSTABLE
+            ):
+                raise ValueError(
+                    'El subtotal o los impuestos de la factura difieren '
+                    'demasiado del cálculo. '
+                    'La diferencia es demasiado grande para atribuirla a '
+                    'una imprecisión; revise el costo de Maniobras o la captura.'
+                )
+            # El subtotal fija la base total y (total - subtotal) fija los
+            # impuestos. Así se corrige por separado la bolsa gravada y la de
+            # tasa cero, en vez de forzar toda diferencia sobre el IVA.
+            incremento_subtotal = subtotal_factura - subtotal_actual
+            incremento_total = total_factura - total_actual
+            # Se obtiene el cambio fiscal a partir de las variaciones del
+            # propio documento. Esto conserva descuentos, retenciones u otros
+            # conceptos ya presentes, en lugar de suponer total=subtotal+IVA.
+            incremento_impuesto = incremento_total - incremento_subtotal
+            monto_iva = incremento_impuesto / self.tasa_iva_maniobras
+            monto_cero = incremento_subtotal - monto_iva
+
+        monto_iva = self._redondear_seis(monto_iva)
+        monto_cero = self._redondear_seis(monto_cero)
         plan = []
-        acumulado = Decimal('0')
-        impuesto_acumulado = Decimal('0')
-        for indice, partida in enumerate(partidas):
-            if indice == len(partidas) - 1:
-                monto = costo_maniobras - acumulado
-                monto_impuesto = impuesto_maniobras - impuesto_acumulado
-            else:
-                proporcion = self._decimal(partida.get('subtotal', 0)) / base
-                monto = self._truncar_moneda(costo_maniobras * proporcion)
-                monto_impuesto = self._truncar_moneda(
-                    impuesto_maniobras * proporcion
-                )
-            acumulado += monto
-            impuesto_acumulado += monto_impuesto
 
-            cantidad = self._decimal(
-                partida.get('cantidad', partida.get('Quantity', 0))
+        def agregar_grupo(partidas, monto_grupo, tasa):
+            if not partidas:
+                if monto_grupo:
+                    raise ValueError(
+                        'El ajuste requiere partidas vigentes con tasa 0%, '
+                        'pero el documento no contiene ninguna.'
+                    )
+                return
+            base = sum(
+                (self._decimal(p.get('subtotal', 0)) for p in partidas),
+                Decimal('0'),
             )
-            factor_descuento = self._decimal(
-                partida.get('DiscountPerc', 0)
-            )
-            subtotal_neto_anterior = self._decimal(
-                partida.get(
-                    'subtotal_con_descuento',
-                    self._decimal(partida.get('subtotal', 0))
-                    - self._decimal(partida.get('descuento', 0)),
+            impuesto_grupo = self._redondear_seis(monto_grupo * tasa)
+            acumulado = Decimal('0')
+            impuesto_acumulado = Decimal('0')
+            for indice, partida in enumerate(partidas):
+                if indice == len(partidas) - 1:
+                    monto = monto_grupo - acumulado
+                else:
+                    proporcion = self._decimal(
+                        partida.get('subtotal', 0)
+                    ) / base
+                    monto = self._truncar_moneda(monto_grupo * proporcion)
+                acumulado += monto
+                if indice == len(partidas) - 1:
+                    monto_impuesto = impuesto_grupo - impuesto_acumulado
+                else:
+                    monto_impuesto = self._redondear_seis(monto * tasa)
+                impuesto_acumulado += monto_impuesto
+
+                cantidad = self._decimal(
+                    partida.get('cantidad', partida.get('Quantity', 0))
                 )
-            )
-            subtotal_neto_nuevo = subtotal_neto_anterior + monto
-            subtotal_bruto_nuevo, descuento_nuevo = (
-                self._obtener_subtotal_bruto_desde_neto(
-                    subtotal_neto_nuevo,
-                    factor_descuento,
+                factor_descuento = self._decimal(
+                    partida.get('DiscountPerc', 0)
                 )
+                subtotal_neto_anterior = self._decimal(
+                    partida.get(
+                        'subtotal_con_descuento',
+                        self._decimal(partida.get('subtotal', 0))
+                        - self._decimal(partida.get('descuento', 0)),
+                    )
+                )
+                subtotal_neto_nuevo = subtotal_neto_anterior + monto
+                if subtotal_neto_nuevo <= 0:
+                    raise ValueError(
+                        'El ajuste dejaría una partida con subtotal no positivo.'
+                    )
+                subtotal_bruto_nuevo, descuento_nuevo = (
+                    self._obtener_subtotal_bruto_desde_neto(
+                        subtotal_neto_nuevo, factor_descuento,
+                    )
+                )
+                costo_anterior = self._costo_efectivo(partida)
+                plan.append({
+                    'partida': partida,
+                    'monto': monto,
+                    'monto_bruto': subtotal_bruto_nuevo
+                    - self._decimal(partida.get('subtotal', 0)),
+                    'monto_impuesto': monto_impuesto,
+                    'subtotal_bruto_nuevo': subtotal_bruto_nuevo,
+                    'subtotal_neto_nuevo': subtotal_neto_nuevo,
+                    'descuento_nuevo': descuento_nuevo,
+                    'costo_anterior': costo_anterior,
+                    'costo_nuevo': subtotal_bruto_nuevo / cantidad,
+                    'costo_maniobras_solicitado': costo_maniobras,
+                    'costo_prorrateado': monto_grupo,
+                })
+
+        agregar_grupo(partidas_iva, monto_iva, self.tasa_iva_maniobras)
+        if monto_cero:
+            agregar_grupo(
+                self._partidas_tasa_cero(), monto_cero, Decimal('0')
             )
-            monto_bruto = (
-                subtotal_bruto_nuevo
-                - self._decimal(partida.get('subtotal', 0))
-            )
-            costo_anterior = self._costo_efectivo(partida)
-            costo_nuevo = subtotal_bruto_nuevo / cantidad
-            plan.append({
-                'partida': partida,
-                'monto': monto,
-                'monto_bruto': monto_bruto,
-                'monto_impuesto': monto_impuesto,
-                'subtotal_bruto_nuevo': subtotal_bruto_nuevo,
-                'subtotal_neto_nuevo': subtotal_neto_nuevo,
-                'descuento_nuevo': descuento_nuevo,
-                'costo_anterior': costo_anterior,
-                'costo_nuevo': costo_nuevo,
-            })
         return plan
 
     def _cargar_estado_inicial(self):
@@ -422,6 +643,14 @@ class ProrrateoManiobras:
                 registro_maniobras.get('SubTotalBefore', 0),
             )
             self.var_costo.set(str(self._decimal(costo)))
+            self.var_subtotal_factura.set(
+                str(self._decimal(getattr(
+                    self.documento,
+                    'subtotal',
+                    self._subtotal_documento_sin_maniobras(),
+                )))
+            )
+            self.var_total_factura.set(str(self._decimal(self.documento.total)))
             self._actualizar_vista_previa()
             return
 
@@ -525,20 +754,53 @@ class ProrrateoManiobras:
         self.registros_prorrateo = copy.deepcopy(actualizados)
 
     def _actualizar_vista_previa(self, event=None):
+        costo = None
+        subtotal_factura = None
+        total_factura = None
         try:
             costo = self._leer_costo()
+            # El listado de productos con IVA no depende del total objetivo.
+            # Se construye primero para que sea visible desde que abre la
+            # herramienta, aun cuando los campos de captura estén vacíos.
             self._plan = self._calcular_plan(costo)
-            self.btn_aplicar.configure(state='normal' if costo > 0 else 'disabled')
         except ValueError:
             self._plan = []
             self.btn_aplicar.configure(state='disabled')
 
-        impuesto = self._truncar_moneda(costo * self.tasa_iva_maniobras) \
-            if 'costo' in locals() else Decimal('0')
+        if costo is not None and self._plan:
+            try:
+                subtotal_factura = self._leer_subtotal_factura()
+                total_factura = self._leer_total_factura()
+                self._plan = self._calcular_plan(
+                    costo, total_factura, subtotal_factura
+                )
+                self.btn_aplicar.configure(
+                    state='normal' if costo > 0 else 'disabled'
+                )
+            except ValueError:
+                # Mantiene visible el plan base. El total faltante, inválido
+                # o fuera de tolerancia sólo impide aplicar los cambios.
+                total_factura = None
+                subtotal_factura = None
+                self.btn_aplicar.configure(state='disabled')
+
+        impuesto = costo * self.tasa_iva_maniobras \
+            if costo is not None else Decimal('0')
+        diferencia = (
+            total_factura
+            - self._redondear_moneda(
+                self._total_documento_sin_maniobras()
+                + costo
+                + impuesto
+            )
+            if total_factura is not None and costo is not None
+            else Decimal('0')
+        )
         self.lbl_impuestos.configure(text=self._moneda(impuesto))
         self.lbl_total.configure(text=self._moneda(
-            (costo if 'costo' in locals() else Decimal('0')) + impuesto
+            (costo if costo is not None else Decimal('0')) + impuesto
         ))
+        self.lbl_diferencia.configure(text=self._moneda(diferencia))
         self._pintar_plan()
 
     def _pintar_plan(self):
@@ -557,7 +819,7 @@ class ProrrateoManiobras:
             ))
 
     def _crear_partida_maniobras(self, costo):
-        impuesto = self._truncar_moneda(costo * self.tasa_iva_maniobras)
+        impuesto = costo * self.tasa_iva_maniobras
         total = costo + impuesto
         datos = {
             'ProductID': self.product_id_maniobras,
@@ -576,9 +838,18 @@ class ProrrateoManiobras:
             'precio': costo,
             'DiscountPerc': Decimal('0'),
             'descuento': Decimal('0'),
+            'descuento_raw': Decimal('0'),
             'subtotal': costo,
+            'subtotal_raw': costo,
             'subtotal_con_descuento': costo,
+            'subtotal_con_descuento_raw': costo,
             'iva': impuesto,
+            'iva_raw': impuesto,
+            'iva_con_descuento_raw': impuesto,
+            'ieps_raw': Decimal('0'),
+            'ieps_con_descuento_raw': Decimal('0'),
+            'ret_raw': Decimal('0'),
+            'retenciones_con_descuento_raw': Decimal('0'),
             'impuestos': impuesto,
             'total': total,
             'total_con_descuento': total,
@@ -592,7 +863,7 @@ class ProrrateoManiobras:
         return datos
 
     def _actualizar_partida_maniobras(self, partida, costo):
-        impuesto = self._truncar_moneda(costo * self.tasa_iva_maniobras)
+        impuesto = costo * self.tasa_iva_maniobras
         total = costo + impuesto
         partida.update({
             'Quantity': Decimal('1'),
@@ -601,9 +872,18 @@ class ProrrateoManiobras:
             'precio': costo,
             'DiscountPerc': Decimal('0'),
             'descuento': Decimal('0'),
+            'descuento_raw': Decimal('0'),
             'subtotal': costo,
+            'subtotal_raw': costo,
             'subtotal_con_descuento': costo,
+            'subtotal_con_descuento_raw': costo,
             'iva': impuesto,
+            'iva_raw': impuesto,
+            'iva_con_descuento_raw': impuesto,
+            'ieps_raw': Decimal('0'),
+            'ieps_con_descuento_raw': Decimal('0'),
+            'ret_raw': Decimal('0'),
+            'retenciones_con_descuento_raw': Decimal('0'),
             'impuestos': impuesto,
             'total': total,
             'total_con_descuento': total,
@@ -639,9 +919,20 @@ class ProrrateoManiobras:
             'UnitPrice': registro['costo_nuevo'],
             'precio': registro['costo_nuevo'],
             'subtotal': subtotal_nuevo,
+            'subtotal_raw': subtotal_nuevo,
             'descuento': descuento_nuevo,
+            'descuento_raw': descuento_nuevo,
             'subtotal_con_descuento': subtotal_descuento_nuevo,
+            'subtotal_con_descuento_raw': subtotal_descuento_nuevo,
             'iva': iva_nuevo,
+            'iva_raw': iva_nuevo,
+            'iva_con_descuento_raw': iva_nuevo,
+            'ieps_raw': self._decimal(partida.get('ieps', 0)),
+            'ieps_con_descuento_raw': self._decimal(
+                partida.get('ieps_con_descuento_raw', partida.get('ieps', 0))
+            ),
+            'ret_raw': retenciones,
+            'retenciones_con_descuento_raw': retenciones,
             'impuestos': impuestos_nuevos,
             'total': total_nuevo,
             'total_con_descuento': total_nuevo,
@@ -671,9 +962,13 @@ class ProrrateoManiobras:
 
         try:
             costo = self._leer_costo()
+            subtotal_factura = self._leer_subtotal_factura()
+            total_factura = self._leer_total_factura()
             if costo <= 0:
                 raise ValueError('El costo debe ser mayor que cero.')
-            plan = self._calcular_plan(costo)
+            plan = self._calcular_plan(
+                costo, total_factura, subtotal_factura
+            )
         except ValueError as error:
             for partida, snapshot in estado_actual:
                 self._restaurar_snapshot(partida, snapshot)
@@ -701,6 +996,28 @@ class ProrrateoManiobras:
             # importe se excluye del documento activo para no duplicar costo,
             # IVA ni total; su estado previo queda en la bitácora reversible.
             maniobras['ItemProductionStatusModified'] = self.ESTADO_ELIMINADO
+
+            diferencia_final = (
+                total_factura - self._total_documento_sin_maniobras()
+            )
+            diferencia_subtotal = (
+                subtotal_factura - self._subtotal_documento_sin_maniobras()
+            )
+            if self._redondear_moneda(
+                    self._subtotal_documento_sin_maniobras()
+            ) != subtotal_factura:
+                raise ValueError(
+                    'No fue posible cuadrar el subtotal del documento. '
+                    'Diferencia restante: '
+                    f'{self._moneda(diferencia_subtotal)}.'
+                )
+            if self._redondear_moneda(
+                    self._total_documento_sin_maniobras()
+            ) != total_factura:
+                raise ValueError(
+                    'No fue posible cuadrar el documento con el total de la '
+                    f'factura. Diferencia restante: {self._moneda(diferencia_final)}.'
+                )
 
             self.registros_persistencia = self._crear_registros(
                 maniobras, plan, anteriores
@@ -750,6 +1067,8 @@ class ProrrateoManiobras:
             partida['ItemProductionStatusModified'] = self.ESTADO_ELIMINADO
 
         self.var_costo.set('0.00')
+        self.var_subtotal_factura.set('')
+        self.var_total_factura.set('')
         self._recalcular_documento()
         self._actualizar_vista_previa()
         return True

@@ -49,6 +49,14 @@ class InterfazCaptura:
             'aplica': 'con_cliente',
         },
         {
+            'funcion': 'cambiar_direccion',
+            'nombre_icono': 'Address32.ico',
+            'etiqueta': 'Dirección',
+            'nombre': 'cambiar_direccion',
+            'hotkey': '[F5]',
+            'aplica': 'con_cliente',
+        },
+        {
             'funcion': 'historial_cliente',
             'nombre_icono': 'CampaignFlow32.ico',
             'etiqueta': 'H.Cliente',

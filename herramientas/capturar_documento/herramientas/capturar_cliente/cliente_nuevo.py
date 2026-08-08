@@ -20,7 +20,7 @@ class ClienteNuevo:
         self._rellenar_componentes()
         self._cargar_eventos()
         self._ajustar_apariencia()
-        self._ventanas.configurar_ventana_ttkbootstrap(titulo='Nuevo')
+        self._ventanas.configurar_ventana_ttkbootstrap(titulo='Nuevo', bloquear=False)
 
 
     def _crear_frames(self):

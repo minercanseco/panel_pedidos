@@ -16,6 +16,7 @@ from herramientas.capturar_documento.herramientas.prorrateo_maniobras import Pro
 from herramientas.capturar_documento.herramientas.verificador.interfaz_verificador import InterfazVerificador
 from herramientas.capturar_documento.herramientas.verificador.controlador_verificador import ControladorVerificador
 from herramientas.capturar_documento.herramientas.editar_partida import EditarPartida
+from herramientas.capturar_documento.herramientas.direccion_cliente import DireccionCliente
 from herramientas.capturar_documento.herramientas.cobro_rapido.controlador_cobro_rapido import ControladorCobroRapido
 from herramientas.capturar_documento.herramientas.cobro_rapido.interfaz_cobro_rapido import InterfazCobroRapido
 
@@ -52,6 +53,7 @@ class ControladorCaptura:
         'verificador_precios': '_verificador_precios',
         'editar_cliente': '_editar_cliente',
         'historial_cliente': '_historial_cliente',
+        'cambiar_direccion': '_cambiar_direccion',
         'editar_partida': '_editar_partida',
         'eliminar_partida': '_eliminar_partida',
         'cobrar_nota': '_cobrar_nota',
@@ -60,6 +62,7 @@ class ControladorCaptura:
 
     ATAJOS_ACCIONES = {
         'F3': '_verificador_precios',
+        'F5': '_cambiar_direccion',
         'F6': '_editar_cliente',
         'F7': '_historial_cliente',
         'F8': '_agregar_partida_manualmente',
@@ -81,6 +84,7 @@ class ControladorCaptura:
 
     ATAJOS_HERRAMIENTAS = {
         'F3': '_verificador_precios',
+        'F5': '_cambiar_direccion',
         'F6': '_editar_cliente',
         'F7': '_historial_cliente',
     }
@@ -318,6 +322,7 @@ class ControladorCaptura:
         ):
             eventos['F6'] = self._editar_cliente
             eventos['F7'] = self._historial_cliente
+            eventos['F5'] = self._cambiar_direccion
 
         # Edición de partidas.
         if self._module_id in self.PARTIDAS_EDITABLES:
@@ -492,6 +497,10 @@ class ControladorCaptura:
                 self._mensajes_de_error(11)
                 return
 
+            if producto_id == 1048:  # impide que se capture el producto maniobras y servicios y rompa prorrateo
+                self._mensajes_de_error(18)
+                return
+
             info_producto = self._modelo.buscar_info_productos_por_ids(producto_id, no_en_venta=True)
 
             if not info_producto:
@@ -648,6 +657,11 @@ class ControladorCaptura:
                 cantidad = valores_partida['cantidad']
 
                 partida = self._utilerias.crear_partida(info_partida_seleccionada, cantidad)
+                product_id = partida.get('ProductID', 0)
+
+                if product_id == 1048: # impide que se capture el producto maniobras y servicios y rompa prorrateo
+                    self._mensajes_de_error(18)
+                    return
 
                 chk_pieza = self._ventanas.obtener_input_componente('chk_pieza')
                 chk_monto = self._ventanas.obtener_input_componente('chk_monto')
@@ -696,6 +710,44 @@ class ControladorCaptura:
         finally:
             self._realizando_proceso = False
             self._parametros_contpaqi.id_principal = 0
+
+    def _cambiar_direccion(self):
+        if self._realizando_proceso:
+            return
+        try:
+            self._realizando_proceso = True
+            ventana = self._ventanas.crear_popup_ttkbootstrap(
+                self._master, 'Cambiar dirección'
+            )
+            DireccionCliente(
+                ventana,
+                self.documento,
+                self._modelo.base_de_datos,
+                self._ventanas.componentes_forma,
+                al_actualizar=self._direccion_actualizada,
+            )
+            ventana.transient(self._master)
+            ventana.grab_set()
+            ventana.wait_window()
+        finally:
+            self._realizando_proceso = False
+
+    def _direccion_actualizada(self, direccion):
+        """Sincroniza documento, pedido y encabezado tras la selección."""
+        self.documento.address_details = direccion
+        self._cargar_direccion_cliente()
+        self._cargar_nombre_cliente()
+
+        if self._module_id == self.MODULO_PEDIDOS:
+            parametros = getattr(self.documento, 'order_parameters', {})
+            parametros['AddressDetailID'] = self.documento.address_detail_id
+            parametros['DepotID'] = self.documento.depot_id
+
+            costo_envio = direccion.get(
+                'delivery_cost', direccion.get('DeliveryCost')
+            )
+            if costo_envio not in (None, ''):
+                self.documento.delivery_cost = costo_envio
 
     def _eliminar_partida(self):
         filas = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos')
@@ -1678,7 +1730,8 @@ class ControladorCaptura:
             14: 'La captura del producto no está permitida en el módulo de venta actual.',
             15: 'Con la captura de la partida excede el monto autorizado para este modulo.',
             16: 'Con la captura de la partida excede el monto de crédito autorizado.',
-            17: 'La captura del documento ha conluido.'
+            17: 'La captura del documento ha conluido.',
+            18: 'El producto Maniobras y servicios no es capturable.'
         }
 
         self._interfaz.ventanas.mostrar_mensaje(mensajes[numero_mensaje], master)
@@ -1734,6 +1787,11 @@ class ControladorCaptura:
 
     def _agregar_partida_tabla(self, partida, document_item_id, tipo_captura, unidad_cayal=0, monto_cayal=0):
 
+        product_id = partida.get('ProductID',0) # esta condicion evita romper el flujo de prorrateo en documentos
+        if product_id == 1048:
+            self._mensajes_de_error(18)
+            return
+
         if self.documento.finish_document == 2:
             self._mensajes_de_error(17)
             return
@@ -1787,11 +1845,11 @@ class ControladorCaptura:
                                  partida['ProductKey'],
                                  producto,
                                  partida['Unit'],
-                                 self._utilerias.redondear_valor_cantidad_a_decimal(partida['precio']),
-                                 self._utilerias.redondear_valor_cantidad_a_decimal(partida['subtotal']),
-                                 self._utilerias.redondear_valor_cantidad_a_decimal(partida['impuestos']),
-                                 self._utilerias.redondear_valor_cantidad_a_decimal(partida['total']),
-                                 partida['ProductID'],
+                                 self._utilerias.convertir_valor_a_decimal(partida['precio']),
+                                 self._utilerias.convertir_valor_a_decimal(partida['subtotal']),
+                                 self._utilerias.convertir_valor_a_decimal(partida['impuestos']),
+                                 self._utilerias.convertir_valor_a_decimal(partida['total']),
+                                 product_id,
                                  partida['DocumentItemID'],
                                  partida['TipoCaptura'],  # Tipo de captura 1 para manual y 0 para captura por pistola
                                  cantidad_piezas,  # Viene del control de captura manual
@@ -1967,18 +2025,12 @@ class ControladorCaptura:
         self._interfaz.ventanas.insertar_input_componente('lbl_folio', doc_folio)
 
     def _actualizar_totales_documento(self):
-        from decimal import Decimal, ROUND_DOWN
+        from decimal import Decimal
 
         def decimal(valor):
             if valor in (None, ''):
                 return Decimal('0')
             return Decimal(str(valor))
-
-        def truncar_moneda(valor):
-            return decimal(valor).quantize(
-                Decimal('0.01'),
-                rounding=ROUND_DOWN,
-            )
 
         partidas_vigentes = [
             producto
@@ -2015,23 +2067,17 @@ class ControladorCaptura:
                 )
                 factor_neto = Decimal('1') - factor_descuento
 
-                descuento = truncar_moneda(
-                    subtotal * factor_descuento
-                )
+                # Conserva la precisión de cada concepto. El CFDI acumula
+                # importes con hasta seis decimales y redondea a moneda sólo
+                # el total presentado; truncar cada partida provoca diferencias
+                # de centavos que deshacen el ajuste del prorrateo.
+                descuento = subtotal * factor_descuento
                 subtotal_con_descuento = subtotal - descuento
 
-                impuestos_con_descuento = truncar_moneda(
-                    impuestos * factor_neto
-                )
-                retenciones_con_descuento = truncar_moneda(
-                    retenciones * factor_neto
-                )
-                ieps_con_descuento = truncar_moneda(
-                    ieps * factor_neto
-                )
-                iva_con_descuento = truncar_moneda(
-                    iva * factor_neto
-                )
+                impuestos_con_descuento = impuestos * factor_neto
+                retenciones_con_descuento = retenciones * factor_neto
+                ieps_con_descuento = ieps * factor_neto
+                iva_con_descuento = iva * factor_neto
 
                 total_con_descuento = (
                         subtotal_con_descuento
@@ -2065,11 +2111,21 @@ class ControladorCaptura:
                 costo_acumulado += cantidad * costo
 
                 producto['descuento'] = descuento
+                producto['descuento_raw'] = descuento
+                producto['subtotal_raw'] = subtotal
                 producto['subtotal_con_descuento'] = (
+                    subtotal_con_descuento
+                )
+                producto['subtotal_con_descuento_raw'] = (
                     subtotal_con_descuento
                 )
                 producto['impuestos_con_descuento'] = (
                     impuestos_con_descuento
+                )
+                producto['iva_con_descuento_raw'] = iva_con_descuento
+                producto['ieps_con_descuento_raw'] = ieps_con_descuento
+                producto['retenciones_con_descuento_raw'] = (
+                    retenciones_con_descuento
                 )
                 producto['retenciones_con_descuento'] = (
                     retenciones_con_descuento
@@ -2085,21 +2141,29 @@ class ControladorCaptura:
                 iva_acumulado += iva
 
         if self._module_id == self.MODULO_COMPRAS:
-            self.documento.subtotal = subtotal_acumulado
-            self.documento.total_discount = descuento_acumulado
+            totales_fiscales = self._impuestos.doc_totales_fiscales(
+                partidas_vigentes
+            )
+
+            self.documento.subtotal = totales_fiscales[
+                'subtotal_doc_raw'
+            ]
+            self.documento.total_discount = totales_fiscales[
+                'descuento_doc_raw'
+            ]
             self.documento.subtotal_with_discount = (
-                subtotal_descuento_acumulado
+                totales_fiscales['subtotal_con_descuento_doc_raw']
             )
-            self.documento.total_tax = impuestos_acumulado
-            self.documento.total_retention = retenciones_acumulado
+            self.documento.total_tax = totales_fiscales[
+                'impuestos_doc_raw'
+            ]
+            self.documento.total_retention = totales_fiscales[
+                'ret_doc_raw'
+            ]
             self.documento.total_cost = costo_acumulado
-            self.documento.ieps = ieps_acumulado
-            self.documento.iva = iva_acumulado
-            self.documento.total = (
-                    subtotal_descuento_acumulado
-                    + impuestos_acumulado
-                    - retenciones_acumulado
-            )
+            self.documento.ieps = totales_fiscales['ieps_doc_raw']
+            self.documento.iva = totales_fiscales['iva_doc_raw']
+            self.documento.total = totales_fiscales['total_doc_raw']
 
             acumuladores_interfaz = {
                 'lbl_subtotal': self.documento.subtotal,

@@ -3,7 +3,6 @@ from decimal import (
     Decimal,
     InvalidOperation,
     ROUND_CEILING,
-    ROUND_DOWN,
     ROUND_HALF_UP,
 )
 
@@ -427,10 +426,7 @@ class PartidaCompra:
                 self.configuracion['descuento_maximo'],
             )
             factor_descuento = descuento_porcentaje / Decimal('100')
-            descuento_monto = (subtotal * factor_descuento).quantize(
-                Decimal('0.01'),
-                rounding=ROUND_DOWN,
-            )
+            descuento_monto = subtotal * factor_descuento
 
         return {
             'cantidad': cantidad,
@@ -450,7 +446,7 @@ class PartidaCompra:
             return Decimal('1')
 
         # La BD admite 18 decimales. ROUND_CEILING evita que una fracción
-        # periódica produzca un centavo menos al truncar posteriormente.
+        # periódica produzca un centavo menos al redondear posteriormente.
         return (monto / subtotal).quantize(
             Decimal('0.000000000000000001'),
             rounding=ROUND_CEILING,
@@ -463,7 +459,7 @@ class PartidaCompra:
 
     @classmethod
     def _formatear_moneda(cls, valor):
-        return f'$ {cls._formatear_decimal(valor)}'
+        return f'$ {cls._formatear_decimal(valor, 6)}'
 
     def _obtener_factor_descuento(self, partida):
         if partida.get('DiscountPerc') not in (None, ''):
@@ -474,13 +470,13 @@ class PartidaCompra:
         return max(Decimal('0'), min(porcentaje / Decimal('100'), Decimal('1')))
 
     def _obtener_costo_partida(self, partida):
-        """Obtiene el costo efectivo sin aceptar CostPrice=0 como preferente.
+        """Obtiene el costo unitario mostrado en la tabla de compras.
 
-        Las partidas nuevas normalmente traen el costo en ``CostPrice``;
-        las recuperadas del módulo 152 pueden traer ``CostPrice`` en cero y
-        el costo real en ``UnitPrice`` y ``precio``.
+        La columna ``Costo U.`` se construye con el precio de la partida. Por
+        eso ``UnitPrice``/``precio`` deben prevalecer sobre ``CostPrice``, que
+        puede contener el costo anterior del producto.
         """
-        for campo in ('CostPrice', 'UnitPrice', 'precio'):
+        for campo in ('UnitPrice', 'precio', 'CostPrice'):
             costo = self._decimal(partida.get(campo, 0))
             if costo > 0:
                 return costo
@@ -493,18 +489,13 @@ class PartidaCompra:
         costo = self._obtener_costo_partida(partida)
         subtotal = cantidad * costo
         factor_descuento = self._obtener_factor_descuento(partida)
-        descuento = (subtotal * factor_descuento).quantize(
-            Decimal('0.01'),
-            rounding=ROUND_DOWN,
-        )
+        descuento = subtotal * factor_descuento
         subtotal_con_descuento = subtotal - descuento
 
         impuesto_bruto = self._decimal(
             partida.get('impuestos', partida.get('TotalTax', 0))
         )
-        impuesto = (
-            impuesto_bruto * (Decimal('1') - factor_descuento)
-        ).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+        impuesto = impuesto_bruto * (Decimal('1') - factor_descuento)
         total = subtotal_con_descuento + impuesto
         return {
             'subtotal': subtotal,
@@ -531,7 +522,7 @@ class PartidaCompra:
             ),
             'impuesto': self._formatear_moneda(totales['impuesto']),
             'total': self._formatear_moneda(totales['total']),
-            'importe': self._formatear_decimal(totales['total']),
+            'importe': self._formatear_decimal(totales['total'], 6),
         })
 
     def cargar_partida_producto(self, partida_producto):
@@ -554,11 +545,12 @@ class PartidaCompra:
             'tbx_nombre_producto_compra': self.partida_producto.get('ProductName', ''),
             'tbx_clave_producto_compra': self.partida_producto.get('ProductKey', ''),
             'tbx_cantidad_compra': self._formatear_decimal(cantidad, 6),
-            'tbx_costo_actual_compra': self._formatear_decimal(costo),
-            'tbx_nuevo_costo_compra': self._formatear_decimal(costo),
+            'tbx_costo_actual_compra': self._formatear_decimal(costo, 6),
+            'tbx_nuevo_costo_compra': self._formatear_decimal(costo, 6),
             'tbx_descuento_compra': self._formatear_decimal(descuento_porcentaje),
             'tbx_descuento_monto_compra': self._formatear_decimal(
-                totales['descuento']
+                totales['descuento'],
+                6,
             ),
         }
         for componente, valor in valores_componentes.items():
@@ -802,7 +794,7 @@ class PartidaCompra:
         )
         self.ventanas.insertar_input_componente(
             'tbx_descuento_monto_compra',
-            self._formatear_decimal(totales['descuento']),
+            self._formatear_decimal(totales['descuento'], 6),
         )
         self._mostrar_totales_partida(totales)
         self.ventanas.bloquear_componente('tbx_descuento_compra')

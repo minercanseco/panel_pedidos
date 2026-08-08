@@ -324,6 +324,7 @@ class LlamarInstanciaCaptura:
                                    )
 
             controlador = ControladorCaptura(interfaz, modelo)
+
             self._master.wait_window()
 
         finally:
@@ -376,13 +377,12 @@ class LlamarInstanciaCaptura:
                         and estado_modificacion == 2
                 )
 
-                es_partida_eliminada = (
-                    document_item_id != 0
-                    and estado_modificacion == 3
-                )
-
-                if es_partida_eliminada:
-                    self._base_de_datos.exec_stored_procedure(
+                if estado_modificacion == 3:
+                    # Una partida nueva eliminada (como Maniobras después de
+                    # prorratearse) nunca debe llegar a la base de datos. Las
+                    # existentes sí requieren ejecutar su borrado lógico.
+                    if document_item_id != 0:
+                        self._base_de_datos.exec_stored_procedure(
                             'zvwBorrarPartidasDocumentoCayal',
                             (
                                 self._documento.document_id,
@@ -561,4 +561,3 @@ class LlamarInstanciaCaptura:
                 f.write(html)
 
         return ruta
-

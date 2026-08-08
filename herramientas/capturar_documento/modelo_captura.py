@@ -3,7 +3,7 @@ import copy
 from datetime import datetime
 from cayal.impuestos import Impuestos
 
-from herramientas.capturar_documento.herramientas.servicio_ofertas_cliente import GestorOfertasCliente
+from capturar_documento.herramientas.servicio_ofertas_cliente import GestorOfertasCliente
 
 
 class ModeloCaptura:

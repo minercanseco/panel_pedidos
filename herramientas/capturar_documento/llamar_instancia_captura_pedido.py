@@ -5,9 +5,9 @@ from cayal.comandos_base_datos import ComandosBaseDatos
 from cayal.documento import Documento
 from cayal.util import Utilerias
 
-from herramientas.capturar_documento.controlador_captura import ControladorCaptura
-from herramientas.capturar_documento.interfaz_captura import InterfazCaptura
-from herramientas.capturar_documento.modelo_captura import ModeloCaptura
+from capturar_documento.controlador_captura import ControladorCaptura
+from capturar_documento.interfaz_captura import InterfazCaptura
+from capturar_documento.modelo_captura import ModeloCaptura
 
 
 MODULO_PEDIDOS = 1687

@@ -11,10 +11,10 @@ from cayal.ventanas import Ventanas
 from cayal.documento import Documento
 from cayal.util import Utilerias
 
-from herramientas.capturar_documento.controlador_captura import ControladorCaptura
-from herramientas.capturar_documento.interfaz_captura import InterfazCaptura
-from herramientas.capturar_documento.modelo_captura import ModeloCaptura
-from herramientas.capturar_documento.llamar_instancia_captura_pedido import (
+from capturar_documento.controlador_captura import ControladorCaptura
+from capturar_documento.interfaz_captura import InterfazCaptura
+from capturar_documento.modelo_captura import ModeloCaptura
+from capturar_documento.llamar_instancia_captura_pedido import (
     LlamarInstanciaCapturaPedido,
 )
 

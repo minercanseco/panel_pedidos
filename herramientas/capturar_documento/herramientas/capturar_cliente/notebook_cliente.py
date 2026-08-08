@@ -1,9 +1,9 @@
 import tkinter as tk
 from cayal.ventanas import Ventanas
-from herramientas.capturar_documento.herramientas.capturar_cliente.formulario_cliente_interfaz import FormularioClienteInterfaz
-from herramientas.capturar_documento.herramientas.capturar_cliente.formulario_cliente_modelo import FormularioClienteModelo
-from herramientas.capturar_documento.herramientas.capturar_cliente.formulario_cliente_controlador import FormularioClienteControlador
-from herramientas.capturar_documento.herramientas.capturar_cliente.direccion_adicional import DireccionAdicional
+from capturar_documento.herramientas.capturar_cliente.formulario_cliente_interfaz import FormularioClienteInterfaz
+from capturar_documento.herramientas.capturar_cliente.formulario_cliente_modelo import FormularioClienteModelo
+from capturar_documento.herramientas.capturar_cliente.formulario_cliente_controlador import FormularioClienteControlador
+from capturar_documento.herramientas.capturar_cliente.direccion_adicional import DireccionAdicional
 
 class NoteBookCliente:
     def __init__(self, master, base_de_datos, parametros, utilerias, cliente):

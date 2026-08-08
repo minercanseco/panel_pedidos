@@ -1,7 +1,7 @@
 
-from herramientas.capturar_documento.herramientas.verificador.informacion_producto import InformacionProducto
-from herramientas.capturar_documento.herramientas.verificador.mapas_producto import PintorProductoCarnico
-from herramientas.capturar_documento.herramientas.verificador.modelo_verificador import ModeloVerificador
+from capturar_documento.herramientas.verificador.informacion_producto import InformacionProducto
+from capturar_documento.herramientas.verificador.mapas_producto import PintorProductoCarnico
+from capturar_documento.herramientas.verificador.modelo_verificador import ModeloVerificador
 
 import os
 import tkinter as tk

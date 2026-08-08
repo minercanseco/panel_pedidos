@@ -8,17 +8,17 @@ from datetime import datetime
 import pyperclip
 import logging
 
-from herramientas.capturar_documento.herramientas.agregar_epecificaciones import AgregarEspecificaciones
-from herramientas.capturar_documento.herramientas.capturar_cliente.notebook_cliente import NoteBookCliente
-from herramientas.capturar_documento.herramientas.historial_cliente import HistorialCliente
-from herramientas.capturar_documento.herramientas.partida_compra import PartidaCompra
-from herramientas.capturar_documento.herramientas.prorrateo_maniobras import ProrrateoManiobras
-from herramientas.capturar_documento.herramientas.verificador.interfaz_verificador import InterfazVerificador
-from herramientas.capturar_documento.herramientas.verificador.controlador_verificador import ControladorVerificador
-from herramientas.capturar_documento.herramientas.editar_partida import EditarPartida
-from herramientas.capturar_documento.herramientas.direccion_cliente import DireccionCliente
-from herramientas.capturar_documento.herramientas.cobro_rapido.controlador_cobro_rapido import ControladorCobroRapido
-from herramientas.capturar_documento.herramientas.cobro_rapido.interfaz_cobro_rapido import InterfazCobroRapido
+from capturar_documento.herramientas.agregar_epecificaciones import AgregarEspecificaciones
+from capturar_documento.herramientas.capturar_cliente.notebook_cliente import NoteBookCliente
+from capturar_documento.herramientas.historial_cliente import HistorialCliente
+from capturar_documento.herramientas.partida_compra import PartidaCompra
+from capturar_documento.herramientas.prorrateo_maniobras import ProrrateoManiobras
+from capturar_documento.herramientas.verificador.interfaz_verificador import InterfazVerificador
+from capturar_documento.herramientas.verificador.controlador_verificador import ControladorVerificador
+from capturar_documento.herramientas.editar_partida import EditarPartida
+from capturar_documento.herramientas.direccion_cliente import DireccionCliente
+from capturar_documento.herramientas.cobro_rapido.controlador_cobro_rapido import ControladorCobroRapido
+from capturar_documento.herramientas.cobro_rapido.interfaz_cobro_rapido import InterfazCobroRapido
 
 
 class ControladorCaptura:
@@ -713,12 +713,17 @@ class ControladorCaptura:
 
     def _cambiar_direccion(self):
         if self._realizando_proceso:
+            ventana = getattr(self, '_ventana_direccion', None)
+            if ventana is not None and ventana.winfo_exists():
+                ventana.lift()
+                ventana.focus_force()
             return
         try:
             self._realizando_proceso = True
             ventana = self._ventanas.crear_popup_ttkbootstrap(
                 self._master, 'Cambiar dirección'
             )
+            self._ventana_direccion = ventana
             DireccionCliente(
                 ventana,
                 self.documento,
@@ -727,10 +732,46 @@ class ControladorCaptura:
                 al_actualizar=self._direccion_actualizada,
             )
             ventana.transient(self._master)
-            ventana.grab_set()
-            ventana.wait_window()
-        finally:
+            # En Windows una Toplevel no modal puede quedar detrás de la
+            # captura aunque sea transient. Mantenerla topmost conserva la
+            # herramienta visible sin bloquear la ventana principal.
+            ventana.attributes('-topmost', True)
+            ventana.lift()
+            # configurar_ventana_ttkbootstrap retira topmost a los 10 ms.
+            # Este segundo paso debe ejecutarse después de ese temporizador.
+            ventana.after(
+                100,
+                lambda: self._enfocar_ventana_direccion(ventana)
+            )
+            ventana.bind(
+                '<Destroy>',
+                lambda evento: self._cerrar_ventana_direccion(evento),
+                add='+',
+            )
+        except Exception:
             self._realizando_proceso = False
+            self._ventana_direccion = None
+            raise
+
+    @staticmethod
+    def _enfocar_ventana_direccion(ventana):
+        if ventana is None or not ventana.winfo_exists():
+            return
+        # Windows puede conservar el Toplevel en estado iconic aunque Tk lo
+        # reporte creado correctamente. Se normaliza antes de elevarlo.
+        ventana.deiconify()
+        ventana.state('normal')
+        ventana.attributes('-topmost', True)
+        ventana.lift()
+        ventana.focus_force()
+
+    def _cerrar_ventana_direccion(self, evento):
+        ventana = getattr(self, '_ventana_direccion', None)
+        # Destroy también se genera para los controles hijos. Sólo libera el
+        # estado cuando se destruye la ventana completa.
+        if ventana is not None and evento.widget is ventana:
+            self._realizando_proceso = False
+            self._ventana_direccion = None
 
     def _direccion_actualizada(self, direccion):
         """Sincroniza documento, pedido y encabezado tras la selección."""

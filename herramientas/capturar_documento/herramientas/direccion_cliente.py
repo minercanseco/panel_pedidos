@@ -27,7 +27,8 @@ class DireccionCliente:
         self._previsualizar_direccion()
 
         self._ventanas.configurar_ventana_ttkbootstrap(
-            titulo='Dirección cliente'
+            titulo='Dirección cliente', bloquear=False
+
         )
         self._master.resizable(False, False)
 

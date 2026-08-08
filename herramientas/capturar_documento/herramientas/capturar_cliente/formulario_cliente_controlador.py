@@ -3,9 +3,9 @@ import webbrowser
 
 import pyperclip
 
-from herramientas.capturar_documento.herramientas.capturar_cliente.buscar_info_cif import BuscarInfoCif
-from herramientas.capturar_documento.herramientas.capturar_cliente.direccion_adicional import DireccionAdicional
-from herramientas.capturar_documento.herramientas.capturar_cliente.nombre_direccion import NombreDireccion
+from capturar_documento.herramientas.capturar_cliente.buscar_info_cif import BuscarInfoCif
+from capturar_documento.herramientas.capturar_cliente.direccion_adicional import DireccionAdicional
+from capturar_documento.herramientas.capturar_cliente.nombre_direccion import NombreDireccion
 
 
 class FormularioClienteControlador:

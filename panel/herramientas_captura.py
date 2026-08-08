@@ -243,7 +243,7 @@ class HerramientasCaptura:
             se_abrio_popup = True
             instancia = EditarCaracteristicasPedido(ventana, self._parametros, self._base_de_datos, self._utilerias)
             ventana.wait_window()
-
+            self._rellenar_tabla()
         finally:
             self._parametros.id_principal = 0
             if se_abrio_popup and status_id == 1:

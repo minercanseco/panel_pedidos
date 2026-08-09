@@ -885,7 +885,7 @@ class ControladorPanelPedidos:
                 return []
 
             consulta = self._modelo.utilerias.agregar_impuestos_productos(partidas) or []
-            redondear = self._modelo.utilerias.redondear_valor_cantidad_a_decimal
+            convertir = self._modelo.utilerias.convertir_valor_a_decimal
             es_flotante = self._modelo.utilerias.es_flotante
 
             partidas_procesadas = []
@@ -903,13 +903,13 @@ class ControladorPanelPedidos:
                 piezas = 0 if es_flotante(piezas) else piezas
 
                 registro = {
-                    'cantidad_producida': redondear(producto.get('cantidad', 0)),
+                    'cantidad_producida': convertir(producto.get('cantidad', 0)),
                     'product_key': producto.get('ProductKey', ''),
                     'product_name': producto.get('ProductName', ''),
                     'tipo_captura': self._modelo.utilerias.resolver_icono(
                         'inventario' if producto.get('TipoCaptura', 1) == 0 else 'manual'),
-                    'precio': redondear(producto.get('precio', 0)),
-                    'total': redondear(producto.get('total', 0)),
+                    'precio': convertir(producto.get('precio', 0)),
+                    'total': convertir(producto.get('total', 0)),
                     'esp': producto.get('Esp', ''),
                     'product_id': product_id,
                     'document_item_id': producto.get('DocumentItemID'),

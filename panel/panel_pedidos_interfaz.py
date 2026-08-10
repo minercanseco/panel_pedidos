@@ -19,7 +19,7 @@ class InterfazPanelPedidos:
             pass
 
     def calcular_filas_tabla_pedidos(self):
-        """Calcula filas visibles según altura de pantalla y escala DPI."""
+        """Calcula sólo las filas variables de la tabla principal."""
         alto_pantalla = self.master.winfo_screenheight()
         try:
             escala = float(self.master.tk.call('tk', 'scaling'))
@@ -28,10 +28,18 @@ class InterfazPanelPedidos:
 
         factor_dpi = max(1.0, escala / (96 / 72))
 
-        # Espacio usado por herramientas, métricas, filtros, paginación,
-        # comentarios y la tabla de detalle inferior.
-        alto_reservado = int(440 * factor_dpi)
         alto_fila = max(22, int(16 * escala))
+        tabla_detalle = self.ventanas.componentes_forma.get('tvw_detalle')
+        try:
+            filas_detalle = int(tabla_detalle.cget('height'))
+        except (AttributeError, tk.TclError, TypeError, ValueError):
+            filas_detalle = 5
+
+        # La tabla inferior es fija: sus filas y encabezado se reservan antes
+        # de calcular el espacio disponible para el Tableview principal.
+        alto_tabla_detalle = (filas_detalle + 1) * alto_fila
+        alto_controles = int(300 * factor_dpi)
+        alto_reservado = alto_controles + alto_tabla_detalle
         filas = int((alto_pantalla - alto_reservado) / alto_fila)
 
         return max(10, min(24, filas))

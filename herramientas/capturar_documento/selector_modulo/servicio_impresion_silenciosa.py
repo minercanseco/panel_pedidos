@@ -12,9 +12,13 @@ except Exception:
 
 from capturar_documento.herramientas.imprimir_modulo.main import ImprimirModulo
 from capturar_documento.herramientas.predeterminar_impresora.main import PredeterminarImpresora
+from capturar_documento.selector_modulo.servicio_impresion_ticket import (
+    ServicioImpresionTicket,
+)
 
 
 class ServicioImpresionSilenciosa:
+    IMPRESORA_PRINCIPAL = 'Tickets'
     MODULOS_CON_RUTA = (1400, 1692, 21)
     MODULOS_SECUNDARIA_DIRECTO = (967, 1692, 1316, 1319)
 
@@ -69,7 +73,10 @@ class ServicioImpresionSilenciosa:
                     continue
 
                 self._predeterminar_impresora(impresora)
-                self._imprimir_archivo(ruta_archivo)
+                self._imprimir_archivo(
+                    ruta_archivo,
+                    impresora=impresora,
+                )
 
         finally:
             if impresora_original:
@@ -108,7 +115,8 @@ class ServicioImpresionSilenciosa:
                 root,
                 self.parametros,
                 predeterminar=False,
-                configuracion=configuracion
+                configuracion=configuracion,
+                impresion_silenciosa=False,
             )
 
             # Si no hay historial, _buscar_motivo_id() retorna 1.
@@ -159,11 +167,44 @@ class ServicioImpresionSilenciosa:
 
         return impresora_primaria
 
+    def imprimir_archivos_generados(
+            self, archivos, impresora_primaria, impresora_secundaria,
+            cantidades_partidas=None,
+    ):
+        """Envía HTML ya validados conservando las reglas de enrutamiento."""
+        cantidades_partidas = cantidades_partidas or {}
+        impresora_original = self._obtener_impresora_predeterminada()
+        try:
+            for ruta_archivo in archivos:
+                if not os.path.isfile(ruta_archivo):
+                    continue
+                impresora = self._resolver_impresora(
+                    archivo=os.path.basename(ruta_archivo),
+                    impresora_primaria=impresora_primaria,
+                    impresora_secundaria=(
+                        impresora_secundaria or impresora_primaria
+                    ),
+                )
+                if not impresora:
+                    continue
+                self._predeterminar_impresora(impresora)
+                self._imprimir_archivo(
+                    ruta_archivo,
+                    impresora=impresora,
+                    cantidad_partidas=cantidades_partidas.get(
+                        ruta_archivo, 0
+                    ),
+                )
+        finally:
+            if impresora_original:
+                self._predeterminar_impresora(impresora_original)
+
     def _obtener_datos_documento(self, document_id):
         if not self.modelo:
             return 0, 1
 
-        registro = self.modelo.fetchone(
+        fuente = getattr(self.modelo, 'base_de_datos', self.modelo)
+        registros = fuente.fetchall(
             """
             SELECT 
                 ISNULL(D.Custom3, 0) AS RutaID,
@@ -176,9 +217,10 @@ class ServicioImpresionSilenciosa:
             (document_id,)
         )
 
-        if not registro:
+        if not registros:
             return 0, 1
 
+        registro = registros[0]
         if isinstance(registro, dict):
             return (
                 int(registro.get("RutaID", 0) or 0),
@@ -213,8 +255,7 @@ class ServicioImpresionSilenciosa:
 
         impresora_windows = self._obtener_impresora_predeterminada()
 
-        if not primaria:
-            primaria = impresora_windows
+        primaria = self.IMPRESORA_PRINCIPAL
 
         if not secundaria:
             secundaria = primaria
@@ -237,29 +278,28 @@ class ServicioImpresionSilenciosa:
         except TypeError:
             PredeterminarImpresora(nombre_impresora=nombre_impresora)
 
-    def _imprimir_archivo(self, ruta_archivo):
-        navegador = self._buscar_navegador_chromium()
-
-        if not navegador:
-            raise FileNotFoundError(
-                "No se encontró Microsoft Edge ni Google Chrome para imprimir HTML."
-            )
-
-        ruta_url = "file:///" + os.path.abspath(ruta_archivo).replace("\\", "/")
-
-        subprocess.run(
-            [
-                navegador,
-                "--headless=new",
-                "--disable-gpu",
-                "--kiosk-printing",
-                "--run-all-compositor-stages-before-draw",
-                "--virtual-time-budget=1000",
-                ruta_url
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=15
+    def _imprimir_archivo(
+            self, ruta_archivo, impresora=None, cantidad_partidas=0,
+    ):
+        impresora = impresora or self._obtener_impresora_predeterminada()
+        alturas_base = {
+            158: 115,
+            21: 270,
+            1400: 270,
+            1319: 270,
+            967: 230,
+            1316: 230,
+            1692: 230,
+        }
+        altura_base = alturas_base.get(
+            int(getattr(self.parametros, 'id_modulo', 0) or 0),
+            270,
+        )
+        ServicioImpresionTicket().imprimir_html_en_impresora(
+            ruta_html=ruta_archivo,
+            impresora=impresora,
+            cantidad_partidas=cantidad_partidas,
+            altura_base_mm=altura_base,
         )
 
     def _buscar_navegador_chromium(self):

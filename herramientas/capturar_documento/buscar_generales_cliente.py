@@ -17,6 +17,9 @@ from herramientas.capturar_documento.modelo_captura import ModeloCaptura
 from herramientas.capturar_documento.llamar_instancia_captura_pedido import (
     LlamarInstanciaCapturaPedido,
 )
+from herramientas.capturar_documento.selector_modulo.servicio_generacion_cfdi_ticket import (
+    ServicioGeneracionCFDITicket,
+)
 
 MODULO_VALES = 1692
 MODULO_PEDIDOS = 1687
@@ -65,6 +68,7 @@ class BuscarGeneralesCliente:
         self.products_ids_ofertados = []
         self._ofertas = {}
         self._ofertas_por_lista = {}
+        self._modelo_captura = None
 
     def _crear_instancias_de_clases(self):
         self._base_de_datos = ComandosBaseDatos()
@@ -980,6 +984,7 @@ class BuscarGeneralesCliente:
                                        else None
                                    )
                                    )
+            self._modelo_captura = modelo
 
             controlador = ControladorCaptura(interfaz, modelo)
             self._master.wait_window()
@@ -1024,6 +1029,27 @@ class BuscarGeneralesCliente:
                     self._actualizar_excedente_crediticio()
 
                 self._actualizar_comentario_documento()
+                if self._modelo_captura is not None:
+                    self._modelo_captura.actualizar_totales_documento(
+                        self._documento.document_id
+                    )
+                if self._module_id == 1400:
+                    ServicioGeneracionCFDITicket(
+                        base_de_datos=self._base_de_datos,
+                        user_id=self._user_id,
+                        user_name=getattr(
+                            self._parametros_contpaqi,
+                            'nombre_usuario',
+                            '',
+                        ),
+                        identificador_ejecucion=getattr(
+                            self._parametros_contpaqi,
+                            'uuid',
+                            '',
+                        ),
+                    ).generar_e_imprimir_en_segundo_plano(
+                        self._documento.document_id
+                    )
 
             #self._master.destroy()
 

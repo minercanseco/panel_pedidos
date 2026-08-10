@@ -7,9 +7,18 @@ from cayal.cobros import Cobros
 from herramientas.capturar_documento.herramientas.abrir_cajon import CajonCobro
 
 class ControladorCobroRapido:
-    def __init__(self, interfaz, parametros, monto=0):
+    def __init__(
+            self,
+            interfaz,
+            parametros,
+            monto=0,
+            registrar_documento_para_recalculo=True,
+    ):
         self._interfaz = interfaz
         self._parametros = parametros
+        self._registrar_documento_para_recalculo = bool(
+            registrar_documento_para_recalculo
+        )
         self._base_de_datos = ComandosBaseDatos()
         self._cobros = Cobros()
         self._utilerias = Utilerias()
@@ -436,9 +445,14 @@ class ControladorCobroRapido:
                                         (self.monto_recibido, self._document_id))
 
     def _insertar_para_recalcular(self):
-        if self._module_id != 1367:
-            self._base_de_datos.exec_stored_procedure('zvwRecalcularDocumentos',
-                                                  (self._document_id, self._document_id))
+        if (
+                self._registrar_documento_para_recalculo
+                and self._module_id != 1367
+        ):
+            self._base_de_datos.exec_stored_procedure(
+                'zvwRecalcularDocumentos',
+                (self._document_id, self._document_id)
+            )
 
     def _inicializar_generales_cliente(self):
         self._business_entity_id = self._base_de_datos.fetchone(

@@ -61,15 +61,15 @@ class DepositosRecibitos:
 
     def _consulta_depositos_recibidos(self):
 
-        if self._user_group_id in (1,5,22,25,18,20,31):
+        if self._user_group_id in (1,5,22,25,18,20,31,32):
             sql = """
                 SELECT Fecha,Captura,Recibe,Total,
-                        Cheques,Billetes50,Billetes100,
-                        Billetes200,Billetes500,Billetes1000,Billetes
+                       Cheques,Billetes50,Billetes100,
+                       Billetes200,Billetes500,Billetes1000,Billetes
                 FROM zvwDepositosDiariosCayalMenu M INNER JOIN
                     engUser EM ON M.Recibe =EM.UserName
                 WHERE M.Fecha = CAST(GETDATE() as date) 
-                        AND EM.UserGroupID IN (5,22,18,20,31)
+                        AND EM.UserGroupID IN (5,22,25, 18,20,31,32)
                 """
 
             return self._base_de_datos.fetchall(sql,())

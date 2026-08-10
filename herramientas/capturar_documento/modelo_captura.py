@@ -10,7 +10,8 @@ class ModeloCaptura:
     MODULO_PEDIDOS = 1687
     MODULO_COMPRAS = 152
     MODULOS_SIN_INSERCION_PARTIDAS = (1687,152)
-    MODULOS_VENTAS = (158,1316,967,1400,21)
+    MODULOS_VENTAS = (158, 1316, 967, 1400, 21, 1319)
+    MODULOS_ACTUALIZACION_TOTALES = (21, 152, 158, 967, 1316, 1319, 1400)
     MODULO_VALES = 1692
     LINEAS_PRODUCTOS_PERMITIDOS_VALES = [
         'RES LOCAL', 'CERDO', 'POLLO', 'VERDURAS', 'LISTAS PARA COCINAR', 'HUEVO'
@@ -82,18 +83,41 @@ class ModeloCaptura:
         )
         return 0 if not estado else estado
 
-    def preparar_documento_para_cobro(self):
+    def actualizar_totales_documento(self, document_id=None):
+        """Sincroniza los importes que consumen las herramientas de cobro."""
+        if self.module_id not in self.MODULOS_ACTUALIZACION_TOTALES:
+            return False
+
+        document_id = int(
+            document_id or getattr(self.documento, 'document_id', 0) or 0
+        )
+        if document_id <= 0:
+            return False
+
+        subtotal = getattr(self.documento, 'subtotal', 0) or 0
+        total_tax = getattr(self.documento, 'total_tax', 0) or 0
+        total = getattr(self.documento, 'total', 0) or 0
+
         self.base_de_datos.command(
             'UPDATE docDocument '
-            'SET Balance = ?, Total = ?, TotalPaid = ? '
+            'SET SubTotal = ?, TotalTax = ?, Total = ?, '
+            'StatusPaidID = ?, TotalPaid = ?, Balance = ? '
             'WHERE DocumentID = ?',
             (
-                self.documento.total,
-                self.documento.total,
+                subtotal,
+                total_tax,
+                total,
+                3,
                 0,
-                self.documento.document_id,
+                total,
+                document_id,
             ),
         )
+        return True
+
+    def preparar_documento_para_cobro(self):
+        """Compatibilidad con el flujo existente de cobro inmediato."""
+        return self.actualizar_totales_documento()
 
     def buscar_partidas_documento(self, module_id, document_id):
 

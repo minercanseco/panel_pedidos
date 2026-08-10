@@ -13,9 +13,19 @@ from cayal.ventanas import Ventanas
 
 
 class DefinirImpresoras:
-    def __init__(self, master):
+    def __init__(
+            self, master, ruta_archivo=None, al_guardar=None,
+            impresora_primaria='', impresora_secundaria='',
+    ):
         self._master = master
         self._ventanas = Ventanas(self._master)
+        self._ruta_archivo = ruta_archivo or os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            'impresoras.gz',
+        )
+        self._al_guardar = al_guardar
+        self._impresora_primaria = str(impresora_primaria or '')
+        self._impresora_secundaria = str(impresora_secundaria or '')
         self._cargar_componentes()
         self._cargar_eventos()
         self._rellenar_cbx_impresoras()
@@ -39,10 +49,22 @@ class DefinirImpresoras:
     def _guardar_impresoras_seleccionadas(self):
         cbx_impresora1 = self._ventanas.obtener_input_componente('cbx_impresora1')
         cbx_impresora2 = self._ventanas.obtener_input_componente('cbx_impresora2')
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        ruta_archivo = os.path.join(base_dir,"impresoras.gz")
+        if not cbx_impresora1 or not cbx_impresora2:
+            self._ventanas.mostrar_mensaje(
+                'Seleccione la impresora principal y la secundaria.',
+                self._master,
+            )
+            return
 
-        self.guardar_impresoras(cbx_impresora1, cbx_impresora2, ruta_archivo)
+        self.guardar_impresoras(
+            cbx_impresora1, cbx_impresora2, self._ruta_archivo
+        )
+        if callable(self._al_guardar):
+            self._al_guardar(
+                cbx_impresora1,
+                cbx_impresora2,
+                self._ruta_archivo,
+            )
 
         self._master.destroy()
 
@@ -53,8 +75,16 @@ class DefinirImpresoras:
         self._ventanas.rellenar_cbx('cbx_impresora1', impresoras or [], True)
         self._ventanas.rellenar_cbx('cbx_impresora2', impresoras or [], True)
 
-        if predeterminada:
-            self._ventanas.insertar_input_componente('cbx_impresoras', predeterminada)
+        primaria = self._impresora_primaria or predeterminada
+        secundaria = self._impresora_secundaria or primaria
+        if primaria:
+            self._ventanas.insertar_input_componente(
+                'cbx_impresora1', primaria
+            )
+        if secundaria:
+            self._ventanas.insertar_input_componente(
+                'cbx_impresora2', secundaria
+            )
 
     def _listar_impresoras(self):
         so = platform.system()
@@ -102,7 +132,7 @@ class DefinirImpresoras:
             "primaria": impresora_primaria,
             "secundaria": impresora_secundaria
         }
+        os.makedirs(os.path.dirname(os.path.abspath(ruta_archivo)), exist_ok=True)
         with gzip.open(ruta_archivo, "wt", encoding="utf-8") as f:
             json.dump(datos, f)
         print(f"✅ Archivo de impresoras guardado en {os.path.abspath(ruta_archivo)}")
-

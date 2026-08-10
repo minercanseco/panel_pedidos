@@ -9,28 +9,36 @@ class CajonCobro:
         Inicializa la clase con el nombre de la impresora térmica.
         """
         self.nombre_impresora = nombre_impresora
+        self.ultimo_error = ''
 
     def abrir_cajon(self):
         """
         Abre el cajón de dinero enviando un comando ESC/POS a la impresora térmica.
         """
+        hprinter = None
         try:
+            self.ultimo_error = ''
             # Código de escape para abrir el cajón (puede variar según la impresora)
             comando_abrir_cajon = b'\x1B\x70\x00\x19\xFA'  # Epson estándar
 
-            # Abrir conexión con la impresora
-            handle = win32print.OpenPrinter(self.nombre_impresora)
-            printer_info = win32print.GetPrinter(handle, 2)
-            printer_name = printer_info["pPrinterName"]
-
             # Enviar comando a la impresora
-            hprinter = win32print.OpenPrinter(printer_name)
-            hprinter_job = win32print.StartDocPrinter(hprinter, 1, ("Abrir Cajón", None, "RAW"))
+            hprinter = win32print.OpenPrinter(self.nombre_impresora)
+            win32print.StartDocPrinter(
+                hprinter, 1, ("Abrir Cajón", None, "RAW")
+            )
             win32print.StartPagePrinter(hprinter)
             win32print.WritePrinter(hprinter, comando_abrir_cajon)
             win32print.EndPagePrinter(hprinter)
             win32print.EndDocPrinter(hprinter)
-            win32print.ClosePrinter(hprinter)
             print("Cajón de dinero abierto correctamente.")
+            return True
         except Exception as e:
+            self.ultimo_error = str(e)
             print(f"Error al abrir el cajón: {e}")
+            return False
+        finally:
+            if hprinter is not None:
+                try:
+                    win32print.ClosePrinter(hprinter)
+                except Exception:
+                    pass

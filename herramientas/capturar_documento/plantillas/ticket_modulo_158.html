@@ -90,10 +90,18 @@
 
 /* Anchos de la tabla de detalles (deben sumar 100%) */
 .th-cant { width: 10%; }
-.th-pad { width: 6%; } /* Columna vacía */
-.th-desc { width: 49%; } /* Ajustado */
-.th-precio { width: 17%; } /* Ajustado */
-.th-importe{ width: 18%; } /* Ajustado */
+.th-pad { width: 4%; } /* Columna vacía reducida */
+.th-desc { width: 43%; }
+.th-precio {
+  width: 19%;
+  white-space: nowrap;
+}
+.th-importe {
+  width: 24%;
+  white-space: nowrap;
+  padding-left: 1px;
+  padding-right: 1px;
+}
 
 </style>
 </head>

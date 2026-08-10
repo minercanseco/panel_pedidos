@@ -11,16 +11,24 @@ import qrcode
 import gzip
 import json
 import os
+import shutil
+import tempfile
+import uuid
 
 # Si eliges python-barcode: pip install python-barcode pillow
 import barcode
 from barcode.writer import ImageWriter
 
-from capturar_documento.herramientas.imprimir_modulo.ticket_158 import Ticket158
+from herramientas.capturar_documento.herramientas.imprimir_modulo.ticket_158 import (
+    Ticket158,
+)
 from cayal.util import Utilerias
 from cayal.comandos_base_datos import ComandosBaseDatos
-from capturar_documento.herramientas.imprimir_modulo.cfdi_ticket import CFDITicket
-from capturar_documento.herramientas.imprimir_modulo.consignacion import Consignacion
+from herramientas.capturar_documento.plantillas.cfdi_ticket import CFDITicket
+from herramientas.capturar_documento.herramientas.imprimir_modulo.consignacion import Consignacion
+from herramientas.capturar_documento.herramientas.imprimir_modulo.definir_impresoras import (
+    DefinirImpresoras,
+)
 
 try:
     import win32print  # Solo en Windows
@@ -36,10 +44,15 @@ class ImprimirModulo:
     Si predeterminar=True, al confirmar se define como impresora predeterminada del SO.
     """
 
-    def __init__(self, master, parametros, predeterminar: bool = False, configuracion=None):
+    def __init__(
+            self, master, parametros, predeterminar: bool = False,
+            configuracion=None, impresion_silenciosa=True,
+    ):
 
         self._declarar_clases_auxiliares(master, parametros)
-        self._declarar_variables_instancia(predeterminar, configuracion)
+        self._declarar_variables_instancia(
+            predeterminar, configuracion, impresion_silenciosa
+        )
 
         self._buscar_historial()
 
@@ -59,7 +72,9 @@ class ImprimirModulo:
         self._parametros = parametros
         self._base_de_datos = ComandosBaseDatos()
 
-    def _declarar_variables_instancia(self, predeterminar, configuracion):
+    def _declarar_variables_instancia(
+            self, predeterminar, configuracion, impresion_silenciosa,
+    ):
         self._predeterminar = bool(predeterminar)
         self.selected_printer = None
         self._user_id = self._parametros.id_usuario
@@ -77,6 +92,7 @@ class ImprimirModulo:
         )
         self._seleccionados_cancelados = []
         self._ruta_configuracion = configuracion
+        self._impresion_silenciosa = bool(impresion_silenciosa)
 
         self._info_impresoras = None
 
@@ -165,30 +181,49 @@ class ImprimirModulo:
         eventos = {
             'btn_cancelar': self._master.destroy,
             'btn_guardar':  self._procesar_documentos_seleccionados,
-            'btn_configurar': self._borrar_archivo_configuracion
+            'btn_configurar': self._configurar_impresoras,
         }
         self._ventanas.cargar_eventos(eventos)
 
-    def _borrar_archivo_configuracion(self):
-        if self._ruta_configuracion:
-            # Puede venir como archivo .gz o como carpeta
-            if os.path.isdir(self._ruta_configuracion):
-                base_dir = self._ruta_configuracion
-                gz_path = os.path.join(base_dir, "impresoras.gz")
-            else:
-                gz_path = self._ruta_configuracion
-                base_dir = os.path.dirname(gz_path) or "."
+    def _configurar_impresoras(self):
+        ruta = self._ruta_archivo_configuracion()
+        ventana = self._ventanas.crear_popup_ttkbootstrap()
+        DefinirImpresoras(
+            ventana,
+            ruta_archivo=ruta,
+            al_guardar=self._aplicar_impresoras_configuradas,
+            impresora_primaria=(
+                self._ventanas.obtener_input_componente('cbx_impresora1')
+            ),
+            impresora_secundaria=(
+                self._ventanas.obtener_input_componente('cbx_impresora2')
+            ),
+        )
 
-            # Borra el gzip si existe
-            if os.path.exists(gz_path):
-                os.remove(gz_path)
+    def _ruta_archivo_configuracion(self):
+        ruta = self._ruta_configuracion
+        if ruta and os.path.isdir(ruta):
+            return os.path.join(ruta, 'impresoras.gz')
+        if ruta:
+            return ruta
+        return os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            'impresoras.gz',
+        )
 
-            # Borra el archivo descomprimido "impresoras" en la misma carpeta
-            archivo_impresoras = os.path.join(base_dir, 'impresoras')
-            if os.path.exists(archivo_impresoras):
-                os.remove(archivo_impresoras)
-
-            self._master.destroy()
+    def _aplicar_impresoras_configuradas(
+            self, primaria, secundaria, ruta_archivo,
+    ):
+        self._ruta_configuracion = ruta_archivo
+        self._info_impresoras = (primaria, secundaria)
+        self._rellenar_cbx_impresoras()
+        self._ventanas.insertar_input_componente(
+            'cbx_impresora1', primaria
+        )
+        self._ventanas.insertar_input_componente(
+            'cbx_impresora2', secundaria
+        )
+        self._bloquear_componentes()
 
     def _ajustar_componentes(self):
         self._ventanas.ajustar_ancho_componente('tbx_copias',5)
@@ -211,13 +246,15 @@ class ImprimirModulo:
             self._info_impresoras = self._cargar_impresoras(self._ruta_configuracion)
             if self._info_impresoras:
                 self._rellenar_cbx_impresoras()
-                self._ventanas.insertar_input_componente('cbx_impresora1', self._info_impresoras[0])
+                self._ventanas.insertar_input_componente(
+                    'cbx_impresora1', self._info_impresoras[0]
+                )
                 self._ventanas.insertar_input_componente('cbx_impresora2', self._info_impresoras[1])
                 self._bloquear_componentes()
 
     def _bloquear_componentes(self):
+        self._ventanas.bloquear_componente('cbx_impresora1')
         if self._user_group_id not in (5,6,15,1):
-            self._ventanas.bloquear_componente('cbx_impresora1')
             self._ventanas.bloquear_componente('cbx_impresora2')
 
     def _rellenar_cbx_impresoras(self):
@@ -407,17 +444,88 @@ class ImprimirModulo:
             self._ventanas.mostrar_mensaje('Debe seleccionar un motivo de reimpresión de la lista')
             return
 
-        if self._module_id == 158:
-            self._imprimir_modulo_158(motivo_id)
+        impresora_primaria = self._ventanas.obtener_input_componente(
+            'cbx_impresora1'
+        )
+        impresora_secundaria = self._ventanas.obtener_input_componente(
+            'cbx_impresora2'
+        ) or impresora_primaria
+        if self._impresion_silenciosa and not impresora_primaria:
+            self._ventanas.mostrar_mensaje(
+                'Debe seleccionar la impresora principal.', self._master
+            )
+            return
 
-        elif self._module_id in (21,1400,1319):
-            self._imprimir_cfdi(motivo_id)
+        # El UUID recibido desde el ERP relaciona los documentos y debe
+        # conservarse. Sólo creamos uno local cuando la herramienta se abrió
+        # desde el selector sin identificador externo.
+        if not getattr(self._parametros, 'uuid', None):
+            self._parametros.uuid = str(uuid.uuid4())
+        self._archivos_generados = []
 
-        elif self._module_id in (1316,1692,967): # pedidos mayoreo y notas entregadas
-            self._imprimir_consignacion(motivo_id)
+        try:
+            if self._module_id == 158:
+                self._imprimir_modulo_158(motivo_id)
 
-        else:
-            self._imprimir_modulo_50(motivo_id)
+            elif self._module_id in (21, 1400, 1319):
+                self._imprimir_cfdi(motivo_id)
+
+            elif self._module_id in (1316, 1692, 967):
+                self._imprimir_consignacion(motivo_id)
+
+            else:
+                self._imprimir_modulo_50(motivo_id)
+
+            if self._impresion_silenciosa:
+                self._enviar_archivos_silenciosamente(
+                    impresora_primaria,
+                    impresora_secundaria,
+                )
+        except Exception as error:
+            self._ventanas.mostrar_mensaje(
+                f'No fue posible imprimir el documento:\n{error}',
+                self._master,
+            )
+            return
+
+        self._master.destroy()
+
+    def _enviar_archivos_silenciosamente(
+            self, impresora_primaria, impresora_secundaria,
+    ):
+        directorio = os.path.join(
+            tempfile.gettempdir(), str(self._parametros.uuid)
+        )
+        if not os.path.isdir(directorio):
+            raise FileNotFoundError(
+                f'No se generó la carpeta de impresión: {directorio}'
+            )
+
+        archivos = [ruta for ruta, _ in self._archivos_generados]
+        if not archivos:
+            raise FileNotFoundError(
+                'No se generaron archivos para enviar a la impresora.'
+            )
+
+        # Importación local para evitar un ciclo durante la carga de módulos.
+        from capturar_documento.selector_modulo.servicio_impresion_silenciosa import (
+            ServicioImpresionSilenciosa,
+        )
+
+        servicio = ServicioImpresionSilenciosa(
+            parametros=self._parametros,
+            modelo=self._base_de_datos,
+        )
+        servicio.imprimir_archivos_generados(
+            archivos,
+            impresora_primaria=impresora_primaria,
+            impresora_secundaria=impresora_secundaria,
+            cantidades_partidas={
+                ruta: cantidad
+                for ruta, cantidad in self._archivos_generados
+            },
+        )
+        shutil.rmtree(directorio, ignore_errors=True)
 
     def _imprimir_consignacion(self, motivo_id, mostrar_precios=True):
         """
@@ -514,12 +622,10 @@ class ImprimirModulo:
 
                 with open(ruta, "w", encoding="utf-8") as f:
                     f.write(html)
+                self._archivos_generados.append((ruta, len(partidas)))
 
             # 9) Registrar impresión (una sola vez por documento)
             self._crear_registro_impresion(document_id, motivo_id)
-
-        # 10) Cerrar ventana (si aplica)
-        self._master.destroy()
 
     def _imprimir_cfdi(self, motivo_id):
         """
@@ -617,6 +723,7 @@ class ImprimirModulo:
 
                 with open(ruta, "w", encoding="utf-8") as f:
                     f.write(html)
+                self._archivos_generados.append((ruta, len(partidas)))
 
             # 9) Registrar impresión (una sola vez por documento)
             self._crear_registro_impresion(document_id, motivo_id)
@@ -626,9 +733,6 @@ class ImprimirModulo:
 
             if order_document_id != 0:
                 self._update_to_delivery(order_document_id)
-
-        # 11) Cerrar ventana (si aplica)
-        self._master.destroy()
 
     def _imprimir_modulo_158(self, motivo_id):
         # Plantilla en el directorio del proyecto
@@ -671,11 +775,10 @@ class ImprimirModulo:
             ruta = os.path.join(base, nombre)
             with open(ruta, "w", encoding="utf-8") as f:
                 f.write(html)
+            self._archivos_generados.append((ruta, len(partidas)))
 
             # Registrar impresión
             self._crear_registro_impresion(document_id, motivo_id)
-
-        self._master.destroy()
 
     def _imprimir_modulo_50(self, motivo_id):
         import os
@@ -733,6 +836,9 @@ class ImprimirModulo:
 
                     with open(ruta, "w", encoding="utf-8") as f:
                         f.write(html)
+                    self._archivos_generados.append(
+                        (ruta, len(partidas))
+                    )
 
                 self._crear_registro_impresion(document_id, motivo_id)
 
@@ -740,9 +846,6 @@ class ImprimirModulo:
             self._ventanas.mostrar_mensaje(f'Error al imprimir módulo 50:\n{e}')
             print(f'Error al imprimir módulo 50: {e}')
             raise
-        finally:
-            self._master.destroy()
-
     # ---------- Helpers ------------
     def _update_to_delivery(self, order_document_id):
         resultado = self._base_de_datos.fetchone(

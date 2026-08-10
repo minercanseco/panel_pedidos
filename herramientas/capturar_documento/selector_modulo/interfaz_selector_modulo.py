@@ -1,4 +1,7 @@
 import tkinter as tk
+from datetime import datetime
+
+import ttkbootstrap as ttk
 from cayal.ventanas import Ventanas
 
 
@@ -9,11 +12,24 @@ class InterfazSelectorModulo:
 
 
         self._crear_frames()
+        self._crear_encabezado()
         self._cargar_componentes()
         self._crear_barra_herramientas()
-        self.ventanas.configurar_ventana_ttkbootstrap('Ventas')
+        self.ventanas.configurar_ventana_ttkbootstrap(
+            'Captura de ventas'
+        )
+        # La configuración general deja los popups sin redimensionamiento.
+        # Este panel necesita ocupar toda el área disponible para sus tablas.
+        self._master.resizable(True, True)
+        self._master.minsize(1000, 600)
+        self._master.after_idle(self._maximizar)
+        # En Windows el primer zoom puede ejecutarse antes de que la ventana
+        # esté completamente mapeada; el segundo asegura el estado final.
+        self._master.after(250, self._maximizar)
 
     def _crear_frames(self):
+        self._master.rowconfigure(0, weight=1)
+        self._master.columnconfigure(0, weight=1)
         frames = {
             'frame_principal': (
                 'master',
@@ -23,32 +39,110 @@ class InterfazSelectorModulo:
 
             'frame_herramientas': (
                 'frame_principal',
-                'Herramientas',
-                {'row': 0, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}
+                None,
+                {'row': 1, 'column': 0, 'padx': 8, 'pady': 4, 'sticky': tk.EW}
             ),
 
             'frame_notebook': (
                 'frame_principal',
                 'Ventas',
-                {'row': 1, 'column': 0, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}
+                {'row': 2, 'column': 0, 'padx': 8, 'pady': 4, 'sticky': tk.NSEW}
             ),
         }
 
         self.ventanas.crear_frames(frames)
 
         frame_principal = self.ventanas.componentes_forma['frame_principal']
-        frame_principal.rowconfigure(1, weight=1)
+        frame_principal.rowconfigure(2, weight=1)
         frame_principal.columnconfigure(0, weight=1)
 
         frame_notebook = self.ventanas.componentes_forma['frame_notebook']
         frame_notebook.rowconfigure(0, weight=1)
         frame_notebook.columnconfigure(0, weight=1)
 
+    def _crear_encabezado(self):
+        principal = self.ventanas.componentes_forma['frame_principal']
+        encabezado = ttk.Frame(principal, padding=(14, 9), bootstyle='danger')
+        encabezado.grid(row=0, column=0, sticky=tk.EW)
+        encabezado.columnconfigure(1, weight=1)
+
+        self.var_titulo = tk.StringVar(
+            value='CAPTURA DE VENTAS MINISUPER'
+        )
+        ttk.Label(
+            encabezado,
+            textvariable=self.var_titulo,
+            font=('Consolas', 18, 'bold'),
+            bootstyle='inverse-danger',
+        ).grid(row=0, column=0, sticky=tk.W)
+        self.var_estado = tk.StringVar(value='Preparando documentos...')
+        ttk.Label(
+            encabezado,
+            textvariable=self.var_estado,
+            font=('Consolas', 10, 'bold'),
+            bootstyle='inverse-danger',
+        ).grid(row=0, column=1, padx=20, sticky=tk.E)
+
+    def _maximizar(self):
+        if not self._master.winfo_exists():
+            return
+        self._master.resizable(True, True)
+        self._master.update_idletasks()
+        try:
+            self._master.wm_state('zoomed')
+        except tk.TclError:
+            try:
+                self._master.attributes('-zoomed', True)
+            except tk.TclError:
+                ancho = int(self._master.winfo_screenwidth() * 0.96)
+                alto = int(self._master.winfo_screenheight() * 0.90)
+                self._master.geometry(f'{ancho}x{alto}+0+0')
+
+    def mostrar_estado(self, mensaje):
+        hora = datetime.now().strftime('%H:%M:%S')
+        self.var_estado.set(f'{mensaje} · {hora}')
+
+    def actualizar_titulo_usuario(self, user_name):
+        usuario = str(user_name or '').strip()
+        titulo = 'CAPTURA DE VENTAS MINISUPER'
+        if usuario:
+            titulo = f'{titulo}, USUARIO: {usuario}'
+        self.var_titulo.set(titulo)
+
+    def _calcular_filas_tabla(self):
+        """Reserva espacio para búsqueda y navegación con cualquier DPI."""
+        alto_pantalla = self._master.winfo_screenheight()
+        try:
+            escala = float(self._master.tk.call('tk', 'scaling'))
+        except (tk.TclError, TypeError, ValueError):
+            escala = 96 / 72
+
+        factor_dpi = max(1.0, escala / (96 / 72))
+        alto_reservado = int(300 * factor_dpi)
+        alto_fila = max(22, int(16 * escala))
+        filas = int((alto_pantalla - alto_reservado) / alto_fila)
+        return max(8, min(26, filas))
+
+    def actualizar_contador_tabla(self, tabla, cantidad):
+        configuracion = {
+            'tbv_tickets': ('tab_tickets', 'Tickets 🧾'),
+            'tbv_facturas': ('tab_facturas', 'Facturas 📄'),
+            'tbv_depositos': ('tab_depositos', 'Depósitos 💰'),
+        }
+        datos = configuracion.get(tabla)
+        if not datos:
+            return
+        nombre_tab, texto = datos
+        tab = self.ventanas.componentes_forma.get(nombre_tab)
+        if tab is not None:
+            self.notebook.tab(tab, text=f'{texto} ({cantidad})')
+
     def _cargar_componentes(self):
+        filas_tabla = self._calcular_filas_tabla()
         info_pestanas = {
             'tab_tickets': ('Tickets 🧾', None),
             'tab_facturas': ('Facturas 📄', None),
-            'tab_depositos': ('Depositos 📄', None),
+            'tab_depositos': ('Depósitos 💰', None),
         }
 
         self.nombre_notebook = 'nbk_ventas'
@@ -106,7 +200,7 @@ class InterfazSelectorModulo:
             nombre='tbv_tickets',
             frame='frm_tickets',
             columnas=[],
-            filas=35,
+            filas=filas_tabla,
             stripecolor=True
         )
 
@@ -114,7 +208,7 @@ class InterfazSelectorModulo:
             nombre='tbv_facturas',
             frame='frm_facturas',
             columnas=[],
-            filas=35,
+            filas=filas_tabla,
             stripecolor=True
         )
 
@@ -122,7 +216,7 @@ class InterfazSelectorModulo:
             nombre='tbv_depositos',
             frame='frm_depositos',
             columnas=[],
-            filas=35,
+            filas=filas_tabla,
             stripecolor=True
         )
 
@@ -133,35 +227,35 @@ class InterfazSelectorModulo:
                 'nombre_icono': 'HeaderFooter32.ico',
                 'etiqueta': 'Ticket',
                 'nombre': 'nuevo_ticket',
-                'hotkey': '',
+                'hotkey': '[F2]',
                 'comando': None
             },
             {
                 'nombre_icono': 'Invoice32.ico',
                 'etiqueta': 'Factura',
                 'nombre': 'nueva_factura',
-                'hotkey': '',
+                'hotkey': '[F3]',
                 'comando': None
             },
             {
                 'nombre_icono': 'Ingreso.ico',
                 'etiqueta': 'Depósito',
                 'nombre': 'nuevo_deposito',
-                'hotkey': '',
+                'hotkey': '[F4]',
                 'comando': None
             },
             {
                 'nombre_icono': 'Payments32.ico',
                 'etiqueta': 'Cartera',
                 'nombre': 'cobrar_cartera',
-                'hotkey': '',
+                'hotkey': '[F6]',
                 'comando': None
             },
             {
                 'nombre_icono': 'Refresh32.ico',
                 'etiqueta': 'Actualizar',
                 'nombre': 'actualizar',
-                'hotkey': '',
+                'hotkey': '[F5]',
                 'comando': None
             },
 
@@ -169,7 +263,7 @@ class InterfazSelectorModulo:
                 'nombre_icono': 'Print32.ico',
                 'etiqueta': 'Imprimir',
                 'nombre': 'imprimir',
-                'hotkey': '',
+                'hotkey': '[Ctrl+P]',
                 'comando': None
             },
             {
@@ -177,6 +271,13 @@ class InterfazSelectorModulo:
                 'etiqueta': 'Cobro Rápido',
                 'nombre': 'cobro_rapido',
                 'hotkey': '',
+                'comando': None
+            },
+            {
+                'nombre_icono': 'CashRegister.ico',
+                'etiqueta': 'Abrir cajón',
+                'nombre': 'abrir_cajon',
+                'hotkey': '[F7]',
                 'comando': None
             },
 
@@ -210,7 +311,7 @@ class InterfazSelectorModulo:
             'tab_depositos': {
                 'frame': 'frm_depositos',
                 'tabla': 'tbv_depositos',
-                'texto': 'Depositos 📄'
+                'texto': 'Depósitos 💰'
             },
         }
 

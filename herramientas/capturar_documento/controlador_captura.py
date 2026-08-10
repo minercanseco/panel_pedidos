@@ -595,7 +595,11 @@ class ControladorCaptura:
 
                 ventana = self._ventanas.crear_popup_ttkbootstrap()
                 interfaz = InterfazCobroRapido(ventana)
-                controlador = ControladorCobroRapido(interfaz, self._parametros_contpaqi)
+                controlador = ControladorCobroRapido(
+                    interfaz,
+                    self._parametros_contpaqi,
+                    registrar_documento_para_recalculo=False,
+                )
                 ventana.wait_window()
 
                 self._documento_cobrado = controlador.documento_cobrado
@@ -1090,7 +1094,7 @@ class ControladorCaptura:
                 continue
 
             valores_fila = self._ventanas.procesar_fila_treeview('tvw_productos_manual',fila)
-            product_id = valores_fila['ProductID']
+            product_id = int(valores_fila['ProductID'])
             producto = str(valores_fila['Descripción'])
 
             if product_id in self._modelo.products_ids_ofertados:

@@ -41,7 +41,7 @@ class ControladorSaldarCartera:
             'tbx_terminal': lambda event: self._buscar_afiliacion(),
             'tvw_tabla_documentos': (lambda event: self._seleccionar_documento(), 'seleccion')
         }
-        self._interfaz.ventanas.cargar_eventos()
+        self._interfaz.ventanas.cargar_eventos(eventos)
 
     def _crear_barras_herramientas(self):
         self.barra_herramientas1 = [

@@ -5,6 +5,7 @@ class ModeloSelectorModulo:
         self.parametros = parametros
         self.base_de_datos = ComandosBaseDatos()
         self.user_id = self.parametros.id_usuario
+        self.user_name = self.obtener_nombre_usuario()
 
 
     def obtener_nombre_usuario(self):
@@ -33,6 +34,9 @@ class ModeloSelectorModulo:
             WHERE GV.ModuleID=? AND UserGroupID = 11 AND ParameterKey = 'PrimaryKey'
         """, (modulo,))
 
+        if not info_columnas:
+            return None, None, None
+
         # agregamos el primary key de la consulta sobre la que se realizará el procesamiento de la info
         columnas = info_columnas[0]['Columns']
         anchos_columnas = info_columnas[0]['ColumnsSize']
@@ -45,25 +49,42 @@ class ModeloSelectorModulo:
 
     def obtener_registros(self, tabla, columnas_str, primary_key):
         consultas = {
-            'tbv_tickets': ('vwLBSDocCustomerSaleList',"AND CAST(Fecha as date) = CAST(GETDATE() as date)"),
-            'tbv_facturas': ('vwLBSDocCustomerInvoiceList1400',"AND CAST(Fecha as date) = CAST(GETDATE() as date)"),
-            'tbv_depositos': ('zvwDepositosDiariosCayalMenu', "AND CAST(Fecha as date) = CAST(GETDATE() as date)")
+            'tbv_tickets': (
+                'vwLBSDocCustomerSaleList',
+                'M.CreatedBy = ? AND ISNULL(M.CanceladoIcon, 0) <> 1',
+                (self.user_id,),
+            ),
+            'tbv_facturas': (
+                'vwLBSDocCustomerInvoiceList1400',
+                'M.CreatedBy = ?',
+                (self.user_id,),
+            ),
+            'tbv_depositos': (
+                'zvwDepositosDiariosCayalMenu',
+                '''(
+                    M.CreatedBy = ?
+                    OR EXISTS (
+                        SELECT 1
+                        FROM zvwDepositosDiariosCayal D
+                        WHERE D.ID = M.ID
+                          AND D.ReceptorUserID = ?
+                    )
+                )''',
+                (self.user_id, self.user_id),
+            ),
         }
 
-        consulta = consultas.get(tabla, None)[0]
-        if not consulta:
-            return
-        filtro = consultas.get(tabla, None)[1]
+        configuracion = consultas.get(tabla)
+        if not configuracion:
+            return []
+        consulta, filtro_usuario, parametros = configuracion
 
         query = f"""
                 SELECT {columnas_str}
-                FROM {consulta}
-                WHERE CreatedBy = {self.user_id}
-                {filtro}
+                FROM {consulta} M
+                WHERE {filtro_usuario}
+                AND CAST(M.Fecha as date) = CAST(GETDATE() as date)
                 ORDER BY {primary_key} DESC
             """
-
-        return self.base_de_datos.fetchall(query)
-
-
-
+        print(query, self.user_id)
+        return self.base_de_datos.fetchall(query, parametros)

@@ -49,6 +49,7 @@ class BuscarGeneralesProveedor:
         self._module_id = self._parametros_contpaqi.id_modulo
         self._user_id = self._parametros_contpaqi.id_usuario
         self._document_id = self._parametros_contpaqi.id_principal
+        self._modelo_captura = None
 
     def _crear_instancias_de_clases(self):
         self._base_de_datos = ComandosBaseDatos()
@@ -366,6 +367,7 @@ class BuscarGeneralesProveedor:
                 self._parametros_contpaqi,
                 ofertas=None,
             )
+            self._modelo_captura = modelo
             controlador = ControladorCaptura(interfaz, modelo)
 
 
@@ -416,6 +418,8 @@ class BuscarGeneralesProveedor:
             if registros:
 
                 self._base_de_datos.guardar_prorrateo_maniobras(document_id, self._user_id, registros)
+
+            self._modelo_captura.actualizar_totales_documento(document_id)
 
         finally:
             self._finalizar_captura()

@@ -16,6 +16,12 @@ from capturar_documento.interfaz_captura import InterfazCaptura
 from capturar_documento.modelo_captura import ModeloCaptura
 from capturar_documento.plantillas.ticket_158 import Ticket158
 from capturar_documento.herramientas.servicio_ofertas_cliente import GestorOfertasCliente
+from capturar_documento.selector_modulo.servicio_impresion_ticket import (
+    ServicioImpresionTicket,
+)
+from capturar_documento.selector_modulo.servicio_generacion_cfdi_ticket import (
+    ServicioGeneracionCFDITicket,
+)
 
 
 MODULO_TICKET = 158
@@ -51,6 +57,7 @@ class LlamarInstanciaCaptura:
         self.products_ids_ofertados = []
         self._ofertas = {}
         self._ofertas_por_lista = {}
+        self._modelo_captura = None
 
     def _buscar_ofertas(self):
 
@@ -322,6 +329,7 @@ class LlamarInstanciaCaptura:
                                    self._parametros_contpaqi,
                                    #self._ofertas
                                    )
+            self._modelo_captura = modelo
 
             controlador = ControladorCaptura(interfaz, modelo)
 
@@ -349,6 +357,7 @@ class LlamarInstanciaCaptura:
                 self._documento,
                 self._parametros_contpaqi,
             )
+            self._modelo_captura = modelo
 
             controlador = ControladorCaptura(interfaz, modelo)
             self._master.wait_window()
@@ -466,14 +475,50 @@ class LlamarInstanciaCaptura:
                     self._parametros_contpaqi.uuid
                 )
 
-            if self._module_id == MODULO_TICKET:
-                self._crear_ticket_de_venta()
-
             if self._module_id == MODULO_COMPRAS:
                 registros = self._documento.prorrateo_maniobras
                 if registros:
 
                     self._base_de_datos.guardar_prorrateo_maniobras(self._documento.document_id, self._user_id, registros)
+
+            if self._modelo_captura is not None:
+                self._modelo_captura.actualizar_totales_documento(
+                    self._documento.document_id
+                )
+
+            if self._module_id == MODULO_TICKET:
+                ruta_html = self._crear_ticket_de_venta()
+                partidas_vigentes = [
+                    partida for partida in self._documento.items
+                    if int(partida.get(
+                        'ItemProductionStatusModified', 0
+                    ) or 0) != 3
+                ]
+                ServicioImpresionTicket(
+                    self._base_de_datos
+                ).imprimir_en_segundo_plano(
+                    ruta_html=ruta_html,
+                    cantidad_partidas=len(partidas_vigentes),
+                    document_id=self._documento.document_id,
+                    user_id=self._user_id,
+                )
+            elif self._module_id == 1400:
+                ServicioGeneracionCFDITicket(
+                    base_de_datos=self._base_de_datos,
+                    user_id=self._user_id,
+                    user_name=getattr(
+                        self._parametros_contpaqi,
+                        'nombre_usuario',
+                        '',
+                    ),
+                    identificador_ejecucion=getattr(
+                        self._parametros_contpaqi,
+                        'uuid',
+                        '',
+                    ),
+                ).generar_e_imprimir_en_segundo_plano(
+                    self._documento.document_id
+                )
 
 
     def _crear_ticket_de_venta(self):

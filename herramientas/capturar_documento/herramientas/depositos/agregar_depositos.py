@@ -40,12 +40,12 @@ class AgregarDeposito:
             22: 'ventas',
             18: 'ventas',
             25: 'vendedor',
-            32: 'vendedor'
+            32: 'ventas'
         }
         self._SQL_CBXS = """
                         SELECT OfficialName, BusinessEntityID, UserName, UserID, EmployeeTypeID
                         FROM zvwEmpleadosCayalMenu
-                        WHERE EmployeeTypeID IN(11, 6, 1, 4, 5, 18, 20, 21, 22, 25, 31,32)
+                        WHERE EmployeeTypeID IN(11, 6, 1, 4, 5, 18, 20, 21, 22, 25,32, 31)
                         ORDER BY OfficialName
                         """
 
@@ -334,8 +334,7 @@ class AgregarDeposito:
         if emisor_user_group_id in (20, 22, 23, 25, 31):
             liquidation_id = self._base_de_datos.buscar_liquidacion_vendedor(emisor_user_id)
             liquidation_id = 0 if not liquidation_id else liquidation_id
-            if liquidation_id != 0:
-                self._base_de_datos.actualizar_totales_liquidacion(liquidacion_id=liquidation_id)
+            #self._base_de_datos.actualizar_totales_liquidacion(liquidacion_id=liquidation_id)
 
         # crea los parametros requeridos de insercion
         parametros = (user_name_recibe,
@@ -475,14 +474,11 @@ class AgregarDeposito:
             'vendedor': (20, 22, 23, 25, 31)
         }
 
-        # usuarios que entregan por defecto deposito
-        filtro = filtros.get(tipo_de_usuario, (6, 11, 20, 22, 23, 25, 31))
+        filtro = filtros.get(tipo_de_usuario, (6, 11,20, 22, 23, 25, 31))
 
-        # contpaqi domingo y cajero
         if self._es_domingo() and tipo_de_usuario == 'cajero':
-            filtro = (11, 6, 11, 20, 22, 23, 25, 31)
-
-        #panel de liquidacion y cajero
+            filtro = (11,0)
+        #1664 modulo de depositos en contpaq
         if self._parametros.id_modulo != 1664 and tipo_de_usuario == 'cajero':
             filtro = (23, 20, 22, 25)
 

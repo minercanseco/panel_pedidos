@@ -6,12 +6,35 @@ class InterfazPanelPedidos:
     def __init__(self, master):
         self.master = master
         self.ventanas = Ventanas(self.master)
+        self._ajustar_tamano_panel()
         self._cargar_frames()
         self._cargar_componentes_forma()
         self.master.after_idle(self._hacer_panel_no_modal)
 
+    def _ajustar_tamano_panel(self):
+        """Aprovecha la resolución sin exceder el área visible."""
+        ancho_pantalla = self.master.winfo_screenwidth()
+        alto_pantalla = self.master.winfo_screenheight()
+
+        ancho = min(
+            max(1, ancho_pantalla - 40),
+            max(1000, int(ancho_pantalla * 0.94)),
+        )
+        alto = min(
+            max(1, alto_pantalla - 80),
+            max(650, int(alto_pantalla * 0.90)),
+        )
+        posicion_x = max(0, (ancho_pantalla - ancho) // 2)
+        posicion_y = max(0, (alto_pantalla - alto) // 2)
+
+        self.master.geometry(
+            f'{ancho}x{alto}+{posicion_x}+{posicion_y}'
+        )
+        self.master.update_idletasks()
+
     def _hacer_panel_no_modal(self):
         """Libera únicamente el grab heredado que pertenezca al panel."""
+        self.master.resizable(True, True)
         try:
             if self.master.grab_current() == self.master:
                 self.master.grab_release()

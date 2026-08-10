@@ -10,6 +10,7 @@ class InterfazPanelPedidos:
         self._cargar_frames()
         self._cargar_componentes_forma()
         self.master.after_idle(self._hacer_panel_no_modal)
+        self.ventanas.situar_ventana_arriba('frame_principal')
 
     def _ajustar_tamano_panel(self):
         """Aprovecha la resolución sin exceder el área visible."""

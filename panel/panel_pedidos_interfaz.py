@@ -20,7 +20,18 @@ class InterfazPanelPedidos:
 
     def calcular_filas_tabla_pedidos(self):
         """Calcula sólo las filas variables de la tabla principal."""
+        self.master.update_idletasks()
         alto_pantalla = self.master.winfo_screenheight()
+        alto_ventana = self.master.winfo_height()
+
+        # La resolución no equivale al espacio disponible: el panel puede no
+        # estar maximizado, como ocurre al ejecutarlo dentro de una sesión
+        # remota. Usa la altura real cuando la ventana ya está dibujada.
+        if alto_ventana > 100:
+            alto_disponible = min(alto_ventana, alto_pantalla)
+        else:
+            alto_disponible = alto_pantalla
+
         try:
             escala = float(self.master.tk.call('tk', 'scaling'))
         except (tk.TclError, TypeError, ValueError):
@@ -40,9 +51,9 @@ class InterfazPanelPedidos:
         alto_tabla_detalle = (filas_detalle + 1) * alto_fila
         alto_controles = int(300 * factor_dpi)
         alto_reservado = alto_controles + alto_tabla_detalle
-        filas = int((alto_pantalla - alto_reservado) / alto_fila)
+        filas = int((alto_disponible - alto_reservado) / alto_fila)
 
-        return max(10, min(24, filas))
+        return max(10, min(32, filas))
 
     def _cargar_frames(self):
 

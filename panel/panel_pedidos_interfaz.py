@@ -18,6 +18,24 @@ class InterfazPanelPedidos:
         except tk.TclError:
             pass
 
+    def calcular_filas_tabla_pedidos(self):
+        """Calcula filas visibles según altura de pantalla y escala DPI."""
+        alto_pantalla = self.master.winfo_screenheight()
+        try:
+            escala = float(self.master.tk.call('tk', 'scaling'))
+        except (tk.TclError, TypeError, ValueError):
+            escala = 96 / 72
+
+        factor_dpi = max(1.0, escala / (96 / 72))
+
+        # Espacio usado por herramientas, métricas, filtros, paginación,
+        # comentarios y la tabla de detalle inferior.
+        alto_reservado = int(440 * factor_dpi)
+        alto_fila = max(22, int(16 * escala))
+        filas = int((alto_pantalla - alto_reservado) / alto_fila)
+
+        return max(10, min(24, filas))
+
     def _cargar_frames(self):
 
         frames = {

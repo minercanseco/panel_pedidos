@@ -671,11 +671,8 @@ class ControladorPanelPedidos:
             self._actualizar_pedidos()
 
     def _crear_tabla_pedidos(self):
-        ancho, alto = self._interfaz.ventanas.obtener_resolucion_pantalla()
-
         frame = self._interfaz.ventanas.componentes_forma['frame_captura']
-        colors = self._interfaz.master.style.colors
-        numero_filas = 15 if ancho <= 1367 else 20
+        numero_filas = self._interfaz.calcular_filas_tabla_pedidos()
         componente = Tableview(
             master=frame,
             coldata=self._interfaz.crear_columnas_tabla(),

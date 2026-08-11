@@ -75,6 +75,7 @@ class BuscarGeneralesCliente:
         self._cliente = Cliente()
         self._ventanas = Ventanas(self._master)
         self._documento = Documento()
+        self._documento.cobrado_en_captura = False
         self._utilerias = Utilerias()
 
     def _crear_frames(self):
@@ -1029,7 +1030,17 @@ class BuscarGeneralesCliente:
                     self._actualizar_excedente_crediticio()
 
                 self._actualizar_comentario_documento()
-                if self._modelo_captura is not None:
+                # Los totales se preparan antes de abrir Cobro Rápido. Si la
+                # factura ya fue cobrada, no se deben reinicializar porque se
+                # perderían TotalPaid, Balance y StatusPaidID.
+                if (
+                        self._modelo_captura is not None
+                        and not getattr(
+                            self._documento,
+                            'cobrado_en_captura',
+                            False,
+                        )
+                ):
                     self._modelo_captura.actualizar_totales_documento(
                         self._documento.document_id
                     )

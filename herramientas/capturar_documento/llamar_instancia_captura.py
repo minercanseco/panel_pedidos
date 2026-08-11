@@ -58,6 +58,7 @@ class LlamarInstanciaCaptura:
         self._ofertas = {}
         self._ofertas_por_lista = {}
         self._modelo_captura = None
+        self._documento.cobrado_en_captura = False
 
     def _buscar_ofertas(self):
 
@@ -481,7 +482,17 @@ class LlamarInstanciaCaptura:
 
                     self._base_de_datos.guardar_prorrateo_maniobras(self._documento.document_id, self._user_id, registros)
 
-            if self._modelo_captura is not None:
+            # Antes del cobro los totales ya fueron preparados. No deben
+            # reinicializarse después, porque se perderían TotalPaid,
+            # Balance y StatusPaidID calculados por Cobros.
+            if (
+                    self._modelo_captura is not None
+                    and not getattr(
+                        self._documento,
+                        'cobrado_en_captura',
+                        False,
+                    )
+            ):
                 self._modelo_captura.actualizar_totales_documento(
                     self._documento.document_id
                 )

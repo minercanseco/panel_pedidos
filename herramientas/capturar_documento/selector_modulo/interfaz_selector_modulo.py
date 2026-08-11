@@ -274,6 +274,13 @@ class InterfazSelectorModulo:
                 'comando': None
             },
             {
+                'nombre_icono': 'DeliveryConciliation.ico',
+                'etiqueta': 'Editar generales',
+                'nombre': 'editar_generales',
+                'hotkey': '',
+                'comando': None
+            },
+            {
                 'nombre_icono': 'CashRegister.ico',
                 'etiqueta': 'Abrir cajón',
                 'nombre': 'abrir_cajon',

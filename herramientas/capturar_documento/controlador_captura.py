@@ -124,6 +124,7 @@ class ControladorCaptura:
         if self._module_id == self.MODULO_PEDIDOS: # si es pedido
             self._agregar_servicio_a_domicilio()
             self.parametros_pedido = self._modelo.crear_parametros_pedido()
+            self._buscar_ofertas(rellenar_tabla=True)
             self._ventanas.enfocar_componente('tbx_buscar_manual')
 
         self._interfaz.cambiar_titulo_ventana(self.cliente.official_name)
@@ -603,6 +604,7 @@ class ControladorCaptura:
                 ventana.wait_window()
 
                 self._documento_cobrado = controlador.documento_cobrado
+                self.documento.cobrado_en_captura = self._documento_cobrado
                 self.documento.amount_received = controlador.monto_recibido
                 self.documento.customer_change = controlador.cambio_cliente
 

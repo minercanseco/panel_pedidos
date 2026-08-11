@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import threading
+from types import SimpleNamespace
 
 from cayal.util import Utilerias
 
@@ -9,8 +10,8 @@ from herramientas.capturar_documento.herramientas.imprimir_modulo.imprimir_modul
     ImprimirModulo,
 )
 from herramientas.capturar_documento.plantillas.cfdi_ticket import CFDITicket
-from herramientas.capturar_documento.selector_modulo.servicio_impresion_ticket import (
-    ServicioImpresionTicket,
+from herramientas.capturar_documento.selector_modulo.servicio_impresion_silenciosa import (
+    ServicioImpresionSilenciosa,
 )
 
 
@@ -43,16 +44,32 @@ class ServicioGeneracionCFDITicket:
 
         def ejecutar():
             try:
-                ruta_html, cantidad_partidas = self.generar(document_id)
-                ServicioImpresionTicket(
-                    self.base_de_datos
-                ).imprimir_en_segundo_plano(
-                    ruta_html=ruta_html,
-                    cantidad_partidas=cantidad_partidas,
-                    document_id=document_id,
-                    user_id=self.user_id,
-                    altura_base_mm=self.ALTURA_BASE_CFDI_MM,
+                archivos = self.generar_archivos(document_id)
+                parametros_impresion = SimpleNamespace(
+                    id_modulo=self.MODULO_CFDI,
+                    id_principal=document_id,
+                    id_usuario=self.user_id,
+                    uuid=self.identificador_ejecucion,
+                    impresora='',
                 )
+                servicio = ServicioImpresionSilenciosa(
+                    parametros=parametros_impresion,
+                    modelo=self.base_de_datos,
+                )
+                primaria, secundaria = (
+                    servicio._obtener_impresoras_configuradas()
+                )
+                servicio.imprimir_archivos_generados(
+                    [ruta for ruta, _ in archivos],
+                    impresora_primaria=primaria,
+                    impresora_secundaria=secundaria,
+                    cantidades_partidas={
+                        ruta: cantidad_partidas
+                        for ruta, cantidad_partidas in archivos
+                    },
+                    datos_enrutamiento=self._datos_enrutamiento,
+                )
+                self._registrar_impresion(document_id)
             except Exception:
                 logger.exception(
                     'No fue posible generar el CFDI ticket del documento %s.',
@@ -68,6 +85,15 @@ class ServicioGeneracionCFDITicket:
         return hilo
 
     def generar(self, document_id):
+        """Conserva la interfaz anterior devolviendo el primer archivo."""
+        archivos = self.generar_archivos(document_id)
+        if not archivos:
+            raise RuntimeError(
+                f'No se generaron archivos para el CFDI {document_id}.'
+            )
+        return archivos[0]
+
+    def generar_archivos(self, document_id):
         if int(document_id or 0) <= 0:
             raise ValueError('El CFDI ticket requiere un DocumentID válido.')
 
@@ -84,6 +110,17 @@ class ServicioGeneracionCFDITicket:
                 f'No se encontraron datos para el CFDI {document_id}.'
             )
 
+        # La consulta de ImprimirModulo ya resuelve correctamente el cliente
+        # real, incluyendo documentos capturados con BusinessEntityID 8179 y
+        # CustomerID en docDocumentExt. Se conserva esta información para no
+        # reclasificar el destino con una consulta menos completa.
+        self._datos_enrutamiento = {
+            int(document_id): {
+                'RutaID': placeholders.get('ZoneID', 0),
+                'Impresiones': placeholders.get('Impresiones', 1),
+            }
+        }
+
         # TotalLetter puede no haberse actualizado todavía al cerrar la
         # captura. Igual que ticket_158, generamos el texto desde el total
         # numérico para que la impresión no dependa de ese campo persistido.
@@ -97,45 +134,105 @@ class ServicioGeneracionCFDITicket:
             'plantillas',
             'cfdi_ticket.html',
         )
-        ticket = CFDITicket()
-        ticket.set_plantilla(plantilla)
-        ticket.set_marca_agua(motivo_id=1)
-
-        nombre_archivo = (
-            f'ORIGINAL-{self.identificador_ejecucion}-{document_id}'
+        cancelado = self._documento_cancelado(document_id)
+        tiene_historial = self._documento_tiene_historial(document_id)
+        proveedor_datos._seleccionados_cancelados = (
+            [document_id] if cancelado else []
         )
-        ticket.set_datos(**placeholders, uuid=nombre_archivo)
-        ticket.set_partidas(detalle)
-        html = ticket.generar_html()
+        proveedor_datos._seleccionados_historial = (
+            [document_id] if tiene_historial else []
+        )
+        cantidad = proveedor_datos._determinar_cantidad_impresiones(
+            placeholders,
+            motivo_id=1,
+            document_id=document_id,
+        )
 
         descuento = proveedor_datos._utilerias.redondear_valor_cantidad_a_decimal(
             placeholders.get('DescuentoCayal', 0)
         )
-        if descuento == 0:
-            html = re.sub(
-                r'<!--IF_DESCUENTO-->.*?<!--END_IF-->\s*',
-                '',
-                html,
-                flags=re.DOTALL,
-            )
-
         es_factura = placeholders.get('TipoCFD', 'FACTURA') == 'FACTURA'
-        if es_factura:
-            html = html.replace('<!--IF_REMISION-->', '')
-            html = html.replace('<!--END_IF-->', '')
-        else:
-            html = re.sub(
-                r'<!--IF_REMISION-->.*?<!--END_IF-->\s*',
-                '',
-                html,
-                flags=re.DOTALL,
-            )
+        archivos_generados = []
 
-        directorio = ticket._obtener_directorio_salida(temporal=False)
-        ruta = os.path.join(directorio, f'{nombre_archivo}.html')
-        with open(ruta, 'w', encoding='utf-8') as archivo:
-            archivo.write(html)
-        return ruta, len(detalle)
+        for copia_idx in range(cantidad):
+            texto, marca_id = proveedor_datos._determinar_texto_marca(
+                cantidad=cantidad,
+                motivo_id=1,
+                copia_idx=copia_idx,
+                esta_cancelado=cancelado,
+            )
+            ticket = CFDITicket()
+            ticket.set_plantilla(plantilla)
+            ticket.set_marca_agua(motivo_id=marca_id)
+
+            # El DocumentID queda al final para que el enrutador consulte la
+            # ruta y el número de impresiones del cliente.
+            nombre_archivo = (
+                f'{texto}-{self.identificador_ejecucion}-'
+                f'{copia_idx}({cantidad})_{document_id}'
+            )
+            ticket.set_datos(**placeholders, uuid=nombre_archivo)
+            ticket.set_partidas(detalle)
+            html = ticket.generar_html()
+
+            if descuento == 0:
+                html = re.sub(
+                    r'<!--IF_DESCUENTO-->.*?<!--END_IF-->\s*',
+                    '',
+                    html,
+                    flags=re.DOTALL,
+                )
+
+            if es_factura:
+                html = html.replace('<!--IF_REMISION-->', '')
+                html = html.replace('<!--END_IF-->', '')
+            else:
+                html = re.sub(
+                    r'<!--IF_REMISION-->.*?<!--END_IF-->\s*',
+                    '',
+                    html,
+                    flags=re.DOTALL,
+                )
+
+            directorio = ticket._obtener_directorio_salida(temporal=False)
+            ruta = os.path.join(directorio, f'{nombre_archivo}.html')
+            with open(ruta, 'w', encoding='utf-8') as archivo:
+                archivo.write(html)
+            archivos_generados.append((ruta, len(detalle)))
+
+        return archivos_generados
+
+    def _documento_cancelado(self, document_id):
+        return bool(self.base_de_datos.fetchone(
+            'SELECT CASE WHEN CancelledOn IS NULL THEN 0 ELSE 1 END '
+            'FROM docDocument WHERE DocumentID = ?',
+            (int(document_id),),
+        ))
+
+    def _documento_tiene_historial(self, document_id):
+        return bool(self.base_de_datos.fetchone(
+            'SELECT CASE WHEN EXISTS ('
+            'SELECT 1 FROM zvwhistorialimpresiones WHERE DocumentID = ?'
+            ') THEN 1 ELSE 0 END',
+            (int(document_id),),
+        ))
+
+    def _registrar_impresion(self, document_id):
+        """Registra una sola operación aunque se hayan generado dos copias."""
+        self.base_de_datos.command(
+            'INSERT INTO zvwhistorialimpresiones '
+            '(DocumentID, Impreso, ImpresoPor, ModuloID, MotivoID) '
+            'VALUES (?, GETDATE(), ?, ?, 1); '
+            'UPDATE docDocument SET PrintedOn = GETDATE(), PrintedBy = ? '
+            'WHERE DocumentID = ?',
+            (
+                int(document_id),
+                self.user_id,
+                self.MODULO_CFDI,
+                self.user_id,
+                int(document_id),
+            ),
+        )
 
     def _cantidad_con_letra(self, document_id, utilerias):
         total = self.base_de_datos.fetchone(

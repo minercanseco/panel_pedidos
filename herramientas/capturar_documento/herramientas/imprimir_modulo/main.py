@@ -1,8 +1,8 @@
 import os
 
 import ttkbootstrap as ttk
-from capturar_documento.herramientas.imprimir_modulo.imprimir_modulo import ImprimirModulo
-from capturar_documento.herramientas.imprimir_modulo.definir_impresoras import DefinirImpresoras
+from herramientas.capturar_documento.herramientas.imprimir_modulo.imprimir_modulo import ImprimirModulo
+from herramientas.capturar_documento.herramientas.imprimir_modulo.definir_impresoras import DefinirImpresoras
 from cayal.parametros_contpaqi import ParametrosContpaqi
 
 

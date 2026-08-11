@@ -10,9 +10,9 @@ try:
 except Exception:
     win32print = None
 
-from capturar_documento.herramientas.imprimir_modulo.main import ImprimirModulo
-from capturar_documento.herramientas.predeterminar_impresora.main import PredeterminarImpresora
-from capturar_documento.selector_modulo.servicio_impresion_ticket import (
+from herramientas.capturar_documento.herramientas.imprimir_modulo.main import ImprimirModulo
+from herramientas.capturar_documento.herramientas.predeterminar_impresora.main import PredeterminarImpresora
+from herramientas.capturar_documento.selector_modulo.servicio_impresion_ticket import (
     ServicioImpresionTicket,
 )
 
@@ -135,7 +135,10 @@ class ServicioImpresionSilenciosa:
             except Exception:
                 pass
 
-    def _resolver_impresora(self, archivo, impresora_primaria, impresora_secundaria):
+    def _resolver_impresora(
+            self, archivo, impresora_primaria, impresora_secundaria,
+            datos_enrutamiento=None,
+    ):
         id_modulo = int(getattr(self.parametros, "id_modulo", 0) or 0)
         cantidad = self._extraer_cantidad(archivo)
         document_id = self._extraer_document_id(archivo)
@@ -143,7 +146,13 @@ class ServicioImpresionSilenciosa:
         ruta_id = 0
         impresiones_cliente = 1
 
-        if id_modulo in self.MODULOS_CON_RUTA and document_id:
+        datos_documento = (datos_enrutamiento or {}).get(document_id)
+        if datos_documento:
+            ruta_id = int(datos_documento.get('RutaID', 0) or 0)
+            impresiones_cliente = int(
+                datos_documento.get('Impresiones', 1) or 1
+            )
+        elif id_modulo in self.MODULOS_CON_RUTA and document_id:
             ruta_id, impresiones_cliente = self._obtener_datos_documento(document_id)
 
         if cantidad == 2:
@@ -169,35 +178,73 @@ class ServicioImpresionSilenciosa:
 
     def imprimir_archivos_generados(
             self, archivos, impresora_primaria, impresora_secundaria,
-            cantidades_partidas=None,
+            cantidades_partidas=None, datos_enrutamiento=None,
     ):
         """Envía HTML ya validados conservando las reglas de enrutamiento."""
         cantidades_partidas = cantidades_partidas or {}
-        impresora_original = self._obtener_impresora_predeterminada()
-        try:
-            for ruta_archivo in archivos:
-                if not os.path.isfile(ruta_archivo):
-                    continue
-                impresora = self._resolver_impresora(
-                    archivo=os.path.basename(ruta_archivo),
-                    impresora_primaria=impresora_primaria,
-                    impresora_secundaria=(
-                        impresora_secundaria or impresora_primaria
-                    ),
-                )
-                if not impresora:
-                    continue
-                self._predeterminar_impresora(impresora)
-                self._imprimir_archivo(
-                    ruta_archivo,
-                    impresora=impresora,
-                    cantidad_partidas=cantidades_partidas.get(
-                        ruta_archivo, 0
-                    ),
-                )
-        finally:
-            if impresora_original:
-                self._predeterminar_impresora(impresora_original)
+        impresora_primaria = self._validar_impresora_instalada(
+            impresora_primaria,
+            'principal',
+        )
+        impresora_secundaria = self._validar_impresora_instalada(
+            impresora_secundaria,
+            'secundaria',
+        )
+
+        for ruta_archivo in archivos:
+            if not os.path.isfile(ruta_archivo):
+                continue
+            impresora = self._resolver_impresora(
+                archivo=os.path.basename(ruta_archivo),
+                impresora_primaria=impresora_primaria,
+                impresora_secundaria=impresora_secundaria,
+                datos_enrutamiento=datos_enrutamiento,
+            )
+            if not impresora:
+                continue
+
+            # Sumatra recibe el destino mediante -print-to. Cambiar además la
+            # impresora predeterminada introduce una carrera con el spooler de
+            # Windows y puede desviar el trabajo nuevamente a Tickets.
+            self._diag(
+                f'Archivo: {os.path.basename(ruta_archivo)} -> '
+                f'impresora: {impresora}'
+            )
+            self._imprimir_archivo(
+                ruta_archivo,
+                impresora=impresora,
+                cantidad_partidas=cantidades_partidas.get(
+                    ruta_archivo, 0
+                ),
+            )
+
+    @staticmethod
+    def _impresoras_instaladas():
+        if win32print is None:
+            return {}
+        banderas = (
+            win32print.PRINTER_ENUM_LOCAL
+            | win32print.PRINTER_ENUM_CONNECTIONS
+        )
+        return {
+            str(registro[2]).strip().casefold(): str(registro[2]).strip()
+            for registro in win32print.EnumPrinters(banderas)
+        }
+
+    def _validar_impresora_instalada(self, nombre, tipo):
+        nombre = str(nombre or '').strip()
+        if not nombre:
+            raise ValueError(f'No hay impresora {tipo} configurada.')
+        if win32print is None:
+            return nombre
+
+        nombre_real = self._impresoras_instaladas().get(nombre.casefold())
+        if not nombre_real:
+            raise RuntimeError(
+                f'La impresora {tipo} configurada no está instalada en '
+                f'Windows: {nombre}'
+            )
+        return nombre_real
 
     def _obtener_datos_documento(self, document_id):
         if not self.modelo:
@@ -253,12 +300,13 @@ class ServicioImpresionSilenciosa:
             except Exception as e:
                 print(f"No se pudo leer impresoras.gz: {e}")
 
-        impresora_windows = self._obtener_impresora_predeterminada()
-
         primaria = self.IMPRESORA_PRINCIPAL
 
         if not secundaria:
-            secundaria = primaria
+            raise ValueError(
+                'No hay impresora secundaria configurada. Abra Imprimir '
+                'módulo, presione Configurar y seleccione ambos destinos.'
+            )
 
         if not primaria:
             raise ValueError(
@@ -328,8 +376,24 @@ class ServicioImpresionSilenciosa:
     def _obtener_ruta_configuracion_impresoras(self):
         base_actual = os.getcwd()
         base_servicio = os.path.dirname(os.path.abspath(__file__))
+        base_capturar_documento = os.path.dirname(base_servicio)
 
         rutas = [
+            # Ruta real tanto en código fuente como en el paquete instalado.
+            os.path.join(
+                base_capturar_documento,
+                'herramientas',
+                'imprimir_modulo',
+                'impresoras.gz',
+            ),
+            # Posibles directorios de ejecución del EXE o del proyecto.
+            os.path.join(
+                base_actual,
+                'capturar_documento',
+                'herramientas',
+                'imprimir_modulo',
+                'impresoras.gz',
+            ),
             os.path.join(base_actual, "herramientas", "imprimir_modulo", "impresoras.gz"),
             os.path.join(base_servicio, "herramientas", "imprimir_modulo", "impresoras.gz"),
             os.path.join(base_servicio, "..", "imprimir_modulo", "impresoras.gz"),

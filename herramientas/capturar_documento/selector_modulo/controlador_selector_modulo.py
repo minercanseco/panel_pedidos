@@ -11,6 +11,15 @@ from capturar_documento.herramientas.imprimir_modulo.main import (
 )
 from capturar_documento.herramientas.cobro_rapido.llamar_instancia_cobro_rapido import LlamarInstanciaCobroRapido
 from capturar_documento.herramientas.abrir_cajon import CajonCobro
+from capturar_documento.herramientas.editar_generales.controlador import (
+    ControladorEditarDocumento,
+)
+from capturar_documento.herramientas.editar_generales.interfaz import (
+    InterfazEditarDocumento,
+)
+from capturar_documento.herramientas.editar_generales.modelo import (
+    ModeloEditarDocumento,
+)
 
 
 class ControladorSelectorModulo:
@@ -30,7 +39,8 @@ class ControladorSelectorModulo:
             'CobroTarjetaIcon': 'CreditCard16.ico',
             'ConDescuentoCayalIcon': 'Ecommerce16.ico',
             'PrintedIcon': 'print16.ico',
-            'CorreoEnviadoIcon': 'Email16.ico'
+            'CorreoEnviadoIcon': 'Email16.ico',
+            'RecalculadoIcon': 'Valid16.ico'
         }
 
         self._ICONOS_TEXTO = {
@@ -41,6 +51,7 @@ class ControladorSelectorModulo:
             "ConDescuentoCayalIcon": "🏷️",
             "CorreoEnviadoIcon": "📧",
             "PrintedIcon": "🖨️",
+            'RecalculadoIcon': "✓"
         }
 
         self._ejecutando = False
@@ -153,6 +164,7 @@ class ControladorSelectorModulo:
             'cobro_rapido':self._cobro_rapido,
             'cobrar_cartera': self._cobrar_cartera,
             'abrir_cajon': self._abrir_cajon,
+            'editar_generales': self._editar_generales,
         }
 
         for item in self._interfaz.barra_herramientas:
@@ -356,6 +368,7 @@ class ControladorSelectorModulo:
                 self._modelo.parametros,
                 self._modelo.base_de_datos
             ),
+            id_modulo=1664,
             tabla_actualizar='tbv_depositos',
         )
 
@@ -444,4 +457,49 @@ class ControladorSelectorModulo:
         self._interfaz.ventanas.mostrar_mensaje(
             f'No fue posible abrir el cajón:\n{cajon.ultimo_error}',
             self._interfaz._master,
+        )
+
+    def _editar_generales(self):
+        fila = self._obtener_valores_fila()
+        if not fila:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Seleccione una factura para editar sus datos generales.'
+            )
+            return None
+        if fila['Tabla'] != 'tbv_facturas':
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Editar generales sólo está disponible para el módulo Facturas Minisuper.'
+            )
+            return None
+
+        document_id = int(fila.get('DocumentID', 0) or 0)
+        estado = self._modelo.obtener_estado_edicion_factura(document_id)
+        if not estado:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'No fue posible validar el estado de la factura.'
+            )
+            return None
+
+        cfd_status_name = str(
+            estado.get('CFDStatusName', '') or ''
+        ).strip().casefold()
+        cancelado = estado.get('CanceladoIcon', 0)
+        cancelado = str(cancelado or '').strip().casefold() not in (
+            '', '0', 'false', 'none',
+        )
+        if cancelado or cfd_status_name != 'no enviado':
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Sólo pueden editarse facturas no canceladas y con estado '
+                'CFDI "No Enviado".'
+            )
+            return None
+
+        return self._ejecutar_accion(
+            funcion=lambda ventana: ControladorEditarDocumento(
+                interfaz=InterfazEditarDocumento(ventana),
+                modelo=ModeloEditarDocumento(self._modelo.parametros),
+            ),
+            id_modulo=1400,
+            id_principal=document_id,
+            tabla_actualizar='tbv_facturas',
         )

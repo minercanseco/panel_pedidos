@@ -11,6 +11,19 @@ class ModeloSelectorModulo:
     def obtener_nombre_usuario(self):
         return self.base_de_datos.buscar_nombre_de_usuario(self.user_id)
 
+    def obtener_estado_edicion_factura(self, document_id):
+        registros = self.base_de_datos.fetchall(
+            """
+            SELECT TOP 1
+                ISNULL(M.CFDStatusName, '') AS CFDStatusName,
+                ISNULL(M.CancelledIcon, 0) AS CanceladoIcon
+            FROM vwLBSDocCustomerInvoiceList1400 M
+            WHERE M.DocumentID = ?
+            """,
+            (int(document_id),),
+        )
+        return registros[0] if registros else None
+
     def obtener_columnas(self, tabla):
 
         modulos = {

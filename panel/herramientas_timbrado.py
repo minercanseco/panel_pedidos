@@ -2,6 +2,7 @@ import re
 import tkinter as tk
 
 from cayal.documento import Documento
+from cayal.impuestos import Impuestos
 from cayal.ventanas import Ventanas
 
 from herramientas.capturar_documento.llamar_instancia_captura_pedido import LlamarInstanciaCapturaPedido
@@ -527,6 +528,183 @@ class HerramientasTimbrado:
 
             return self._modelo.crear_cabecera_factura_mayoreo(document_type_id, way_to_pay_id, fila)
 
+        def actualizar_precios_documento(document_id):
+            """Aplica al documento las listas y precios especiales del cliente."""
+            order_type_origin_id = self._base_de_datos.fetchone(
+                '''
+                SELECT MAX(COALESCE(P.OrderTypeOriginID, 0))
+                FROM dbo.docDocument D
+                LEFT JOIN dbo.docDocumentOrderCayal P
+                    ON D.OrderDocumentID = P.OrderDocumentID
+                WHERE D.DocumentID = ?
+                ''',
+                (document_id,)
+            )
+
+            if int(order_type_origin_id or 0) == 6:
+                return
+
+            self._base_de_datos.command(
+                '''
+                DECLARE @BusinessEntityID INT;
+
+                SET @BusinessEntityID = (
+                    SELECT * FROM [dbo].[zvwBuscarBusinessEntityID-DocumentID](?)
+                );
+
+                UPDATE DT
+                SET DT.UnitPrice = COALESCE(PE.SalePrice, P.SalePrice),
+                    DT.Total = DT.Quantity * COALESCE(PE.SalePrice, P.SalePrice),
+                    DT.TaxPerc = ROUND(PRO.TaxPerc, 2, 0),
+                    DT.ClaveUnidad = PRO.ClaveUnidad
+                FROM dbo.docDocument D
+                INNER JOIN dbo.docDocumentItem DT
+                    ON D.DocumentID = DT.DocumentID
+                LEFT JOIN dbo.orgCustomer C
+                    ON C.BusinessEntityID = @BusinessEntityID
+                LEFT JOIN dbo.orgProductCustomerTypeSalePrice P
+                    ON DT.ProductID = P.ProductID
+                   AND P.CustomerTypeID = C.CustomerTypeID
+                LEFT JOIN dbo.orgProductSalePriceEspecial PE
+                    ON PE.BusinessEntityID = @BusinessEntityID
+                   AND DT.ProductID = PE.ProductID
+                   AND PE.DeletedOn IS NULL
+                   AND PE.Status = 1
+                LEFT JOIN dbo.orgProduct PRO
+                    ON DT.ProductID = PRO.ProductID
+                WHERE D.DocumentID = ?
+                  AND DT.DeletedOn IS NULL
+                  AND DT.ProductID <> 5606
+                  AND COALESCE(PE.SalePrice, P.SalePrice) IS NOT NULL
+                ''',
+                (document_id, document_id)
+            )
+
+        def actualizar_totales_documento(document_id):
+            """Calcula la cabecera desde las partidas y la afectación fiscal."""
+            filas_totales = self._base_de_datos.fetchall(
+                '''
+                SELECT
+                    CAST(ROUND(ISNULL(P.SubTotal, 0), 2) AS DECIMAL(18, 2)) AS SubTotal,
+                    CAST(ROUND(ISNULL(P.SubTotalWithDiscount, 0), 2) AS DECIMAL(18, 2))
+                        AS SubTotalWithDiscount,
+                    CAST(ROUND(ISNULL(P.TotalDiscount, 0), 2) AS DECIMAL(18, 2)) AS TotalDiscount,
+                    CAST(ROUND(
+                        ISNULL(T.IVA_T, 0) + ISNULL(T.IEPS_T, 0)
+                        + ISNULL(T.Otro, 0) + ISNULL(T.Local_T, 0), 2
+                    ) AS DECIMAL(18, 2)) AS TotalTax,
+                    CAST(ROUND(
+                        ISNULL(T.IVA_R, 0) + ISNULL(T.ISR_R, 0)
+                        + ISNULL(T.IEPS_R, 0) + ISNULL(T.Local_R, 0), 2
+                    ) AS DECIMAL(18, 2)) AS TotalRetention,
+                    CAST(ROUND(
+                        ISNULL(P.SubTotalWithDiscount, 0)
+                        + ISNULL(T.IVA_T, 0) + ISNULL(T.IEPS_T, 0)
+                        + ISNULL(T.Otro, 0) + ISNULL(T.Local_T, 0)
+                        - ISNULL(T.IVA_R, 0) - ISNULL(T.ISR_R, 0)
+                        - ISNULL(T.IEPS_R, 0) - ISNULL(T.Local_R, 0), 2
+                    ) AS DECIMAL(18, 2)) AS Total,
+                    CAST(ROUND(ISNULL(D.TotalPaid, 0), 2) AS DECIMAL(18, 2)) AS TotalPaid
+                FROM dbo.docDocument D
+                OUTER APPLY (
+                    SELECT
+                        SUM(CAST(ISNULL(I.Total, 0) AS DECIMAL(28, 8))) AS SubTotal,
+                        SUM(
+                            CAST(ISNULL(I.Total, 0) AS DECIMAL(28, 8))
+                            * (1 - CAST(ISNULL(I.DiscountPerc, 0) AS DECIMAL(28, 8)))
+                        ) AS SubTotalWithDiscount,
+                        SUM(
+                            CAST(ISNULL(I.Total, 0) AS DECIMAL(28, 8))
+                            * CAST(ISNULL(I.DiscountPerc, 0) AS DECIMAL(28, 8))
+                        ) AS TotalDiscount
+                    FROM dbo.docDocumentItem I
+                    WHERE I.DocumentID = D.DocumentID
+                      AND I.DeletedOn IS NULL
+                ) P
+                LEFT JOIN dbo.docDocumentTax T ON T.DocumentID = D.DocumentID
+                WHERE D.DocumentID = ?
+                  AND D.DeletedOn IS NULL
+                ''',
+                (document_id,)
+            )
+
+            if not filas_totales:
+                raise RuntimeError(
+                    'No fue posible calcular los totales del documento {}.'.format(document_id)
+                )
+
+            totales = filas_totales[0]
+            subtotal = float(totales['SubTotal'] or 0)
+            subtotal_con_descuento = float(totales['SubTotalWithDiscount'] or 0)
+            total_descuento = float(totales['TotalDiscount'] or 0)
+            total_impuestos = float(totales['TotalTax'] or 0)
+            total_retenciones = float(totales['TotalRetention'] or 0)
+            total = float(totales['Total'] or 0)
+            total_pagado = float(totales['TotalPaid'] or 0)
+            saldo = round(total - total_pagado, 2)
+
+            if total_pagado <= 0:
+                status_paid_id = 3
+            elif saldo > 0:
+                status_paid_id = 2
+            elif saldo < 0:
+                status_paid_id = 4
+            else:
+                status_paid_id = 1
+
+            total_letter = self._utilerias.cantidad_con_letra(total)
+            self._base_de_datos.command(
+                '''
+                UPDATE dbo.docDocument
+                SET SubTotal = ?,
+                    SubTotalWithDiscount = ?,
+                    TotalDiscount = ?,
+                    TotalTax = ?,
+                    TotalRetention = ?,
+                    Total = ?,
+                    TotalLetter = ?,
+                    Balance = ?,
+                    StatusPaidID = ?
+                WHERE DocumentID = ?
+                ''',
+                (
+                    subtotal,
+                    subtotal_con_descuento,
+                    total_descuento,
+                    total_impuestos,
+                    total_retenciones,
+                    total,
+                    total_letter,
+                    saldo,
+                    status_paid_id,
+                    document_id,
+                )
+            )
+
+        def actualizar_total_factura_en_pedidos(document_id, order_document_ids):
+            """Publica el total final sin depender de documentos recalculados."""
+            total = self._base_de_datos.fetchone(
+                'SELECT ISNULL(Total, 0) FROM dbo.docDocument WHERE DocumentID = ?',
+                (document_id,)
+            )
+            total = float(total or 0)
+
+            pedidos = {
+                int(order_id)
+                for order_id in order_document_ids
+                if order_id
+            }
+            for order_document_id in pedidos:
+                self._base_de_datos.command(
+                    '''
+                    UPDATE dbo.docDocumentOrderCayal
+                    SET FinalTotal = ?
+                    WHERE OrderDocumentID = ?
+                       OR RelatedOrderID = ?
+                    ''',
+                    (total, order_document_id, order_document_id)
+                )
+
         def filtrar_comentario_documento(comentario):
             palabras_a_eliminar = [
                 r'\bes un anexo\b',
@@ -685,6 +863,18 @@ class HerramientasTimbrado:
                         address_detail_id
                     )
 
+                    # El ajuste comercial trabaja sobre las partidas ya insertadas
+                    # y debe ocurrir antes de calcular sus impuestos.
+                    actualizar_precios_documento(document_id)
+
+                    # Las partidas ya están completas; reconstruir ahora la
+                    # afectación fiscal antes de relacionar o recalcular el pedido.
+                    Impuestos.afectar_impuestos_documento(
+                        self._base_de_datos,
+                        document_id
+                    )
+                    actualizar_totales_documento(document_id)
+
                     crear_comentario_documento(
                         [order_principal],
                         document_id,
@@ -694,7 +884,7 @@ class HerramientasTimbrado:
                     )
 
                     self._modelo.relacionar_pedidos_con_facturas(document_id, order_principal)
-                    self._modelo.insertar_pedido_a_recalcular(document_id, order_principal)
+                    actualizar_total_factura_en_pedidos(document_id, [order_principal])
                     self._modelo.afectar_bitacora_de_cambios_en_pedidos(document_id, [order_principal])
 
                 else:
@@ -750,6 +940,16 @@ class HerramientasTimbrado:
                 address_detail_id
             )
 
+            actualizar_precios_documento(document_id)
+
+            # En documentos combinados se afecta una sola vez, después de
+            # insertar las partidas de todos los pedidos incluidos.
+            Impuestos.afectar_impuestos_documento(
+                self._base_de_datos,
+                document_id
+            )
+            actualizar_totales_documento(document_id)
+
             crear_comentario_documento(
                 all_order_document_ids,
                 document_id,
@@ -761,7 +961,7 @@ class HerramientasTimbrado:
             for order in all_order_document_ids:
                 self._modelo.relacionar_pedidos_con_facturas(document_id, order)
 
-            self._modelo.insertar_pedido_a_recalcular(document_id, order_document_id)
+            actualizar_total_factura_en_pedidos(document_id, all_order_document_ids)
             self._modelo.afectar_bitacora_de_cambios_en_pedidos(document_id, all_order_document_ids)
 
         def validar_si_se_pueden_combinar(filas):
@@ -1068,4 +1268,3 @@ class HerramientasTimbrado:
             ventana.wait_window()
         finally:
             self._parametros.id_principal = 0
-

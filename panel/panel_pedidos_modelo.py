@@ -343,8 +343,9 @@ class ModeloPanelPedidos:
 
         order_document_id = fila['OrderDocumentID']
 
-        # este valor hace que para los doctos de mayoreo no sean recalculables
-        self.base_de_datos.command('UPDATE docDocument SET ExportID = 6, OrderDocumentID = ? WHERE DocumentID = ?',
+        # El documento queda disponible para el flujo normal del ERP; ya no
+        # necesita la bandera temporal que lo reservaba para el script externo.
+        self.base_de_datos.command('UPDATE docDocument SET ExportID = 1, OrderDocumentID = ? WHERE DocumentID = ?',
                                    (order_document_id, document_id))
 
         return document_id
@@ -808,4 +809,3 @@ class ModeloPanelPedidos:
               SELECT *
               FROM [dbo].[zvwBuscarInfoCliente-BusinessEntityID](?)
             """, (business_entity_id,))
-

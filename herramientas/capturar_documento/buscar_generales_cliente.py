@@ -330,8 +330,19 @@ class BuscarGeneralesCliente:
     def _buscar_info_y_setear_cliente(self, business_entity_id, abrir=False, actualizar=False):
         """Busca info del cliente, setea en self._cliente y ejecuta la acción final."""
         self._buscar_info_cliente_seleccionado(business_entity_id)
+        if not self._info_cliente_seleccionado:
+            return False
+
         self._cliente.consulta = self._info_cliente_seleccionado
         self._cliente.settear_valores_consulta()
+
+        # Mantener sincronizada la selección confirmada incluso cuando la
+        # búsqueda devuelve un único resultado y el combobox no dispara su
+        # evento de selección.
+        self._ultimo_cliente_id = int(business_entity_id or 0)
+        self._ultimo_cliente_texto = str(
+            self._info_cliente_seleccionado[0].get('OfficialName', '') or ''
+        )
         self._rellenar_cbx_documento()
 
 
@@ -339,6 +350,7 @@ class BuscarGeneralesCliente:
             self._llamar_instancia()
         if actualizar:
             self._actualizar_apariencia_forma()
+        return True
 
     def _buscar_termino(self, event=None):
         termino_buscado = self._validar_termino()
@@ -349,6 +361,10 @@ class BuscarGeneralesCliente:
 
         if termino_buscado != getattr(self, "_termino_buscado", None):
             self._termino_buscado = termino_buscado
+            # Una búsqueda nueva invalida cualquier selección confirmada de
+            # la búsqueda anterior.
+            self._ultimo_cliente_id = None
+            self._ultimo_cliente_texto = None
 
         # 1) Búsqueda por folio (prefijos)
         if termino_buscado.startswith(('FG', 'FM', 'FGR')):
@@ -552,7 +568,8 @@ class BuscarGeneralesCliente:
         self._buscar_info_y_setear_cliente(beid, actualizar=False)  # ya venimos con selección hecha
         self._cliente.consulta = self._info_cliente_seleccionado
         self._cliente.settear_valores_consulta()
-        self._asignar_parametros_a_documento()
+        if not self._asignar_parametros_a_documento():
+            return
 
         if self._cliente.depots > 0:
             seleccion_direccion = (self._ventanas.obtener_input_componente('cbx_direccion') or '').upper()
@@ -1090,9 +1107,25 @@ class BuscarGeneralesCliente:
 
         datos_direccion_seleccionada = self._procesar_direccion_seleccionada()
 
+        address_detail_id = int(
+            datos_direccion_seleccionada.get('address_detail_id', 0) or 0
+        )
+        direcciones_cliente = {
+            int(registro.get('AddressDetailID', 0) or 0)
+            for registro in (self._consulta_direcciones or [])
+        }
+        if address_detail_id <= 0 or address_detail_id not in direcciones_cliente:
+            self._ventanas.mostrar_mensaje(
+                'No fue posible determinar una dirección válida para el '
+                'cliente seleccionado. Seleccione nuevamente el cliente y '
+                'su dirección.'
+            )
+            return False
+
         self._documento.depot_id = datos_direccion_seleccionada.get('depot_id', 0)
         self._documento.depot_name = datos_direccion_seleccionada.get('depot_name', '')
-        self._documento.address_detail_id = datos_direccion_seleccionada.get('address_detail_id', 0)
+        self._documento.address_detail_id = address_detail_id
         self._documento.address_name = datos_direccion_seleccionada.get('address_name', '')
         self._documento.business_entity_id = self._cliente.business_entity_id
         self._documento.customer_type_id = self._cliente.cayal_customer_type_id
+        return True

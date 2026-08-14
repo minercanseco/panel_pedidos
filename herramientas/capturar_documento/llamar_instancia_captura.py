@@ -314,6 +314,7 @@ class LlamarInstanciaCaptura:
         return data
 
     def _llamar_instancia_nuevo_documento(self):
+        guardar_documento = False
         try:
             self._settear_valores_cliente()
             self._settear_valores_direccion_documento()
@@ -336,10 +337,17 @@ class LlamarInstanciaCaptura:
 
             self._master.wait_window()
 
+            guardar_documento = (
+                not solicitar_guardado
+                or interfaz.guardar_documento is True
+            )
+
         finally:
-            self._tareas_finales_de_afectacion_de_documentos()
+            if guardar_documento:
+                self._tareas_finales_de_afectacion_de_documentos()
 
     def _llamar_instancia_documento_existente(self):
+        guardar_documento = False
         try:
             self._settear_valores_cliente()
             self._settear_valores_documento()
@@ -365,6 +373,8 @@ class LlamarInstanciaCaptura:
 
             if interfaz.guardar_documento is not True:
                 return
+
+            guardar_documento = True
 
             # Los demás módulos conservan su flujo actual de persistencia.
             if self._module_id != MODULO_COMPRAS:
@@ -450,7 +460,8 @@ class LlamarInstanciaCaptura:
                 partida['ItemProductionStatusModified'] = 0
 
         finally:
-            self._tareas_finales_de_afectacion_de_documentos()
+            if guardar_documento:
+                self._tareas_finales_de_afectacion_de_documentos()
 
     def _tareas_finales_de_afectacion_de_documentos(self):
         if self._documento.document_id != 0:
@@ -481,6 +492,14 @@ class LlamarInstanciaCaptura:
                 if registros:
 
                     self._base_de_datos.guardar_prorrateo_maniobras(self._documento.document_id, self._user_id, registros)
+
+            # Las partidas ya están persistidas. A partir de ellas se
+            # reconstruyen detalle, resumen fiscal y resumen por impuesto
+            # antes de actualizar el encabezado o generar salidas fiscales.
+            if self._modelo_captura is not None:
+                self._modelo_captura.afectar_impuestos_documento(
+                    self._documento.document_id
+                )
 
             # Antes del cobro los totales ya fueron preparados. No deben
             # reinicializarse después, porque se perderían TotalPaid,

@@ -1,7 +1,7 @@
 from cayal.util import Utilerias
 
-from capturar_documento.herramientas.cobrar_cartera.abrir_cajon import CajonCobro
-from capturar_documento.herramientas.cobrar_cartera.saldar_documentos import SaldarDocumentos
+from herramientas.capturar_documento.herramientas.cobrar_cartera.abrir_cajon import CajonCobro
+from herramientas.capturar_documento.herramientas.cobrar_cartera.saldar_documentos import SaldarDocumentos
 from datetime import datetime
 
 class ControladorSaldarCartera:
@@ -94,6 +94,17 @@ class ControladorSaldarCartera:
 
         consulta = self._base_de_datos.buscar_documentos_con_saldo(self._business_entity_id)
 
+        # La deuda del objeto cliente corresponde al momento en que se abrió
+        # la herramienta. Recalcularla con los saldos vigentes cada vez que
+        # se recarga después de un cobro.
+        deuda_actual = sum(
+            self._utilerias.convertir_moneda_a_decimal(
+                documento.get('Saldo', 0)
+            )
+            for documento in (consulta or [])
+        )
+        self._cliente.debt = deuda_actual
+
         self._interfaz.rellenar_tabla(consulta)
 
         cliente = self._utilerias.limitar_caracteres(self._cliente.official_name,25)
@@ -108,6 +119,24 @@ class ControladorSaldarCartera:
 
         modalidades_de_cobro = ['Un solo cobro', 'Un cobro por documento']
         self._interfaz.ventanas.rellenar_cbx('cbx_modalidad_cobro', modalidades_de_cobro, 'Sin seleccione')
+
+    def _reiniciar_estado_despues_de_cobro(self):
+        """Elimina importes y selecciones pertenecientes al cobro anterior."""
+        self._documentos_seleccionados.clear()
+        self._documentos_seleccionados_previo.clear()
+        self._interfaz.ventanas.limpiar_seleccion_treeview(
+            'tvw_tabla_documentos'
+        )
+        self._interfaz.ventanas.limpiar_componentes([
+            'tbx_monto',
+            'tbx_recibido',
+        ])
+        cero = self._utilerias.convertir_decimal_a_moneda(0)
+        self._interfaz.ventanas.insertar_input_componente('lbl_monto', cero)
+        self._interfaz.ventanas.insertar_input_componente('lbl_cambio', cero)
+        self._interfaz.ventanas.insertar_input_componente('lbl_restante', cero)
+        self._interfaz.ventanas.desbloquear_forma()
+        self._interfaz.actualizar_color_etiquetas('desbloqueo')
 
     def _buscar_terminales_bancarias(self):
         if not self._consulta_terminales_bancarias:
@@ -544,7 +573,11 @@ class ControladorSaldarCartera:
 
         if cerrar_ventana == 1:
             self._deshacer_saldado()
+            self._reiniciar_estado_despues_de_cobro()
             self._rellenar_componentes()
+            self._acualizar_acumulado(
+                self._utilerias.redondear_valor_cantidad_a_decimal(0)
+            )
             self._interfaz.master.deiconify()
             self._interfaz.master.lift()
             self._interfaz.master.focus_force()

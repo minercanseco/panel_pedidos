@@ -5,6 +5,7 @@ import threading
 from types import SimpleNamespace
 
 from cayal.util import Utilerias
+from cayal.impuestos import Impuestos
 
 from herramientas.capturar_documento.herramientas.imprimir_modulo.imprimir_modulo import (
     ImprimirModulo,
@@ -44,6 +45,12 @@ class ServicioGeneracionCFDITicket:
 
         def ejecutar():
             try:
+                # La afectación fiscal debe terminar antes de consultar los
+                # datos del formato o enviar el trabajo a cualquier impresora.
+                # Se repite aquí de forma intencional porque este servicio se
+                # ejecuta en segundo plano y constituye la última frontera
+                # antes de imprimir.
+                self._garantizar_impuestos(document_id)
                 archivos = self.generar_archivos(document_id)
                 parametros_impresion = SimpleNamespace(
                     id_modulo=self.MODULO_CFDI,
@@ -83,6 +90,49 @@ class ServicioGeneracionCFDITicket:
         )
         hilo.start()
         return hilo
+
+    def _garantizar_impuestos(self, document_id):
+        Impuestos.afectar_impuestos_documento(
+            self.base_de_datos,
+            int(document_id),
+        )
+
+        conceptos_incompletos = self.base_de_datos.fetchall(
+            '''
+            SELECT I.DocumentItemID
+            FROM dbo.docDocumentItem I
+            WHERE I.DocumentID = ?
+              AND I.DeletedOn IS NULL
+              AND I.ObjetoImpuesto = N'02'
+              AND (
+                    NOT EXISTS (
+                        SELECT 1
+                        FROM dbo.docDocumentTaxDetail TD
+                        WHERE TD.DocumentID = I.DocumentID
+                          AND TD.DocumentItemID = I.DocumentItemID
+                    )
+                    OR NOT EXISTS (
+                        SELECT 1
+                        FROM dbo.docDocumentItemTax IT
+                        WHERE IT.DocumentID = I.DocumentID
+                          AND IT.DocumentItemID = I.DocumentItemID
+                    )
+              )
+            ''',
+            (int(document_id),),
+        )
+        if conceptos_incompletos:
+            ids = ', '.join(
+                str(fila['DocumentItemID'])
+                for fila in conceptos_incompletos
+            )
+            raise RuntimeError(
+                'No se imprimirá el documento {} porque sus impuestos '
+                'quedaron incompletos en las partidas: {}.'.format(
+                    document_id,
+                    ids,
+                )
+            )
 
     def generar(self, document_id):
         """Conserva la interfaz anterior devolviendo el primer archivo."""

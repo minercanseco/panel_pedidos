@@ -99,16 +99,62 @@ class ModeloCaptura:
         total = getattr(self.documento, 'total', 0) or 0
 
         self.base_de_datos.command(
-            'UPDATE docDocument '
-            'SET SubTotal = ?, TotalTax = ?, Total = ?, '
-            'StatusPaidID = ?, TotalPaid = ?, Balance = ? '
-            'WHERE DocumentID = ?',
+            '''
+            WITH Payments AS (
+                SELECT
+                    DP.DocumentID,
+                    COALESCE(SUM(DP.Amount), 0) AS TotalPaid
+                FROM docDocumentPayment DP
+                INNER JOIN docFinancialOperation DF
+                    ON DF.FinancialOperationID = DP.FinancialOperationID
+                WHERE
+                    DP.DocumentID = ?
+                    AND DF.DeletedOn IS NULL
+                GROUP BY DP.DocumentID
+            )
+            UPDATE D
+            SET
+                D.SubTotal = ?,
+                D.TotalTax = ?,
+                D.Total = ?,
+                D.TotalPaid = COALESCE(P.TotalPaid, 0),
+
+                D.Balance =
+                    CASE
+                        WHEN ? - COALESCE(P.TotalPaid, 0) > 0
+                            THEN ? - COALESCE(P.TotalPaid, 0)
+                        ELSE 0
+                    END,
+
+                D.StatusPaidID =
+                    CASE
+                        -- No tiene cobros
+                        WHEN COALESCE(P.TotalPaid, 0) <= 0 THEN 3
+
+                        -- Está sobrepagado
+                        WHEN CAST(COALESCE(P.TotalPaid, 0) AS DECIMAL(18, 2))
+                           > CAST(? AS DECIMAL(18, 2)) THEN 4
+
+                        -- Está totalmente pagado
+                        WHEN CAST(COALESCE(P.TotalPaid, 0) AS DECIMAL(18, 2))
+                           = CAST(? AS DECIMAL(18, 2)) THEN 1
+
+                        -- Tiene cobros, pero todavía debe dinero
+                        ELSE 2
+                    END
+            FROM docDocument D
+            LEFT JOIN Payments P
+                ON P.DocumentID = D.DocumentID
+            WHERE D.DocumentID = ?
+            ''',
             (
+                document_id,
                 subtotal,
                 total_tax,
                 total,
-                3,
-                0,
+                total,
+                total,
+                total,
                 total,
                 document_id,
             ),
@@ -117,7 +163,30 @@ class ModeloCaptura:
 
     def preparar_documento_para_cobro(self):
         """Compatibilidad con el flujo existente de cobro inmediato."""
-        return self.actualizar_totales_documento()
+        document_id = int(
+            getattr(self.documento, 'document_id', 0) or 0
+        )
+        if document_id <= 0:
+            return False
+
+        self.afectar_impuestos_documento(document_id)
+        return self.actualizar_totales_documento(document_id)
+
+    def afectar_impuestos_documento(self, document_id=None):
+        """Reconstruye las tablas fiscales después de persistir las partidas."""
+        if self.module_id not in self.MODULOS_ACTUALIZACION_TOTALES:
+            return None
+
+        document_id = int(
+            document_id or getattr(self.documento, 'document_id', 0) or 0
+        )
+        if document_id <= 0:
+            return None
+
+        return self.impuestos.afectar_impuestos_documento(
+            self.base_de_datos,
+            document_id,
+        )
 
     def buscar_partidas_documento(self, module_id, document_id):
 

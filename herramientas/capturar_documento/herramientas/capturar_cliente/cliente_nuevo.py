@@ -1,8 +1,8 @@
 import tkinter as tk
 from cayal.cliente import Cliente
 from cayal.ventanas import Ventanas
-from buscar_info_cif import BuscarInfoCif
-from notebook_cliente import NoteBookCliente
+from .buscar_info_cif import BuscarInfoCif
+from .notebook_cliente import NoteBookCliente
 
 
 class ClienteNuevo:

@@ -20,6 +20,24 @@ from capturar_documento.herramientas.editar_generales.interfaz import (
 from capturar_documento.herramientas.editar_generales.modelo import (
     ModeloEditarDocumento,
 )
+from capturar_documento.herramientas.agregar_queja.controlador import (
+    ControladorAgregarQueja,
+)
+from capturar_documento.herramientas.agregar_queja.interfaz import (
+    Interfaz as InterfazAgregarQueja,
+)
+from capturar_documento.herramientas.agregar_queja.modelo import (
+    Modelo as ModeloAgregarQueja,
+)
+from capturar_documento.herramientas.corte_de_caja.main import (
+    abrir_corte_de_caja,
+)
+from capturar_documento.herramientas.capturar_cliente.main import (
+    abrir_captura_cliente,
+)
+from capturar_documento.herramientas.dividir_facturas_cayal.main import (
+    abrir_division_documento,
+)
 
 
 class ControladorSelectorModulo:
@@ -31,6 +49,7 @@ class ControladorSelectorModulo:
             'tbv_tickets': None,
             'tbv_facturas': None,
             'tbv_depositos': None,
+            'tbv_cortes': None,
         }
         self._ICONOS_ESPECIALES = {
             'CanceladoIcon': 'Cancelled16.ico',
@@ -55,7 +74,9 @@ class ControladorSelectorModulo:
         }
 
         self._ejecutando = False
+        self._globalizacion_en_curso = False
         self._inyectar_funciones_barra_herramientas()
+        self._agregar_eventos_tablas()
         self._configurar_aplicativo()
         self._agregar_atajos()
         self._programar_actualizacion()
@@ -158,6 +179,9 @@ class ControladorSelectorModulo:
             'nuevo_ticket': self._nuevo_ticket,
             'nueva_factura': self._nueva_factura,
             'nuevo_deposito': self._nuevo_deposito,
+            'nuevo_corte_caja': self._nuevo_corte_caja,
+            'editar_cliente': self._editar_cliente,
+            'capturar_cliente': self._capturar_cliente,
             'actualizar':self._actualizar_tablas,
             'verificador': self._verificador,
             'imprimir':self._imprimir,
@@ -165,6 +189,9 @@ class ControladorSelectorModulo:
             'cobrar_cartera': self._cobrar_cartera,
             'abrir_cajon': self._abrir_cajon,
             'editar_generales': self._editar_generales,
+            'agregar_queja': self._agregar_queja,
+            'globalizar': self._globalizar,
+            'dividir_documento': self._dividir_documento,
         }
 
         for item in self._interfaz.barra_herramientas:
@@ -232,6 +259,42 @@ class ControladorSelectorModulo:
             )
 
     def _actualizar_tabla(self, tabla):
+        if tabla == 'tbv_cortes':
+            registros = self._modelo.obtener_cortes_caja() or []
+            nombres_columnas = [
+                'ID', 'Fecha', 'Mes', 'Hora', 'Documentos', 'Ventas',
+                'Depositos', 'Tarjetas', 'EfectivoSistema',
+                'EfectivoCajero', 'Faltante', 'Sobrante',
+                'Transferencias', 'Cheques', 'Gastos', 'Anticipos',
+                'Comentario', 'Cajero', 'Validado', 'ValidadoPor',
+                'Incidencia', 'Folio', 'CreatedBy',
+            ]
+            anchos_columnas = [
+                0, 95, 75, 145, 85, 100,
+                100, 100, 115, 115, 95, 95,
+                110, 95, 95, 95,
+                220, 110, 75, 110,
+                180, 90, 0,
+            ]
+            columnas_str = ', '.join(
+                '[{}]'.format(nombre) for nombre in nombres_columnas
+            )
+            ancho_columnas_str = ', '.join(
+                str(ancho) for ancho in anchos_columnas
+            )
+            columnas = self._crear_columnas_tabla(
+                columnas_str,
+                ancho_columnas_str,
+            )
+            self._TABLAS[tabla] = columnas
+            self._interfaz.ventanas.rellenar_table_view(
+                tabla,
+                columnas,
+                self._procesar_registros_consultas(registros),
+            )
+            self._interfaz.actualizar_contador_tabla(tabla, len(registros))
+            return len(registros)
+
         columnas_str, ancho_columnas_str, primary_key = (
             self._modelo.obtener_columnas(tabla)
         )
@@ -257,6 +320,14 @@ class ControladorSelectorModulo:
             tabla, len(registros_procesados)
         )
         return len(registros_procesados)
+
+    def _agregar_eventos_tablas(self):
+        self._interfaz.ventanas.cargar_eventos({
+            'tbv_cortes': (
+                lambda _event: self._visualizar_corte_caja(),
+                'doble_click',
+            ),
+        })
 
     def _agregar_atajos(self):
         self._interfaz.ventanas.agregar_hotkeys_forma({
@@ -372,6 +443,86 @@ class ControladorSelectorModulo:
             tabla_actualizar='tbv_depositos',
         )
 
+    def _nuevo_corte_caja(self):
+        return self._ejecutar_accion(
+            funcion=lambda ventana: abrir_corte_de_caja(
+                ventana,
+                self._modelo.parametros,
+            ),
+            id_principal=0,
+            tabla_actualizar='tbv_cortes',
+        )
+
+    def _capturar_cliente(self):
+        business_entity_id = 0
+
+        return self._ejecutar_accion(
+            funcion=lambda ventana: abrir_captura_cliente(
+                ventana,
+                self._modelo.parametros,
+            ),
+            id_principal=business_entity_id,
+            tabla_actualizar='tbv_facturas' if business_entity_id else None,
+        )
+
+    def _editar_cliente(self):
+        tabla = self._interfaz.obtener_tabla_activa()
+        business_entity_id = 0
+
+        if tabla == 'tbv_facturas':
+            filas = self._interfaz.ventanas.procesar_filas_table_view(
+                tabla,
+                seleccionadas=True,
+            )
+
+
+            if len(filas) > 1:
+                self._interfaz.ventanas.mostrar_mensaje(
+                    'Seleccione una sola factura para editar su cliente.'
+                )
+                return None
+
+            if len(filas) == 1:
+                document_id = int(filas[0].get('DocumentID', 0) or 0)
+                business_entity_id = self._modelo.obtener_cliente_documento(
+                    document_id
+                )
+                if business_entity_id <= 0:
+                    self._interfaz.ventanas.mostrar_mensaje(
+                        'No fue posible identificar el cliente de la factura.'
+                    )
+                    return None
+
+        return self._ejecutar_accion(
+            funcion=lambda ventana: abrir_captura_cliente(
+                ventana,
+                self._modelo.parametros,
+            ),
+            id_principal=business_entity_id,
+            tabla_actualizar='tbv_facturas' if business_entity_id else None,
+        )
+
+    def _visualizar_corte_caja(self):
+        fila = self._obtener_valores_fila()
+        if not fila or fila.get('Tabla') != 'tbv_cortes':
+            return None
+
+        corte_id = int(fila.get('ID', 0) or 0)
+        if corte_id <= 0:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'No fue posible identificar el corte seleccionado.'
+            )
+            return None
+
+        return self._ejecutar_accion(
+            funcion=lambda ventana: abrir_corte_de_caja(
+                ventana,
+                self._modelo.parametros,
+            ),
+            id_principal=corte_id,
+            tabla_actualizar='tbv_cortes',
+        )
+
     def _verificador(self):
         return self._ejecutar_accion(
             funcion=lambda ventana: ControladorVerificador(
@@ -403,6 +554,103 @@ class ControladorSelectorModulo:
             ),
             id_modulo=158 if fila['Tabla'] == 'tbv_tickets' else 1400,
             id_principal=id_principal,
+            tabla_actualizar=fila['Tabla'],
+        )
+
+    def _agregar_queja(self):
+        fila = self._obtener_valores_fila()
+        if not fila:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Seleccione un solo documento para agregar o consultar sus quejas.'
+            )
+            return None
+
+        document_id = int(fila.get('DocumentID', 0) or 0)
+        if document_id <= 0:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'No fue posible identificar el documento seleccionado.'
+            )
+            return None
+
+        modulos = {
+            'tbv_tickets': 158,
+            'tbv_facturas': 1400,
+            'tbv_depositos': 1664,
+        }
+        module_id = modulos.get(fila['Tabla'], 0)
+
+        return self._ejecutar_accion(
+            funcion=lambda ventana: ControladorAgregarQueja(
+                InterfazAgregarQueja(ventana),
+                ModeloAgregarQueja(self._modelo.parametros),
+            ),
+            id_modulo=module_id,
+            id_principal=document_id,
+            tabla_actualizar=fila['Tabla'],
+        )
+
+    def _dividir_documento(self):
+        fila = self._obtener_valores_fila()
+        if not fila:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Seleccione un solo ticket o factura para dividir.'
+            )
+            return None
+
+        modulos = {
+            'tbv_tickets': 158,
+            'tbv_facturas': 1400,
+        }
+        module_id = modulos.get(fila['Tabla'], 0)
+        if module_id == 0:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'La división sólo está disponible para tickets y facturas.'
+            )
+            return None
+
+        document_id = int(fila.get('DocumentID', 0) or 0)
+        estado = self._modelo.obtener_estado_division_documento(document_id)
+        if not estado:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'No fue posible validar el documento seleccionado.'
+            )
+            return None
+
+        if int(estado.get('ModuleID', 0) or 0) != module_id:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'El documento ya no pertenece al módulo seleccionado.'
+            )
+            return None
+        if int(estado.get('ExportID', 0) or 0) != 1:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'El documento está en proceso de actualización; permita '
+                'que dicho proceso concluya.'
+            )
+            return None
+        if int(estado.get('Cancelado', 0) or 0) == 1:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'El documento está cancelado y no puede dividirse.'
+            )
+            return None
+        if int(estado.get('Borrado', 0) or 0) == 1:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'El documento está borrado y no puede dividirse.'
+            )
+            return None
+        if int(estado.get('CFDStatusID', 0) or 0) == 3:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'El documento está timbrado y no puede dividirse.'
+            )
+            return None
+
+        return self._ejecutar_accion(
+            funcion=lambda ventana: abrir_division_documento(
+                ventana,
+                self._modelo.parametros,
+                self._modelo.base_de_datos,
+            ),
+            id_modulo=module_id,
+            id_principal=document_id,
             tabla_actualizar=fila['Tabla'],
         )
 
@@ -445,6 +693,61 @@ class ControladorSelectorModulo:
             id_principal=0,
             tabla_actualizar=('tbv_tickets', 'tbv_facturas'),
         )
+
+    def _globalizar(self):
+        if self._ejecutando or self._globalizacion_en_curso:
+            return None
+
+        # Se activa antes de consultar o confirmar para que dos clics seguidos
+        # no puedan abrir dos ejecuciones del proceso.
+        self._globalizacion_en_curso = True
+
+        try:
+            documentos = self._modelo.obtener_tickets_pendientes_globalizar()
+            if not documentos:
+                self._interfaz.ventanas.mostrar_mensaje(
+                    'No hay tickets vigentes pendientes de globalizar.'
+                )
+                return None
+
+            no_saldados = self._modelo.obtener_tickets_no_saldados(documentos)
+            if no_saldados:
+                self._interfaz.ventanas.mostrar_mensaje(
+                    self._modelo._mensaje_tickets_no_saldados(no_saldados),
+                    self._interfaz._master,
+                )
+                return None
+
+            if not self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                'Se globalizarán todos los tickets pendientes del día '
+                '({}). ¿Desea continuar?'.format(len(documentos)),
+                master=self._interfaz._master,
+            ):
+                return None
+
+            self._ejecutando = True
+            self._interfaz.mostrar_estado('Globalizando tickets...')
+            facturas = self._modelo.globalizar_tickets(documentos)
+            facturas = facturas if isinstance(facturas, (list, tuple)) else [facturas]
+            self._interfaz.ventanas.mostrar_mensaje(
+                tipo='info',mensaje=
+                'Globalización terminada correctamente. Documento(s): {}'.format(
+                    ', '.join(str(valor) for valor in facturas if valor)
+                ),
+            )
+            return facturas
+        except Exception as error:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'No fue posible globalizar los tickets:\n{}'.format(error),
+                self._interfaz._master,
+            )
+            return None
+        finally:
+            self._ejecutando = False
+            self._globalizacion_en_curso = False
+            self._actualizar_despues_de_accion(
+                ('tbv_tickets', 'tbv_facturas')
+            )
 
     def _abrir_cajon(self):
         cajon = CajonCobro('Tickets')

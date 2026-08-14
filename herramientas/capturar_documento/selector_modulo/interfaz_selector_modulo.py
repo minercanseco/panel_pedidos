@@ -128,6 +128,7 @@ class InterfazSelectorModulo:
             'tbv_tickets': ('tab_tickets', 'Tickets 🧾'),
             'tbv_facturas': ('tab_facturas', 'Facturas 📄'),
             'tbv_depositos': ('tab_depositos', 'Depósitos 💰'),
+            'tbv_cortes': ('tab_cortes', 'Cortes de caja 🧮'),
         }
         datos = configuracion.get(tabla)
         if not datos:
@@ -143,6 +144,7 @@ class InterfazSelectorModulo:
             'tab_tickets': ('Tickets 🧾', None),
             'tab_facturas': ('Facturas 📄', None),
             'tab_depositos': ('Depósitos 💰', None),
+            'tab_cortes': ('Cortes de caja 🧮', None),
         }
 
         self.nombre_notebook = 'nbk_ventas'
@@ -179,6 +181,12 @@ class InterfazSelectorModulo:
                 None,
                 {'row': 0, 'column': 0, 'sticky': tk.NSEW, 'padx': 5, 'pady': 5}
             ),
+
+            'frm_cortes': (
+                'tab_cortes',
+                None,
+                {'row': 0, 'column': 0, 'sticky': tk.NSEW, 'padx': 5, 'pady': 5}
+            ),
         }
 
         self.ventanas.crear_frames(frames_tabs)
@@ -186,6 +194,7 @@ class InterfazSelectorModulo:
         frame_tickets = self.ventanas.componentes_forma['frm_tickets']
         frame_facturas = self.ventanas.componentes_forma['frm_facturas']
         frame_depositos = self.ventanas.componentes_forma['frm_depositos']
+        frame_cortes = self.ventanas.componentes_forma['frm_cortes']
 
         frame_tickets.rowconfigure(0, weight=1)
         frame_tickets.columnconfigure(0, weight=1)
@@ -195,6 +204,9 @@ class InterfazSelectorModulo:
 
         frame_depositos.rowconfigure(0, weight=1)
         frame_depositos.columnconfigure(0, weight=1)
+
+        frame_cortes.rowconfigure(0, weight=1)
+        frame_cortes.columnconfigure(0, weight=1)
 
         self.ventanas.crear_table_view(
             nombre='tbv_tickets',
@@ -220,6 +232,14 @@ class InterfazSelectorModulo:
             stripecolor=True
         )
 
+        self.ventanas.crear_table_view(
+            nombre='tbv_cortes',
+            frame='frm_cortes',
+            columnas=[],
+            filas=filas_tabla,
+            stripecolor=True
+        )
+
     def _crear_barra_herramientas(self):
 
         self.barra_herramientas = [
@@ -237,13 +257,8 @@ class InterfazSelectorModulo:
                 'hotkey': '[F3]',
                 'comando': None
             },
-            {
-                'nombre_icono': 'Ingreso.ico',
-                'etiqueta': 'Depósito',
-                'nombre': 'nuevo_deposito',
-                'hotkey': '[F4]',
-                'comando': None
-            },
+
+
             {
                 'nombre_icono': 'Payments32.ico',
                 'etiqueta': 'Cartera',
@@ -274,9 +289,39 @@ class InterfazSelectorModulo:
                 'comando': None
             },
             {
+                'nombre_icono': 'Barcode32.ico',
+                'etiqueta': 'Verificador',
+                'nombre': 'verificador',
+                'hotkey': '',
+                'comando': None
+            },
+            {
+                'nombre_icono': 'DocumentEdit.ico',
+                'etiqueta': 'E.Cliente',
+                'nombre': 'editar_cliente',
+                'hotkey': '',
+                'comando': None
+            },
+            {
+                'nombre_icono': 'Deudor.ico',
+                'etiqueta': 'Cliente',
+                'nombre': 'capturar_cliente',
+                'hotkey': '',
+                'comando': None
+            },
+
+
+            {
                 'nombre_icono': 'DeliveryConciliation.ico',
                 'etiqueta': 'Editar generales',
                 'nombre': 'editar_generales',
+                'hotkey': '',
+                'comando': None
+            },
+            {
+                'nombre_icono': 'Cut.ico',
+                'etiqueta': 'Dividir',
+                'nombre': 'dividir_documento',
                 'hotkey': '',
                 'comando': None
             },
@@ -289,12 +334,37 @@ class InterfazSelectorModulo:
             },
 
             {
-                'nombre_icono': 'Barcode32.ico',
-                'etiqueta': 'Verificador',
-                'nombre': 'verificador',
+                'nombre_icono': 'Ingreso.ico',
+                'etiqueta': 'Depósito',
+                'nombre': 'nuevo_deposito',
+                'hotkey': '[F4]',
+                'comando': None
+            },
+
+
+            {
+                'nombre_icono': 'warning.ico',
+                'etiqueta': 'Queja',
+                'nombre': 'agregar_queja',
                 'hotkey': '',
                 'comando': None
-            }
+            },
+            {
+                'nombre_icono': 'GlobalizeBuysToInvoice.ico',
+                'etiqueta': 'Globalizar',
+                'nombre': 'globalizar',
+                'hotkey': '',
+                'comando': None
+            },
+
+            {
+                'nombre_icono': 'cortes_caja.ico',
+                'etiqueta': 'Corte de caja',
+                'nombre': 'nuevo_corte_caja',
+                'hotkey': '',
+                'comando': None
+            },
+
         ]
 
 
@@ -319,6 +389,11 @@ class InterfazSelectorModulo:
                 'frame': 'frm_depositos',
                 'tabla': 'tbv_depositos',
                 'texto': 'Depósitos 💰'
+            },
+            'tab_cortes': {
+                'frame': 'frm_cortes',
+                'tabla': 'tbv_cortes',
+                'texto': 'Cortes de caja 🧮'
             },
         }
 

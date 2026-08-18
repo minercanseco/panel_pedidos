@@ -14,6 +14,17 @@ class ModeloSelectorModulo:
     def obtener_nombre_usuario(self):
         return self.base_de_datos.buscar_nombre_de_usuario(self.user_id)
 
+    def obtener_modulo_documento(self, document_id):
+        return int(self.base_de_datos.fetchone(
+            '''
+            SELECT ModuleID
+            FROM dbo.docDocument
+            WHERE DocumentID = ?
+              AND DeletedOn IS NULL
+            ''',
+            (int(document_id),),
+        ) or 0)
+
     def obtener_estado_edicion_factura(self, document_id):
         registros = self.base_de_datos.fetchall(
             """
@@ -56,6 +67,147 @@ class ModeloSelectorModulo:
             (int(document_id),),
         )
         return registros[0] if registros else None
+
+    def obtener_estados_timbrado(self, documentos):
+        """Consulta el estado vigente antes de solicitar el timbrado."""
+        documentos = sorted(set(
+            int(document_id) for document_id in documentos if document_id
+        ))
+        if not documentos:
+            return []
+
+        marcas = ', '.join('?' for _ in documentos)
+        return self.base_de_datos.fetchall(
+            '''
+            SELECT D.DocumentID,
+                   D.ModuleID,
+                   ISNULL(D.InvoiceID, 0) AS InvoiceID,
+                   CASE WHEN D.CancelledOn IS NULL THEN 0 ELSE 1 END
+                       AS Cancelado,
+                   CASE WHEN D.DeletedOn IS NULL THEN 0 ELSE 1 END
+                       AS Borrado,
+                   ISNULL(CFD.CFDStatusID, 0) AS CFDStatusID,
+                   CASE
+                       WHEN D.ModuleID = 1400
+                           THEN ISNULL(F.CFDStatusName, '')
+                       WHEN D.ModuleID = 50
+                           THEN ISNULL(G.CFDStatusName, '')
+                       ELSE ''
+                   END AS CFDStatusName
+            FROM dbo.docDocument D
+            LEFT JOIN dbo.docDocumentCFD CFD
+                ON CFD.DocumentID = D.DocumentID
+            LEFT JOIN dbo.vwLBSDocCustomerInvoiceList1400 F
+                ON F.DocumentID = D.DocumentID
+               AND D.ModuleID = 1400
+            LEFT JOIN dbo.vwLBSDocCustomerInvoiceGlobalList2 G
+                ON G.DocumentID = D.DocumentID
+               AND D.ModuleID = 50
+            WHERE D.DocumentID IN ({})
+            '''.format(marcas),
+            tuple(documentos),
+        )
+
+    def obtener_folios_documentos(self, documentos):
+        """Relaciona DocumentID con el folio que reconoce el usuario."""
+        documentos = sorted(set(
+            int(document_id) for document_id in documentos if document_id
+        ))
+        if not documentos:
+            return {}
+
+        marcas = ', '.join('?' for _ in documentos)
+        registros = self.base_de_datos.fetchall(
+            '''
+            SELECT D.DocumentID,
+                   LTRIM(RTRIM(
+                       ISNULL(D.FolioPrefix, '') + ISNULL(D.Folio, '')
+                   )) AS Folio
+            FROM dbo.docDocument D
+            WHERE D.DocumentID IN ({})
+            '''.format(marcas),
+            tuple(documentos),
+        )
+        return {
+            int(fila['DocumentID']): (
+                str(fila.get('Folio') or fila['DocumentID']).strip()
+            )
+            for fila in registros
+        }
+
+    def solicitar_timbrado(self, documentos, usuario_id):
+        """Cambia a estado pendiente sólo si todo el grupo sigue siendo válido."""
+        usuario_id = int(usuario_id or 0)
+        if usuario_id <= 0:
+            raise ValueError('El usuario que solicita el timbrado no es válido.')
+
+        documentos = sorted(set(
+            int(document_id) for document_id in documentos if document_id
+        ))
+        if not documentos:
+            raise ValueError('Debe seleccionar por lo menos un documento.')
+
+        marcas = ', '.join('?' for _ in documentos)
+        sql = '''
+        SET NOCOUNT ON;
+        SET XACT_ABORT ON;
+        BEGIN TRANSACTION;
+
+        UPDATE D WITH (UPDLOCK, HOLDLOCK)
+           SET InvoiceID = 1,
+                SentInvoiceUserID = ?
+        FROM dbo.docDocument D
+        WHERE D.DocumentID IN ({marcas})
+          AND D.ModuleID IN (1400, 50)
+          AND ISNULL(D.InvoiceID, 0) = 0
+          AND D.CancelledOn IS NULL
+          AND D.DeletedOn IS NULL
+          AND NOT EXISTS (
+              SELECT 1
+              FROM dbo.docDocumentCFD CFD
+              WHERE CFD.DocumentID = D.DocumentID
+                AND ISNULL(CFD.CFDStatusID, 0) = 3
+          )
+          AND (
+              (D.ModuleID = 1400 AND EXISTS (
+                  SELECT 1
+                  FROM dbo.vwLBSDocCustomerInvoiceList1400 F
+                  WHERE F.DocumentID = D.DocumentID
+                    AND ISNULL(F.CFDStatusName, '') IN ('No enviado', 'Error')
+              ))
+              OR
+              (D.ModuleID = 50 AND EXISTS (
+                  SELECT 1
+                  FROM dbo.vwLBSDocCustomerInvoiceGlobalList2 G
+                  WHERE G.DocumentID = D.DocumentID
+                    AND ISNULL(G.CFDStatusName, '') IN ('No enviado', 'Error')
+              ))
+          );
+
+        DECLARE @Afectados int = @@ROWCOUNT;
+        IF @Afectados <> ?
+        BEGIN
+            ROLLBACK TRANSACTION;
+            SELECT CAST(-1 AS int);
+            RETURN;
+        END;
+
+        COMMIT TRANSACTION;
+        SELECT @Afectados;
+        '''.format(marcas=marcas)
+
+        parametros = (
+            (usuario_id,)
+            + tuple(documentos)
+            + (len(documentos),)
+        )
+        afectados = int(self.base_de_datos.fetchone(sql, parametros) or 0)
+        if afectados != len(documentos):
+            raise ValueError(
+                'El estado de uno o más documentos cambió durante la '
+                'operación. No se envió ninguno; actualice e intente de nuevo.'
+            )
+        return afectados
 
     def obtener_cliente_documento(self, document_id):
         return int(self.base_de_datos.fetchone(
@@ -894,6 +1046,22 @@ class ModeloSelectorModulo:
             SELECT *
             FROM dbo.zvwCortesDeCajaMenu2
             WHERE CreatedBy = ?
+            ''',
+            (self.user_id,),
+        )
+
+    def obtener_facturas_globales(self):
+        """Consulta las facturas globales capturadas por el usuario actual."""
+        return self.base_de_datos.fetchall(
+            '''
+            SELECT DocumentID, BusinessEntityName, DocFolio, DateDocument,
+                   CancelledIcon, CFDStatusID, CFDStatusName,
+                   CFDStatusCancelledName,
+                   CFDStatusError, CFDCancelledStatusID, Usuario,
+                   TimbradoPor, HoraVenta, Comentarios, CanceladoPor, CreatedBy
+            FROM dbo.vwLBSDocCustomerInvoiceGlobalList2
+            WHERE CreatedBy = ?
+            ORDER BY DateDocument DESC, HoraVenta DESC, DocumentID DESC
             ''',
             (self.user_id,),
         )

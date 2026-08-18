@@ -579,3 +579,7 @@ class ModeloCaptura:
 
     def obtener_costo_servicio_documicilio(self, address_detail_id):
         return self.base_de_datos.buscar_costo_servicio_domicilio(address_detail_id)
+
+    def obtener_costo_producto(self, product_id):
+        return self.base_de_datos.fetchone('SELECT COALESCE(UltimoCosto,0) FROM zvwUltimoCostoProductosCayal2Final WHERE ProductID = ?',
+                                           (product_id,))

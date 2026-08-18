@@ -6,12 +6,15 @@ from cayal.ventanas import Ventanas
 
 
 class InterfazSelectorModulo:
+    MOSTRAR_FACTURAS_GLOBALES = False
+
     def __init__(self, master):
         self._master = master
         self.ventanas = Ventanas(self._master)
 
 
         self._crear_frames()
+        self._crear_pestanas_herramientas()
         self._crear_encabezado()
         self._cargar_componentes()
         self._crear_barra_herramientas()
@@ -39,7 +42,7 @@ class InterfazSelectorModulo:
 
             'frame_herramientas': (
                 'frame_principal',
-                None,
+                'Herramientas',
                 {'row': 1, 'column': 0, 'padx': 8, 'pady': 4, 'sticky': tk.EW}
             ),
 
@@ -59,6 +62,36 @@ class InterfazSelectorModulo:
         frame_notebook = self.ventanas.componentes_forma['frame_notebook']
         frame_notebook.rowconfigure(0, weight=1)
         frame_notebook.columnconfigure(0, weight=1)
+
+    def _crear_pestanas_herramientas(self):
+        frame_herramientas = self.ventanas.componentes_forma[
+            'frame_herramientas'
+        ]
+        frame_herramientas.columnconfigure(0, weight=1)
+
+        self.notebook_herramientas = self.ventanas.crear_notebook(
+            nombre_notebook='nbk_herramientas',
+            info_pestanas={
+                'tab_herramientas_generales': ('Generales', None),
+                'tab_herramientas_timbrado': ('Timbrado', None),
+                'tab_herramientas_administracion': ('Administración', None),
+            },
+            nombre_frame_padre='frame_herramientas',
+            config_notebook={
+                'row': 0,
+                'column': 0,
+                'sticky': tk.EW,
+                'padx': 5,
+                'pady': 3,
+                'bootstyle': 'primary',
+            },
+        )
+
+        self.frames_barra_herramientas = {
+            'generales': 'tab_herramientas_generales',
+            'timbrado': 'tab_herramientas_timbrado',
+            'administracion': 'tab_herramientas_administracion',
+        }
 
     def _crear_encabezado(self):
         principal = self.ventanas.componentes_forma['frame_principal']
@@ -127,6 +160,9 @@ class InterfazSelectorModulo:
         configuracion = {
             'tbv_tickets': ('tab_tickets', 'Tickets 🧾'),
             'tbv_facturas': ('tab_facturas', 'Facturas 📄'),
+            'tbv_facturas_globales': (
+                'tab_facturas_globales', 'Facturas globales 🌐'
+            ),
             'tbv_depositos': ('tab_depositos', 'Depósitos 💰'),
             'tbv_cortes': ('tab_cortes', 'Cortes de caja 🧮'),
         }
@@ -143,6 +179,7 @@ class InterfazSelectorModulo:
         info_pestanas = {
             'tab_tickets': ('Tickets 🧾', None),
             'tab_facturas': ('Facturas 📄', None),
+            'tab_facturas_globales': ('Facturas globales 🌐', None),
             'tab_depositos': ('Depósitos 💰', None),
             'tab_cortes': ('Cortes de caja 🧮', None),
         }
@@ -176,6 +213,12 @@ class InterfazSelectorModulo:
                 {'row': 0, 'column': 0, 'sticky': tk.NSEW, 'padx': 5, 'pady': 5}
             ),
 
+            'frm_facturas_globales': (
+                'tab_facturas_globales',
+                None,
+                {'row': 0, 'column': 0, 'sticky': tk.NSEW, 'padx': 5, 'pady': 5}
+            ),
+
             'frm_depositos': (
                 'tab_depositos',
                 None,
@@ -193,6 +236,9 @@ class InterfazSelectorModulo:
 
         frame_tickets = self.ventanas.componentes_forma['frm_tickets']
         frame_facturas = self.ventanas.componentes_forma['frm_facturas']
+        frame_facturas_globales = self.ventanas.componentes_forma[
+            'frm_facturas_globales'
+        ]
         frame_depositos = self.ventanas.componentes_forma['frm_depositos']
         frame_cortes = self.ventanas.componentes_forma['frm_cortes']
 
@@ -201,6 +247,9 @@ class InterfazSelectorModulo:
 
         frame_facturas.rowconfigure(0, weight=1)
         frame_facturas.columnconfigure(0, weight=1)
+
+        frame_facturas_globales.rowconfigure(0, weight=1)
+        frame_facturas_globales.columnconfigure(0, weight=1)
 
         frame_depositos.rowconfigure(0, weight=1)
         frame_depositos.columnconfigure(0, weight=1)
@@ -225,6 +274,14 @@ class InterfazSelectorModulo:
         )
 
         self.ventanas.crear_table_view(
+            nombre='tbv_facturas_globales',
+            frame='frm_facturas_globales',
+            columnas=[],
+            filas=filas_tabla,
+            stripecolor=True
+        )
+
+        self.ventanas.crear_table_view(
             nombre='tbv_depositos',
             frame='frm_depositos',
             columnas=[],
@@ -239,6 +296,13 @@ class InterfazSelectorModulo:
             filas=filas_tabla,
             stripecolor=True
         )
+
+        if not self.MOSTRAR_FACTURAS_GLOBALES:
+            tab_facturas_globales = self.ventanas.componentes_forma.get(
+                'tab_facturas_globales'
+            )
+            if tab_facturas_globales is not None:
+                self.notebook.hide(tab_facturas_globales)
 
     def _crear_barra_herramientas(self):
 
@@ -258,6 +322,45 @@ class InterfazSelectorModulo:
                 'comando': None
             },
 
+            {
+                'nombre_icono': 'CFD.ico',
+                'etiqueta': 'Timbrar',
+                'nombre': 'timbrar',
+                'seccion': 'timbrado',
+                'hotkey': '',
+                'comando': None
+            },
+            {
+                'nombre_icono': 'DocRelacionados.ico',
+                'etiqueta': 'CFDI relacionados',
+                'nombre': 'cfdi_relacionados',
+                'seccion': 'timbrado',
+                'hotkey': '',
+                'comando': None
+            },
+            {
+                'nombre_icono': 'AddendaFieldRefRefresh.ico',
+                'etiqueta': 'Intercambiar RFC',
+                'nombre': 'intercambiar_rfc',
+                'seccion': 'timbrado',
+                'hotkey': '',
+                'comando': None
+            },
+            {
+                'nombre_icono': 'Mail.ico',
+                'etiqueta': 'Enviar correos',
+                'nombre': 'enviar_correos',
+                'seccion': 'timbrado',
+                'hotkey': '',
+                'comando': None
+            },
+            {
+                'nombre_icono': 'CopyToInvoice32.ico',
+                'etiqueta': 'Convertir docto',
+                'nombre': 'convertir_documento',
+                'hotkey': '',
+                'comando': None
+            },
 
             {
                 'nombre_icono': 'Payments32.ico',
@@ -315,6 +418,7 @@ class InterfazSelectorModulo:
                 'nombre_icono': 'DeliveryConciliation.ico',
                 'etiqueta': 'Editar generales',
                 'nombre': 'editar_generales',
+                'seccion': 'timbrado',
                 'hotkey': '',
                 'comando': None
             },
@@ -325,6 +429,7 @@ class InterfazSelectorModulo:
                 'hotkey': '',
                 'comando': None
             },
+
             {
                 'nombre_icono': 'CashRegister.ico',
                 'etiqueta': 'Abrir cajón',
@@ -353,6 +458,7 @@ class InterfazSelectorModulo:
                 'nombre_icono': 'GlobalizeBuysToInvoice.ico',
                 'etiqueta': 'Globalizar',
                 'nombre': 'globalizar',
+                'seccion': 'timbrado',
                 'hotkey': '',
                 'comando': None
             },
@@ -361,6 +467,30 @@ class InterfazSelectorModulo:
                 'nombre_icono': 'cortes_caja.ico',
                 'etiqueta': 'Corte de caja',
                 'nombre': 'nuevo_corte_caja',
+                'hotkey': '',
+                'comando': None
+            },
+            {
+                'nombre_icono': 'ActivitySector.ico',
+                'etiqueta': 'Lista de precios',
+                'nombre': 'listas_precios',
+                'seccion': 'administracion',
+                'hotkey': '',
+                'comando': None
+            },
+            {
+                'nombre_icono': 'ActivitySector.ico',
+                'etiqueta': 'Archivo Mayoreo',
+                'nombre': 'archivo_mayoreo',
+                'seccion': 'administracion',
+                'hotkey': '',
+                'comando': None
+            },
+            {
+                'nombre_icono': 'ActivitySector.ico',
+                'etiqueta': 'Archivo Minisúper',
+                'nombre': 'archivo_minisuper',
+                'seccion': 'administracion',
                 'hotkey': '',
                 'comando': None
             },
@@ -384,6 +514,11 @@ class InterfazSelectorModulo:
                 'frame': 'frm_facturas',
                 'tabla': 'tbv_facturas',
                 'texto': 'Facturas 📄'
+            },
+            'tab_facturas_globales': {
+                'frame': 'frm_facturas_globales',
+                'tabla': 'tbv_facturas_globales',
+                'texto': 'Facturas globales 🌐'
             },
             'tab_depositos': {
                 'frame': 'frm_depositos',

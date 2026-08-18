@@ -114,6 +114,9 @@ class ClienteNuevo:
                 print("[CIF] error:", inst.error)
                 return
 
+            # Señala al formulario que esta alta proviene de una consulta CIF
+            # exitosa. No se infiere sólo por tener un CIF capturado.
+            self._cliente._capturado_por_cif_exitosamente = True
             self._settear_valores_cliente_factura(
                 self._cliente.official_name,
                 self._cliente.official_number,

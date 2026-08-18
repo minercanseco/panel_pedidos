@@ -531,7 +531,14 @@ class ControladorCaptura:
 
             if self._module_id == 152:
                 ventana = self._ventanas.crear_popup_ttkbootstrap()
-                _ = PartidaCompra(ventana, self._utilerias, partida_producto=partida)
+                _ = PartidaCompra(
+                    ventana,
+                    self._utilerias,
+                    partida_producto=partida,
+                    costo_producto=self._modelo.obtener_costo_producto(
+                        producto_id
+                    ),
+                )
 
                 ventana.wait_window()
                 if not _.partida_actualizada:
@@ -680,7 +687,14 @@ class ControladorCaptura:
 
                 if self._module_id == 152:
                     ventana =self._ventanas.crear_popup_ttkbootstrap()
-                    _ = PartidaCompra(ventana, self._utilerias, partida_producto=partida)
+                    _ = PartidaCompra(
+                        ventana,
+                        self._utilerias,
+                        partida_producto=partida,
+                        costo_producto=self._modelo.obtener_costo_producto(
+                            product_id
+                        ),
+                    )
 
                     ventana.wait_window()
                     if not _.partida_actualizada:
@@ -933,6 +947,9 @@ class ControladorCaptura:
                 ventana,
                 self._utilerias,
                 partida_producto=partida_documento,
+                costo_producto=self._modelo.obtener_costo_producto(
+                    partida_documento.get('ProductID', 0)
+                ),
                 subtotal_documento=getattr(
                     self.documento,
                     'subtotal',
@@ -2297,6 +2314,8 @@ class ControladorCaptura:
                     disponible
                 ),
             )
+
+        self._interfaz.ajustar_etiquetas_totales()
 
     def _remover_product_id_tabla(self, product_id):
         filas = self._interfaz.ventanas.obtener_filas_treeview('tvw_productos')

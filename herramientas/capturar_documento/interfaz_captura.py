@@ -14,6 +14,7 @@ class InterfazCaptura:
     MODULO_SIN_SALDOS = 158
     MODULO_COMPRAS = 152
     MODULO_PEDIDOS = 1687
+    MODULOS_VENTAS = (158, 21, 1400, 1316, 1319, 967)
     MODULOS_COBRO = (21, 1400, 1319, 158)
     ANCHO_COMPACTO = 1366
     ANCHO_TABLA_COMPACTA = 1367
@@ -403,8 +404,12 @@ class InterfazCaptura:
         frame_importes = tk.Frame(frame_totales, background=color)
         frame_info.grid(row=0, column=0, sticky=tk.NSEW)
         frame_importes.grid(row=0, column=1, sticky=tk.NSEW)
-        frame_totales.grid_columnconfigure(0, weight=1)
-        frame_totales.grid_columnconfigure(1, weight=1)
+        if self.module_id in self.MODULOS_VENTAS:
+            frame_totales.grid_columnconfigure(0, weight=2)
+            frame_totales.grid_columnconfigure(1, weight=3)
+        else:
+            frame_totales.grid_columnconfigure(0, weight=1)
+            frame_totales.grid_columnconfigure(1, weight=1)
 
         self.ventanas.componentes_forma['frame_info_totales'] = frame_info
         self.ventanas.componentes_forma[
@@ -546,10 +551,49 @@ class InterfazCaptura:
             for rol, tamano in tamanos_base.items()
         }
 
+        # En ventas, al aparecer el separador de miles el texto deja de caber
+        # con la fuente grande. Pedidos y compras conservan su escala actual.
+        if self.module_id in self.MODULOS_VENTAS:
+            nombres_importes = (
+                'lbl_total',
+                'lbl_credito',
+                'lbl_debe',
+                'lbl_restante',
+            )
+            longitud_mayor = max(
+                len(str(
+                    self.ventanas.componentes_forma[nombre].cget('text')
+                ))
+                for nombre in nombres_importes
+                if nombre in self.ventanas.componentes_forma
+            )
+
+            # Desde cuatro cifras el formato monetario incluye separador de
+            # miles (por ejemplo, "$4,047.00", 9 caracteres) y ya requiere
+            # la fuente compacta. El umbral anterior de 10 sólo corregía los
+            # importes de $10,000.00 en adelante.
+            if longitud_mayor >= 9:
+                tamanos['total_etiqueta'] = min(
+                    tamanos['total_etiqueta'],
+                    max(14, round(18 * escala)),
+                )
+                tamanos['total_valor'] = min(
+                    tamanos['total_valor'],
+                    max(18, round(24 * escala)),
+                )
+                tamanos['importe_valor'] = min(
+                    tamanos['importe_valor'],
+                    max(12, round(15 * escala)),
+                )
+
         for widget, rol in self._widgets_totales_responsive:
             widget.configure(
                 font=(self.FUENTE_TOTALES, tamanos[rol], 'bold')
             )
+
+    def ajustar_etiquetas_totales(self):
+        """Recalcula las fuentes después de modificar los importes."""
+        self.master.after_idle(self._escalar_etiquetas_totales)
 
     def _agregar_validaciones(self):
         pass

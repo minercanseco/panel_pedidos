@@ -1,3 +1,6 @@
+import re
+from datetime import datetime, time, timedelta
+
 from capturar_documento.herramientas.depositos.llamar_instancia_deposito import LlamarInstanciaDeposito
 from capturar_documento.buscar_generales_cliente import BuscarGeneralesCliente
 from capturar_documento.herramientas.cobrar_cartera.buscar_generales_cliente_cartera import BuscarGeneralesClienteCartera
@@ -9,6 +12,10 @@ from capturar_documento.herramientas.imprimir_modulo.main import (
     ImprimirModulo,
     existe_archivo_impresoras,
 )
+from capturar_documento.herramientas.imprimir_modulo.definir_impresoras import (
+    DefinirImpresoras,
+)
+from capturar_documento.herramientas.imprimir_modulo.corte_caja import MODULO_CORTE_CAJA
 from capturar_documento.herramientas.cobro_rapido.llamar_instancia_cobro_rapido import LlamarInstanciaCobroRapido
 from capturar_documento.herramientas.abrir_cajon import CajonCobro
 from capturar_documento.herramientas.editar_generales.controlador import (
@@ -38,8 +45,33 @@ from capturar_documento.herramientas.capturar_cliente.main import (
 from capturar_documento.herramientas.dividir_facturas_cayal.main import (
     abrir_division_documento,
 )
-
-
+from capturar_documento.herramientas.cfdi_relacionados.controlador import (
+    ControladorRelacionarFactura,
+)
+from capturar_documento.herramientas.cfdi_relacionados.interfaz import (
+    InterfazRelacionarFactura,
+)
+from capturar_documento.herramientas.cfdi_relacionados.modelo import (
+    ModeloRelacionarFactura,
+)
+from capturar_documento.herramientas.intercambiar_rfc.controlador_intercambio_rfc import (
+    ControladorIntercambioRFC,
+)
+from capturar_documento.herramientas.intercambiar_rfc.interfaz_intercambio_rfc import (
+    InterfazIntercambioRfc,
+)
+from capturar_documento.herramientas.intercambiar_rfc.modelo_intercambio_rfc import (
+    ModeloIntercambioRFC,
+)
+from capturar_documento.herramientas.convertir_documento.controlador import (
+    ControladorConvertirDocumento,
+)
+from capturar_documento.herramientas.convertir_documento.interfaz import (
+    InterfazConvertirDocumento,
+)
+from capturar_documento.herramientas.convertir_documento.modelo import (
+    ModeloConvertirDocumento,
+)
 class ControladorSelectorModulo:
     def __init__(self, interfaz, modelo):
         self._interfaz = interfaz
@@ -48,6 +80,7 @@ class ControladorSelectorModulo:
         self._TABLAS = {
             'tbv_tickets': None,
             'tbv_facturas': None,
+            'tbv_facturas_globales': None,
             'tbv_depositos': None,
             'tbv_cortes': None,
         }
@@ -75,11 +108,52 @@ class ControladorSelectorModulo:
 
         self._ejecutando = False
         self._globalizacion_en_curso = False
+        self._configuracion_impresoras_abierta = False
         self._inyectar_funciones_barra_herramientas()
         self._agregar_eventos_tablas()
         self._configurar_aplicativo()
         self._agregar_atajos()
         self._programar_actualizacion()
+        self._programar_configuracion_impresoras()
+
+    def _programar_configuracion_impresoras(self):
+        if existe_archivo_impresoras():
+            return
+
+        # Permite que el selector termine de mostrarse y maximizarse antes de
+        # colocar encima la configuración obligatoria.
+        self._interfaz._master.after(
+            350,
+            self._asegurar_impresoras_configuradas,
+        )
+
+    def _asegurar_impresoras_configuradas(self):
+        if existe_archivo_impresoras():
+            return True
+        if self._configuracion_impresoras_abierta:
+            return False
+
+        self._configuracion_impresoras_abierta = True
+        ventana = (
+            self._interfaz.ventanas.crear_popup_ttkbootstrap_async(
+                titulo='Configuración obligatoria de impresoras',
+                master=self._interfaz._master,
+                cascade=False,
+            )
+        )
+        DefinirImpresoras(
+            ventana,
+            obligatoria=True,
+            bloquear=False,
+            al_guardar=self._impresoras_configuradas,
+        )
+        return False
+
+    def _impresoras_configuradas(self, primaria, secundaria, ruta_archivo):
+        self._configuracion_impresoras_abierta = False
+        self._interfaz.mostrar_estado(
+            'Impresoras principal y secundaria configuradas'
+        )
 
     def _configurar_aplicativo(self):
         self._interfaz.actualizar_titulo_usuario(
@@ -161,6 +235,15 @@ class ControladorSelectorModulo:
 
             for clave, valor in reg.items():
 
+                nombre_normalizado = re.sub(
+                    r'[^a-z]',
+                    '',
+                    str(clave).lower(),
+                )
+                if nombre_normalizado in ('hora', 'horaventa'):
+                    nuevo_reg[clave] = self._formatear_hora_selector(valor)
+                    continue
+
                 if clave not in self._ICONOS_ESPECIALES:
                     nuevo_reg[clave] = valor
                     continue
@@ -173,6 +256,45 @@ class ControladorSelectorModulo:
             data.append(nuevo_reg)
 
         return data
+
+    @staticmethod
+    def _formatear_hora_selector(valor):
+        """Convierte valores de hora de SQL al formato visual HH:MM:SS."""
+        if valor in (None, ''):
+            return ''
+
+        if isinstance(valor, (datetime, time)):
+            return valor.strftime('%H:%M:%S')
+
+        if isinstance(valor, timedelta):
+            segundos = int(valor.total_seconds()) % (24 * 60 * 60)
+            horas, resto = divmod(segundos, 60 * 60)
+            minutos, segundos = divmod(resto, 60)
+            return '{:02d}:{:02d}:{:02d}'.format(
+                horas,
+                minutos,
+                segundos,
+            )
+
+        texto = str(valor).strip()
+        coincidencia = re.search(
+            r'(?:^|[ T])(\d{1,2}):(\d{2})(?::(\d{2}))?',
+            texto,
+        )
+        if not coincidencia:
+            return texto
+
+        horas = int(coincidencia.group(1))
+        minutos = int(coincidencia.group(2))
+        segundos = int(coincidencia.group(3) or 0)
+        if horas > 23 or minutos > 59 or segundos > 59:
+            return texto
+
+        return '{:02d}:{:02d}:{:02d}'.format(
+            horas,
+            minutos,
+            segundos,
+        )
 
     def _inyectar_funciones_barra_herramientas(self):
         funciones = {
@@ -192,6 +314,14 @@ class ControladorSelectorModulo:
             'agregar_queja': self._agregar_queja,
             'globalizar': self._globalizar,
             'dividir_documento': self._dividir_documento,
+            'timbrar': self._timbrar,
+            'cfdi_relacionados': self._cfdi_relacionados,
+            'intercambiar_rfc': self._intercambiar_rfc,
+            'enviar_correos': self._enviar_correos,
+            'convertir_documento': self._convertir_documento,
+            'listas_precios': self._listas_precios,
+            'archivo_mayoreo': self._archivo_mayoreo,
+            'archivo_minisuper': self._archivo_minisuper,
         }
 
         for item in self._interfaz.barra_herramientas:
@@ -200,11 +330,35 @@ class ControladorSelectorModulo:
             if nombre in funciones:
                 item['comando'] = funciones[nombre]
 
-        self._interfaz.elementos_barra_herramientas = (
-            self._interfaz.ventanas.crear_barra_herramientas(
-                self._interfaz.barra_herramientas,
-                'frame_herramientas'
+        iconos = []
+        hotkeys = []
+        etiquetas = []
+
+        for seccion, nombre_frame in (
+            self._interfaz.frames_barra_herramientas.items()
+        ):
+            herramientas = [
+                item for item in self._interfaz.barra_herramientas
+                if item.get('seccion', 'generales') == seccion
+            ]
+            if not herramientas:
+                continue
+
+            elementos = self._interfaz.ventanas.crear_barra_herramientas(
+                herramientas,
+                nombre_frame,
             )
+            if not elementos:
+                continue
+
+            iconos.extend(elementos[0])
+            hotkeys.extend(elementos[1])
+            etiquetas.extend(elementos[2])
+
+        self._interfaz.elementos_barra_herramientas = (
+            iconos,
+            hotkeys,
+            etiquetas,
         )
 
         self._interfaz.etiquetas_barra_herramientas = (
@@ -229,8 +383,23 @@ class ControladorSelectorModulo:
 
         return fila
 
+    def _obtener_folios_documentos(self, documentos):
+        """Obtiene referencias amigables sin interrumpir la herramienta."""
+        documentos = [
+            int(document_id) for document_id in (documentos or [])
+            if document_id
+        ]
+        try:
+            folios = self._modelo.obtener_folios_documentos(documentos)
+        except Exception:
+            folios = {}
+        return {
+            document_id: str(folios.get(document_id) or document_id)
+            for document_id in documentos
+        }
+
     def _actualizar_tablas(self):
-        if self._ejecutando:
+        if self._ejecutando or self._configuracion_impresoras_abierta:
             return
 
         self._interfaz.mostrar_estado('Actualizando documentos...')
@@ -259,6 +428,39 @@ class ControladorSelectorModulo:
             )
 
     def _actualizar_tabla(self, tabla):
+        if tabla == 'tbv_facturas_globales':
+            registros = self._modelo.obtener_facturas_globales() or []
+            nombres_columnas = [
+                'DocumentID', 'BusinessEntityName', 'DocFolio',
+                'DateDocument', 'CancelledIcon', 'CFDStatusID',
+                'CFDStatusName',
+                'CFDStatusCancelledName', 'CFDStatusError',
+                'CFDCancelledStatusID', 'Usuario', 'TimbradoPor',
+                'HoraVenta', 'Comentarios', 'CanceladoPor', 'CreatedBy',
+            ]
+            anchos_columnas = [
+                0, 210, 100, 100, 55, 0, 105,
+                130, 200, 0, 105, 110, 150, 220, 120, 0,
+            ]
+            columnas_str = ', '.join(
+                '[{}]'.format(nombre) for nombre in nombres_columnas
+            )
+            ancho_columnas_str = ', '.join(
+                str(ancho) for ancho in anchos_columnas
+            )
+            columnas = self._crear_columnas_tabla(
+                columnas_str, ancho_columnas_str,
+            )
+            self._TABLAS[tabla] = columnas
+            registros_procesados = self._procesar_registros_consultas(
+                registros
+            )
+            self._interfaz.ventanas.rellenar_table_view(
+                tabla, columnas, registros_procesados,
+            )
+            self._interfaz.actualizar_contador_tabla(tabla, len(registros))
+            return len(registros)
+
         if tabla == 'tbv_cortes':
             registros = self._modelo.obtener_cortes_caja() or []
             nombres_columnas = [
@@ -654,21 +856,368 @@ class ControladorSelectorModulo:
             tabla_actualizar=fila['Tabla'],
         )
 
-    def _imprimir(self):
+    def _timbrar(self):
+        tabla = self._interfaz.obtener_tabla_activa()
+        modulos = {
+            'tbv_facturas': 1400,
+            'tbv_facturas_globales': 50,
+        }
+        module_id = modulos.get(tabla)
+        if module_id is None:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'El timbrado sólo aplica a facturas y facturas globales.'
+            )
+            return None
+
+        filas = self._interfaz.ventanas.procesar_filas_table_view(
+            tabla,
+            seleccionadas=True,
+        )
+        documentos = sorted(set(
+            int(fila.get('DocumentID', 0) or 0) for fila in filas
+            if int(fila.get('DocumentID', 0) or 0) > 0
+        ))
+        if not documentos:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Seleccione por lo menos un documento para timbrar.'
+            )
+            return None
+
+        if tabla == 'tbv_facturas_globales' and len(documentos) != 1:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Las facturas globales deben enviarse a timbrar una por una. '
+                'Seleccione una sola factura global.'
+            )
+            return None
+
+        try:
+            folios = self._obtener_folios_documentos(documentos)
+            estados = self._modelo.obtener_estados_timbrado(documentos)
+            por_documento = {
+                int(estado['DocumentID']): estado for estado in estados
+            }
+            errores = []
+
+            for document_id in documentos:
+                folio = folios.get(document_id, str(document_id))
+                estado = por_documento.get(document_id)
+                if not estado:
+                    errores.append('{}: no fue encontrado.'.format(folio))
+                    continue
+                if int(estado.get('ModuleID', 0) or 0) != module_id:
+                    errores.append(
+                        '{}: ya no pertenece al módulo seleccionado.'.format(
+                            folio
+                        )
+                    )
+                    continue
+                if int(estado.get('Cancelado', 0) or 0) == 1:
+                    errores.append('{}: está cancelado.'.format(folio))
+                    continue
+                if int(estado.get('Borrado', 0) or 0) == 1:
+                    errores.append('{}: está borrado.'.format(folio))
+                    continue
+
+                invoice_id = int(estado.get('InvoiceID', 0) or 0)
+                if invoice_id == 1:
+                    errores.append(
+                        '{}: ya está en espera de timbrado.'.format(folio)
+                    )
+                    continue
+                if invoice_id == 2:
+                    errores.append('{}: ya está timbrado.'.format(folio))
+                    continue
+                if invoice_id == 3:
+                    errores.append(
+                        '{}: tiene un error de timbrado y no puede '
+                        'reenviarse automáticamente.'.format(folio)
+                    )
+                    continue
+                if invoice_id != 0:
+                    errores.append(
+                        '{}: tiene un estado InvoiceID no válido ({}).'.format(
+                            folio, invoice_id
+                        )
+                    )
+                    continue
+
+                cfd_status_id = int(estado.get('CFDStatusID', 0) or 0)
+                cfd_status_name = str(
+                    estado.get('CFDStatusName', '') or ''
+                ).strip()
+                if cfd_status_id == 3:
+                    errores.append(
+                        '{}: el ERP indica que ya está timbrado.'.format(
+                            folio
+                        )
+                    )
+                elif cfd_status_name not in ('No enviado', 'Error'):
+                    errores.append(
+                        '{}: estado CFD no permitido ({}).'.format(
+                            folio, cfd_status_name or 'sin estado'
+                        )
+                    )
+
+            if errores:
+                self._interfaz.ventanas.mostrar_mensaje(
+                    'No se enviaron documentos:\n\n{}'.format(
+                        '\n'.join(errores)
+                    )
+                )
+                return None
+
+            if not self._interfaz.ventanas.mostrar_mensaje_pregunta(
+                'Se enviarán {} documento(s) a la cola de timbrado. '
+                '¿Desea continuar?'.format(len(documentos)),
+                master=self._interfaz._master,
+            ):
+                return None
+
+            afectados = self._modelo.solicitar_timbrado(documentos, self._modelo.user_id)
+            self._interfaz.ventanas.mostrar_mensaje(
+                tipo='info',
+                mensaje=(
+                    '{} documento(s) quedaron en espera de timbrado.'.format(
+                        afectados
+                    )
+                ),
+            )
+            self._interfaz.mostrar_estado(
+                '{} documento(s) enviados a timbrado'.format(afectados)
+            )
+            return afectados
+        except Exception as error:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'No fue posible solicitar el timbrado:\n{}'.format(error),
+                self._interfaz._master,
+            )
+            return None
+        finally:
+            self._actualizar_despues_de_accion(tabla)
+
+    def _cfdi_relacionados(self):
         fila = self._obtener_valores_fila()
         if not fila:
             self._interfaz.ventanas.mostrar_mensaje(
-                'Seleccione un ticket o factura para imprimir.'
+                'Seleccione una sola factura para consultar o relacionar CFDI.'
             )
             return None
-        if fila['Tabla'] not in ('tbv_tickets', 'tbv_facturas'):
+
+        if fila.get('Tabla') != 'tbv_facturas':
             self._interfaz.ventanas.mostrar_mensaje(
-                'La impresión desde este panel sólo aplica a tickets y facturas.'
+                'CFDI relacionados sólo está disponible para facturas del '
+                'módulo 1400.'
             )
             return None
 
         document_id = int(fila.get('DocumentID', 0) or 0)
+        module_id = self._modelo.obtener_modulo_documento(document_id)
+        if module_id != 1400:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'El documento seleccionado ya no pertenece al módulo 1400.'
+            )
+            return None
+
+        return self._ejecutar_accion(
+            funcion=lambda ventana: ControladorRelacionarFactura(
+                InterfazRelacionarFactura(ventana),
+                ModeloRelacionarFactura(self._modelo.parametros),
+            ),
+            id_modulo=1400,
+            id_principal=document_id,
+            tabla_actualizar='tbv_facturas',
+        )
+
+    def _intercambiar_rfc(self):
+        fila = self._obtener_valores_fila()
+        if not fila:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Seleccione una sola factura para intercambiar el RFC.'
+            )
+            return None
+
+        if fila.get('Tabla') != 'tbv_facturas':
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Intercambiar RFC sólo está disponible para facturas del '
+                'módulo 1400.'
+            )
+            return None
+
+        document_id = int(fila.get('DocumentID', 0) or 0)
+        module_id = self._modelo.obtener_modulo_documento(document_id)
+        if module_id != 1400:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'El documento seleccionado ya no pertenece al módulo 1400.'
+            )
+            return None
+
+        return self._ejecutar_accion(
+            funcion=lambda ventana: ControladorIntercambioRFC(
+                InterfazIntercambioRfc(ventana),
+                ModeloIntercambioRFC(self._modelo.parametros),
+            ),
+            id_modulo=1400,
+            id_principal=document_id,
+            tabla_actualizar='tbv_facturas',
+        )
+
+    def _enviar_correos(self):
+        fila = self._obtener_valores_fila()
+        if not fila:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Seleccione una sola factura para enviar por correo.'
+            )
+            return None
+
+        if fila.get('Tabla') != 'tbv_facturas':
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Enviar correos sólo está disponible para facturas del '
+                'módulo 1400.'
+            )
+            return None
+
+        document_id = int(fila.get('DocumentID', 0) or 0)
+        module_id = self._modelo.obtener_modulo_documento(document_id)
+        if module_id != 1400:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'El documento seleccionado ya no pertenece al módulo 1400.'
+            )
+            return None
+
+        try:
+            from capturar_documento.herramientas.enviar_correos.controlador_enviar_correo import (
+                ControladorEnviarCorreo,
+            )
+        except Exception as error:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'No fue posible cargar la herramienta Enviar correos:\n{}'
+                .format(error)
+            )
+            return None
+
         self._modelo.parametros.id_seleccionados = [document_id]
+        return self._ejecutar_accion(
+            funcion=lambda ventana: ControladorEnviarCorreo(
+                ventana,
+                self._modelo.parametros,
+            ),
+            id_modulo=1400,
+            id_principal=document_id,
+            tabla_actualizar='tbv_facturas',
+        )
+
+    def _convertir_documento(self):
+        fila = self._obtener_valores_fila()
+        if not fila:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Seleccione una sola factura para convertir.'
+            )
+            return None
+
+        if fila.get('Tabla') != 'tbv_facturas':
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Convertir documento sólo está disponible para facturas del '
+                'módulo 1400.'
+            )
+            return None
+
+        document_id = int(fila.get('DocumentID', 0) or 0)
+        module_id = self._modelo.obtener_modulo_documento(document_id)
+        if module_id != 1400:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'El documento seleccionado ya no pertenece al módulo 1400.'
+            )
+            return None
+
+        return self._ejecutar_accion(
+            funcion=lambda ventana: ControladorConvertirDocumento(
+                InterfazConvertirDocumento(ventana),
+                ModeloConvertirDocumento(self._modelo.parametros),
+            ),
+            id_modulo=1400,
+            id_principal=document_id,
+            tabla_actualizar='tbv_facturas',
+        )
+
+    def _listas_precios(self):
+        if self._ejecutando:
+            return None
+
+        try:
+            self._ejecutando = True
+            self._interfaz.mostrar_estado('Generando lista de precios...')
+            from capturar_documento.herramientas.listas_precios.crear_listas_precios import (
+                CrearListasPrecios,
+            )
+            resultado = CrearListasPrecios(self._modelo.parametros)
+            self._interfaz.mostrar_estado('Lista de precios generada')
+            return resultado
+        except Exception as error:
+            self._interfaz.mostrar_estado(
+                'No fue posible generar la lista de precios'
+            )
+            self._interfaz.ventanas.mostrar_mensaje(
+                'No fue posible generar la lista de precios:\n{}'.format(error),
+                self._interfaz._master,
+            )
+            return None
+        finally:
+            self._ejecutando = False
+
+    def _abrir_archivo(self, id_modulo):
+        from capturar_documento.herramientas.archivo_cayal.main import (
+            abrir_archivo,
+        )
+
+        return self._ejecutar_accion(
+            funcion=lambda ventana: abrir_archivo(
+                ventana,
+                self._modelo.parametros,
+            ),
+            id_modulo=id_modulo,
+        )
+
+    def _archivo_mayoreo(self):
+        return self._abrir_archivo(1572)
+
+    def _archivo_minisuper(self):
+        return self._abrir_archivo(1640)
+
+    def _imprimir(self):
+        fila = self._obtener_valores_fila()
+        if not fila:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Seleccione un ticket, factura, factura global o corte de '
+                'caja para imprimir.'
+            )
+            return None
+        if fila['Tabla'] not in (
+                'tbv_tickets', 'tbv_facturas',
+                'tbv_facturas_globales', 'tbv_cortes',
+        ):
+            self._interfaz.ventanas.mostrar_mensaje(
+                'La impresión desde este panel sólo aplica a tickets, '
+                'facturas, facturas globales y cortes de caja.'
+            )
+            return None
+
+        es_corte = fila['Tabla'] == 'tbv_cortes'
+        id_seleccionado = int(
+            fila.get('ID' if es_corte else 'DocumentID', 0) or 0
+        )
+        if id_seleccionado <= 0:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'No fue posible identificar el registro seleccionado.'
+            )
+            return None
+
+        self._modelo.parametros.id_seleccionados = [id_seleccionado]
+        modulos = {
+            'tbv_tickets': 158,
+            'tbv_facturas': 1400,
+            'tbv_facturas_globales': 50,
+            'tbv_cortes': MODULO_CORTE_CAJA,
+        }
         return self._ejecutar_accion(
             funcion=lambda ventana: ImprimirModulo(
                 ventana,
@@ -677,10 +1226,8 @@ class ControladorSelectorModulo:
                 configuracion=existe_archivo_impresoras(),
                 impresion_silenciosa=True,
             ),
-            id_modulo=(
-                1400 if fila['Tabla'] == 'tbv_facturas' else 158
-            ),
-            id_principal=document_id,
+            id_modulo=modulos[fila['Tabla']],
+            id_principal=id_seleccionado,
             tabla_actualizar=fila['Tabla'],
         )
 
@@ -729,10 +1276,14 @@ class ControladorSelectorModulo:
             self._interfaz.mostrar_estado('Globalizando tickets...')
             facturas = self._modelo.globalizar_tickets(documentos)
             facturas = facturas if isinstance(facturas, (list, tuple)) else [facturas]
+            folios = self._obtener_folios_documentos(facturas)
             self._interfaz.ventanas.mostrar_mensaje(
                 tipo='info',mensaje=
                 'Globalización terminada correctamente. Documento(s): {}'.format(
-                    ', '.join(str(valor) for valor in facturas if valor)
+                    ', '.join(
+                        folios.get(int(valor), str(valor))
+                        for valor in facturas if valor
+                    )
                 ),
             )
             return facturas

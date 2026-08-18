@@ -2,6 +2,7 @@ import tkinter as tk
 from cayal.ventanas import Ventanas
 from .comentario_corte import ComentarioCorte
 from .tabla_detalles import TablaDetalles
+from capturar_documento.herramientas.imprimir_modulo.corte_caja import MODULO_CORTE_CAJA
 
 
 class CorteDeCaja:
@@ -33,8 +34,30 @@ class CorteDeCaja:
         if self._id_corte == 0:
             self._crear_corte_caja_en_base_datos()
             self._respaldar_items_cobrados()
+            self._imprimir_corte_generado()
 
         self._ventanas.configurar_ventana_ttkbootstrap(titulo='Corte de caja')
+
+    def _imprimir_corte_generado(self):
+        try:
+            from capturar_documento.selector_modulo.servicio_impresion_silenciosa import (
+                ServicioImpresionSilenciosa,
+            )
+
+            ServicioImpresionSilenciosa(
+                parametros=self._parametros,
+                modelo=self._base_de_datos,
+            ).imprimir(
+                id_modulo=MODULO_CORTE_CAJA,
+                id_principal=self._id_corte,
+                id_usuario=self._user_id,
+            )
+        except Exception as error:
+            self._ventanas.mostrar_mensaje(
+                'El corte se guardó correctamente, pero no fue posible '
+                f'imprimirlo:\n{error}',
+                self._master,
+            )
 
     def _inicializar_variables_de_instancia(self):
         self._id_corte = self._parametros.id_principal

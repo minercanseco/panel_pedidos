@@ -29,6 +29,10 @@ from herramientas.capturar_documento.herramientas.imprimir_modulo.consignacion i
 from herramientas.capturar_documento.herramientas.imprimir_modulo.definir_impresoras import (
     DefinirImpresoras,
 )
+from herramientas.capturar_documento.herramientas.imprimir_modulo.corte_caja import (
+    ImpresionCorteCaja,
+    MODULO_CORTE_CAJA,
+)
 
 try:
     import win32print  # Solo en Windows
@@ -438,6 +442,9 @@ class ImprimirModulo:
           5) Guarda el archivo en la carpeta de Documentos del usuario.
         """
 
+        if self._module_id == MODULO_CORTE_CAJA:
+            return self._procesar_cortes_caja_seleccionados()
+
         # obtener id del motivo (trazabilidad)
         motivo_id = self._buscar_motivo_id()
         if not motivo_id:
@@ -484,6 +491,49 @@ class ImprimirModulo:
         except Exception as error:
             self._ventanas.mostrar_mensaje(
                 f'No fue posible imprimir el documento:\n{error}',
+                self._master,
+            )
+            return
+
+        self._master.destroy()
+
+    def _procesar_cortes_caja_seleccionados(self):
+        impresora_primaria = self._ventanas.obtener_input_componente(
+            'cbx_impresora1'
+        )
+        impresora_secundaria = (
+            self._ventanas.obtener_input_componente('cbx_impresora2')
+            or impresora_primaria
+        )
+        if self._impresion_silenciosa and not impresora_primaria:
+            self._ventanas.mostrar_mensaje(
+                'Debe seleccionar la impresora principal.', self._master
+            )
+            return
+
+        if not getattr(self._parametros, 'uuid', None):
+            self._parametros.uuid = str(uuid.uuid4())
+        directorio = os.path.join(
+            tempfile.gettempdir(), str(self._parametros.uuid)
+        )
+        self._archivos_generados = []
+
+        try:
+            generador = ImpresionCorteCaja(
+                parametros=self._parametros,
+                base_de_datos=self._base_de_datos,
+            )
+            for corte_id in self._seleccionados:
+                ruta = generador.generar(corte_id, directorio=directorio)
+                self._archivos_generados.append((str(ruta), 0))
+
+            if self._impresion_silenciosa:
+                self._enviar_archivos_silenciosamente(
+                    impresora_primaria, impresora_secundaria
+                )
+        except Exception as error:
+            self._ventanas.mostrar_mensaje(
+                f'No fue posible imprimir el corte de caja:\n{error}',
                 self._master,
             )
             return
@@ -1997,6 +2047,11 @@ class ImprimirModulo:
 
     # ----------- Historial -----------
     def _buscar_historial(self):
+        if self._module_id == MODULO_CORTE_CAJA:
+            self._historial = []
+            self._seleccionados_historial = []
+            return
+
         documentos = self._seleccionados
         """
         Consulta el historial de impresión para una lista de DocumentID.

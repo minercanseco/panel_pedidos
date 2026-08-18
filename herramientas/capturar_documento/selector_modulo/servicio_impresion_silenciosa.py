@@ -20,7 +20,7 @@ from herramientas.capturar_documento.selector_modulo.servicio_impresion_ticket i
 class ServicioImpresionSilenciosa:
     IMPRESORA_PRINCIPAL = 'Tickets'
     MODULOS_CON_RUTA = (1400, 1692, 21)
-    MODULOS_SECUNDARIA_DIRECTO = (967, 1692, 1316, 1319)
+    MODULOS_SECUNDARIA_DIRECTO = (-1, 967, 1692, 1316, 1319)
 
     def __init__(self, parametros, modelo=None):
         self.parametros = parametros
@@ -330,7 +330,9 @@ class ServicioImpresionSilenciosa:
             self, ruta_archivo, impresora=None, cantidad_partidas=0,
     ):
         impresora = impresora or self._obtener_impresora_predeterminada()
+        id_modulo = int(getattr(self.parametros, 'id_modulo', 0) or 0)
         alturas_base = {
+            -1: 297,
             158: 115,
             21: 270,
             1400: 270,
@@ -340,14 +342,16 @@ class ServicioImpresionSilenciosa:
             1692: 230,
         }
         altura_base = alturas_base.get(
-            int(getattr(self.parametros, 'id_modulo', 0) or 0),
+            id_modulo,
             270,
         )
+        ancho_papel = 210 if id_modulo == -1 else None
         ServicioImpresionTicket().imprimir_html_en_impresora(
             ruta_html=ruta_archivo,
             impresora=impresora,
             cantidad_partidas=cantidad_partidas,
             altura_base_mm=altura_base,
+            ancho_papel_mm=ancho_papel,
         )
 
     def _buscar_navegador_chromium(self):

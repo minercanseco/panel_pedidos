@@ -133,7 +133,8 @@ class ServicioImpresionTicket:
 
     def imprimir_html_en_impresora(
             self, ruta_html, impresora, cantidad_partidas=0,
-            altura_base_mm=None,
+            altura_base_mm=None, ancho_papel_mm=None,
+            margen_horizontal_mm=None,
     ):
         """Imprime un HTML en la impresora indicada sin modificar la BD."""
         if os.name != 'nt':
@@ -161,6 +162,8 @@ class ServicioImpresionTicket:
             ruta_pdf,
             cantidad_partidas,
             altura_base_mm,
+            ancho_papel_mm,
+            margen_horizontal_mm,
         )
         try:
             self._enviar_a_impresora(ruta_pdf, str(impresora).strip())
@@ -194,7 +197,8 @@ class ServicioImpresionTicket:
 
     def _convertir_a_pdf(
             self, ejecutable, ruta_html, ruta_pdf,
-            cantidad_partidas, altura_base_mm=None,
+            cantidad_partidas, altura_base_mm=None, ancho_papel_mm=None,
+            margen_horizontal_mm=None,
     ):
         altura_base = (
             self.ALTURA_BASE_MM
@@ -208,22 +212,42 @@ class ServicioImpresionTicket:
             self.ALTURA_MINIMA_MM,
             min(altura, self.ALTURA_MAXIMA_MM),
         )
+        ancho = (
+            self.ANCHO_PAPEL_MM
+            if ancho_papel_mm is None
+            else int(ancho_papel_mm)
+        )
+        margen_horizontal = (
+            self.MARGEN_HORIZONTAL_MM
+            if margen_horizontal_mm is None
+            else int(margen_horizontal_mm)
+        )
         comando = [
             str(ejecutable),
             '--quiet',
             '--encoding', 'utf-8',
             '--enable-local-file-access',
-            '--page-width', f'{self.ANCHO_PAPEL_MM}mm',
+            # La plantilla original del corte referencia fuentes web. La
+            # impresión debe continuar con las fuentes de respaldo cuando el
+            # servidor no tenga salida a Internet.
+            '--load-error-handling', 'ignore',
+            '--load-media-error-handling', 'ignore',
+            '--page-width', f'{ancho}mm',
             '--page-height', f'{altura}mm',
             '--margin-top', '0mm',
-            '--margin-right', f'{self.MARGEN_HORIZONTAL_MM}mm',
+            '--margin-right', f'{margen_horizontal}mm',
             '--margin-bottom', '0mm',
-            '--margin-left', f'{self.MARGEN_HORIZONTAL_MM}mm',
+            '--margin-left', f'{margen_horizontal}mm',
             '--disable-smart-shrinking',
             str(ruta_html),
             str(ruta_pdf),
         ]
-        self._ejecutar(comando, self.TIMEOUT_CONVERSION)
+        self._ejecutar(
+            comando,
+            self.TIMEOUT_CONVERSION,
+            errores_permitidos=('ContentNotFoundError',),
+            archivo_resultado=ruta_pdf,
+        )
         if not ruta_pdf.is_file() or ruta_pdf.stat().st_size == 0:
             raise RuntimeError('wkhtmltopdf no generó un PDF válido.')
 
@@ -269,7 +293,9 @@ class ServicioImpresionTicket:
         )
 
     @staticmethod
-    def _ejecutar(comando, timeout):
+    def _ejecutar(
+            comando, timeout, errores_permitidos=(), archivo_resultado=None,
+    ):
         resultado = subprocess.run(
             comando,
             stdout=subprocess.PIPE,
@@ -283,10 +309,25 @@ class ServicioImpresionTicket:
         )
         if resultado.returncode != 0:
             detalle = (resultado.stderr or resultado.stdout or '').strip()
+            error_permitido = any(
+                texto in detalle for texto in errores_permitidos
+            )
+            resultado_valido = (
+                archivo_resultado is not None
+                and Path(archivo_resultado).is_file()
+                and Path(archivo_resultado).stat().st_size > 0
+            )
+            if error_permitido and resultado_valido:
+                logger.warning(
+                    'La conversión terminó con un recurso externo no '
+                    'disponible; se usará el PDF generado: %s', detalle,
+                )
+                return resultado
             raise RuntimeError(
                 f'El proceso de impresión terminó con código '
                 f'{resultado.returncode}: {detalle}'
             )
+        return resultado
 
     @classmethod
     def _buscar_wkhtmltopdf(cls):

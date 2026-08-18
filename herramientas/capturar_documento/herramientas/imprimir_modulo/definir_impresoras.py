@@ -16,6 +16,7 @@ class DefinirImpresoras:
     def __init__(
             self, master, ruta_archivo=None, al_guardar=None,
             impresora_primaria='', impresora_secundaria='',
+            obligatoria=False, bloquear=True,
     ):
         self._master = master
         self._ventanas = Ventanas(self._master)
@@ -26,10 +27,51 @@ class DefinirImpresoras:
         self._al_guardar = al_guardar
         self._impresora_primaria = str(impresora_primaria or '')
         self._impresora_secundaria = str(impresora_secundaria or '')
+        self._obligatoria = bool(obligatoria)
+        self._bloquear = bool(bloquear)
         self._cargar_componentes()
         self._cargar_eventos()
         self._rellenar_cbx_impresoras()
         self._ventanas.configurar_ventana_ttkbootstrap('Definir impresoras')
+        self._master.protocol('WM_DELETE_WINDOW', self._cancelar)
+        self._master.bind('<Escape>', lambda event: self._cancelar())
+        if self._obligatoria and self._bloquear:
+            self._master.after_idle(self._mostrar_como_modal)
+
+    def _mostrar_como_modal(self):
+        """Muestra el diálogo antes de bloquear la ventana principal."""
+        try:
+            padre = self._master.master
+            self._master.deiconify()
+            self._master.update_idletasks()
+
+            ancho = max(self._master.winfo_reqwidth(), 360)
+            alto = max(self._master.winfo_reqheight(), 160)
+            x = padre.winfo_rootx() + max(
+                0, (padre.winfo_width() - ancho) // 2
+            )
+            y = padre.winfo_rooty() + max(
+                0, (padre.winfo_height() - alto) // 2
+            )
+            self._master.geometry('+{}+{}'.format(x, y))
+            self._master.transient(padre)
+            self._master.attributes('-topmost', True)
+            self._master.lift()
+            self._master.focus_force()
+            self._master.grab_set()
+            self._master.after(
+                500,
+                lambda: self._master.attributes('-topmost', False),
+            )
+        except Exception:
+            # Si el gestor de ventanas no admite alguna operación visual,
+            # conserva al menos el diálogo visible y al frente.
+            try:
+                self._master.deiconify()
+                self._master.lift()
+                self._master.focus_force()
+            except Exception:
+                pass
 
     def _cargar_componentes(self):
         componentes = [
@@ -42,9 +84,19 @@ class DefinirImpresoras:
     def _cargar_eventos(self):
         eventos = {
             'btn_guardar': self._guardar_impresoras_seleccionadas,
-            'btn_cancelar':self._master.destroy
+            'btn_cancelar': self._cancelar,
         }
         self._ventanas.cargar_eventos(eventos)
+
+    def _cancelar(self):
+        if self._obligatoria:
+            self._ventanas.mostrar_mensaje(
+                'Debe configurar las impresoras principal y secundaria '
+                'antes de continuar.',
+                self._master,
+            )
+            return
+        self._master.destroy()
 
     def _guardar_impresoras_seleccionadas(self):
         cbx_impresora1 = self._ventanas.obtener_input_componente('cbx_impresora1')

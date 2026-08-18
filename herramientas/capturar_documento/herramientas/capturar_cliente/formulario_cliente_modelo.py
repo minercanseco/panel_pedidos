@@ -40,6 +40,28 @@ class FormularioClienteModelo:
             """)
         return self.consulta_rutas
 
+    def obtener_ruta_mayoreo_minisuper(self):
+        """Obtiene R63 desde el catálogo sin depender de un ZoneID fijo."""
+        rutas = self.obtener_todas_las_rutas()
+        coincidencias = []
+
+        for ruta in rutas:
+            nombre = str(ruta.get('ZoneName', '') or '').strip()
+            nombre_normalizado = ' '.join(nombre.upper().split())
+            nombre_compacto = nombre_normalizado.replace(' ', '')
+            if (nombre_normalizado.startswith('R63')
+                    and 'MAYOREO' in nombre_normalizado
+                    and 'MINISUPER' in nombre_compacto):
+                coincidencias.append(ruta)
+
+        if len(coincidencias) != 1:
+            raise ValueError(
+                'No fue posible identificar de forma única la ruta '
+                'R63 Clientes de Mayoreo Minisuper.'
+            )
+
+        return coincidencias[0]
+
     def obtener_regimenes_fiscales(self):
         if not self.consulta_regimenes:
             self.consulta_regimenes = self.base_de_datos.fetchall('SELECT * FROM vwcboAnexo20v40_RegimenFiscal', ())

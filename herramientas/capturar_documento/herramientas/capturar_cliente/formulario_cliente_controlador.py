@@ -14,8 +14,15 @@ class FormularioClienteControlador:
         self._modelo = modelo
 
         self._actualizando_por_cif = False
+        self._cif_consultado_exitosamente = bool(getattr(
+            self._modelo.cliente,
+            '_capturado_por_cif_exitosamente',
+            False,
+        ))
+        self._ruta_r63_asignada_por_cif = False
 
         self._rellenar_componentes()
+        self._aplicar_ruta_r63_por_cif()
 
         # esto garantiza en teoria el poder contrastar la direccion fiscal modificada por el usuario con la de la bd
         if self._modelo.cliente.business_entity_id != 0:
@@ -82,6 +89,8 @@ class FormularioClienteControlador:
     def _actualizar_por_cif(self):
         try:
             self._actualizando_por_cif = True
+            self._cif_consultado_exitosamente = False
+            self._ruta_r63_asignada_por_cif = False
             cif = self._interfaz.ventanas.obtener_input_componente('tbx_cif')
             rfc = self._interfaz.ventanas.obtener_input_componente('tbx_rfc')
 
@@ -100,9 +109,48 @@ class FormularioClienteControlador:
 
                 return
 
+            self._cif_consultado_exitosamente = True
+            self._modelo.cliente._capturado_por_cif_exitosamente = True
             self._rellenar_componentes()
+            self._aplicar_ruta_r63_por_cif()
         finally:
             self._actualizando_por_cif = False
+
+    @staticmethod
+    def _cp_fuera_rango_local(cp):
+        cp = str(cp or '').strip()
+        if not cp.isdigit() or len(cp) != 5:
+            return False
+        return not 24000 <= int(cp) <= 24099
+
+    def _es_caso_r63_por_cif(self):
+        """Limita la excepción a altas CIF del grupo 11 fuera de 24000-24099."""
+        cp = self._interfaz.ventanas.obtener_input_componente('tbx_cp')
+        return (
+            self._cif_consultado_exitosamente
+            and self._modelo.cliente.business_entity_id <= 0
+            and self._modelo.user_group_id == 11
+            and self._cp_fuera_rango_local(cp)
+        )
+
+    def _aplicar_ruta_r63_por_cif(self):
+        if not self._es_caso_r63_por_cif():
+            self._ruta_r63_asignada_por_cif = False
+            return False
+
+        ruta = self._modelo.obtener_ruta_mayoreo_minisuper()
+        nombre_ruta = str(ruta.get('ZoneName', '') or '').strip()
+        if not nombre_ruta:
+            raise ValueError(
+                'La ruta R63 Clientes de Mayoreo Minisuper no tiene nombre.'
+            )
+
+        self._interfaz.ventanas.insertar_input_componente(
+            'cbx_ruta', nombre_ruta
+        )
+        self._interfaz.ventanas.bloquear_componente('cbx_ruta')
+        self._ruta_r63_asignada_por_cif = True
+        return True
 
 
     def _rellenar_componentes(self):
@@ -316,6 +364,10 @@ class FormularioClienteControlador:
 
     def _settear_ruta_colonia(self):
         if self._actualizando_por_cif:
+            return
+
+        # La excepción CIF de mayoreo tiene prioridad sobre la ruta de colonia.
+        if self._aplicar_ruta_r63_por_cif():
             return
 
         colonia = self._interfaz.ventanas.obtener_input_componente('cbx_colonia')
@@ -548,6 +600,11 @@ class FormularioClienteControlador:
 
     def _validar_reglas_de_ruta(self):
 
+        ruta_r63 = None
+        if self._es_caso_r63_por_cif():
+            ruta_r63 = self._modelo.obtener_ruta_mayoreo_minisuper()
+        ruta_r63_id = int(ruta_r63.get('ZoneID', 0) or 0) if ruta_r63 else 0
+
         def _validar_ruta(ruta_id, tipo_ruta_id):
             # Cliente nuevo y ruta R7 (1040)
             if ruta_id == 1040 and self._modelo.cliente.business_entity_id <= 0:
@@ -557,9 +614,16 @@ class FormularioClienteControlador:
                 return
 
             # Mayoreo (tipo_ruta_id = 2) no permitida para cajeros (user_group_id = 11) en clientes nuevos
+            es_r63_asignada_por_cif = (
+                self._ruta_r63_asignada_por_cif
+                and ruta_r63_id > 0
+                and int(ruta_id or 0) == ruta_r63_id
+                and self._es_caso_r63_por_cif()
+            )
             if (tipo_ruta_id == 2
                     and self._modelo.user_group_id == 11
-                    and self._modelo.cliente.business_entity_id <= 0):
+                    and self._modelo.cliente.business_entity_id <= 0
+                    and not es_r63_asignada_por_cif):
                 self._interfaz.ventanas.mostrar_mensaje(
                     'Las rutas de mayoreo no pueden ser establecidas por cajeros.'
                 )
@@ -709,6 +773,8 @@ class FormularioClienteControlador:
         cliente.zone_id = zone_id
 
     def _guardar_o_actualizar_cliente(self):
+        # Revalida el CP y restablece R63 antes de leer los datos del formulario.
+        self._aplicar_ruta_r63_por_cif()
         # garantizar que exista colonia acorde a la ruta
         self._rellenar_cp_por_colonia()
         self._settear_ruta_colonia()

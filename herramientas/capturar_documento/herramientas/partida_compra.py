@@ -60,6 +60,7 @@ class PartidaCompra:
             total_documento=0,
             total_costo_documento=0,
             partida_incluida_en_totales=False,
+            costo_producto=None,
     ):
         self._master = master
         self.configuracion = self._crear_configuracion()
@@ -72,6 +73,7 @@ class PartidaCompra:
         self.modo_descuento = 'porcentaje'
         self.modo_calculo = 'costo'
         self._recalculando = False
+        self._costo_producto = self._decimal(costo_producto)
         self.partida_incluida_en_totales = partida_incluida_en_totales
         self.totales_documento = {
             'subtotal': self._decimal(subtotal_documento),
@@ -536,10 +538,25 @@ class PartidaCompra:
             ),
             predeterminado='1',
         )
-        costo = self._obtener_costo_partida(self.partida_producto)
+        costo = self._costo_producto
+        if costo <= 0:
+            costo = self._obtener_costo_partida(self.partida_producto)
         factor_descuento = self._obtener_factor_descuento(self.partida_producto)
         descuento_porcentaje = factor_descuento * Decimal('100')
-        totales = self._obtener_totales_partida(self.partida_producto)
+        partida_costo_actual = dict(self.partida_producto)
+        partida_costo_actual.update({
+            'cantidad': cantidad,
+            'Quantity': cantidad,
+            'CostPrice': costo,
+            'UnitPrice': costo,
+            'precio': costo,
+        })
+        self._utilerias.crear_partida(
+            partida_costo_actual,
+            cantidad=cantidad,
+            tipo='compra',
+        )
+        totales = self._obtener_totales_partida(partida_costo_actual)
 
         valores_componentes = {
             'tbx_nombre_producto_compra': self.partida_producto.get('ProductName', ''),

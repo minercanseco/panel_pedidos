@@ -4,7 +4,7 @@ from cayal.login import Login
 from cayal.ventanas import Ventanas
 from cayal.cliente import Cliente
 
-from herramientas.cliente.buscar_clientes import BuscarClientes
+from herramientas.capturar_documento.herramientas.capturar_cliente.buscar_clientes import BuscarClientes
 from herramientas.capturar_documento.herramientas.capturar_cliente.cliente_nuevo import (
     ClienteNuevo,
 )

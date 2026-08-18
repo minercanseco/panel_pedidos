@@ -5,8 +5,12 @@ from cayal.ventanas import Ventanas
 from cayal.cliente import Cliente
 
 from herramientas.cliente.buscar_clientes import BuscarClientes
-from herramientas.cliente.cliente_nuevo import ClienteNuevo
-from herramientas.cliente.notebook_cliente import NoteBookCliente
+from herramientas.capturar_documento.herramientas.capturar_cliente.cliente_nuevo import (
+    ClienteNuevo,
+)
+from herramientas.capturar_documento.herramientas.capturar_cliente.notebook_cliente import (
+    NoteBookCliente,
+)
 from herramientas.capturar_documento.herramientas.cobrar_cartera.controlador_saldar_cartera import ControladorSaldarCartera
 from herramientas.capturar_documento.herramientas.cobrar_cartera.interfaz_saldar_cartera import InterfazSaldarCartera
 from herramientas.herramientas_compartidas.cancelar_pedido import CancelarPedido
@@ -465,5 +469,3 @@ class HerramientasGenerales:
         ventana = self._ventanas.crear_popup_ttkbootstrap()
         instancia = Login(ventana, self._parametros, si_acceso_exitoso)
         ventana.wait_window()
-
-

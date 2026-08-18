@@ -9,8 +9,12 @@ from herramientas.capturar_documento.llamar_instancia_captura_pedido import Llam
 from herramientas.herramientas_panel.editar_caracteristicas_pedido import EditarCaracteristicasPedido
 from herramientas.herramientas_panel.editar_pedido import EditarPedido
 from herramientas.herramientas_panel.ticket_pedido_cliente import TicketPedidoCliente
-from herramientas.verificador_precios.controlador_verificador import ControladorVerificador
-from herramientas.verificador_precios.interfaz_verificador import InterfazVerificador
+from herramientas.capturar_documento.herramientas.verificador.controlador_verificador import (
+    ControladorVerificador,
+)
+from herramientas.capturar_documento.herramientas.verificador.interfaz_verificador import (
+    InterfazVerificador,
+)
 
 
 class HerramientasCaptura:

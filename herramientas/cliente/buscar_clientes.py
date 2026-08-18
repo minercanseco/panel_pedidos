@@ -2,7 +2,9 @@ import tkinter as tk
 from cayal.ventanas import Ventanas
 from cayal.cliente import Cliente
 
-from herramientas.cliente.notebook_cliente import NoteBookCliente
+from herramientas.capturar_documento.herramientas.capturar_cliente.notebook_cliente import (
+    NoteBookCliente,
+)
 
 
 class BuscarClientes:

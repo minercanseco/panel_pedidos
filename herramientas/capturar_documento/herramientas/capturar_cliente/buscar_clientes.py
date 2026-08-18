@@ -2,8 +2,6 @@ import tkinter as tk
 from cayal.ventanas import Ventanas
 from cayal.cliente import Cliente
 
-
-
 class BuscarClientes:
     def __init__(self, master, base_de_datos, parametros, utilerias):
         self._master = master

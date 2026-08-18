@@ -6,7 +6,9 @@ import pyperclip
 from cayal.ventanas import Ventanas
 from cayal.util import Utilerias
 
-from agregar_epecificaciones import AgregarEspecificaciones
+from herramientas.capturar_documento.herramientas.agregar_epecificaciones import (
+    AgregarEspecificaciones,
+)
 
 
 class AgregarPartidaManualmente:

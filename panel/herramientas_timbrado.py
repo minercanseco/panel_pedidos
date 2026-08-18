@@ -977,6 +977,69 @@ class HerramientasTimbrado:
 
             return True
 
+        def validar_grupo_relacionado_despues_de_filtrar(filas_originales, filas_filtradas):
+            """
+            Evita facturar parcialmente un pedido con sus anexos/cambios.
+
+            La normalización agrega el pedido base antes de filtrar por estado. Si
+            el filtro elimina el pedido o una orden relacionada, el grupo deja de
+            ser consistente y debe abortarse completo. También impide que la ruta
+            automática de anexos/cambios mezcle clientes o pedidos base distintos.
+            """
+            filas_relacionadas = [
+                fila for fila in filas_originales
+                if int(fila.get('OrderTypeID') or 0) in (2, 3)
+            ]
+            if not filas_relacionadas:
+                return True
+
+            ids_filtrados = {
+                obtener_order_document_id_de_fila(fila)
+                for fila in filas_filtradas
+                if obtener_order_document_id_de_fila(fila)
+            }
+
+            for fila_relacionada in filas_relacionadas:
+                order_id = obtener_order_document_id_de_fila(fila_relacionada)
+                pedido_base_id = obtener_order_relacionado(fila_relacionada)
+
+                if order_id not in ids_filtrados or pedido_base_id not in ids_filtrados:
+                    self._interfaz.ventanas.mostrar_mensaje(
+                        'No se puede facturar parcialmente una relación de pedido y cambio/anexo. '
+                        'Alguno de sus elementos no tiene un estado válido para facturar.'
+                    )
+                    return False
+
+                fila_pedido = next(
+                    (
+                        fila for fila in filas_filtradas
+                        if obtener_order_document_id_de_fila(fila) == pedido_base_id
+                    ),
+                    None
+                )
+                if not validar_relacion_pedido_base(fila_relacionada, fila_pedido):
+                    self._interfaz.ventanas.mostrar_mensaje(
+                        'La relación entre el pedido y el cambio/anexo dejó de ser válida. '
+                        'Actualice la información e intente nuevamente.'
+                    )
+                    return False
+
+            clientes = {fila.get('BusinessEntityID') for fila in filas_filtradas}
+            pedidos_base = {
+                resolver_order_document_id_principal(fila)
+                for fila in filas_filtradas
+                if resolver_order_document_id_principal(fila)
+            }
+
+            if len(clientes) != 1 or len(pedidos_base) != 1:
+                self._interfaz.ventanas.mostrar_mensaje(
+                    'Los pedidos, cambios y anexos seleccionados deben pertenecer '
+                    'al mismo cliente y al mismo pedido base.'
+                )
+                return False
+
+            return True
+
         def excluir_pedidos_con_ordenes_en_proceso_del_mismo_cliente(filas):
             filas_filtradas = []
             clientes_en_proceso = []
@@ -1141,18 +1204,17 @@ class HerramientasTimbrado:
                     return []
 
                 if not validar_relacion_pedido_base(fila, fila_pedido):
-                    if not validar_relacion_pedido_base(fila, fila_pedido):
-                        self._interfaz.ventanas.mostrar_mensaje(
-                            f'Una orden seleccionada apunta a un pedido inconsistente.\n'
-                            f'order_origen={obtener_order_document_id_de_fila(fila)}\n'
-                            f'related_origen={fila.get("RelatedOrderID")}\n'
-                            f'order_pedido={obtener_order_document_id_de_fila(fila_pedido)}\n'
-                            f'cliente_origen={fila.get("BusinessEntityID")}\n'
-                            f'cliente_pedido={fila_pedido.get("BusinessEntityID")}\n'
-                            f'fecha_origen={fila.get("DeliveryPromise") or fila.get("F.Entrega")}\n'
-                            f'fecha_pedido={fila_pedido.get("DeliveryPromise") or fila_pedido.get("F.Entrega")}'
-                        )
-                        return []
+                    self._interfaz.ventanas.mostrar_mensaje(
+                        f'Una orden seleccionada apunta a un pedido inconsistente.\n'
+                        f'order_origen={obtener_order_document_id_de_fila(fila)}\n'
+                        f'related_origen={fila.get("RelatedOrderID")}\n'
+                        f'order_pedido={obtener_order_document_id_de_fila(fila_pedido)}\n'
+                        f'cliente_origen={fila.get("BusinessEntityID")}\n'
+                        f'cliente_pedido={fila_pedido.get("BusinessEntityID")}\n'
+                        f'fecha_origen={fila.get("DeliveryPromise") or fila.get("F.Entrega")}\n'
+                        f'fecha_pedido={fila_pedido.get("DeliveryPromise") or fila_pedido.get("F.Entrega")}'
+                    )
+                    return []
 
                 pedido_base_id = obtener_order_document_id_de_fila(fila_pedido)
 
@@ -1184,11 +1246,11 @@ class HerramientasTimbrado:
             if not filas:
                 return
 
-            filas = normalizar_filas_para_facturar(filas)
-            if not filas:
+            filas_normalizadas = normalizar_filas_para_facturar(filas)
+            if not filas_normalizadas:
                 return
 
-            filas_filtradas = filtrar_filas_facturables_por_status(filas)
+            filas_filtradas = filtrar_filas_facturables_por_status(filas_normalizadas)
 
             if not filtrar_pedidos_cliente_no_definido(filas_filtradas):
                 return
@@ -1197,6 +1259,14 @@ class HerramientasTimbrado:
                 if pedidos_fuera_status_timbrado:
                     mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
                 self._interfaz.ventanas.mostrar_mensaje('No hay pedidos con status válido para facturar')
+                return
+
+            if not validar_grupo_relacionado_despues_de_filtrar(
+                    filas_normalizadas,
+                    filas_filtradas
+            ):
+                if pedidos_fuera_status_timbrado:
+                    mostrar_pedidos_refacturados(pedidos_fuera_status_timbrado)
                 return
 
             if any(int(f.get('OrderTypeID') or 0) in (2, 3) for f in filas_filtradas):

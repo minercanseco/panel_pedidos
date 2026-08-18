@@ -106,6 +106,17 @@ class HerramientasCaptura:
         if fn:
             fn()
 
+    def _postfinalizar_captura(self, order_document_id=0, aplicar_filtro=True):
+        """Actualiza el panel al terminar cada captura, aunque haya otras abiertas."""
+        try:
+            if order_document_id:
+                self._modelo.actualizar_totales_pedido(order_document_id)
+            self._rellenar_tabla()
+            if aplicar_filtro:
+                self._filtro_post_captura()
+        finally:
+            self._finalizar_captura()
+
     def _crear_parametros_captura(self, document_id=0):
         """Aísla los parámetros mutables de cada ventana de captura."""
         parametros = copy.copy(self._parametros)
@@ -156,17 +167,16 @@ class HerramientasCaptura:
             BuscarGeneralesCliente(
                 ventana,
                 self._crear_parametros_captura(),
+                esperar_cierre=False,
+                al_finalizar=self._postfinalizar_captura,
             )
 
             # BuscarGeneralesCliente configura la ventana con grab_set().
             # Se libera después de construirlo para mantener abierto el panel.
             self._hacer_ventana_no_modal(ventana)
-            ventana.wait_window()
-
-            self._rellenar_tabla()
-            self._filtro_post_captura()
-        finally:
+        except Exception:
             self._finalizar_captura()
+            raise
 
     def _editar_pedido(self):
 
@@ -185,6 +195,7 @@ class HerramientasCaptura:
             return
 
         captura_pedido = status_id < 3
+        captura_asincrona = False
         if captura_pedido:
             self._iniciar_captura()
 
@@ -200,7 +211,14 @@ class HerramientasCaptura:
                     ventana,
                     self._crear_parametros_captura(order_document_id),
                     documento=documento,
+                    esperar_cierre=False,
+                    al_finalizar=lambda document_id: self._postfinalizar_captura(
+                        document_id,
+                        aplicar_filtro=status_id == 1,
+                    ),
                 )
+                captura_asincrona = True
+                return
 
             elif status_id >= 3:
                 EditarPedido(ventana, self._base_de_datos, self._utilerias, self._parametros, fila)
@@ -212,12 +230,13 @@ class HerramientasCaptura:
                 )
 
         finally:
-            self._modelo.actualizar_totales_pedido(order_document_id)
-            self._rellenar_tabla()
-            if status_id == 1:
-                self._filtro_post_captura()
-            if captura_pedido:
-                self._finalizar_captura()
+            if not captura_asincrona:
+                self._modelo.actualizar_totales_pedido(order_document_id)
+                self._rellenar_tabla()
+                if status_id == 1 and not captura_pedido:
+                    self._filtro_post_captura()
+                if captura_pedido:
+                    self._finalizar_captura()
 
     def _editar_caracteristicas_pedido(self):
         status_id = None

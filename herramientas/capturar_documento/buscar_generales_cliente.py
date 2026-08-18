@@ -27,10 +27,13 @@ MODULOS_VENTAS = (21,1400,1316,1319)
 
 class BuscarGeneralesCliente:
 
-    def __init__(self, master, parametros):
+    def __init__(self, master, parametros, esperar_cierre=True, al_finalizar=None):
 
         self._master = master
         self._parametros_contpaqi = parametros
+        self._esperar_cierre = esperar_cierre
+        self._al_finalizar = al_finalizar
+        self._finalizacion_notificada = False
 
 
         self._declarar_variables_globales()
@@ -45,6 +48,24 @@ class BuscarGeneralesCliente:
         self._actualizar_apariencia_forma(solo_apariencia_inicial=True)
         self._ventanas.configurar_ventana_ttkbootstrap('Seleccionar cliente')
         self._ventanas.enfocar_componente('tbx_buscar')
+
+        if not self._esperar_cierre:
+            self._master.bind(
+                '<Destroy>',
+                self._notificar_cancelacion_asincrona,
+                add='+',
+            )
+
+    def _notificar_finalizacion(self):
+        if self._finalizacion_notificada:
+            return
+        self._finalizacion_notificada = True
+        if callable(self._al_finalizar):
+            self._al_finalizar(self._documento.document_id)
+
+    def _notificar_cancelacion_asincrona(self, event):
+        if event.widget is self._master and not self._instancia_llamada:
+            self._notificar_finalizacion()
 
     def _declarar_variables_globales(self):
         self._termino_buscado = None
@@ -1005,12 +1026,39 @@ class BuscarGeneralesCliente:
             self._modelo_captura = modelo
 
             controlador = ControladorCaptura(interfaz, modelo)
-            self._master.wait_window()
+            if self._esperar_cierre:
+                self._master.wait_window()
 
-            if (
-                    tratamiento_pedido is not None
-                    and interfaz.guardar_documento is True):
-                tratamiento_pedido.guardar()
+                if (
+                        tratamiento_pedido is not None
+                        and interfaz.guardar_documento is True):
+                    tratamiento_pedido.guardar()
+            else:
+                completada = False
+                tratamiento_asincrono = tratamiento_pedido
+
+                def completar_captura():
+                    nonlocal completada
+                    if completada:
+                        return
+                    completada = True
+                    try:
+                        if (
+                                tratamiento_asincrono is not None
+                                and interfaz.guardar_documento is True):
+                            tratamiento_asincrono.guardar()
+                    finally:
+                        if tratamiento_asincrono is not None:
+                            tratamiento_asincrono.finalizar()
+                        self._notificar_finalizacion()
+
+                def al_destruir(event):
+                    if event.widget is not self._master:
+                        return
+                    completar_captura()
+
+                self._master.bind('<Destroy>', al_destruir, add='+')
+                tratamiento_pedido = None
 
         finally:
 

@@ -27,11 +27,15 @@ class LlamarInstanciaCapturaPedido:
             base_de_datos=None,
             utilerias=None,
             abrir_interfaz=True,
+            esperar_cierre=True,
+            al_finalizar=None,
     ):
         self._master = master
         self._parametros_contpaqi = parametros
         self._module_id = int(getattr(parametros, 'id_modulo', 0) or 0)
         self._user_id = int(getattr(parametros, 'id_usuario', 0) or 0)
+        self._esperar_cierre = esperar_cierre
+        self._al_finalizar = al_finalizar
 
         self._declarar_clases_auxiliares(
             cliente,
@@ -264,6 +268,9 @@ class LlamarInstanciaCapturaPedido:
 
     def ejecutar_captura(self):
         """Ejecuta el aplicativo común y aplica el tratamiento del pedido."""
+        if not self._esperar_cierre:
+            return self._ejecutar_captura_asincrona()
+
         try:
             self.preparar()
             self._interfaz_captura = InterfazCaptura(
@@ -291,6 +298,49 @@ class LlamarInstanciaCapturaPedido:
             return self._documento.document_id
         finally:
             self.finalizar()
+
+    def _ejecutar_captura_asincrona(self):
+        """Finaliza esta captura al cerrar su ventana, sin bloquear otras."""
+        self.preparar()
+        self._interfaz_captura = InterfazCaptura(
+            self._master,
+            self._module_id,
+            solicitar_guardado=True
+        )
+        self._modelo_captura = ModeloCaptura(
+            self._base_de_datos,
+            self._utilerias,
+            self._cliente,
+            self._documento,
+            self._parametros_contpaqi,
+        )
+        self._controlador_captura = ControladorCaptura(
+            self._interfaz_captura,
+            self._modelo_captura,
+        )
+
+        completada = False
+
+        def completar():
+            nonlocal completada
+            if completada:
+                return
+            completada = True
+            try:
+                if self._interfaz_captura.guardar_documento is True:
+                    self.guardar()
+            finally:
+                self.finalizar()
+                if callable(self._al_finalizar):
+                    self._al_finalizar(self._documento.document_id)
+
+        def al_destruir(event):
+            if event.widget is not self._master:
+                return
+            completar()
+
+        self._master.bind('<Destroy>', al_destruir, add='+')
+        return self._documento.document_id
 
     def guardar(self):
         """Crea o actualiza el pedido según el estado del Documento."""

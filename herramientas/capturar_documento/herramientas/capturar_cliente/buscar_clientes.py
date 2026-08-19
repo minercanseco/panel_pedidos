@@ -2,6 +2,9 @@ import tkinter as tk
 from cayal.ventanas import Ventanas
 from cayal.cliente import Cliente
 
+from herramientas.capturar_documento.herramientas.capturar_cliente.notebook_cliente import NoteBookCliente
+
+
 class BuscarClientes:
     def __init__(self, master, base_de_datos, parametros, utilerias):
         self._master = master
@@ -60,16 +63,22 @@ class BuscarClientes:
         self._cliente.consulta = info_cliente
         self._cliente.settear_valores_consulta()
 
-
         self._parametros.id_principal = business_entity_id
+        try:
+            ventana = self._ventanas.crear_popup_ttkbootstrap()
+            cliente = Cliente()
+            NoteBookCliente(
+                ventana,
+                self._base_de_datos,
+                self._parametros,
+                self._utilerias,
+                cliente
+            )
+            ventana.wait_window()
+        finally:
+            self._parametros.id_principal = 0
 
-        ventana = self._ventanas.crear_popup_ttkbootstrap(self._master, 'Cliente')
-        tipo_captura = 'Remisión' if self._cliente.official_number == 'XAXX010101000' else 'Factura'
-        parametros_cliente = {'TipoCaptura': tipo_captura}
-        instancia = FormularioCliente(ventana,
-                                      self._parametros,
-                                      parametros_cliente,
-                                      self._cliente)
+
         ventana.wait_window()
 
     def _rellenar_tabla_clientes(self):

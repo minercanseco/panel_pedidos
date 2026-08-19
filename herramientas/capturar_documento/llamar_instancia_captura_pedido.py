@@ -262,7 +262,15 @@ class LlamarInstanciaCapturaPedido:
                 self._settear_cliente_y_direcciones(business_entity_id)
 
         self._settear_direccion_documento()
-        self._preparar_bloqueo()
+        if self._preparar_bloqueo():
+            usuario = self._base_de_datos.esta_documento_en_uso(
+                self._documento.document_id,
+                pedido=True,
+            )
+            usuario = str(usuario or 'otro usuario').strip()
+            raise ValueError(
+                f'No es posible editar el pedido porque está en uso por {usuario}.'
+            )
         self._preparado = True
         return self
 
@@ -302,23 +310,6 @@ class LlamarInstanciaCapturaPedido:
     def _ejecutar_captura_asincrona(self):
         """Finaliza esta captura al cerrar su ventana, sin bloquear otras."""
         self.preparar()
-        self._interfaz_captura = InterfazCaptura(
-            self._master,
-            self._module_id,
-            solicitar_guardado=True
-        )
-        self._modelo_captura = ModeloCaptura(
-            self._base_de_datos,
-            self._utilerias,
-            self._cliente,
-            self._documento,
-            self._parametros_contpaqi,
-        )
-        self._controlador_captura = ControladorCaptura(
-            self._interfaz_captura,
-            self._modelo_captura,
-        )
-
         completada = False
 
         def completar():
@@ -327,7 +318,10 @@ class LlamarInstanciaCapturaPedido:
                 return
             completada = True
             try:
-                if self._interfaz_captura.guardar_documento is True:
+                if (
+                        self._interfaz_captura is not None
+                        and self._interfaz_captura.guardar_documento is True
+                ):
                     self.guardar()
             finally:
                 self.finalizar()
@@ -339,7 +333,34 @@ class LlamarInstanciaCapturaPedido:
                 return
             completar()
 
-        self._master.bind('<Destroy>', al_destruir, add='+')
+        # Registrar la liberación antes de construir la captura. Si la
+        # creación de cualquier componente falla, el pedido no debe quedar
+        # marcado en uso.
+        try:
+            self._master.bind('<Destroy>', al_destruir, add='+')
+            self._interfaz_captura = InterfazCaptura(
+                self._master,
+                self._module_id,
+                solicitar_guardado=True
+            )
+            self._modelo_captura = ModeloCaptura(
+                self._base_de_datos,
+                self._utilerias,
+                self._cliente,
+                self._documento,
+                self._parametros_contpaqi,
+            )
+            self._controlador_captura = ControladorCaptura(
+                self._interfaz_captura,
+                self._modelo_captura,
+            )
+        except Exception:
+            # El llamador todavía no recibió una captura activa y se encarga
+            # de ajustar su contador. Aquí solamente se libera el bloqueo.
+            completada = True
+            self.finalizar()
+            raise
+
         return self._documento.document_id
 
     def guardar(self):
@@ -369,16 +390,23 @@ class LlamarInstanciaCapturaPedido:
         bloquear = status != 'Desbloqueado'
         locked_user_id = int(locked_user_id or 0)
 
+        # Una marca del mismo usuario puede ser residual. El panel controla
+        # por separado que el pedido no esté abierto en otra ventana local.
         if locked_user_id not in (0, self._user_id):
             return True
 
         self._marcar_en_uso(document_id, pedido=True)
-        status, motivo, locked_user_id = (
-            self._base_de_datos.obtener_status_bloqueo_pedido(
-                order_document_id=document_id,
-                user_id=self._user_id,
+        try:
+            status, motivo, locked_user_id = (
+                self._base_de_datos.obtener_status_bloqueo_pedido(
+                    order_document_id=document_id,
+                    user_id=self._user_id,
+                )
             )
-        )
+        except Exception:
+            self._desmarcar_en_uso()
+            raise
+
         if int(locked_user_id or 0) != self._user_id:
             self._desmarcar_en_uso()
             return True

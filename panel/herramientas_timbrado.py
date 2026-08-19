@@ -121,6 +121,13 @@ class HerramientasTimbrado:
             AsociarPedidoWeb(ventana, self._base_de_datos, self._utilerias, self._parametros, fila)
             ventana.wait_window()
 
+        except ValueError as error:
+            self._interfaz.ventanas.mostrar_mensaje(str(error))
+            try:
+                ventana.destroy()
+            except (AttributeError, tk.TclError):
+                pass
+
         finally:
             self._rellenar_tabla()
             self._reanudar_autorefresco()
@@ -135,6 +142,13 @@ class HerramientasTimbrado:
         status_id = fila['TypeStatusID']
         order_document_id = fila['OrderDocumentID']
         business_entity_id = fila['BusinessEntityID']
+
+        permitido, mensaje = self._modelo.validar_edicion_pedido(
+            order_document_id
+        )
+        if not permitido:
+            self._interfaz.ventanas.mostrar_mensaje(mensaje)
+            return
 
         #  cancelado, modificando, surtido parcialmente minisuper, produccion, almacen, entregado, cobrado o cartera
         if status_id in (10, 12, 16, 17, 18, 15):

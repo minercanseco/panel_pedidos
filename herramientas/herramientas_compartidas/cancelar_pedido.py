@@ -108,39 +108,48 @@ class CancelarPedido:
 
     def _actualizar_base_de_datos(self, parametros):
 
-        if self._info_pedido['UserID'] != 0:
-            nombre_usuario = self._base_de_datos.buscar_nombre_de_usuario(self._info_pedido['UserID'])
+        locked_user_id = int(self._info_pedido.get('UserID', 0) or 0)
+        if locked_user_id not in (0, int(self._user_id or 0)):
+            nombre_usuario = self._base_de_datos.buscar_nombre_de_usuario(locked_user_id)
             self._ventanas.mostrar_mensaje(f'El documento está en uso por {nombre_usuario}.')
             self._master.destroy()
+            return
 
         self._base_de_datos.marcar_documento_en_uso(self._order_document_id,
                                                     self._user_id,
                                                     pedido=True
                                                     )
-        self._base_de_datos.command("""
-            DECLARE @OrderDocumentID INT = ?
-            DECLARE @UserID INT = ?
-            DECLARE @CancelledComment NVARCHAR(MAX) = ?
-            DECLARE @CancelledReasonID INT = ?
-            
-            UPDATE docDocumentOrderCayal SET CancelledOn = GETDATE(),
-                                            CancelledBy = @UserID,
-                                            CancelledComment = @CancelledComment,
-                                            CancelledReasonID = @CancelledReasonID,
-                                            StatusID = 10
-                            WHERE OrderDocumentID = @OrderDocumentID
-        """, (parametros[0],
-              parametros[1],
-              parametros[2],
-              parametros[3]
-              ))
+        try:
+            self._base_de_datos.command("""
+                DECLARE @OrderDocumentID INT = ?
+                DECLARE @UserID INT = ?
+                DECLARE @CancelledComment NVARCHAR(MAX) = ?
+                DECLARE @CancelledReasonID INT = ?
 
-        self._base_de_datos.insertar_registro_bitacora_pedidos(
-            order_document_id=self._order_document_id,
-            change_type_id=10,
-            user_id=self._user_id,
-            comments=parametros[2]
-        )
+                UPDATE docDocumentOrderCayal SET CancelledOn = GETDATE(),
+                                                CancelledBy = @UserID,
+                                                CancelledComment = @CancelledComment,
+                                                CancelledReasonID = @CancelledReasonID,
+                                                StatusID = 10
+                                WHERE OrderDocumentID = @OrderDocumentID
+            """, (parametros[0],
+                  parametros[1],
+                  parametros[2],
+                  parametros[3]
+                  ))
+
+            self._base_de_datos.insertar_registro_bitacora_pedidos(
+                order_document_id=self._order_document_id,
+                change_type_id=10,
+                user_id=self._user_id,
+                comments=parametros[2]
+            )
+        finally:
+            self._base_de_datos.desmarcar_documento_en_uso(
+                self._order_document_id,
+                self._user_id,
+                pedido=True,
+            )
 
     def _guardar_cancelacion(self):
         if self._validar_inputs_componentes():

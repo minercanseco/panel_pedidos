@@ -29,6 +29,7 @@ class HerramientasCaptura:
         self._parametros = self._modelo.parametros
         self._utilerias = self._modelo.utilerias
         self._capturas_activas = 0
+        self._pedidos_en_captura = set()
 
         self._crear_frames()
         self._crear_barra_herramientas()
@@ -84,14 +85,20 @@ class HerramientasCaptura:
         if fn:
             fn()
 
-    def _iniciar_captura(self):
+    def _iniciar_captura(self, order_document_id=0):
         """Pausa una sola vez aunque existan varias capturas abiertas."""
+        order_document_id = int(order_document_id or 0)
+        if order_document_id:
+            self._pedidos_en_captura.add(order_document_id)
         if self._capturas_activas == 0:
             self._pausar_autorefresco()
         self._capturas_activas += 1
 
-    def _finalizar_captura(self):
+    def _finalizar_captura(self, order_document_id=0):
         """Reanuda el refresco cuando cierre la última captura."""
+        order_document_id = int(order_document_id or 0)
+        if order_document_id:
+            self._pedidos_en_captura.discard(order_document_id)
         self._capturas_activas = max(0, self._capturas_activas - 1)
         if self._capturas_activas == 0:
             self._reanudar_autorefresco()
@@ -115,7 +122,7 @@ class HerramientasCaptura:
             if aplicar_filtro:
                 self._filtro_post_captura()
         finally:
-            self._finalizar_captura()
+            self._finalizar_captura(order_document_id)
 
     def _crear_parametros_captura(self, document_id=0):
         """Aísla los parámetros mutables de cada ventana de captura."""
@@ -189,6 +196,19 @@ class HerramientasCaptura:
         order_document_id = fila['OrderDocumentID']
         business_entity_id = fila['BusinessEntityID']
 
+        if int(order_document_id) in self._pedidos_en_captura:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Este pedido ya está abierto en otra ventana de captura.'
+            )
+            return
+
+        permitido, mensaje = self._modelo.validar_edicion_pedido(
+            order_document_id
+        )
+        if not permitido:
+            self._interfaz.ventanas.mostrar_mensaje(mensaje)
+            return
+
         #  cancelado, modificando, surtido parcialmente minisuper, produccion, almacen, entregado, cobrado o cartera
         if status_id in (10, 12, 16, 17, 18, 13, 14, 15):
             self._interfaz.ventanas.mostrar_mensaje('El pedido no tiene un estatus válido para ser editado.')
@@ -197,7 +217,7 @@ class HerramientasCaptura:
         captura_pedido = status_id < 3
         captura_asincrona = False
         if captura_pedido:
-            self._iniciar_captura()
+            self._iniciar_captura(order_document_id)
 
         try:
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Pedido', nombre_icono='icono_logo.ico')
@@ -229,6 +249,13 @@ class HerramientasCaptura:
                     'No hay acción válida para un pedido en este estado.'
                 )
 
+        except ValueError as error:
+            self._interfaz.ventanas.mostrar_mensaje(str(error))
+            try:
+                ventana.destroy()
+            except (AttributeError, tk.TclError):
+                pass
+
         finally:
             if not captura_asincrona:
                 self._modelo.actualizar_totales_pedido(order_document_id)
@@ -236,7 +263,7 @@ class HerramientasCaptura:
                 if status_id == 1 and not captura_pedido:
                     self._filtro_post_captura()
                 if captura_pedido:
-                    self._finalizar_captura()
+                    self._finalizar_captura(order_document_id)
 
     def _editar_caracteristicas_pedido(self):
         status_id = None

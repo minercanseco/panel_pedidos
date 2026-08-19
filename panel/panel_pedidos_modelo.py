@@ -47,6 +47,68 @@ class ModeloPanelPedidos:
         return self.base_de_datos.fetchone(
             'SELECT UserGroupID FROM engUser WHERE UserID = ?', (user_id,))
 
+    def validar_edicion_pedido(self, order_document_id):
+        """Valida estado, bloqueo y surtido antes de permitir una edición."""
+        resultado = self.base_de_datos.fetchall(
+            """
+            SELECT P.StatusID,
+                   ISNULL(P.UserID, 0) AS UserID,
+                   ISNULL(U.UserName, '') AS UsuarioEnUso,
+                   P.FinishedPreparingProduction,
+                   P.FinishedPreparingWarehouse,
+                   P.FinishedPreparingStore,
+                   ISNULL(S.TypeStatusName, '') AS StatusName
+            FROM docDocumentOrderCayal P
+            LEFT JOIN engUser U
+              ON P.UserID = U.UserID
+            LEFT JOIN OrderStatusTypesCayal S
+              ON P.StatusID = S.TypeStatusID
+            WHERE P.OrderDocumentID = ?
+            """,
+            (order_document_id,),
+        ) or []
+
+        if not resultado:
+            return False, 'No fue posible encontrar el pedido seleccionado.'
+
+        pedido = resultado[0]
+        status_id = int(pedido.get('StatusID', 0) or 0)
+        if status_id not in (1, 2):
+            status_name = str(pedido.get('StatusName', '') or '').strip()
+            detalle = f' ({status_name})' if status_name else ''
+            return (
+                False,
+                f'No es posible editar el pedido porque su estado actual{detalle} '
+                'ya no permite modificaciones.',
+            )
+
+        locked_user_id = int(pedido.get('UserID', 0) or 0)
+        if locked_user_id not in (0, int(self.user_id or 0)):
+            usuario = str(pedido.get('UsuarioEnUso', '') or '').strip()
+            usuario = usuario or 'otro usuario'
+            return (
+                False,
+                f'No es posible editar el pedido porque está en uso por {usuario}.',
+            )
+
+        areas_surtidas = []
+        if pedido.get('FinishedPreparingProduction') is not None:
+            areas_surtidas.append('Producción')
+        if pedido.get('FinishedPreparingWarehouse') is not None:
+            areas_surtidas.append('Almacén')
+        if pedido.get('FinishedPreparingStore') is not None:
+            areas_surtidas.append('Minisúper')
+
+        if areas_surtidas:
+            areas = ', '.join(areas_surtidas)
+            return (
+                False,
+                'No es posible editar el pedido porque ya comenzó a surtirse '
+                f'por: {areas}.',
+            )
+
+        return True, ''
+
     def buscar_pedidos_sin_procesar(self):
         return self.base_de_datos.pedidos_sin_procesar('pedidos')
 

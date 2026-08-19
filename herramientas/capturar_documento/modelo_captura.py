@@ -551,13 +551,10 @@ class ModeloCaptura:
         comentario = f'{comentario} ({ahora})'
         partida_copia['Comments'] = comentario
 
-        partidas_extra = self.documento.items_extra
-        nuevas_partidas = [
-                partida_extra for partida_extra in partidas_extra
-                if str(partida_extra['uuid']) != str(uuid_tabla)
-            ]
+        partidas_extra = list(self.documento.items_extra or [])
 
-        # procesa la partida y agregala
+        # Cada acción es un evento histórico independiente. No sustituir el
+        # respaldo anterior aunque corresponda al mismo UUID.
 
         if accion == 'eliminar':
             partida_copia['ItemProductionStatusModified'] = 3
@@ -568,9 +565,9 @@ class ModeloCaptura:
         if accion == 'agregar':
             partida_copia['ItemProductionStatusModified'] = 1
 
-        nuevas_partidas.append(partida_copia)
+        partidas_extra.append(partida_copia)
 
-        self.documento.items_extra = nuevas_partidas
+        self.documento.items_extra = partidas_extra
 
     def obtener_equivalencia_producto(self, product_id):
         return self.base_de_datos.fetchone(

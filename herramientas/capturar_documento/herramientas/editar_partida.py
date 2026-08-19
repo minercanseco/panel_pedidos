@@ -617,7 +617,7 @@ class EditarPartida:
             partida,
             comentario_auditoria,
             uuid_partida,
-            'editar' if document_item_id > 0 else 'agregar',
+            'editar',
         )
 
         if callable(self._actualizar_totales):
@@ -669,37 +669,15 @@ class EditarPartida:
             uuid_partida,
             accion,
     ):
-        registro_anterior = next(
-            (
-                registro for registro in self._documento.items_extra
-                if str(registro.get('uuid', '')) == str(uuid_partida)
-            ),
-            None,
-        )
-        historial_anterior = (
-            str(registro_anterior.get('Comments', '') or '').strip()
-            if registro_anterior else ''
-        )
-
+        # El modelo conserva una entrada por cada acción. Los comentarios ya
+        # no se concatenan en un único registro porque eso ocultaba ediciones
+        # sucesivas y evitaba respaldarlas individualmente.
         self._modelo.agregar_partida_items_documento_extra(
             partida,
             accion,
             comentario,
             uuid_partida,
         )
-
-        if historial_anterior:
-            registro_nuevo = next(
-                (
-                    registro for registro in self._documento.items_extra
-                    if str(registro.get('uuid', '')) == str(uuid_partida)
-                ),
-                None,
-            )
-            if registro_nuevo:
-                registro_nuevo['Comments'] = (
-                    f'{historial_anterior}\n{registro_nuevo.get("Comments", "")}'
-                )
 
     def _actualizar_servicio_domicilio(self):
         if self._module_id != 1687:

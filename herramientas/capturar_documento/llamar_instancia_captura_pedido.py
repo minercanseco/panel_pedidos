@@ -539,10 +539,39 @@ class LlamarInstanciaCapturaPedido:
             )
             if estado not in acciones:
                 continue
-            if estado == 1:
+            if int(partida.get('DocumentItemID', 0) or 0) <= 0:
                 partida['DocumentItemID'] = ids_por_uuid.get(
                     partida.get('uuid'), 0
                 )
+
+            document_item_id = int(
+                partida.get('DocumentItemID', 0) or 0
+            )
+            if document_item_id <= 0:
+                # Una partida agregada debe haber recibido su ID al insertar
+                # las partidas principales. Sin ese ID el respaldo no podría
+                # relacionarse de forma segura con la partida visible.
+                continue
+
+            parametros_respaldo = (
+                document_id,
+                int(partida.get('ProductID', 0) or 0),
+                int(partida.get('DepotID', 2) or 2),
+                partida.get('cantidad', partida.get('Quantity', 0)),
+                partida.get('precio', partida.get('UnitPrice', 0)),
+                partida.get('CostPrice', 0),
+                partida.get('subtotal', partida.get('Subtotal', 0)),
+                document_item_id,
+                partida.get('TipoCaptura', 0),
+                partida.get('CayalPiece', 0),
+                partida.get('CayalAmount', 0),
+                estado,
+                partida.get('Comments', ''),
+                partida.get('CreatedBy', self._user_id),
+            )
+            self._base_de_datos.respaldar_partida_pedido_cayal(
+                parametros_respaldo
+            )
 
             change_type_id, accion = acciones[estado]
             comentario = partida.get('Comments', '') if estado == 2 else (

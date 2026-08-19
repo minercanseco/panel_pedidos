@@ -877,6 +877,37 @@ class ControladorPanelPedidos:
 
     def _rellenar_tabla_detalle(self):
 
+        def normalizar_comentario(valor):
+            """Adapta especificación e historial a una celda de una línea."""
+            lineas = [
+                ' '.join(linea.split())
+                for linea in str(valor or '').splitlines()
+                if linea.strip()
+            ]
+            if not lineas:
+                return ''
+
+            indice_cambios = next(
+                (
+                    indice for indice, linea in enumerate(lineas)
+                    if linea.casefold() == 'cambios:'
+                ),
+                None,
+            )
+            if indice_cambios is None:
+                return ' | '.join(lineas)
+
+            especificacion = ' | '.join(lineas[:indice_cambios])
+            cambios = ' | '.join(lineas[indice_cambios + 1:])
+            secciones = []
+            if especificacion:
+                secciones.append(especificacion)
+            if cambios:
+                secciones.append(f'Cambios: {cambios}')
+            else:
+                secciones.append('Cambios:')
+            return ' | '.join(secciones)
+
         def procesar_partidas_pedido(partidas):
             if not partidas:
                 return []
@@ -895,7 +926,7 @@ class ControladorPanelPedidos:
                 if product_id == 5606:
                     continue
 
-                comentario = (producto.get('Comments') or '').strip()
+                comentario = normalizar_comentario(producto.get('Comments'))
                 piezas = producto.get('CayalPiece', 0)
                 piezas = 0 if es_flotante(piezas) else piezas
 

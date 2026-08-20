@@ -150,8 +150,6 @@ class HerramientasTimbrado:
             self._interfaz.ventanas.mostrar_mensaje(mensaje)
             return
 
-
-
         try:
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Pedido', nombre_icono='icono_logo.ico')
             if status_id < 3:

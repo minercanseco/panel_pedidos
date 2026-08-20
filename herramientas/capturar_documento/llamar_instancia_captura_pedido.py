@@ -518,7 +518,7 @@ class LlamarInstanciaCapturaPedido:
             )
         return document_id
 
-    def _guardar_partidas(self, document_id):
+    def _guardar_partidas(self, document_id, status_id):
         for partida in self._documento.items:
             copia = copy.deepcopy(partida)
             product_id = int(copia.get('ProductID', 0) or 0)
@@ -541,7 +541,7 @@ class LlamarInstanciaCapturaPedido:
                 copia.get('TipoCaptura', 0),
                 copia.get('CayalPiece', 0),
                 copia.get('CayalAmount', 0),
-                copia.get('ItemProductionStatusModified', 0),
+                copia.get('ItemProductionStatusModified', 0) if status_id != 1 else 0,
                 copia.get('Comments', ''),
                 copia.get('CreatedBy', self._user_id),
             )
@@ -660,8 +660,10 @@ class LlamarInstanciaCapturaPedido:
                 self.nuevo_pedido = True
 
             document_id = int(self._documento.document_id)
-            self._guardar_partidas(document_id)
-            if self._obtener_status_id_pedido(document_id) != 1:
+            status_id = self._obtener_status_id_pedido(document_id)
+
+            self._guardar_partidas(document_id, status_id)
+            if status_id != 1:
                 self._guardar_bitacora_partidas(document_id)
 
             self._actualizar_cabecera(document_id)

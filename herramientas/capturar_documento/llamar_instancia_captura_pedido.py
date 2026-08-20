@@ -661,7 +661,9 @@ class LlamarInstanciaCapturaPedido:
 
             document_id = int(self._documento.document_id)
             self._guardar_partidas(document_id)
-            self._guardar_bitacora_partidas(document_id)
+            if self._obtener_status_id_pedido(document_id) != 1:
+                self._guardar_bitacora_partidas(document_id)
+
             self._actualizar_cabecera(document_id)
 
         except Exception:
@@ -680,3 +682,7 @@ class LlamarInstanciaCapturaPedido:
             """,
             (self._documento.comments or '', document_id),
         )
+
+    def _obtener_status_id_pedido(self, document_id):
+        return self._base_de_datos.fetchone("SELECT ISNULL(StatusID,1) StatusID FROM docDocumentOrderCayal WHERE OrderDocumentID = ?",
+                                            (document_id,))

@@ -73,7 +73,10 @@ class ModeloPanelPedidos:
 
         pedido = resultado[0]
         status_id = int(pedido.get('StatusID', 0) or 0)
-        if status_id  in (2,16,17,18,10 ):
+        if status_id not in (2,16,17,18,10):
+            return True,''
+
+        if status_id  in (2,16,17,18,10):
             status_name = str(pedido.get('StatusName', '') or '').strip()
             detalle = f' ({status_name})' if status_name else ''
             return (

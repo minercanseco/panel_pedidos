@@ -887,6 +887,16 @@ class EditarCaracteristicasPedido:
                         (self._order_document_id, schedule_id, order_type_id, self._user_id)
                     )
 
+            # Leer el estado definitivo después de todas las actualizaciones
+            # (incluidas las reglas automáticas de anexo/cambio) y compararlo
+            # contra la fotografía original. Así la bitácora refleja lo que
+            # realmente quedó persistido.
+            consulta_final = self._base_de_datos.buscar_info_documento_pedido_cayal(
+                self._order_document_id
+            ) or []
+            if consulta_final:
+                self._actualizar_bitacora(consulta_final[0])
+
             self._master.destroy()
 
     def _actualizar_docdocument_order_cayal(self, order_document_id, valores_actualizacion):
@@ -912,14 +922,10 @@ class EditarCaracteristicasPedido:
         # Ejecutar el comando
         self._base_de_datos.command(query, tuple(valores))
 
-        # Actualiza la bitacora de cambios
-        self._actualizar_bitacora(valores_actualizacion)
-
     def _actualizar_bitacora(self, valores_actualizacion):
         claves_bitacora = self._encontrar_claves_diferentes(self.info_pedido, valores_actualizacion)
 
         valores_bitacora = {
-
             'AddressDetailID':  (26, 'Dirección actualizada:', self._consulta_direcciones, 'AddressName', 'AddressDetailID'),
             'OrderTypeID': (44,'Tipo de orden cambiada:', self._consulta_tipos_pedidos, 'Value', 'ID'),
             'OrderTypeOriginID': (28,'Origen de orden actualizada:', self._consulta_origen_pedidos, 'Value', 'ID'),
@@ -927,59 +933,78 @@ class EditarCaracteristicasPedido:
             'OrderDeliveryTypeID': (25,'Forma de entrega actualizada:', self._consulta_tipos_entrega, 'DeliveryTypesName', 'DeliveryTypesID'),
             'PriorityID': (29,'Prioridad actualizada:', self._consulta_prioridad_pedidos, 'Value','ID'),
             'WayToPayID': (24,'Forma de pago actualizada:', self._consulta_formas_pago, 'PaymentTermName', 'PaymentTermID'),
-            'DeliveryPromise': (22,'Promesa de entrega actualizada:', None, None),
-            'CommentsOrder': (30,'Comentario modificado:', None, None),
-            'RelatedOrderID': (45,'Relación agregada:', None, None),
+            'DeliveryPromise': (22,'Promesa de entrega actualizada:', None, None, None),
+            'CommentsOrder': (30,'Comentario modificado:', None, None, None),
+            'RelatedOrderID': (45,'Relación agregada:', None, None, None),
             'DocumentTypeID': (46,'Tipo documento actualizado:', self._consulta_tipo_documentos, 'Value', 'ID'),
-            'OrderDeliveryCost': (47,'Costo de envío actualizado'),
-            'DepotID': (27, 'Sucursal actualizada:', self._consulta_sucursales, 'DepotName', 'DepotID')
+            'OrderDeliveryCost': (47,'Costo de envío actualizado:', None, None, None),
+            'DepotID': (27, 'Sucursal actualizada:', self._consulta_sucursales, 'DepotName', 'DepotID'),
+            'PaymentConfirmedID': (59, 'Confirmación de pago actualizada:', None, None, None),
         }
         user_name = self._base_de_datos.buscar_nombre_de_usuario(self._user_id)
 
         for clave in claves_bitacora:
+            configuracion = valores_bitacora.get(clave)
+            # CreatedOn, CreatedBy, HostName y otros campos técnicos no son
+            # características editables y se excluyen deliberadamente.
+            if not configuracion:
+                continue
+
             try:
-                change_type_id = valores_bitacora[clave][0]
-                comentario = valores_bitacora[clave][1]
+                change_type_id, comentario, consulta, campo_texto, campo_id = configuracion
+                valor_anterior_crudo = self.info_pedido.get(clave)
+                valor_nuevo_crudo = valores_actualizacion.get(clave)
 
-                valor_nuevo = ''
-                valor_anterior = ''
-                consulta = valores_bitacora[clave][2]
-                valor_buscado = ''
-                valor_buscado_id = 0
+                if (
+                        clave == 'CommentsOrder'
+                        and not str(valor_anterior_crudo or '').strip()
+                        and str(valor_nuevo_crudo or '').strip()
+                ):
+                    change_type_id = 23
+                    comentario = 'Comentario agregado:'
 
-                if clave not in ('DeliveryPromise', 'CommentsOrder', 'RelatedOrderID'):
-                    valor_buscado = valores_bitacora[clave][3]
-                    valor_buscado_id = valores_bitacora[clave][4]
-
-                if clave not in ('ScheduleID','DepotID','DeliveryPromise', 'CommentsOrder', 'RelatedOrderID'):
-                    valor_nuevo = [reg[valor_buscado] for reg in consulta if  reg[valor_buscado_id] == valores_actualizacion[clave]][0]
-                    valor_anterior = [reg[valor_buscado] for reg in consulta if reg[valor_buscado_id] == self.info_pedido[clave]][0]
-
-                if clave == 'ScheduleID':
-                    valor_nuevo = [reg[valor_buscado] for reg in consulta if reg[valor_buscado_id] == valores_actualizacion[clave]][0]
-
-                if clave == 'DepotID' and self._consulta_sucursales:
-                    valor_nuevo = [reg[valor_buscado] for reg in consulta if reg[valor_buscado_id] == valores_actualizacion[clave]][0]
-                    if self.info_pedido[clave] != 0:
-                        valor_anterior = [reg[valor_buscado] for reg in consulta if reg[valor_buscado_id] == self.info_pedido[clave]][0]
-
-                if clave in ('CommentsOrder', 'DeliveryPromise'):
-                    valor_nuevo = valores_actualizacion[clave]
-                    valor_anterior = self.info_pedido[clave]
-
-                if clave ==  'RelatedOrderID':
-                    nueva_consulta =  self._base_de_datos.buscar_info_documento_pedido_cayal(valores_actualizacion[clave])
-                    if consulta:
-                        info_pedido = nueva_consulta[0]
-                        valor_nuevo = info_pedido['DocFolio']
+                valor_anterior = self._descripcion_valor_bitacora(
+                    clave, valor_anterior_crudo, consulta, campo_texto, campo_id
+                )
+                valor_nuevo = self._descripcion_valor_bitacora(
+                    clave, valor_nuevo_crudo, consulta, campo_texto, campo_id
+                )
 
                 comentario = f"{comentario} {user_name} - {valor_anterior} --> {valor_nuevo}"
                 self._base_de_datos.insertar_registro_bitacora_pedidos(self._order_document_id,
                                                                        change_type_id=change_type_id,
                                                                        comments=comentario,
                                                                        user_id=self._user_id)
-            except:
-                print(clave)
+            except Exception as error:
+                print(f'[BITÁCORA] No fue posible registrar {clave}: {error}')
+
+    def _descripcion_valor_bitacora(self, clave, valor, consulta, campo_texto, campo_id):
+        if clave == 'RelatedOrderID':
+            if not valor:
+                return 'Sin relación'
+            resultado = self._base_de_datos.buscar_info_documento_pedido_cayal(valor) or []
+            if resultado:
+                return resultado[0].get('DocFolio', valor)
+            return valor
+
+        if consulta and campo_texto and campo_id:
+            for registro in consulta:
+                if self._valores_equivalentes(registro.get(campo_id), valor, clave):
+                    return registro.get(campo_texto, valor)
+
+        return valor if valor not in (None, '') else 'Sin valor'
+
+    def _valores_equivalentes(self, valor_anterior, valor_nuevo, clave=None):
+        if clave == 'DeliveryPromise':
+            return self._normalizar_a_date(valor_anterior) == self._normalizar_a_date(valor_nuevo)
+
+        if valor_anterior == valor_nuevo:
+            return True
+
+        if valor_anterior is None or valor_nuevo is None:
+            return False
+
+        return str(valor_anterior).strip() == str(valor_nuevo).strip()
 
     def _encontrar_claves_diferentes(self, dict1, dict2):
         """
@@ -992,6 +1017,7 @@ class EditarCaracteristicasPedido:
         claves_comunes = set(dict1.keys()).intersection(set(dict2.keys()))
         # Encontrar las claves con valores diferentes
         claves_diferentes = [
-            clave for clave in claves_comunes if dict1[clave] != dict2[clave]
+            clave for clave in claves_comunes
+            if not self._valores_equivalentes(dict1[clave], dict2[clave], clave)
         ]
         return claves_diferentes

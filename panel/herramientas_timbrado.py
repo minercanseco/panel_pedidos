@@ -150,10 +150,7 @@ class HerramientasTimbrado:
             self._interfaz.ventanas.mostrar_mensaje(mensaje)
             return
 
-        #  cancelado, modificando, surtido parcialmente minisuper, produccion, almacen, entregado, cobrado o cartera
-        if status_id in (10, 12, 16, 17, 18, 15):
-            self._interfaz.ventanas.mostrar_mensaje('El pedido no tiene un estatus válido para ser editado.')
-            return
+
 
         try:
             ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(titulo='Pedido', nombre_icono='icono_logo.ico')

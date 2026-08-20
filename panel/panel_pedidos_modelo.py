@@ -798,27 +798,31 @@ class ModeloPanelPedidos:
         consulta_partidas = self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
             order_document_id, partidas_producidas=True)
 
+        # agregar_impuestos_productos delega en Utilerias.crear_partida, que
+        # aplica las reglas fiscales de CAYAL a la cantidad completa: IVA,
+        # IEPS, retenciones y redondeos.
         consulta_partidas_con_impuestos = self.utilerias.agregar_impuestos_productos(consulta_partidas)
-        subtotal = 0
-        total_tax = 0
-        totales = 0
+        subtotal = self.utilerias.redondear_valor_cantidad_a_decimal(0)
+        total_tax = self.utilerias.redondear_valor_cantidad_a_decimal(0)
+        total = self.utilerias.redondear_valor_cantidad_a_decimal(0)
 
         for producto in consulta_partidas_con_impuestos:
-            precio = producto['precio']
-            cantidad_decimal = producto['cantidad']
-            total = producto['total']
-            product_id = producto['ProductID']
-
-            if int(product_id) == 5606 and sin_servicio_domicilio:
+            if int(producto['ProductID']) == 5606 and sin_servicio_domicilio:
                 continue
 
-            subtotal += (precio * cantidad_decimal)
-            total_tax += (precio - precio)
-            totales += total
+            subtotal += self.utilerias.redondear_valor_cantidad_a_decimal(
+                producto['subtotal']
+            )
+            total_tax += self.utilerias.redondear_valor_cantidad_a_decimal(
+                producto['impuestos']
+            )
+            total += self.utilerias.redondear_valor_cantidad_a_decimal(
+                producto['total']
+            )
 
         self.base_de_datos.command(
             'UPDATE docDocumentOrderCayal SET SubTotal = ?, Total = ?, TotalTax = ? WHERE OrderDocumentID = ?',
-            (subtotal, totales, total_tax, order_document_id)
+            (subtotal, total, total_tax, order_document_id)
         )
 
     def obtener_numero_pedidos_fecha(self, fecha):

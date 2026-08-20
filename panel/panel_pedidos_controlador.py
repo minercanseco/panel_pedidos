@@ -923,21 +923,42 @@ class ControladorPanelPedidos:
                     continue
 
                 product_id = producto.get('ProductID')
-                if product_id == 5606:
+                try:
+                    es_servicio_domicilio = int(product_id) == 5606
+                except (TypeError, ValueError):
+                    es_servicio_domicilio = False
+                if es_servicio_domicilio:
                     continue
 
                 comentario = normalizar_comentario(producto.get('Comments'))
                 piezas = producto.get('CayalPiece', 0)
                 piezas = 0 if es_flotante(piezas) else piezas
+                cantidad = convertir(producto.get('cantidad', 0))
+                subtotal = convertir(producto.get('subtotal', 0))
+                impuestos = convertir(producto.get('impuestos', 0))
+                total = convertir(producto.get('total', 0))
+
+                # La columna Precio representa el valor unitario fiscal que
+                # corresponde al Total mostrado. Se deriva del resultado de
+                # Utilerias para respetar IVA, IEPS, retenciones y redondeos.
+                precio_con_impuestos = convertir(0)
+                if cantidad:
+                    precio_con_impuestos = (
+                        self._modelo.utilerias.redondear_valor_cantidad_a_decimal(
+                            total / cantidad
+                        )
+                    )
 
                 registro = {
-                    'cantidad_producida': convertir(producto.get('cantidad', 0)),
+                    'cantidad_producida': cantidad,
                     'product_key': producto.get('ProductKey', ''),
                     'product_name': producto.get('ProductName', ''),
                     'tipo_captura': self._modelo.utilerias.resolver_icono(
                         'inventario' if producto.get('TipoCaptura', 1) == 0 else 'manual'),
-                    'precio': convertir(producto.get('precio', 0)),
-                    'total': convertir(producto.get('total', 0)),
+                    'precio': precio_con_impuestos,
+                    'subtotal': subtotal,
+                    'impuestos': impuestos,
+                    'total': total,
                     'esp': producto.get('Esp', ''),
                     'product_id': product_id,
                     'document_item_id': producto.get('DocumentItemID'),

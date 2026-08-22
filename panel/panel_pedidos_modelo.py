@@ -126,12 +126,14 @@ class ModeloPanelPedidos:
         return consulta[0]
 
     def buscar_partidas_pedido_producidas(self, order_document_id):
-        # Debe utilizar exactamente la misma consulta que SurtirPedido. La
-        # opcion partidas_producidas sustituye registros por sus contrapartes
-        # finalizadas y produce un detalle distinto al operativo.
+        # El detalle del panel debe incluir el resultado final de producción.
+        # Sin partidas_producidas=True, la consulta descarta las filas cuyo
+        # ItemProductionStatusModified es 4; eso ocultaba los productos
+        # agregados desde EditarPedido después de haber producido el pedido.
         return self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
             order_document_id,
             partidas_eliminadas=True,
+            partidas_producidas=True,
         ) or []
 
     def buscar_partidas_pedido_finalizadas(self, order_document_id):

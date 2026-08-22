@@ -490,14 +490,22 @@ class EditarPedido:
 
         parametros_producto[7] = document_item_id
 
-        # respaldala para afectaciones posteriores
+        # Extra registra el tipo de cambio (1=agregada, 2=editada,
+        # 3=eliminada). El estado 4 pertenece exclusivamente al resultado
+        # final de producción y el procedimiento Extra lo rechaza.
+        parametros_respaldo = parametros_producto.copy()
+        if accion == 'agregar':
+            parametros_respaldo[11] = 1
+
         self._base_de_datos.exec_stored_procedure(
-            'zvwInsertarProductoPedidoCayalExtra', parametros_producto)
+            'zvwInsertarProductoPedidoCayalExtra', parametros_respaldo)
 
         if accion == 'agregar':
             # insertala como finalizada para que esta quede dentro del pedido
+            parametros_finalizados = parametros_producto.copy()
+            parametros_finalizados[11] = 4
             self._base_de_datos.exec_stored_procedure(
-                'zvwInsertarProductoFinalizadoPedidoCayal', parametros_producto)
+                'zvwInsertarProductoFinalizadoPedidoCayal', parametros_finalizados)
 
         #--------------------------------------------------------------------------------------------------------
         item_production_status_modified = dic_parametros_producto['ItemProductionStatusModified']
@@ -563,11 +571,14 @@ class EditarPedido:
                 """, (user_id, document_item_id)
             )
 
-        # afecta la partida en extras y finalizado
+        # La tabla Extra conserva el tipo de modificación para el historial y
+        # coloreo. Principal/finalizado conservan el estado operativo.
+        estado_respaldo = 1 if accion == 'agregar' else item_production_status_modified
         self._base_de_datos.command(
             """
             DECLARE @Comments NVARCHAR(MAX) = ?
             DECLARE @ItemProductionStatusModified INT = ?
+            DECLARE @ItemProductionStatusBackup INT = ?
             DECLARE @DocumentItemID INT = ?
             
             UPDATE docDocumentItemOrderCayal
@@ -575,13 +586,18 @@ class EditarPedido:
             WHERE DocumentItemID = @DocumentItemID
             
             UPDATE docDocumentItemOrderCayalExtra
-                SET Comments = @Comments, ItemProductionStatusModified = @ItemProductionStatusModified
+                SET Comments = @Comments, ItemProductionStatusModified = @ItemProductionStatusBackup
             WHERE DocumentItemID = @DocumentItemID
             
             UPDATE docDocumentItemOrderCayalFinalProduction 
                 SET Comments = @Comments, ItemProductionStatusModified = @ItemProductionStatusModified
             WHERE DocumentItemID = @DocumentItemID
-            """,(comentario, item_production_status_modified, document_item_id)
+            """,(
+                comentario,
+                item_production_status_modified,
+                estado_respaldo,
+                document_item_id,
+            )
         )
 
         # afecta la bitacora de cambios

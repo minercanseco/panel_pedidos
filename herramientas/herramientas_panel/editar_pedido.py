@@ -175,7 +175,18 @@ class EditarPedido:
         ventana.wait_window()
 
         if instancia.actualizar_cantidad:
-            self._partidas_a_editar.append(instancia.valores_partida)
+            document_item_id = int(instancia.valores_partida[8] or 0)
+            if document_item_id == 0:
+                # Una partida agregada en esta misma ventana todavía no
+                # existe en BD. Actualiza el objeto pendiente de inserción en
+                # lugar de mandarlo al flujo de edición de una partida previa.
+                uuid_partida = str(instancia.valores_partida[7])
+                for partida in self._partidas_a_agregar:
+                    if str(partida.get('UUID')) == uuid_partida:
+                        partida['Quantity'] = instancia.valores_partida[0]
+                        break
+            else:
+                self._partidas_a_editar.append(instancia.valores_partida)
             self._ventanas.actualizar_fila_treeview('tvw_detalle',
                                                                          fila,
                                                                          instancia.valores_partida)
@@ -578,4 +589,3 @@ class EditarPedido:
                                                                change_type_id=change_type_id,
                                                                user_id=user_id,
                                                                comments=comentario)
-

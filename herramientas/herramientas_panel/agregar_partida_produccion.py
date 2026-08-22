@@ -305,7 +305,8 @@ class AgregarPartidaProduccion:
                         "E" if comentario != '' else comentario, # Especificacion
                         comentario,
                         info_producto['UUID'],
-                        0 # document item id
+                        0,  # document item id
+                        info_producto.get('ClaveUnidad', 'KGM'),
         )
 
         return parametros

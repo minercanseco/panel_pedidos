@@ -83,6 +83,23 @@ class ModeloCaptura:
         )
         return 0 if not estado else estado
 
+    def actualizar_proveedor_documento(self, business_entity_id):
+        """Cambia el dueño de una compra existente."""
+        document_id = int(getattr(self.documento, 'document_id', 0) or 0)
+        business_entity_id = int(business_entity_id or 0)
+
+        if self.module_id != self.MODULO_COMPRAS or document_id <= 0:
+            return False
+
+        if business_entity_id <= 0:
+            raise ValueError('El proveedor seleccionado no es válido.')
+
+        self.base_de_datos.command(
+            'UPDATE docDocument SET BusinessEntityID = ? WHERE DocumentID = ?',
+            (business_entity_id, document_id),
+        )
+        return True
+
     def actualizar_totales_documento(self, document_id=None):
         """Sincroniza los importes que consumen las herramientas de cobro."""
         if self.module_id not in self.MODULOS_ACTUALIZACION_TOTALES:
@@ -95,7 +112,20 @@ class ModeloCaptura:
             return False
 
         subtotal = getattr(self.documento, 'subtotal', 0) or 0
+        subtotal_with_discount = getattr(
+            self.documento,
+            'subtotal_with_discount',
+            subtotal,
+        )
+        total_discount = getattr(self.documento, 'total_discount', 0) or 0
         total_tax = getattr(self.documento, 'total_tax', 0) or 0
+        total_retention = getattr(
+            self.documento,
+            'total_retention',
+            0,
+        ) or 0
+        ieps = getattr(self.documento, 'ieps', 0) or 0
+        iva = getattr(self.documento, 'iva', 0) or 0
         total = getattr(self.documento, 'total', 0) or 0
 
         self.base_de_datos.command(
@@ -115,7 +145,12 @@ class ModeloCaptura:
             UPDATE D
             SET
                 D.SubTotal = ?,
+                D.SubTotalWithDiscount = ?,
+                D.TotalDiscount = ?,
                 D.TotalTax = ?,
+                D.TotalRetention = ?,
+                D.IEPS = ?,
+                D.IVA = ?,
                 D.Total = ?,
                 D.TotalPaid = COALESCE(P.TotalPaid, 0),
 
@@ -150,7 +185,12 @@ class ModeloCaptura:
             (
                 document_id,
                 subtotal,
+                subtotal_with_discount,
+                total_discount,
                 total_tax,
+                total_retention,
+                ieps,
+                iva,
                 total,
                 total,
                 total,
@@ -183,17 +223,42 @@ class ModeloCaptura:
         if document_id <= 0:
             return None
 
-        return self.impuestos.afectar_impuestos_documento(
-            self.base_de_datos,
-            document_id,
+        afectacion = (
+            self.impuestos.afectar_y_sincronizar_totales_documento(
+                self.base_de_datos,
+                document_id,
+            )
         )
+        totales = afectacion['totales_encabezado']
+
+        self.documento.subtotal = totales['subtotal']
+        self.documento.subtotal_with_discount = totales[
+            'subtotal_con_descuento'
+        ]
+        self.documento.total_discount = totales['descuento']
+        self.documento.total_tax = totales['impuestos']
+        self.documento.total_retention = totales['retenciones']
+        self.documento.ieps = totales['ieps']
+        self.documento.iva = totales['iva']
+        self.documento.total = totales['total']
+
+        return afectacion
 
     def buscar_partidas_documento(self, module_id, document_id):
 
         if module_id == self.MODULO_PEDIDOS:
+            # En estado abierto la tabla principal es la fuente completa y no
+            # debe mezclarse con respaldos ni partidas finalizadas.
+            if int(getattr(self.documento, 'status_id', 0) or 0) == 1:
+                return self.base_de_datos.fetchall(
+                    'SELECT * FROM '
+                    '[dbo].[zvwBuscarPartidasPedidoCayal-DocumentID](?)',
+                    (document_id,),
+                )
             return self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
                 document_id,
                 partidas_producidas=True,
+                partidas_eliminadas=True,
             )
 
         if module_id == self.MODULO_COMPRAS:
@@ -551,10 +616,13 @@ class ModeloCaptura:
         comentario = f'{comentario} ({ahora})'
         partida_copia['Comments'] = comentario
 
-        partidas_extra = list(self.documento.items_extra or [])
+        partidas_extra = self.documento.items_extra
+        nuevas_partidas = [
+                partida_extra for partida_extra in partidas_extra
+                if str(partida_extra['uuid']) != str(uuid_tabla)
+            ]
 
-        # Cada acción es un evento histórico independiente. No sustituir el
-        # respaldo anterior aunque corresponda al mismo UUID.
+        # procesa la partida y agregala
 
         if accion == 'eliminar':
             partida_copia['ItemProductionStatusModified'] = 3
@@ -565,9 +633,9 @@ class ModeloCaptura:
         if accion == 'agregar':
             partida_copia['ItemProductionStatusModified'] = 1
 
-        partidas_extra.append(partida_copia)
+        nuevas_partidas.append(partida_copia)
 
-        self.documento.items_extra = partidas_extra
+        self.documento.items_extra = nuevas_partidas
 
     def obtener_equivalencia_producto(self, product_id):
         return self.base_de_datos.fetchone(

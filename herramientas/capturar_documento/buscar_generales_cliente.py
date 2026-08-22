@@ -27,7 +27,13 @@ MODULOS_VENTAS = (21,1400,1316,1319)
 
 class BuscarGeneralesCliente:
 
-    def __init__(self, master, parametros, esperar_cierre=True, al_finalizar=None):
+    def __init__(
+            self,
+            master,
+            parametros,
+            esperar_cierre=True,
+            al_finalizar=None,
+    ):
 
         self._master = master
         self._parametros_contpaqi = parametros
@@ -1053,9 +1059,8 @@ class BuscarGeneralesCliente:
                         self._notificar_finalizacion()
 
                 def al_destruir(event):
-                    if event.widget is not self._master:
-                        return
-                    completar_captura()
+                    if event.widget is self._master:
+                        completar_captura()
 
                 self._master.bind('<Destroy>', al_destruir, add='+')
                 tratamiento_pedido = None

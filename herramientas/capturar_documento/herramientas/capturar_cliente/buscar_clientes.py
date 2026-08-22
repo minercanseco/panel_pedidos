@@ -79,8 +79,6 @@ class BuscarClientes:
             self._parametros.id_principal = 0
 
 
-        ventana.wait_window()
-
     def _rellenar_tabla_clientes(self):
         consulta = self._buscar_info_clientes()
         self._ventanas.rellenar_table_view('tbv_clientes', self._crear_columnas_tabla(), consulta)

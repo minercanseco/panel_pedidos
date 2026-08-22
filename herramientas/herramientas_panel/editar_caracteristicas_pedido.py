@@ -887,6 +887,27 @@ class EditarCaracteristicasPedido:
                         (self._order_document_id, schedule_id, order_type_id, self._user_id)
                     )
 
+                # Anexos y cambios pasan directamente a produccion. Sus
+                # partidas actuales son la linea base, por lo que no deben
+                # conservar los colores usados durante la captura abierta.
+                self._base_de_datos.command(
+                    """
+                    UPDATE docDocumentItemOrderCayal
+                       SET DeletedOn = GETDATE()
+                     WHERE DocumentID = ?
+                       AND ItemProductionStatusModified = 3
+                       AND DeletedOn IS NULL
+
+                    UPDATE docDocumentItemOrderCayal
+                       SET ItemProductionStatusModified = 0
+                     WHERE DocumentID = ?
+                    """,
+                    (
+                        self._order_document_id,
+                        self._order_document_id,
+                    ),
+                )
+
             # Leer el estado definitivo después de todas las actualizaciones
             # (incluidas las reglas automáticas de anexo/cambio) y compararlo
             # contra la fotografía original. Así la bitácora refleja lo que

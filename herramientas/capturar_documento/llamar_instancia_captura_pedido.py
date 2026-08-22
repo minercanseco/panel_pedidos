@@ -308,7 +308,7 @@ class LlamarInstanciaCapturaPedido:
             self.finalizar()
 
     def _ejecutar_captura_asincrona(self):
-        """Finaliza esta captura al cerrar su ventana, sin bloquear otras."""
+        """Finaliza la captura al cerrar su ventana sin bloquear el panel."""
         self.preparar()
         completada = False
 
@@ -329,19 +329,15 @@ class LlamarInstanciaCapturaPedido:
                     self._al_finalizar(self._documento.document_id)
 
         def al_destruir(event):
-            if event.widget is not self._master:
-                return
-            completar()
+            if event.widget is self._master:
+                completar()
 
-        # Registrar la liberación antes de construir la captura. Si la
-        # creación de cualquier componente falla, el pedido no debe quedar
-        # marcado en uso.
         try:
             self._master.bind('<Destroy>', al_destruir, add='+')
             self._interfaz_captura = InterfazCaptura(
                 self._master,
                 self._module_id,
-                solicitar_guardado=True
+                solicitar_guardado=True,
             )
             self._modelo_captura = ModeloCaptura(
                 self._base_de_datos,
@@ -355,8 +351,6 @@ class LlamarInstanciaCapturaPedido:
                 self._modelo_captura,
             )
         except Exception:
-            # El llamador todavía no recibió una captura activa y se encarga
-            # de ajustar su contador. Aquí solamente se libera el bloqueo.
             completada = True
             self.finalizar()
             raise
@@ -390,8 +384,6 @@ class LlamarInstanciaCapturaPedido:
         bloquear = status != 'Desbloqueado'
         locked_user_id = int(locked_user_id or 0)
 
-        # Una marca del mismo usuario puede ser residual. El panel controla
-        # por separado que el pedido no esté abierto en otra ventana local.
         if locked_user_id not in (0, self._user_id):
             return True
 
@@ -518,7 +510,7 @@ class LlamarInstanciaCapturaPedido:
             )
         return document_id
 
-    def _guardar_partidas(self, document_id, status_id):
+    def _guardar_partidas(self, document_id):
         for partida in self._documento.items:
             copia = copy.deepcopy(partida)
             product_id = int(copia.get('ProductID', 0) or 0)
@@ -541,12 +533,76 @@ class LlamarInstanciaCapturaPedido:
                 copia.get('TipoCaptura', 0),
                 copia.get('CayalPiece', 0),
                 copia.get('CayalAmount', 0),
-                copia.get('ItemProductionStatusModified', 0) if status_id != 1 else 0,
+                copia.get('ItemProductionStatusModified', 0),
                 copia.get('Comments', ''),
                 copia.get('CreatedBy', self._user_id),
+                (
+                    str(copia.get('uuid'))
+                    if copia.get('uuid') else None
+                ),
             )
             partida['DocumentItemID'] = (
                 self._base_de_datos.insertar_partida_pedido_cayal(parametros)
+            )
+
+    def _obtener_estado_pedido(self, document_id):
+        estado = self._base_de_datos.fetchone(
+            'SELECT ISNULL(StatusID, 0) '
+            'FROM docDocumentOrderCayal WHERE OrderDocumentID = ?',
+            (document_id,),
+        )
+        return int(estado or 0)
+
+    def _guardar_respaldos_partidas(self, document_id):
+        # En estado abierto las modificaciones se guardan directamente en la
+        # tabla principal. El procedimiento Extra repite esta validacion, pero
+        # se evita llamarlo para no generar trabajo innecesario.
+        if self._obtener_estado_pedido(document_id) == 1:
+            return
+
+        items_extra = getattr(self._documento, 'items_extra', []) or []
+        ids_por_uuid = {
+            str(partida.get('uuid')): int(
+                partida.get('DocumentItemID', 0) or 0
+            )
+            for partida in self._documento.items
+            if partida.get('uuid')
+        }
+
+        for partida in items_extra:
+            estado_modificacion = int(
+                partida.get('ItemProductionStatusModified', 0) or 0
+            )
+            if estado_modificacion not in (1, 2, 3):
+                continue
+
+            document_item_id = int(
+                partida.get('DocumentItemID', 0) or 0
+            )
+            if not document_item_id and partida.get('uuid'):
+                document_item_id = ids_por_uuid.get(
+                    str(partida.get('uuid')),
+                    0,
+                )
+
+            parametros = (
+                document_id,
+                int(partida.get('ProductID', 0) or 0),
+                partida.get('DepotID', 2) or 2,
+                partida.get('cantidad', partida.get('Quantity', 0)),
+                partida.get('precio', partida.get('UnitPrice', 0)),
+                partida.get('CostPrice', 0),
+                partida.get('subtotal', 0),
+                document_item_id,
+                partida.get('TipoCaptura', 0),
+                partida.get('CayalPiece', 0),
+                partida.get('CayalAmount', 0),
+                estado_modificacion,
+                partida.get('Comments', ''),
+                partida.get('CreatedBy', self._user_id),
+            )
+            self._base_de_datos.respaldar_partida_pedido_cayal(
+                parametros
             )
 
     def _guardar_bitacora_partidas(self, document_id):
@@ -567,39 +623,10 @@ class LlamarInstanciaCapturaPedido:
             )
             if estado not in acciones:
                 continue
-            if int(partida.get('DocumentItemID', 0) or 0) <= 0:
+            if estado == 1:
                 partida['DocumentItemID'] = ids_por_uuid.get(
                     partida.get('uuid'), 0
                 )
-
-            document_item_id = int(
-                partida.get('DocumentItemID', 0) or 0
-            )
-            if document_item_id <= 0:
-                # Una partida agregada debe haber recibido su ID al insertar
-                # las partidas principales. Sin ese ID el respaldo no podría
-                # relacionarse de forma segura con la partida visible.
-                continue
-
-            parametros_respaldo = (
-                document_id,
-                int(partida.get('ProductID', 0) or 0),
-                int(partida.get('DepotID', 2) or 2),
-                partida.get('cantidad', partida.get('Quantity', 0)),
-                partida.get('precio', partida.get('UnitPrice', 0)),
-                partida.get('CostPrice', 0),
-                partida.get('subtotal', partida.get('Subtotal', 0)),
-                document_item_id,
-                partida.get('TipoCaptura', 0),
-                partida.get('CayalPiece', 0),
-                partida.get('CayalAmount', 0),
-                estado,
-                partida.get('Comments', ''),
-                partida.get('CreatedBy', self._user_id),
-            )
-            self._base_de_datos.respaldar_partida_pedido_cayal(
-                parametros_respaldo
-            )
 
             change_type_id, accion = acciones[estado]
             comentario = partida.get('Comments', '') if estado == 2 else (
@@ -660,12 +687,9 @@ class LlamarInstanciaCapturaPedido:
                 self.nuevo_pedido = True
 
             document_id = int(self._documento.document_id)
-            status_id = self._obtener_status_id_pedido(document_id)
-
-            self._guardar_partidas(document_id, status_id)
-            if status_id != 1:
-                self._guardar_bitacora_partidas(document_id)
-
+            self._guardar_partidas(document_id)
+            self._guardar_respaldos_partidas(document_id)
+            self._guardar_bitacora_partidas(document_id)
             self._actualizar_cabecera(document_id)
 
         except Exception:
@@ -684,7 +708,3 @@ class LlamarInstanciaCapturaPedido:
             """,
             (self._documento.comments or '', document_id),
         )
-
-    def _obtener_status_id_pedido(self, document_id):
-        return self._base_de_datos.fetchone("SELECT ISNULL(StatusID,1) StatusID FROM docDocumentOrderCayal WHERE OrderDocumentID = ?",
-                                            (document_id,))

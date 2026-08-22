@@ -862,7 +862,10 @@ class ControladorPanelPedidos:
     # Funciones auxiliares
     # ------------------------------------------------------------------------------------------------------------------
     def _actualizar_comentario_pedido(self):
-        self._limpiar_componentes()
+        # No limpiar tvw_detalle desde TreeviewSelect. En un doble clic este
+        # evento puede ejecutarse despues de rellenar el detalle y borrar las
+        # filas que acaban de insertarse.
+        self._interfaz.ventanas.limpiar_componentes(['tbx_comentarios'])
         fila = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', seleccionadas=True)
         if not fila:
             return
@@ -986,7 +989,15 @@ class ControladorPanelPedidos:
                 if not valores_fila:
                     continue
 
-                estado = valores_fila.get('ItemProductionStatusModified', 0)
+                try:
+                    estado = int(
+                        valores_fila.get(
+                            'ItemProductionStatusModified',
+                            0,
+                        ) or 0
+                    )
+                except (TypeError, ValueError):
+                    estado = 0
 
                 if estado == 3:
                     self._interfaz.ventanas.colorear_fila_seleccionada_treeview(
@@ -1006,18 +1017,35 @@ class ControladorPanelPedidos:
             self._interfaz.ventanas.limpiar_componentes(['tvw_detalle'])
             return
 
+        try:
+            status_id = int(
+                self._obtener_valores_fila_pedido_seleccionado(
+                    'TypeStatusID'
+                ) or 0
+            )
+        except (TypeError, ValueError):
+            status_id = 0
+
         partidas_producidas = self._modelo.buscar_partidas_pedido_producidas(order_document_id) or []
         partidas_capturadas = self._modelo.buscar_partidas_pedido_capturadas(order_document_id) or []
 
         self._interfaz.ventanas.limpiar_componentes(['tvw_detalle'])
 
-        if not partidas_producidas or not partidas_capturadas:
+        # Mientras el pedido esta abierto, la captura principal es la fuente
+        # de verdad. Una partida nueva todavia puede no existir en las fuentes
+        # de produccion y no debe desaparecer por esa razon.
+        partidas_base = (
+            partidas_capturadas
+            if status_id == 1
+            else partidas_producidas
+        )
+        if not partidas_base:
             return
 
-        partidas_procesadas_producidas = procesar_partidas_pedido(partidas_producidas)
+        partidas_procesadas_base = procesar_partidas_pedido(partidas_base)
         partidas_procesadas_capturadas = procesar_partidas_pedido(partidas_capturadas)
 
-        if not partidas_procesadas_producidas:
+        if not partidas_procesadas_base:
             return
 
         cantidades_capturadas_por_document_item_id = {}
@@ -1027,7 +1055,7 @@ class ControladorPanelPedidos:
                 continue
             cantidades_capturadas_por_document_item_id[document_item_id] = reg.get('cantidad_producida', 0)
 
-        for partida in partidas_procesadas_producidas:
+        for partida in partidas_procesadas_base:
             document_item_id = partida.get('document_item_id')
             cantidad_capturada = cantidades_capturadas_por_document_item_id.get(document_item_id, 0)
 

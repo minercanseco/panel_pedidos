@@ -7,6 +7,7 @@ from datetime import datetime
 
 import pyperclip
 import logging
+import ttkbootstrap as ttk
 
 from herramientas.capturar_documento.herramientas.agregar_epecificaciones import AgregarEspecificaciones
 from herramientas.capturar_documento.herramientas.capturar_cliente.notebook_cliente import NoteBookCliente
@@ -54,6 +55,7 @@ class ControladorCaptura:
         'editar_cliente': '_editar_cliente',
         'historial_cliente': '_historial_cliente',
         'cambiar_direccion': '_cambiar_direccion',
+        'cambiar_proveedor': '_cambiar_proveedor',
         'editar_partida': '_editar_partida',
         'eliminar_partida': '_eliminar_partida',
         'cobrar_nota': '_cobrar_nota',
@@ -334,6 +336,7 @@ class ControladorCaptura:
             eventos['F12'] = self._cobrar_nota
 
         elif self._module_id == self.MODULO_COMPRAS:
+            eventos['F4'] = self._cambiar_proveedor
             eventos['F12'] = self._prorratear
 
         self._ventanas.agregar_hotkeys_forma(eventos)
@@ -572,9 +575,6 @@ class ControladorCaptura:
             tipo_captura = partida_copia.get('TipoCaptura', 0)
             document_item_id = partida_copia.get('DocumentItemID', 0)
 
-            # Modificar la copia en lugar del objeto original
-            partida_copia['ItemProductionStatusModified'] = 0
-
             # Procesar la copia para evitar referencias compartidas
             partida_procesada = self._utilerias.crear_partida(partida_copia)
 
@@ -809,6 +809,116 @@ class ControladorCaptura:
             )
             if costo_envio not in (None, ''):
                 self.documento.delivery_cost = costo_envio
+
+    def _cambiar_proveedor(self):
+        """Abre el buscador de proveedores para una compra en captura."""
+        if self._module_id != self.MODULO_COMPRAS:
+            return
+
+        ventana = getattr(self, '_ventana_proveedor', None)
+        if ventana is not None and ventana.winfo_exists():
+            ventana.lift()
+            ventana.focus_force()
+            return
+
+        # Importación diferida: el buscador también utiliza este controlador
+        # cuando inicia una captura nueva.
+        from capturar_documento.buscar_generales_proveedor import (
+            BuscarGeneralesProveedor,
+        )
+
+        ventana = self._crear_ventana_cambiar_proveedor()
+        self._ventana_proveedor = ventana
+
+        buscador = BuscarGeneralesProveedor(
+            ventana,
+            self._parametros_contpaqi,
+            cliente=self.cliente,
+            documento=self.documento,
+            al_seleccionar=self._proveedor_actualizado,
+        )
+        ventana.bind(
+            '<Destroy>',
+            lambda evento: self._cerrar_ventana_proveedor(evento),
+            add='+',
+        )
+        self._mostrar_ventana_cambiar_proveedor(ventana, buscador)
+
+    def _crear_ventana_cambiar_proveedor(self):
+        """Crea la ventana exclusiva sin utilizar los popups genéricos."""
+        ventana = ttk.Toplevel(self._master)
+        ventana.withdraw()
+        ventana.title('Cambiar proveedor')
+        ventana.resizable(False, False)
+        ventana.transient(self._master)
+        ventana.protocol('WM_DELETE_WINDOW', ventana.destroy)
+        ventana.bind('<Escape>', lambda evento: ventana.destroy())
+        return ventana
+
+    def _mostrar_ventana_cambiar_proveedor(self, ventana, buscador):
+        """Muestra, centra y mantiene el buscador delante de la captura."""
+        ventana.update_idletasks()
+
+        ancho = ventana.winfo_reqwidth()
+        alto = ventana.winfo_reqheight()
+        x = self._master.winfo_rootx() + max(
+            0,
+            (self._master.winfo_width() - ancho) // 2,
+        )
+        y = self._master.winfo_rooty() + max(
+            0,
+            (self._master.winfo_height() - alto) // 2,
+        )
+        ventana.geometry(f'{ancho}x{alto}+{x}+{y}')
+
+        ventana.deiconify()
+        ventana.state('normal')
+        ventana.attributes('-topmost', True)
+        ventana.lift(self._master)
+        ventana.grab_set()
+
+        # BuscarGeneralesProveedor desactiva topmost de forma diferida al
+        # configurar su interfaz. Este enfoque se ejecuta después y conserva
+        # la ventana sobre la captura durante toda la selección.
+        ventana.after(
+            100,
+            lambda: self._enfocar_ventana_cambiar_proveedor(
+                ventana,
+                buscador,
+            ),
+        )
+
+    @staticmethod
+    def _enfocar_ventana_cambiar_proveedor(ventana, buscador):
+        if ventana is None or not ventana.winfo_exists():
+            return
+
+        ventana.deiconify()
+        ventana.state('normal')
+        ventana.attributes('-topmost', True)
+        ventana.lift()
+        ventana.focus_force()
+        buscador.enfocar_busqueda()
+
+    def _cerrar_ventana_proveedor(self, evento):
+        ventana = getattr(self, '_ventana_proveedor', None)
+        if ventana is not None and evento.widget is ventana:
+            try:
+                ventana.grab_release()
+            except Exception:
+                pass
+            self._ventana_proveedor = None
+
+    def _proveedor_actualizado(self, cliente, documento):
+        """Refresca generales y persiste el dueño de una compra existente."""
+        business_entity_id = int(cliente.business_entity_id or 0)
+        self.documento.business_entity_id = business_entity_id
+        self.documento.official_name = cliente.official_name
+
+        self._modelo.actualizar_proveedor_documento(business_entity_id)
+        self._cargar_direccion_cliente()
+        self._cargar_nombre_cliente()
+        self._interfaz.cambiar_titulo_ventana(cliente.official_name)
 
     def _eliminar_partida(self):
         filas = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos')
@@ -2256,7 +2366,9 @@ class ControladorCaptura:
             )
 
             self.documento.total = totales_documento['total_doc']
-            self.documento.total_tax = impuestos_acumulado
+            # TotalTax representa únicamente impuestos trasladados. Las
+            # retenciones se conservan por separado en TotalRetention.
+            self.documento.total_tax = iva_acumulado + ieps_acumulado
             self.documento.total_retention = retenciones_acumulado
             self.documento.subtotal = subtotal_acumulado
             self.documento.ieps = ieps_acumulado

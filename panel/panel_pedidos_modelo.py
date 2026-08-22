@@ -126,12 +126,13 @@ class ModeloPanelPedidos:
         return consulta[0]
 
     def buscar_partidas_pedido_producidas(self, order_document_id):
-        consulta = self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(order_document_id= order_document_id,
-                                                                                partidas_producidas=True,
-                                                                                partidas_eliminadas=True)
-        if not consulta:
-            return
-        return consulta
+        # Debe utilizar exactamente la misma consulta que SurtirPedido. La
+        # opcion partidas_producidas sustituye registros por sus contrapartes
+        # finalizadas y produce un detalle distinto al operativo.
+        return self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
+            order_document_id,
+            partidas_eliminadas=True,
+        ) or []
 
     def buscar_partidas_pedido_capturadas(self, order_document_id):
         consulta =self.base_de_datos.fetchall("SELECT * FROM [dbo].[zvwBuscarPartidasPedidoCayal-DocumentID](?)",
@@ -346,13 +347,33 @@ class ModeloPanelPedidos:
 
     def mandar_pedido_a_producir(self, order_document_id):
         self.base_de_datos.command("""
+                            -- Las eliminaciones permanecen visibles en rojo
+                            -- mientras el pedido esta abierto. Se consolidan
+                            -- justo antes de iniciar produccion.
+                            UPDATE docDocumentItemOrderCayal
+                               SET DeletedOn = GETDATE()
+                             WHERE DocumentID = ?
+                               AND ItemProductionStatusModified = 3
+                               AND DeletedOn IS NULL
+
+                            -- Altas y ediciones abiertas pasan a ser la linea
+                            -- base contra la que se medira la produccion.
+                            UPDATE docDocumentItemOrderCayal
+                               SET ItemProductionStatusModified = 0
+                             WHERE DocumentID = ?
+
                              UPDATE docDocumentOrderCayal SET --SentToPrepare = GETDATE(),
                                                             SentToPrepareBy = ?,
                                                             StatusID = 2,
                                                             UserID = NULL,
                                                             PriorityID = (Case WHEN OrderTypeID = 1 THEN 1 ELSE 2 END)
                             WHERE OrderDocumentID = ?
-                        """, (self.user_id, order_document_id,))
+                        """, (
+                            order_document_id,
+                            order_document_id,
+                            self.user_id,
+                            order_document_id,
+                        ))
 
         comentario = f'Enviado a producir por {self.user_name}.'
         self.base_de_datos.insertar_registro_bitacora_pedidos(order_document_id=order_document_id,

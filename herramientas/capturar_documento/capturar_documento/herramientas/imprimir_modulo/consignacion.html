@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <title>[TituloFormato]</title>
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            color: #000;
+        }
+
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 15mm;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        /* ------------------------ Marca de Agua ------------------------ */
+        .wm-copia {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 60px;
+            font-weight: bold;
+            color: rgba(200, 0, 0, 0.15);
+            white-space: nowrap;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .contenido { position: relative; z-index: 1; }
+
+        /* ------------------------- Cabecera ---------------------------- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #000;
+            padding-bottom: 6px;
+            margin-bottom: 10px;
+        }
+        .header-left, .header-right { font-size: 10px; line-height: 1.3; }
+
+        .header-left {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .logo {
+            min-width: 60px;
+        }
+
+        .logo img {
+            max-height: 40px;
+        }
+
+        .header-left-text { }
+
+        .header-right { text-align: right; }
+
+        /* ------------------------- Título ---------------------------- */
+        .titulo-formato {
+            text-align: center;
+            margin-top: 4px;
+            margin-bottom: 10px;
+        }
+        .titulo-formato h1 {
+            font-size: 16px;
+            margin: 0;
+            letter-spacing: 1px;
+        }
+
+        /* ----------------------- Datos Generales ------------------------ */
+        .datos-generales {
+            border: 1px solid #000;
+            padding: 6px;
+            margin-bottom: 10px;
+        }
+        .datos-generales table { width: 100%; border-collapse: collapse; }
+        .datos-generales td { padding: 2px 4px; }
+        .label { font-weight: bold; }
+
+        /* -------------------------- Detalle ---------------------------- */
+        .detalle table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #000;
+        }
+        .detalle th, .detalle td {
+            border: 1px solid #000;
+            padding: 4px;
+            font-size: 10px;
+        }
+        .detalle th { background: #f0f0f0; }
+        .num { text-align: right; white-space: nowrap; }
+
+        /* -------------------------- Totales ---------------------------- */
+        .totales {
+            margin-top: 10px;
+            width: 100%;
+        }
+        .totales table {
+            width: 45%;
+            border-collapse: collapse;
+            margin-left: auto;
+        }
+        .totales td {
+            padding: 3px 4px;
+            font-size: 10px;
+        }
+        .totales .label { text-align: right; font-weight: bold; }
+        .totales .valor { text-align: right; font-weight: bold; }
+
+        /* ----------------------- Leyendas / Texto --------------------- */
+        .leyenda { margin-top: 8px; font-size: 10px; }
+
+    </style>
+</head>
+<body>
+
+<div class="page">
+
+    <!--IF_COPIA-->
+    <div class="wm-copia">[TextoMarcaAgua]</div>
+    <!--END_IF_COPIA-->
+
+    <div class="contenido">
+
+        <!-- ======================= ENCABEZADO ======================= -->
+        <div class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <img src="data:image/png;base64, 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" alt="Imagen" style="max-width: 100%; height: auto;">
+                </div>
+                <div class="header-left-text">
+                    <div><strong>[EmisorNombre]</strong></div>
+                    <div>RFC: [EmisorRFC]</div>
+                    <div>[EmisorRegimen]</div>
+                    <div>[EmisorDomicilio]</div>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div><strong>Fecha:</strong> [FechaExpedicion]</div>
+                <div><strong>Hora:</strong> [HoraExpedicion]</div>
+                <div><strong>Lugar:</strong> [LugarExpedicion]</div>
+                <div><strong>Capturado por:</strong> [Capturista]</div>
+                <div><strong>Impreso por:</strong> [ImpresoPor]</div>
+                <strong>Fecha y Hora de Impresión:</strong> [FechaImpresion] [HoraImpresion]<br><br>
+            </div>
+        </div>
+
+        <!-- ======================== TÍTULO =========================== -->
+        <div class="titulo-formato">
+            <h1>[TituloFormato]: [Serie][Folio]</h1>
+        </div>
+
+        <!-- ===================== DATOS GENERALES ===================== -->
+        <div class="datos-generales">
+            <table>
+                <tr>
+                    <td class="label" style="width: 15%;">Cliente:</td>
+                    <td style="width: 45%;">[ReceptorCayal]</td>
+                    <td class="label" style="width: 15%;">RFC:</td>
+                    <td style="width: 25%;">[RFCReceptorCayal]</td>
+                </tr>
+
+                <tr>
+                    <td class="label">Dirección:</td>
+                    <td colspan="3">
+                        [ReceptorCalleCayal] No. [ReceptorDomicilioNoExteriorCayal]
+                        [ReceptorDomicilioNoInteriorCayal],
+                        [ReceptorDomicilioColoniaCayal],
+                        C.P. [ReceptorDomicilioCodigoPostalCayal]
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="label">Teléfono:</td>
+                    <td>[ReceptorTelefonoEmpresa]</td>
+                    <td class="label">Celular:</td>
+                    <td>[CelularCliente]</td>
+                </tr>
+
+                <tr>
+                    <td class="label">Relacionado:</td>
+                    <td colspan="3">[Relacionado]</td>
+                </tr>
+
+                <tr>
+                    <td class="label">Comentarios:</td>
+                    <td colspan="3">[Comentarios]</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- ========================= DETALLE ========================= -->
+        <div class="detalle">
+            <table>
+                <thead>
+                <tr>
+
+                    <th>Descripción</th>
+                    <th style="width: 12%;">Clave</th>
+                    <th style="width: 10%;">Cantidad</th>
+
+                    <!--IF_MOSTRAR_PRECIOS-->
+                    <th style="width: 12%;">Precio</th>
+                    <th style="width: 14%;">Importe</th>
+                    <!--END_IF_MOSTRAR_PRECIOS-->
+                </tr>
+                </thead>
+
+                <tbody>
+                <DETAIL>
+                <tr>
+                    <td>[Descripcion]</td>
+                    <td>[Clave]</td>
+                    <td class="num">[Cantidad]</td>
+
+                    <!--IF_MOSTRAR_PRECIOS-->
+                    <td class="num">[PrecioUnSIVA]</td>
+                    <td class="num">[ImporteCIVA]</td>
+                    <!--END_IF_MOSTRAR_PRECIOS-->
+                </tr>
+                </DETAIL>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ======================== TOTALES ========================== -->
+        <!--IF_MOSTRAR_PRECIOS-->
+        <div class="totales">
+            <table>
+                <tr>
+                    <td class="label">Subtotal:</td>
+                    <td class="valor">[SubTotal]</td>
+                </tr>
+
+                <!--IF_DESCUENTO-->
+                <tr>
+                    <td class="label">[DescuentoCayalTitulo]</td>
+                    <td class="valor">[DescuentoCayal]</td>
+                </tr>
+                <!--END_IF_DESCUENTO-->
+
+                <tr>
+                    <td class="label">IEPS:</td>
+                    <td class="valor">[IEPS]</td>
+                </tr>
+
+                <tr>
+                    <td class="label">IVA:</td>
+                    <td class="valor">[IVA]</td>
+                </tr>
+
+                <tr>
+                    <td class="label">Total:</td>
+                    <td class="valor">[Total]</td>
+                </tr>
+            </table>
+        </div>
+        <!--END_IF_MOSTRAR_PRECIOS-->
+
+        <!-- ================== CANTIDAD CON LETRA ===================== -->
+        <div class="leyenda">
+            <strong>Cantidad con letra:</strong> [CantidadConLetra]
+        </div>
+
+        <!-- ================= EXTRA INFO / COMENTARIOS ================ -->
+        <div class="leyenda">
+            <td class="label">Comentarios dirección:</td>
+            [FiscalAddresMainInfoCommentsCayal]
+        </div>
+        <div class="leyenda">
+            <td class="label">Total de piezas:</td>
+            [TotalPzas]
+        </div>
+
+
+    </div> <!-- contenido -->
+
+</div> <!-- page -->
+</body>
+</html>

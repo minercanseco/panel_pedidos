@@ -9,6 +9,7 @@ class InterfazPanelPedidos:
         self._ajustar_tamano_panel()
         self._cargar_frames()
         self._cargar_componentes_forma()
+        self._configurar_expansion_frames()
         self.master.after_idle(self._hacer_panel_no_modal)
         self.ventanas.situar_ventana_arriba('frame_principal')
 
@@ -41,6 +42,32 @@ class InterfazPanelPedidos:
                 self.master.grab_release()
         except tk.TclError:
             pass
+
+    def _configurar_expansion_frames(self):
+        """Reserva espacio visible para la tabla principal y su detalle."""
+        componentes = self.ventanas.componentes_forma
+        frame_principal = componentes['frame_principal']
+        frame_captura = componentes['frame_captura']
+        frame_detalle = componentes['frame_detalle']
+
+        self.master.grid_rowconfigure(0, weight=1)
+        self.master.grid_columnconfigure(0, weight=1)
+
+        frame_principal.grid_columnconfigure(0, weight=1)
+        frame_principal.grid_columnconfigure(1, weight=0)
+        frame_principal.grid_rowconfigure(3, weight=3)
+        frame_principal.grid_rowconfigure(5, weight=2)
+
+        frame_captura.grid_rowconfigure(0, weight=1)
+        frame_captura.grid_columnconfigure(0, weight=1)
+        frame_detalle.grid_rowconfigure(0, weight=1)
+        frame_detalle.grid_columnconfigure(0, weight=1)
+
+        self.ventanas.ajustar_componente_en_frame(
+            'tvw_detalle',
+            'frame_detalle',
+            expandir=True,
+        )
 
     def calcular_filas_tabla_pedidos(self):
         """Calcula sólo las filas variables de la tabla principal."""

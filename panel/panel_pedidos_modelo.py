@@ -135,21 +135,17 @@ class ModeloPanelPedidos:
         ) or []
 
     def buscar_partidas_pedido_finalizadas(self, order_document_id):
-        """Obtiene únicamente cantidades terminadas por producción."""
-        partidas = self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
-            order_document_id,
-            partidas_producidas=True,
+        """Obtiene el resultado persistido por producción, incluso tras facturar."""
+        return self.base_de_datos.fetchall(
+            """
+            DECLARE @OrderDocumentID INT = ?
+            SELECT *
+            FROM [dbo].[zvwBuscarPartidasFinalizadasPedidoCayal-DocumentID](
+                @OrderDocumentID
+            )
+            """,
+            (order_document_id,),
         ) or []
-
-        finalizadas = []
-        for partida in partidas:
-            try:
-                estado = int(partida.get('ItemProductionStatusModified', 0) or 0)
-            except (AttributeError, TypeError, ValueError):
-                estado = 0
-            if estado == 4:
-                finalizadas.append(partida)
-        return finalizadas
 
     def buscar_partidas_pedido_capturadas(self, order_document_id):
         consulta =self.base_de_datos.fetchall("SELECT * FROM [dbo].[zvwBuscarPartidasPedidoCayal-DocumentID](?)",

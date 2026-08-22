@@ -1033,16 +1033,26 @@ class ControladorPanelPedidos:
 
         # Mientras el pedido esta abierto, la captura principal es la fuente
         # de verdad. Una partida nueva todavia puede no existir en las fuentes
-        # de produccion y no debe desaparecer por esa razon.
-        partidas_base = (
-            partidas_capturadas
-            if status_id == 1
-            else partidas_producidas
-        )
-        if not partidas_base:
-            return
+        # de produccion y no debe desaparecer por esa razon. Para los demas
+        # estados se prefiere la vista operativa de produccion.
+        if status_id == 1:
+            fuentes_detalle = (partidas_capturadas, partidas_producidas)
+        else:
+            # Algunos estados no tienen todavía una representación operativa
+            # en producción (o ya no tienen una finalizada recuperable). En
+            # esos casos el detalle debe caer en la captura principal en vez
+            # de quedar completamente vacío.
+            fuentes_detalle = (partidas_producidas, partidas_capturadas)
 
-        partidas_procesadas_base = procesar_partidas_pedido(partidas_base)
+        # La primera fuente puede contener filas, pero ninguna visible (por
+        # ejemplo, únicamente el concepto de servicio a domicilio). El
+        # respaldo debe decidirse después de procesar y filtrar los datos.
+        partidas_procesadas_base = []
+        for fuente in fuentes_detalle:
+            partidas_procesadas_base = procesar_partidas_pedido(fuente)
+            if partidas_procesadas_base:
+                break
+
         partidas_procesadas_capturadas = procesar_partidas_pedido(partidas_capturadas)
 
         if not partidas_procesadas_base:

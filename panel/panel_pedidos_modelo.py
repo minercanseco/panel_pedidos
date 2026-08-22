@@ -82,6 +82,12 @@ class ModeloPanelPedidos:
                 'ya no permite modificaciones.',
             )
 
+        # Desde estatus 3 la edición se realiza con EditarPedido sobre el
+        # resultado producido. Las marcas FinishedPreparing indican que las
+        # áreas ya participaron, pero no deben bloquear esta herramienta.
+        if status_id >= 3:
+            return True, ''
+
         locked_user_id = int(pedido.get('UserID', 0) or 0)
         if locked_user_id not in (0, int(self.user_id or 0)):
             usuario = str(pedido.get('UsuarioEnUso', '') or '').strip()

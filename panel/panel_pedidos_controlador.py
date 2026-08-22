@@ -1012,6 +1012,19 @@ class ControladorPanelPedidos:
                         'tvw_detalle', fila, color='warning'
                     )
 
+        def clave_partida(registro):
+            """Relaciona también partidas agregadas, cuyo DocumentItemID puede ser 0."""
+            document_item_id = registro.get('document_item_id')
+            if document_item_id not in (None, 0, '0', ''):
+                return 'document_item_id', document_item_id
+            return (
+                'partida_sin_id',
+                registro.get('product_id'),
+                registro.get('product_key'),
+                registro.get('unit_price'),
+                registro.get('comentario'),
+            )
+
         order_document_id = self._obtener_valores_fila_pedido_seleccionado('OrderDocumentID')
         if not order_document_id:
             self._interfaz.ventanas.limpiar_componentes(['tvw_detalle'])
@@ -1028,6 +1041,7 @@ class ControladorPanelPedidos:
 
         partidas_producidas = self._modelo.buscar_partidas_pedido_producidas(order_document_id) or []
         partidas_capturadas = self._modelo.buscar_partidas_pedido_capturadas(order_document_id) or []
+        partidas_finalizadas = self._modelo.buscar_partidas_pedido_finalizadas(order_document_id) or []
 
         self._interfaz.ventanas.limpiar_componentes(['tvw_detalle'])
 
@@ -1054,24 +1068,33 @@ class ControladorPanelPedidos:
                 break
 
         partidas_procesadas_capturadas = procesar_partidas_pedido(partidas_capturadas)
+        partidas_procesadas_finalizadas = procesar_partidas_pedido(partidas_finalizadas)
 
         if not partidas_procesadas_base:
             return
 
         cantidades_capturadas_por_document_item_id = {}
         for reg in partidas_procesadas_capturadas:
-            document_item_id = reg.get('document_item_id')
-            if document_item_id is None:
-                continue
-            cantidades_capturadas_por_document_item_id[document_item_id] = reg.get('cantidad_producida', 0)
+            cantidades_capturadas_por_document_item_id[clave_partida(reg)] = reg.get(
+                'cantidad_producida',
+                0,
+            )
+
+        cantidades_finalizadas_por_document_item_id = {}
+        for reg in partidas_procesadas_finalizadas:
+            cantidades_finalizadas_por_document_item_id[clave_partida(reg)] = reg.get(
+                'cantidad_producida',
+                0,
+            )
 
         for partida in partidas_procesadas_base:
-            document_item_id = partida.get('document_item_id')
-            cantidad_capturada = cantidades_capturadas_por_document_item_id.get(document_item_id, 0)
+            clave = clave_partida(partida)
+            cantidad_capturada = cantidades_capturadas_por_document_item_id.get(clave, 0)
+            cantidad_finalizada = cantidades_finalizadas_por_document_item_id.get(clave, 0)
 
             datos_fila = [
                 cantidad_capturada,
-                partida.get('cantidad_producida', 0),
+                cantidad_finalizada,
                 partida.get('tipo_captura', 0),
                 partida.get('product_key', ''),
                 partida.get('product_name', ''),

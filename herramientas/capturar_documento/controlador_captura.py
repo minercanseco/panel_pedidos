@@ -929,43 +929,78 @@ class ControladorCaptura:
             if not self._ventanas.mostrar_mensaje_pregunta('¿Desea eliminar las partidas seleccionadas?'):
                 return
 
-            production_status_modified = 0
-            for fila in filas:
-                valores_fila = self._ventanas.procesar_fila_treeview('tvw_productos', fila)
-                product_id = valores_fila['ProductID']
+            partidas_seleccionadas = [
+                (
+                    fila,
+                    self._ventanas.procesar_fila_treeview(
+                        'tvw_productos',
+                        fila,
+                    ),
+                )
+                for fila in filas
+            ]
 
-                # la eliminacion del servicio a domicilio es de forma automatizada
-                if product_id == self.PRODUCTO_SERVICIO_DOMICILIO and self._module_id == self.MODULO_PEDIDOS:
-                    self._mensajes_de_error(13)
-                    return
+            # Validar la seleccion completa antes de mutar el pedido evita
+            # eliminaciones parciales si tambien se selecciono el servicio.
+            if self._module_id == self.MODULO_PEDIDOS and any(
+                    int(valores.get('ProductID', 0) or 0)
+                    == self.PRODUCTO_SERVICIO_DOMICILIO
+                    for _, valores in partidas_seleccionadas):
+                self._mensajes_de_error(13)
+                return
+
+            for fila, valores_fila in partidas_seleccionadas:
 
                 document_item_id = valores_fila['DocumentItemID']
                 identificador = valores_fila['UUID']
 
 
-                # remover del treeview
+                # filtrar de los items del documento
+                partida_items = next(
+                    (
+                        partida
+                        for partida in self.documento.items
+                        if str(identificador) == str(partida.get('uuid'))
+                    ),
+                    None,
+                )
+                if partida_items is None:
+                    continue
+
+                # remover del treeview solamente cuando la partida tambien
+                # fue localizada en el estado interno del documento.
                 self._ventanas.remover_fila_treeview('tvw_productos', fila)
 
                 #----------------------------------------------------------------------------------
                 # remover la partida de los items del documento
 
-                # filtrar de los items del documento
-                partida_items = [partida for partida in self.documento.items
-                                   if str(identificador) == str(partida['uuid'])][0]
+                if int(document_item_id or 0) == 0:
+                    # Si la partida fue agregada en esta captura y todavia no
+                    # existe en BD, eliminarla cancela el alta pendiente. No
+                    # debe quedar como baja ni generar movimientos ficticios.
+                    self.documento.items = [
+                        partida
+                        for partida in self.documento.items
+                        if str(partida.get('uuid')) != str(identificador)
+                    ]
+                    self._modelo.cancelar_partida_items_documento_extra(
+                        identificador
+                    )
+                else:
+                    partida_items['ItemProductionStatusModified'] = 3
 
-                partida_items['ItemProductionStatusModified'] = 3
+                    # Una partida persistida se conserva como baja logica
+                    # para historial y para el guardado del pedido.
+                    comentario = f'ELIMINADA POR {self._user_name}'
+                    self._modelo.agregar_partida_items_documento_extra(
+                        partida_items,
+                        'eliminar',
+                        comentario,
+                        identificador,
+                    )
 
-                #nuevas_partidas = [partida for partida in self.documento.items
-                #                   if str(identificador) != str(partida['uuid'])]
-
-                # asignar los nuevos items sin el item que ha sido removido
-                #self.documento.items = nuevas_partidas
                 self._actualizar_totales_documento()
                 # ----------------------------------------------------------------------------------
-
-                # respalda la partida extra para tratamiento despues del cierre del documento
-                comentario = f'ELIMINADA POR {self._user_name}'
-                self._modelo.agregar_partida_items_documento_extra(partida_items, 'eliminar', comentario, identificador)
 
                 # Solo aplica para el módulo 1687 pedidos
                 if self._module_id == self.MODULO_PEDIDOS:
@@ -2475,6 +2510,9 @@ class ControladorCaptura:
                     for producto in self.documento.items
                     if producto is not partida
                 ]
+                self._modelo.cancelar_partida_items_documento_extra(
+                    partida.get('uuid')
+                )
 
         self._modelo.servicio_a_domicilio_agregado = False
         self.servicio_a_domicilio_agregado = False

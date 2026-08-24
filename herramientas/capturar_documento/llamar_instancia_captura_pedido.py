@@ -513,6 +513,31 @@ class LlamarInstanciaCapturaPedido:
     def _guardar_partidas(self, document_id):
         for partida in self._documento.items:
             copia = copy.deepcopy(partida)
+            estado_modificacion = int(
+                copia.get('ItemProductionStatusModified', 0) or 0
+            )
+            document_item_id = int(
+                copia.get('DocumentItemID', 0) or 0
+            )
+
+            # Una partida eliminada ya no forma parte del pedido vigente. No
+            # debe enviarse otra vez al procedimiento de alta/actualizacion,
+            # porque al reabrir y guardar el pedido puede reactivarse. Se
+            # conserva el renglon como baja logica para historial y bitacora.
+            if estado_modificacion == 3:
+                if document_item_id:
+                    self._base_de_datos.command(
+                        """
+                        UPDATE docDocumentItemOrderCayal
+                           SET DeletedOn = COALESCE(DeletedOn, GETDATE()),
+                               ItemProductionStatusModified = 3
+                         WHERE DocumentID = ?
+                           AND DocumentItemID = ?
+                        """,
+                        (document_id, document_item_id),
+                    )
+                continue
+
             product_id = int(copia.get('ProductID', 0) or 0)
             if (
                     copia.get('Unit', 'KILO') != 'KILO'
@@ -529,7 +554,7 @@ class LlamarInstanciaCapturaPedido:
                 copia.get('precio', copia.get('UnitPrice', 0)),
                 copia.get('CostPrice', 0),
                 copia.get('subtotal', 0),
-                copia.get('DocumentItemID', 0),
+                document_item_id,
                 copia.get('TipoCaptura', 0),
                 copia.get('CayalPiece', 0),
                 copia.get('CayalAmount', 0),

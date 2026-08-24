@@ -290,15 +290,11 @@ class ModeloSelectorModulo:
         if not documentos:
             raise ValueError('Debe seleccionar por lo menos un ticket.')
 
-        # Cada ticket se recalcula desde sus partidas y configuración fiscal
-        # antes de consultar pagos o construir la global. Así, tanto el detalle
-        # como el encabezado origen provienen de cayal.impuestos y un importe
-        # histórico obsoleto no puede propagarse a la factura global.
-        for document_id in documentos:
-            Impuestos.afectar_y_sincronizar_totales_documento(
-                self.base_de_datos,
-                document_id,
-            )
+        # Las notas origen son documentos históricos ya cobrados. No se deben
+        # recalcular ni sincronizar aquí: hacerlo cambia Total y Balance por
+        # diferencias de redondeo fiscal y convierte notas saldadas en notas
+        # con centavos pendientes. Más abajo se valida que sus afectaciones de
+        # impuestos ya existan; únicamente la factura global nueva se calcula.
 
         no_saldados = self.obtener_tickets_no_saldados(documentos)
         if no_saldados:
@@ -571,6 +567,16 @@ class ModeloSelectorModulo:
                 SET D.SubTotal = T.SubTotal,
                     D.SubTotalWithDiscount = T.SubTotal,
                     D.TotalTax = T.TotalTax,
+                    D.IVA = ISNULL((
+                        SELECT F.IVA_T
+                        FROM dbo.docDocumentTax F
+                        WHERE F.DocumentID = D.DocumentID
+                    ), 0),
+                    D.IEPS = ISNULL((
+                        SELECT F.IEPS_T
+                        FROM dbo.docDocumentTax F
+                        WHERE F.DocumentID = D.DocumentID
+                    ), 0),
                     D.TotalRetention = T.TotalRetention,
                     D.TotalDiscount = 0,
                     D.Total = T.Total,
@@ -631,6 +637,20 @@ class ModeloSelectorModulo:
                     FROM dbo.docDocumentItem I
                     WHERE I.DocumentID = ?
                       AND I.DeletedOn IS NULL
+                ), DetallePorConcepto AS (
+                    SELECT TD.DocumentItemID, TD.TaxTypeName,
+                           TD.Retention, TD.TaxPerc, TD.TipoFactor,
+                           CAST(ROUND(SUM(CAST(ISNULL(TD.Amount, 0)
+                                                  AS decimal(28, 8))), 2)
+                                AS decimal(18, 2)) AS Amount
+                    FROM dbo.docDocumentTaxDetail TD
+                    WHERE TD.DocumentID = ?
+                    GROUP BY TD.DocumentItemID, TD.TaxTypeName,
+                             TD.Retention, TD.TaxPerc, TD.TipoFactor
+                ), FiscalGlobal AS (
+                    SELECT CAST(ISNULL(SUM(Amount), 0)
+                                AS decimal(18, 2)) AS TotalTax
+                    FROM DetallePorConcepto
                 )
                 SELECT D.DocumentID,
                        CAST(ISNULL(D.SubTotal, 0) AS decimal(18, 2)) AS SubTotal,
@@ -642,6 +662,7 @@ class ModeloSelectorModulo:
                 FROM dbo.docDocument D
                 CROSS JOIN TotalesOrigen O
                 CROSS JOIN ConceptosGlobal G
+                CROSS JOIN FiscalGlobal F
                 WHERE D.DocumentID = ?
                   AND EXISTS (
                       SELECT 1 FROM dbo.docDocumentTaxDetail TD
@@ -685,17 +706,56 @@ class ModeloSelectorModulo:
                               AND IT.DocumentItemID = I.DocumentItemID
                         )
                   )
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM dbo.docDocumentItemTax IT
+                      WHERE IT.DocumentID = D.DocumentID
+                      GROUP BY IT.DocumentItemID,
+                               UPPER(ISNULL(IT.TaxItemName, N'')),
+                               ISNULL(IT.TaxTypeID, 0),
+                               ISNULL(IT.TaxPerc, 0)
+                      HAVING COUNT(*) > 1
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM dbo.docDocumentItemTax IT
+                      WHERE IT.DocumentID = D.DocumentID
+                        AND ISNULL(IT.TaxTypeID, 0) <>
+                            CASE
+                                WHEN UPPER(ISNULL(IT.TaxItemName, N'')) = N'IEPS'
+                                    THEN 4
+                                WHEN UPPER(ISNULL(IT.TaxItemName, N'')) = N'IVA'
+                                     AND ISNULL(IT.TaxPerc, 0) <> 0
+                                    THEN 3
+                                WHEN UPPER(ISNULL(IT.TaxItemName, N'')) = N'IVA'
+                                    THEN 2
+                                ELSE ISNULL(IT.TaxTypeID, 0)
+                            END
+                  )
                   AND O.Documentos > 0
                   AND G.Conceptos = O.Documentos
                   AND CAST(ISNULL(D.SubTotal, 0) AS decimal(18, 2)) = O.SubTotal
                   AND CAST(ISNULL(D.TotalTax, 0) AS decimal(18, 2)) = O.TotalTax
+                  AND F.TotalTax = O.TotalTax
+                  AND CAST(ISNULL(D.IVA, 0) AS decimal(18, 2)) =
+                      CAST(ISNULL((
+                          SELECT T.IVA_T
+                          FROM dbo.docDocumentTax T
+                          WHERE T.DocumentID = D.DocumentID
+                      ), 0) AS decimal(18, 2))
+                  AND CAST(ISNULL(D.IEPS, 0) AS decimal(18, 2)) =
+                      CAST(ISNULL((
+                          SELECT T.IEPS_T
+                          FROM dbo.docDocumentTax T
+                          WHERE T.DocumentID = D.DocumentID
+                      ), 0) AS decimal(18, 2))
                   AND CAST(ISNULL(D.TotalRetention, 0) AS decimal(18, 2)) =
                       O.TotalRetention
                   AND CAST(ISNULL(D.Total, 0) AS decimal(18, 2)) = O.Total
                   AND CAST(ISNULL(D.Balance, 0) AS decimal(18, 2)) =
                       O.Total
                 ''',
-                (factura_id, factura_id, factura_id),
+                (factura_id, factura_id, factura_id, factura_id),
             )
             if not validacion:
                 raise RuntimeError(
@@ -753,57 +813,180 @@ class ModeloSelectorModulo:
             BEGIN TRY
                 BEGIN TRANSACTION;
 
-                DELETE FROM dbo.docDocumentItemTax
-                WHERE DocumentID = ?;
+                DELETE FROM dbo.docDocumentItemTax WHERE DocumentID = ?;
+                DELETE FROM dbo.docDocumentTaxDetail WHERE DocumentID = ?;
+                DELETE FROM dbo.docDocumentTaxSum WHERE DocumentID = ?;
+                DELETE FROM dbo.docDocumentTax WHERE DocumentID = ?;
+
+                INSERT INTO dbo.docDocumentTaxDetail (
+                    DocumentID, DocumentItemID, TaxTypeID, TaxItemID,
+                    Amount, Retention, IVASobreIEPS, RegionalTaxID,
+                    TaxName, TaxTypeName, TaxBase, TaxPerc, TipoFactor
+                )
+                SELECT ?, G.DocumentItemID,
+                       MIN(O.TaxTypeID), MIN(O.TaxItemID),
+                       CAST(ROUND(SUM(CAST(ISNULL(O.Amount, 0)
+                                               AS decimal(28, 8))), 2)
+                            AS decimal(18, 2)),
+                       O.Retention,
+                       0 AS IVASobreIEPS,
+                       O.RegionalTaxID,
+                       MAX(O.TaxName), O.TaxTypeName,
+                       SUM(CAST(ISNULL(O.TaxBase, 0) AS decimal(28, 8))),
+                       O.TaxPerc, O.TipoFactor
+                FROM dbo.docDocumentItem G
+                INNER JOIN dbo.docDocumentTaxDetail O
+                    ON O.DocumentID = G.SourceDocumentID
+                WHERE G.DocumentID = ?
+                  AND G.DeletedOn IS NULL
+                GROUP BY G.DocumentItemID, O.Retention, O.RegionalTaxID,
+                         O.TaxTypeName, O.TaxPerc, O.TipoFactor;
 
                 INSERT INTO dbo.docDocumentItemTax (
                     DocumentID, DocumentItemID, TaxItemName, TaxTypeID,
                     TaxName, IVASobreIEPS, TaxPerc, TaxAmount, BaseAmount,
                     TotalIVA, TotalIEPS
                 )
-                SELECT ?, G.DocumentItemID,
-                       O.TaxItemName,
+                SELECT TD.DocumentID, TD.DocumentItemID,
+                       TD.TaxTypeName,
                        CASE
-                           WHEN UPPER(ISNULL(O.TaxItemName, N'')) = N'IEPS'
+                           WHEN TD.Retention = 1 THEN 1
+                           WHEN UPPER(ISNULL(TD.TaxTypeName, N'')) = N'IEPS'
                                THEN 4
-                           WHEN UPPER(ISNULL(O.TaxItemName, N'')) = N'IVA'
-                                AND ISNULL(O.TaxPerc, 0) <> 0
+                           WHEN UPPER(ISNULL(TD.TaxTypeName, N'')) = N'IVA'
+                                AND ISNULL(TD.TaxPerc, 0) <> 0
                                THEN 3
-                           WHEN UPPER(ISNULL(O.TaxItemName, N'')) = N'IVA'
+                           WHEN UPPER(ISNULL(TD.TaxTypeName, N'')) = N'IVA'
                                THEN 2
-                           ELSE O.TaxTypeID
-                       END AS TaxTypeID,
-                       O.TaxName,
-                       O.IVASobreIEPS,
-                       O.TaxPerc,
-                       0 AS TaxAmount,
-                       SUM(CAST(ISNULL(O.BaseAmount, 0)
-                                AS decimal(28, 8))) AS BaseAmount,
-                       SUM(CAST(ISNULL(O.TotalIVA, 0)
-                                AS decimal(28, 8))) AS TotalIVA,
-                       SUM(CAST(ISNULL(O.TotalIEPS, 0)
-                                AS decimal(28, 8))) AS TotalIEPS
-                FROM dbo.docDocumentItem G
-                INNER JOIN dbo.docDocumentItem S
-                    ON S.DocumentID = G.SourceDocumentID
-                   AND S.DeletedOn IS NULL
-                INNER JOIN dbo.docDocumentItemTax O
-                    ON O.DocumentID = S.DocumentID
-                   AND O.DocumentItemID = S.DocumentItemID
-                WHERE G.DocumentID = ?
-                  AND G.DeletedOn IS NULL
-                GROUP BY G.DocumentItemID, O.TaxItemName,
-                         CASE
-                             WHEN UPPER(ISNULL(O.TaxItemName, N'')) = N'IEPS'
-                                 THEN 4
-                             WHEN UPPER(ISNULL(O.TaxItemName, N'')) = N'IVA'
-                                  AND ISNULL(O.TaxPerc, 0) <> 0
-                                 THEN 3
-                             WHEN UPPER(ISNULL(O.TaxItemName, N'')) = N'IVA'
-                                 THEN 2
-                             ELSE O.TaxTypeID
-                         END,
-                         O.TaxName, O.IVASobreIEPS, O.TaxPerc;
+                           ELSE 2
+                       END,
+                       TD.TaxName,
+                       0 AS IVASobreIEPS,
+                       TD.TaxPerc,
+                       TD.Amount,
+                       TD.TaxBase,
+                       CASE WHEN UPPER(ISNULL(TD.TaxTypeName, N'')) = N'IVA'
+                            THEN TD.Amount ELSE 0 END,
+                       CASE WHEN UPPER(ISNULL(TD.TaxTypeName, N'')) = N'IEPS'
+                            THEN TD.Amount ELSE 0 END
+                FROM dbo.docDocumentTaxDetail TD
+                WHERE TD.DocumentID = ?;
+
+                ;WITH ImportesConcepto AS (
+                    SELECT DocumentItemID, TaxItemID, TaxName, TaxTypeName,
+                           Retention, RegionalTaxID,
+                           CAST(ROUND(SUM(CAST(ISNULL(Amount, 0)
+                                                  AS decimal(28, 8))), 2)
+                                AS decimal(18, 2)) AS Amount
+                    FROM dbo.docDocumentTaxDetail
+                    WHERE DocumentID = ?
+                    GROUP BY DocumentItemID, TaxItemID, TaxName, TaxTypeName,
+                             Retention, RegionalTaxID
+                ), Totales AS (
+                    SELECT
+                        SUM(CASE WHEN UPPER(ISNULL(TaxTypeName, N'')) = N'IVA'
+                                      AND ISNULL(Retention, 0) = 0
+                                 THEN Amount ELSE 0 END) AS IVA_T,
+                        SUM(CASE WHEN UPPER(ISNULL(TaxTypeName, N'')) = N'IVA'
+                                      AND ISNULL(Retention, 0) = 1
+                                 THEN Amount ELSE 0 END) AS IVA_R,
+                        SUM(CASE WHEN UPPER(ISNULL(TaxTypeName, N'')) = N'ISR'
+                                      AND ISNULL(Retention, 0) = 1
+                                 THEN Amount ELSE 0 END) AS ISR_R,
+                        SUM(CASE WHEN UPPER(ISNULL(TaxTypeName, N'')) = N'IEPS'
+                                      AND ISNULL(Retention, 0) = 0
+                                 THEN Amount ELSE 0 END) AS IEPS_T,
+                        SUM(CASE WHEN UPPER(ISNULL(TaxTypeName, N'')) = N'IEPS'
+                                      AND ISNULL(Retention, 0) = 1
+                                 THEN Amount ELSE 0 END) AS IEPS_R,
+                        SUM(CASE WHEN UPPER(ISNULL(TaxTypeName, N''))
+                                           NOT IN (N'IVA', N'ISR', N'IEPS')
+                                      AND ISNULL(RegionalTaxID, 0) = 0
+                                 THEN Amount ELSE 0 END) AS Otro,
+                        SUM(CASE WHEN ISNULL(RegionalTaxID, 0) <> 0
+                                      AND ISNULL(Retention, 0) = 0
+                                 THEN Amount ELSE 0 END) AS Local_T,
+                        SUM(CASE WHEN ISNULL(RegionalTaxID, 0) <> 0
+                                      AND ISNULL(Retention, 0) = 1
+                                 THEN Amount ELSE 0 END) AS Local_R
+                    FROM ImportesConcepto
+                )
+                INSERT INTO dbo.docDocumentTax (
+                    DocumentID, IVA_T, IVA_R, ISR_R, IEPS_T, IEPS_R,
+                    Otro, Local_T, Local_R
+                )
+                SELECT ?, ISNULL(IVA_T, 0), ISNULL(IVA_R, 0),
+                       ISNULL(ISR_R, 0), ISNULL(IEPS_T, 0),
+                       ISNULL(IEPS_R, 0), ISNULL(Otro, 0),
+                       ISNULL(Local_T, 0), ISNULL(Local_R, 0)
+                FROM Totales;
+
+                ;WITH ImportesConcepto AS (
+                    SELECT DocumentItemID, TaxTypeName, Retention,
+                           TaxPerc, TipoFactor, MAX(TaxName) AS TaxName,
+                           CAST(ROUND(SUM(CAST(ISNULL(Amount, 0)
+                                                  AS decimal(28, 8))), 2)
+                                AS decimal(18, 2)) AS Amount
+                    FROM dbo.docDocumentTaxDetail
+                    WHERE DocumentID = ?
+                    GROUP BY DocumentItemID, TaxTypeName, Retention,
+                             TaxPerc, TipoFactor
+                ), Grupos AS (
+                    SELECT TaxTypeName, Retention, TaxPerc, TipoFactor,
+                           MAX(TaxName) AS TaxName,
+                           SUM(Amount) AS Amount,
+                           ROW_NUMBER() OVER (
+                               ORDER BY TaxTypeName, Retention,
+                                        TaxPerc, TipoFactor
+                           ) AS Numero
+                    FROM ImportesConcepto
+                    GROUP BY TaxTypeName, Retention, TaxPerc, TipoFactor
+                ), Resumen AS (
+                    SELECT
+                        MAX(CASE WHEN Numero = 1 THEN TaxName END) AS TaxName1,
+                        SUM(CASE WHEN Numero = 1 THEN Amount ELSE 0 END) AS TaxAmount1,
+                        MAX(CASE WHEN Numero = 2 THEN TaxName END) AS TaxName2,
+                        SUM(CASE WHEN Numero = 2 THEN Amount ELSE 0 END) AS TaxAmount2,
+                        MAX(CASE WHEN Numero = 3 THEN TaxName END) AS TaxName3,
+                        SUM(CASE WHEN Numero = 3 THEN Amount ELSE 0 END) AS TaxAmount3,
+                        MAX(CASE WHEN Numero = 4 THEN TaxName END) AS TaxName4,
+                        SUM(CASE WHEN Numero = 4 THEN Amount ELSE 0 END) AS TaxAmount4,
+                        MAX(CASE WHEN Numero = 5 THEN TaxName END) AS TaxName5,
+                        SUM(CASE WHEN Numero = 5 THEN Amount ELSE 0 END) AS TaxAmount5,
+                        MAX(CASE WHEN Numero = 6 THEN TaxName END) AS TaxName6,
+                        SUM(CASE WHEN Numero = 6 THEN Amount ELSE 0 END) AS TaxAmount6,
+                        MAX(CASE WHEN Numero = 7 THEN TaxName END) AS TaxName7,
+                        SUM(CASE WHEN Numero = 7 THEN Amount ELSE 0 END) AS TaxAmount7,
+                        MAX(CASE WHEN Numero = 8 THEN TaxName END) AS TaxName8,
+                        SUM(CASE WHEN Numero = 8 THEN Amount ELSE 0 END) AS TaxAmount8,
+                        MAX(CASE WHEN Numero = 9 THEN TaxName END) AS TaxName9,
+                        SUM(CASE WHEN Numero = 9 THEN Amount ELSE 0 END) AS TaxAmount9,
+                        MAX(CASE WHEN Numero = 10 THEN TaxName END) AS TaxName10,
+                        SUM(CASE WHEN Numero = 10 THEN Amount ELSE 0 END) AS TaxAmount10
+                    FROM Grupos
+                )
+                INSERT INTO dbo.docDocumentTaxSum (
+                    DocumentID,
+                    TaxName1, TaxAmount1, TaxName2, TaxAmount2,
+                    TaxName3, TaxAmount3, TaxName4, TaxAmount4,
+                    TaxName5, TaxAmount5, TaxName6, TaxAmount6,
+                    TaxName7, TaxAmount7, TaxName8, TaxAmount8,
+                    TaxName9, TaxAmount9, TaxName10, TaxAmount10,
+                    TotalFederal, TotalLocal, TotalOtro
+                )
+                SELECT ?, TaxName1, TaxAmount1, TaxName2, TaxAmount2,
+                       TaxName3, TaxAmount3, TaxName4, TaxAmount4,
+                       TaxName5, TaxAmount5, TaxName6, TaxAmount6,
+                       TaxName7, TaxAmount7, TaxName8, TaxAmount8,
+                       TaxName9, TaxAmount9, TaxName10, TaxAmount10,
+                       ISNULL(T.IVA_T, 0) + ISNULL(T.IEPS_T, 0)
+                           - ISNULL(T.IVA_R, 0) - ISNULL(T.ISR_R, 0)
+                           - ISNULL(T.IEPS_R, 0),
+                       ISNULL(T.Local_T, 0) - ISNULL(T.Local_R, 0),
+                       ISNULL(T.Otro, 0)
+                FROM Resumen
+                CROSS JOIN dbo.docDocumentTax T
+                WHERE T.DocumentID = ?;
 
                 IF EXISTS (
                     SELECT 1
@@ -831,7 +1014,13 @@ class ModeloSelectorModulo:
                 THROW;
             END CATCH;
             ''',
-            (factura_id, factura_id, factura_id, factura_id),
+            (
+                factura_id, factura_id, factura_id,
+                factura_id, factura_id, factura_id,
+                factura_id, factura_id, factura_id,
+                factura_id, factura_id, factura_id,
+                factura_id,
+            ),
         )
 
     def _separar_tickets_ieps_cuota(

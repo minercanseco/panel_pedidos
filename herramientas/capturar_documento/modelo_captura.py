@@ -637,6 +637,14 @@ class ModeloCaptura:
 
         self.documento.items_extra = nuevas_partidas
 
+    def cancelar_partida_items_documento_extra(self, uuid_tabla):
+        """Descarta el movimiento pendiente de una partida nunca persistida."""
+        self.documento.items_extra = [
+            partida_extra
+            for partida_extra in (self.documento.items_extra or [])
+            if str(partida_extra.get('uuid')) != str(uuid_tabla)
+        ]
+
     def obtener_equivalencia_producto(self, product_id):
         return self.base_de_datos.fetchone(
                     'SELECT ISNULL(Equivalencia,0) Equivalencia FROM orgProduct WHERE ProductID = ?'

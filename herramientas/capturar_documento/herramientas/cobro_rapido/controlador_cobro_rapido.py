@@ -454,6 +454,54 @@ class ControladorCobroRapido:
                 (self._document_id, self._document_id)
             )
 
+    def _conciliar_estado_pago(self):
+        """Elimina residuos subcentavo y determina el estado monetario final."""
+        if self._module_id == 1367:
+            return
+
+        self._base_de_datos.command(
+            """
+            DECLARE @DocumentID INT = ?;
+
+            ;WITH Payments AS (
+                SELECT
+                    DP.DocumentID,
+                    CAST(ROUND(SUM(CAST(ISNULL(DP.Amount, 0)
+                         AS decimal(28, 8))), 2) AS decimal(18, 2)) AS Paid
+                FROM dbo.docDocumentPayment DP
+                INNER JOIN dbo.docFinancialOperation DF
+                    ON DF.FinancialOperationID = DP.FinancialOperationID
+                WHERE DP.DocumentID = @DocumentID
+                  AND DF.DeletedOn IS NULL
+                GROUP BY DP.DocumentID
+            ), Valores AS (
+                SELECT
+                    D.DocumentID,
+                    CAST(ROUND(ISNULL(D.Total, 0), 2)
+                         AS decimal(18, 2)) AS Total,
+                    CAST(ISNULL(P.Paid, 0) AS decimal(18, 2)) AS Paid
+                FROM dbo.docDocument D
+                LEFT JOIN Payments P ON P.DocumentID = D.DocumentID
+                WHERE D.DocumentID = @DocumentID
+            )
+            UPDATE D
+            SET D.TotalPaid = V.Paid,
+                D.Balance = CASE
+                    WHEN V.Paid >= V.Total THEN CAST(0 AS decimal(18, 2))
+                    ELSE CAST(V.Total - V.Paid AS decimal(18, 2))
+                END,
+                D.StatusPaidID = CASE
+                    WHEN V.Paid <= 0 THEN 3
+                    WHEN V.Paid > V.Total THEN 4
+                    WHEN V.Paid = V.Total THEN 1
+                    ELSE 2
+                END
+            FROM dbo.docDocument D
+            INNER JOIN Valores V ON V.DocumentID = D.DocumentID;
+            """,
+            (self._document_id,),
+        )
+
     def _inicializar_generales_cliente(self):
         self._business_entity_id = self._base_de_datos.fetchone(
             'SELECT BusinessEntityID FROM docDocument WHERE DocumentID = ?', (self._document_id,))
@@ -545,6 +593,7 @@ class ControladorCobroRapido:
 
             self._guardar_monto_recibido()
             self._insertar_para_recalcular()
+            self._conciliar_estado_pago()
             self._interfaz.master.destroy()
 
             if abrir_cajon_dinero:

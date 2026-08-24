@@ -32,6 +32,7 @@ class LlamarInstanciaCobroRapido:
 
     def _iniciar(self):
         self._sincronizar_documento_para_cobro()
+        self._normalizar_residuo_pago()
         saldo_decimal = self._obtener_saldo_documento()
 
         if saldo_decimal != 0:
@@ -52,10 +53,28 @@ class LlamarInstanciaCobroRapido:
             document_id,
         )
 
+    def _normalizar_residuo_pago(self):
+        """Corrige documentos ya pagados cuyo saldo sólo contiene subcentavos."""
+        self.base_de_datos.command(
+            """
+            UPDATE dbo.docDocument
+            SET Balance = 0,
+                StatusPaidID = 1,
+                TotalPaid = CAST(ROUND(ISNULL(TotalPaid, 0), 2)
+                                 AS decimal(18, 2))
+            WHERE DocumentID = ?
+              AND CAST(ROUND(ISNULL(Balance, 0), 2) AS decimal(18, 2)) = 0
+              AND CAST(ROUND(ISNULL(TotalPaid, 0), 2) AS decimal(18, 2))
+                  = CAST(ROUND(ISNULL(Total, 0), 2) AS decimal(18, 2))
+              AND ISNULL(TotalPaid, 0) > 0
+            """,
+            (self.parametros.id_principal,),
+        )
+
     def _obtener_saldo_documento(self):
         saldo = self.base_de_datos.fetchone(
             """
-            SELECT ISNULL(Balance, 0)
+            SELECT CAST(ROUND(ISNULL(Balance, 0), 2) AS decimal(18, 2))
             FROM docDocument
             WHERE DocumentID = ?
             """,

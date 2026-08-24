@@ -444,16 +444,6 @@ class ControladorCobroRapido:
             self._base_de_datos.command('UPDATE docDocument SET CambioCayal = ? WHERE DocumentID = ?',
                                         (self.monto_recibido, self._document_id))
 
-    def _insertar_para_recalcular(self):
-        if (
-                self._registrar_documento_para_recalculo
-                and self._module_id != 1367
-        ):
-            self._base_de_datos.exec_stored_procedure(
-                'zvwRecalcularDocumentos',
-                (self._document_id, self._document_id)
-            )
-
     def _conciliar_estado_pago(self):
         """Elimina residuos subcentavo y determina el estado monetario final."""
         if self._module_id == 1367:
@@ -592,7 +582,6 @@ class ControladorCobroRapido:
                     self._asignar_cobros(valores_cobro, date_operation)
 
             self._guardar_monto_recibido()
-            self._insertar_para_recalcular()
             self._conciliar_estado_pago()
             self._interfaz.master.destroy()
 

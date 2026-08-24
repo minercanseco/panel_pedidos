@@ -86,10 +86,3 @@ class SaldarDocumentos:
         self._cobros.total = cobro['Total']
         self._cobros.total_paid = (cobro['Total'] - cobro['Saldo'])
         self._cobros.create_payment()
-
-
-        self._insertar_para_recalcular(document_id)
-
-    def _insertar_para_recalcular(self, document_id):
-        self._base_de_datos.exec_stored_procedure('zvwRecalcularDocumentos',
-                                                      (document_id, document_id))

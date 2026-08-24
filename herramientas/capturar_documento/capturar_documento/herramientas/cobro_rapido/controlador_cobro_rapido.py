@@ -444,16 +444,6 @@ class ControladorCobroRapido:
             self._base_de_datos.command('UPDATE docDocument SET CambioCayal = ? WHERE DocumentID = ?',
                                         (self.monto_recibido, self._document_id))
 
-    def _insertar_para_recalcular(self):
-        if (
-                self._registrar_documento_para_recalculo
-                and self._module_id != 1367
-        ):
-            self._base_de_datos.exec_stored_procedure(
-                'zvwRecalcularDocumentos',
-                (self._document_id, self._document_id)
-            )
-
     def _inicializar_generales_cliente(self):
         self._business_entity_id = self._base_de_datos.fetchone(
             'SELECT BusinessEntityID FROM docDocument WHERE DocumentID = ?', (self._document_id,))
@@ -544,7 +534,6 @@ class ControladorCobroRapido:
                     self._asignar_cobros(valores_cobro, date_operation)
 
             self._guardar_monto_recibido()
-            self._insertar_para_recalcular()
             self._interfaz.master.destroy()
 
             if abrir_cajon_dinero:

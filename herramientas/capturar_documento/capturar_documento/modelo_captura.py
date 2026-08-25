@@ -133,7 +133,9 @@ class ModeloCaptura:
             WITH Payments AS (
                 SELECT
                     DP.DocumentID,
-                    COALESCE(SUM(DP.Amount), 0) AS TotalPaid
+                    CAST(ROUND(COALESCE(SUM(
+                        CAST(ISNULL(DP.Amount, 0) AS DECIMAL(28, 8))
+                    ), 0), 2) AS DECIMAL(18, 2)) AS TotalPaid
                 FROM docDocumentPayment DP
                 INNER JOIN docFinancialOperation DF
                     ON DF.FinancialOperationID = DP.FinancialOperationID
@@ -152,12 +154,14 @@ class ModeloCaptura:
                 D.IEPS = ?,
                 D.IVA = ?,
                 D.Total = ?,
-                D.TotalPaid = COALESCE(P.TotalPaid, 0),
+                D.TotalPaid = CAST(COALESCE(P.TotalPaid, 0) AS DECIMAL(18, 2)),
 
                 D.Balance =
                     CASE
-                        WHEN ? - COALESCE(P.TotalPaid, 0) > 0
-                            THEN ? - COALESCE(P.TotalPaid, 0)
+                        WHEN CAST(ROUND(?, 2) AS DECIMAL(18, 2))
+                             - CAST(COALESCE(P.TotalPaid, 0) AS DECIMAL(18, 2)) > 0
+                            THEN CAST(ROUND(?, 2) AS DECIMAL(18, 2))
+                                 - CAST(COALESCE(P.TotalPaid, 0) AS DECIMAL(18, 2))
                         ELSE 0
                     END,
 

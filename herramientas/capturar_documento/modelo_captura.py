@@ -153,7 +153,7 @@ class ModeloCaptura:
                 D.TotalRetention = ?,
                 D.IEPS = ?,
                 D.IVA = ?,
-                D.Total = ?,
+                D.Total = CAST(ROUND(?, 2) AS DECIMAL(18, 2)),
                 D.TotalPaid = CAST(COALESCE(P.TotalPaid, 0) AS DECIMAL(18, 2)),
 
                 D.Balance =

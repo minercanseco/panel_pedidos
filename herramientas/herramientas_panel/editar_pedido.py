@@ -332,7 +332,7 @@ class EditarPedido:
                 "CayalAmount": 0,
                 "ItemProductionStatusModified": 2,
                 "Comments": info_producto['Comments'],
-                "CreatedBy": self._user_id
+                "OperatorUserID": self._user_id
 
             }
 
@@ -361,7 +361,7 @@ class EditarPedido:
                 "CayalAmount": 0,
                 "ItemProductionStatusModified": 3,
                 "Comments": info_producto['Comments'],
-                "CreatedBy": self._user_id
+                "OperatorUserID": self._user_id
 
             }
 
@@ -410,7 +410,7 @@ class EditarPedido:
                 "CayalAmount": 0,
                 "ItemProductionStatusModified": 4,
                 "Comments": partida['Comments'],
-                "CreatedBy": partida['CreatedBy']
+                "OperatorUserID": self._user_id
 
             }
 
@@ -420,7 +420,13 @@ class EditarPedido:
             self._base_de_datos.command("""
                 INSERT INTO OrderProductionAdditionalItems (ProductID, Quantity, CreatedBy, EmployeeUserID, DocumentID)
                 VALUES (?, ?, ?, ?, ?) -- Ejemplo de un producto con cantidad y usuarios asociados
-            """, (partida['ProductID'], cantidad, self._user_id, partida['CreatedBy'], order_document_id))
+            """, (
+                partida['ProductID'],
+                cantidad,
+                self._user_id,
+                partida['EmployeeUserID'],
+                order_document_id
+            ))
 
     def _actualizar_partidas_pedidos_cayal(self, accion, dic_parametros_producto):
 
@@ -441,7 +447,7 @@ class EditarPedido:
                         "CayalAmount": None,
                         "ItemProductionStatusModified": None,
                         "Comments": None,
-                        "CreatedBy": None
+                        "OperatorUserID": None
                     }
 
         """
@@ -464,7 +470,7 @@ class EditarPedido:
             dic_parametros_producto['CayalAmount'],
             dic_parametros_producto['ItemProductionStatusModified'],
             dic_parametros_producto['Comments'],
-            dic_parametros_producto['CreatedBy'],
+            self._user_id,
         ]
         # --------------------------------------------------------------------------------------------------------
         # afectaciones previas a realizar
@@ -473,7 +479,10 @@ class EditarPedido:
         product_name = dic_parametros_producto['ProductName']
         cantidad = dic_parametros_producto['Cantidad']
         document_id = dic_parametros_producto['DocumentID']
-        user_id = dic_parametros_producto['CreatedBy']
+        # La autoría de agregar, editar y eliminar siempre corresponde al
+        # usuario de la sesión. Nunca debe heredarse del creador del pedido ni
+        # del empleado responsable del surtido.
+        user_id = self._user_id
         total = dic_parametros_producto['Total']
 
         cantidad_anterior = 0

@@ -399,9 +399,6 @@ class ModeloPanelPedidos:
                                                               user_id=self.user_id,
                                                               comments=comentario)
 
-    def insertar_pedido_a_recalcular(self, document_id, order_document_id):
-        self.base_de_datos.exec_stored_procedure('zvwRecalcularPedidos', (document_id, order_document_id))
-
     def afectar_bitacora_de_cambios_en_pedidos(self, document_id, order_document_ids):
 
         folio = self.base_de_datos.fetchone(
@@ -432,7 +429,8 @@ class ModeloPanelPedidos:
                 (self.user_id, order_document_id)
             )
 
-    def crear_cabecera_factura_mayoreo(self, document_type_id, way_to_pay_id, fila):
+    def crear_cabecera_factura_mayoreo(
+            self, document_type_id, way_to_pay_id, fila, relacionar_pedido=True):
         document_id = self.base_de_datos.crear_documento(
             document_type_id,
             'FM',  # prefijo mayoreo
@@ -445,12 +443,16 @@ class ModeloPanelPedidos:
             way_to_pay_id
         )
 
-        order_document_id = fila['OrderDocumentID']
+        # Otros aplicativos del ERP esperan un entero en este campo. Las
+        # refacturaciones históricas se identifican como desligadas con 0.
+        order_document_id = fila['OrderDocumentID'] if relacionar_pedido else 0
 
         # El documento queda disponible para el flujo normal del ERP; ya no
         # necesita la bandera temporal que lo reservaba para el script externo.
-        self.base_de_datos.command('UPDATE docDocument SET ExportID = 1, OrderDocumentID = ? WHERE DocumentID = ?',
-                                   (order_document_id, document_id))
+        self.base_de_datos.command(
+            'UPDATE docDocument SET ExportID = 1, OrderDocumentID = ? WHERE DocumentID = ?',
+            (order_document_id, document_id)
+        )
 
         return document_id
 

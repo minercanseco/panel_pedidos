@@ -282,8 +282,10 @@ class AgregarPartidaProduccion:
             self._ventanas.mostrar_mensaje('Debe seleccionar un responsable de la preparación del producto.')
             return
 
-        producto['CreatedBy'] = instancia.employee_user_id
-        producto['CreatedByName'] = instancia.employee_user_name
+        # Este usuario es el responsable del surtido, no quien está realizando
+        # la modificación en el aplicativo.
+        producto['EmployeeUserID'] = instancia.employee_user_id
+        producto['EmployeeUserName'] = instancia.employee_user_name
 
         self.partida_tabla = partida_tabla
         self.partida = producto

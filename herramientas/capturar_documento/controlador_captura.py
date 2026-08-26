@@ -606,7 +606,6 @@ class ControladorCaptura:
                 controlador = ControladorCobroRapido(
                     interfaz,
                     self._parametros_contpaqi,
-                    registrar_documento_para_recalculo=False,
                 )
                 ventana.wait_window()
 

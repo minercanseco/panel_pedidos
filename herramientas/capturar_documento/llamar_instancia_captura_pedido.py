@@ -530,11 +530,12 @@ class LlamarInstanciaCapturaPedido:
                         """
                         UPDATE docDocumentItemOrderCayal
                            SET DeletedOn = COALESCE(DeletedOn, GETDATE()),
+                               DeletedBy = ?,
                                ItemProductionStatusModified = 3
                          WHERE DocumentID = ?
                            AND DocumentItemID = ?
                         """,
-                        (document_id, document_item_id),
+                        (self._user_id, document_id, document_item_id),
                     )
                 continue
 
@@ -560,7 +561,11 @@ class LlamarInstanciaCapturaPedido:
                 copia.get('CayalAmount', 0),
                 copia.get('ItemProductionStatusModified', 0),
                 copia.get('Comments', ''),
-                copia.get('CreatedBy', self._user_id),
+                (
+                    self._user_id
+                    if estado_modificacion in (1, 2)
+                    else copia.get('CreatedBy', self._user_id)
+                ),
                 (
                     str(copia.get('uuid'))
                     if copia.get('uuid') else None
@@ -624,7 +629,7 @@ class LlamarInstanciaCapturaPedido:
                 partida.get('CayalAmount', 0),
                 estado_modificacion,
                 partida.get('Comments', ''),
-                partida.get('CreatedBy', self._user_id),
+                self._user_id,
             )
             self._base_de_datos.respaldar_partida_pedido_cayal(
                 parametros

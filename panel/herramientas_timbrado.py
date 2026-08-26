@@ -529,13 +529,41 @@ class HerramientasTimbrado:
 
             return 0
 
-        def crear_cabecera_documento(document_type_id, fila):
+        def crear_cabecera_documento(document_type_id, fila, relacionar_pedido=True):
             way_to_pay_id = 0
 
             if document_type_id == 0:
                 way_to_pay_id = actualizar_forma_de_pago_documento(info_documento=fila)
 
-            return self._modelo.crear_cabecera_factura_mayoreo(document_type_id, way_to_pay_id, fila)
+            return self._modelo.crear_cabecera_factura_mayoreo(
+                document_type_id,
+                way_to_pay_id,
+                fila,
+                relacionar_pedido=relacionar_pedido
+            )
+
+        def es_pedido_de_dia_anterior(fila):
+            """Indica si el pedido es anterior a la fecha operativa actual."""
+            fecha = fila.get('DeliveryPromise') or fila.get('F.Entrega')
+            if not fecha:
+                order_document_id = obtener_order_document_id_de_fila(fila)
+                fila_bd = self._modelo.buscar_pedido_por_id(order_document_id) if order_document_id else None
+                fecha = fila_bd.get('DeliveryPromise') if fila_bd else None
+
+            if not fecha:
+                return False
+
+            try:
+                if hasattr(fecha, 'date'):
+                    fecha_pedido = fecha.date()
+                elif all(hasattr(fecha, atributo) for atributo in ('year', 'month', 'day')):
+                    fecha_pedido = fecha
+                else:
+                    fecha_pedido = self._utilerias.convertir_fecha_str_a_datetime(fecha).date()
+            except (TypeError, ValueError, AttributeError):
+                return False
+
+            return fecha_pedido < self._modelo.hoy
 
         def actualizar_precios_documento(document_id):
             """Aplica al documento las listas y precios especiales del cliente."""
@@ -846,6 +874,7 @@ class HerramientasTimbrado:
                 address_detail_id = fila['AddressDetailID']
                 business_entity_id = fila['BusinessEntityID']
                 ruta = fila['Ruta']
+                es_refacturacion = es_pedido_de_dia_anterior(fila)
 
                 info_documento = partidas_pedidos.get(order_document_id_original, None)
                 if not info_documento:
@@ -857,12 +886,20 @@ class HerramientasTimbrado:
                 if not combinado:
                     tipo_documento = fila['DocumentTypeID']
 
-                    # 1) Crear cabecera usando SIEMPRE el pedido base como origen
-                    document_id = crear_cabecera_documento(tipo_documento, fila_documento)
+                    # Los pedidos del día conservan el origen. Una refacturación
+                    # histórica usa el pedido sólo como fuente y nace desligada
+                    # con OrderDocumentID = 0 por compatibilidad con el ERP.
+                    document_id = crear_cabecera_documento(
+                        tipo_documento,
+                        fila_documento,
+                        relacionar_pedido=not es_refacturacion
+                    )
 
-                    # 2) Blindaje adicional por si crear_cabecera_factura_mayoreo internamente
-                    #    tomó el OrderDocumentID incorrecto
-                    self._modelo.corregir_origen_documento_a_pedido_base(document_id, order_principal)
+                    if not es_refacturacion:
+                        # Blindaje adicional para el flujo normal del día.
+                        self._modelo.corregir_origen_documento_a_pedido_base(
+                            document_id, order_principal
+                        )
 
                     self._modelo.insertar_partidas_documento(
                         order_principal,
@@ -892,9 +929,12 @@ class HerramientasTimbrado:
                         ruta
                     )
 
-                    self._modelo.relacionar_pedidos_con_facturas(document_id, order_principal)
-                    actualizar_total_factura_en_pedidos(document_id, [order_principal])
-                    self._modelo.afectar_bitacora_de_cambios_en_pedidos(document_id, [order_principal])
+                    if not es_refacturacion:
+                        self._modelo.relacionar_pedidos_con_facturas(document_id, order_principal)
+                        actualizar_total_factura_en_pedidos(document_id, [order_principal])
+                        self._modelo.afectar_bitacora_de_cambios_en_pedidos(
+                            document_id, [order_principal]
+                        )
 
                 else:
                     partidas_acumuladas.extend(partidas)
@@ -936,10 +976,17 @@ class HerramientasTimbrado:
                 )
                 return
 
-            document_id = crear_cabecera_documento(tipo_documento, fila_documento)
+            es_refacturacion = any(es_pedido_de_dia_anterior(fila) for fila in filas)
+            document_id = crear_cabecera_documento(
+                tipo_documento,
+                fila_documento,
+                relacionar_pedido=not es_refacturacion
+            )
 
-            # blindaje adicional
-            self._modelo.corregir_origen_documento_a_pedido_base(document_id, order_document_id)
+            if not es_refacturacion:
+                self._modelo.corregir_origen_documento_a_pedido_base(
+                    document_id, order_document_id
+                )
 
             self._modelo.insertar_partidas_documento(
                 order_document_id,
@@ -967,11 +1014,14 @@ class HerramientasTimbrado:
                 filas[0]['Ruta']
             )
 
-            for order in all_order_document_ids:
-                self._modelo.relacionar_pedidos_con_facturas(document_id, order)
+            if not es_refacturacion:
+                for order in all_order_document_ids:
+                    self._modelo.relacionar_pedidos_con_facturas(document_id, order)
 
-            actualizar_total_factura_en_pedidos(document_id, all_order_document_ids)
-            self._modelo.afectar_bitacora_de_cambios_en_pedidos(document_id, all_order_document_ids)
+                actualizar_total_factura_en_pedidos(document_id, all_order_document_ids)
+                self._modelo.afectar_bitacora_de_cambios_en_pedidos(
+                    document_id, all_order_document_ids
+                )
 
         def validar_si_se_pueden_combinar(filas):
             clientes = {fila['BusinessEntityID'] for fila in filas}

@@ -7,18 +7,9 @@ from cayal.cobros import Cobros
 from herramientas.capturar_documento.herramientas.abrir_cajon import CajonCobro
 
 class ControladorCobroRapido:
-    def __init__(
-            self,
-            interfaz,
-            parametros,
-            monto=0,
-            registrar_documento_para_recalculo=True,
-    ):
+    def __init__(self, interfaz, parametros, monto=0):
         self._interfaz = interfaz
         self._parametros = parametros
-        self._registrar_documento_para_recalculo = bool(
-            registrar_documento_para_recalculo
-        )
         self._base_de_datos = ComandosBaseDatos()
         self._cobros = Cobros()
         self._utilerias = Utilerias()

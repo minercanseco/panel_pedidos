@@ -8,18 +8,9 @@ from cayal.util import Utilerias
 
 class LlamarInstanciaCobroRapido:
 
-    def __init__(
-            self,
-            ventana,
-            parametros,
-            base_de_datos,
-            registrar_documento_para_recalculo=True,
-    ):
+    def __init__(self, ventana, parametros, base_de_datos):
         self.ventana = ventana
         self.parametros = parametros
-        self.registrar_documento_para_recalculo = bool(
-            registrar_documento_para_recalculo
-        )
 
         self.base_de_datos = base_de_datos
         self.utilerias = Utilerias()
@@ -88,9 +79,6 @@ class LlamarInstanciaCobroRapido:
         self.controlador = ControladorCobroRapido(
             self.interfaz,
             self.parametros,
-            registrar_documento_para_recalculo=(
-                self.registrar_documento_para_recalculo
-            ),
         )
 
     def _abrir_panel_principal(self):

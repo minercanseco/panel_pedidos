@@ -1020,28 +1020,6 @@ class BuscarGeneralesCliente:
             if (
                     self._documento.document_id != 0
                     and self._module_id != MODULO_PEDIDOS):
-                self._base_de_datos.registrar_documento_a_recalcular(
-                    self._documento.document_id,
-                    self._documento.document_id,
-                    self._parametros_contpaqi.uuid
-                )
-
-                # en caso de algun modulo especial donde la captura tenga que estar relacionada a un proceso de salida
-                # o documento adicional
-                if self._documento.destination_document_id != 0:
-                    self._base_de_datos.registrar_documento_a_recalcular(
-                        self._documento.destination_document_id,
-                        self._documento.destination_document_id,
-                        self._parametros_contpaqi.uuid
-                    )
-
-                if self._documento.adicional_document_id != 0:
-                    self._base_de_datos.registrar_documento_a_recalcular(
-                        self._documento.adicional_document_id,
-                        self._documento.adicional_document_id,
-                        self._parametros_contpaqi.uuid
-                    )
-
                 if self._module_id  in MODULOS_VENTAS:
                     self._actualizar_forma_pago_documento()
                     self._actualizar_excedente_crediticio()

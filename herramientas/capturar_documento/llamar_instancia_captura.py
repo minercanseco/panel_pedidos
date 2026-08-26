@@ -465,28 +465,6 @@ class LlamarInstanciaCaptura:
 
     def _tareas_finales_de_afectacion_de_documentos(self):
         if self._documento.document_id != 0:
-            self._base_de_datos.registrar_documento_a_recalcular(
-                self._documento.document_id,
-                self._documento.document_id,
-                self._parametros_contpaqi.uuid
-            )
-
-            # en caso de algun modulo especial donde la captura tenga que estar relacionada a un proceso de salida
-            # o documento adicional
-            if self._documento.destination_document_id != 0:
-                self._base_de_datos.registrar_documento_a_recalcular(
-                    self._documento.destination_document_id,
-                    self._documento.destination_document_id,
-                    self._parametros_contpaqi.uuid
-                )
-
-            if self._documento.adicional_document_id != 0:
-                self._base_de_datos.registrar_documento_a_recalcular(
-                    self._documento.adicional_document_id,
-                    self._documento.adicional_document_id,
-                    self._parametros_contpaqi.uuid
-                )
-
             if self._module_id == MODULO_COMPRAS:
                 registros = self._documento.prorrateo_maniobras
                 if registros:

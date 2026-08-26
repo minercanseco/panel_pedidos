@@ -462,20 +462,6 @@ class BuscarGeneralesProveedor:
 
     def _finalizar_captura(self):
         if self._documento.document_id:
-            documentos = {
-                self._documento.document_id,
-                self._documento.destination_document_id,
-                self._documento.adicional_document_id,
-            }
-            for document_id in documentos:
-                if document_id:
-                    self._base_de_datos.registrar_documento_a_recalcular(
-                        document_id,
-                        document_id,
-                        self._parametros_contpaqi.uuid,
-                    )
-
-
             self._base_de_datos.command(
                 'UPDATE docDocument SET Comments = ? WHERE DocumentID = ?',
                 (self._documento.comments, self._documento.document_id),

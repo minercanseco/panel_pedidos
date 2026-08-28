@@ -80,7 +80,7 @@ class ModeloConvertirDocumento:
             return None, 'La factura está borrada.'
         if int(documento.get('CFDStatusID', 0) or 0) == 3:
             return None, 'La factura ya está timbrada.'
-        if int(documento.get('InvoiceID', 0) or 0) in (1, 2):
+        if int(documento.get('InvoiceID', 0) or 0) in (1, 2, 4):
             return None, 'La factura está en proceso de timbrado o timbrada.'
         if int(documento.get('ExportID', 0) or 0) != 1:
             return None, (
@@ -130,7 +130,7 @@ class ModeloConvertirDocumento:
                   AND D.CancelledOn IS NULL
                   AND D.DeletedOn IS NULL
                   AND ISNULL(D.ExportID, 0) = 1
-                  AND ISNULL(D.InvoiceID, 0) NOT IN (1, 2)
+                  AND ISNULL(D.InvoiceID, 0) NOT IN (1, 2, 4)
                   AND NOT EXISTS (
                       SELECT 1
                       FROM dbo.docDocumentCFD CFD
@@ -243,7 +243,7 @@ class ModeloConvertirDocumento:
                AND CancelledOn IS NULL
                AND DeletedOn IS NULL
                AND ISNULL(ExportID, 0) = 1
-               AND ISNULL(InvoiceID, 0) NOT IN (1, 2)
+               AND ISNULL(InvoiceID, 0) NOT IN (1, 2, 4)
                AND NOT EXISTS (
                    SELECT 1
                    FROM dbo.docDocumentCFD CFD

@@ -36,6 +36,7 @@ class PanelPrincipal:
         self._fecha = self._parametros.fecha
         self._ventas_efectivo = 0
         self._documentos_cobrados = []
+        self._timbrado_pendiente_confirmado = None
 
         self._monto_total_monedas = 0
         self._monto_total_billetes = 0
@@ -109,6 +110,10 @@ class PanelPrincipal:
             etiqueta.config(font=('Consolas', 10, 'bold'), anchor='e', )
 
     def _validaciones_previas(self):
+
+        if not self._validar_requisitos_erp():
+            self._master.destroy()
+            return
 
         if not self._documentos_cobrados:
             self._mostrar_mensaje('No tiene ninguna venta capturada.')
@@ -232,6 +237,11 @@ class PanelPrincipal:
 
     def _llamar_corte_caja(self):
 
+        # Las condiciones pueden cambiar mientras el panel permanece abierto.
+        # Se validan nuevamente antes de crear cualquier registro del corte.
+        if not self._validar_requisitos_erp(revalidacion=True):
+            return
+
         parametros_corte = {'monto_monedas': self._monto_total_monedas,
                             'monto_billetes': self._monto_total_billetes,
                             'monto_gastos' : self._monto_total_gastos,
@@ -252,6 +262,79 @@ class PanelPrincipal:
         self._master.withdraw()
         ventana.wait_window()
         self._master.destroy()
+
+    def _validar_requisitos_erp(self, revalidacion=False):
+        """Replica las puertas del script del ERP antes del corte de caja."""
+        try:
+            pendientes_timbrado = self._base_de_datos.fetchall(
+                """
+                SELECT M.DocumentID, M.[No] AS DocFolio
+                FROM vwLBSDocCustomerInvoiceList1400 M
+                WHERE ISNULL(M.CFDStatusID, 0) = 0
+                  AND M.FechaCancelado IS NULL
+                  AND M.Capturista = (
+                      SELECT U.UserName
+                      FROM engUser U
+                      WHERE U.UserID = ?
+                  )
+                """,
+                (self._user_id,),
+            ) or []
+
+            if pendientes_timbrado:
+                folios = ', '.join(
+                    str(
+                        documento.get('DocFolio')
+                        or documento.get('DocumentID')
+                    )
+                    for documento in pendientes_timbrado
+                )
+                ids_pendientes = tuple(sorted(
+                    int(documento.get('DocumentID', 0) or 0)
+                    for documento in pendientes_timbrado
+                ))
+                if not (
+                        revalidacion
+                        and self._timbrado_pendiente_confirmado
+                        == ids_pendientes
+                ):
+                    respuesta = self._ventanas.mostrar_mensaje_pregunta(
+                        'Tiene documentos pendientes de timbrar en el módulo '
+                        'de ventas Minisúper: {}. Esto puede deberse a una '
+                        'falla del PAC.\n\n¿Desea continuar con el corte de '
+                        'caja sin timbrarlos?'.format(folios),
+                        master=self._master,
+                    )
+                    if not respuesta:
+                        return False
+                    self._timbrado_pendiente_confirmado = ids_pendientes
+            else:
+                self._timbrado_pendiente_confirmado = None
+
+            archivos = int(self._base_de_datos.fetchone(
+                """
+                SELECT COUNT(ID)
+                FROM zvwArchivoImpresoCayal
+                WHERE Validado = 0
+                  AND ImpresoPor = ?
+                """,
+                (self._user_id,),
+            ) or 0)
+        except Exception as error:
+            self._mostrar_mensaje(
+                'No fue posible comprobar los requisitos para el corte de '
+                'caja. Por seguridad no se continuará:\n{}'.format(error)
+            )
+            return False
+
+        if archivos:
+            self._mostrar_mensaje(
+                'Tiene {} validaciones de archivo pendientes. Debe '
+                'validarlas antes de continuar.'.format(archivos)
+            )
+            return False
+
+        return True
 
     def _consultar_documentos_cobrados(self):
         consulta = self._base_de_datos.fetchall("""

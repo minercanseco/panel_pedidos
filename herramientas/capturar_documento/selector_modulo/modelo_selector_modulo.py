@@ -159,7 +159,7 @@ class ModeloSelectorModulo:
         FROM dbo.docDocument D
         WHERE D.DocumentID IN ({marcas})
           AND D.ModuleID IN (1400, 50)
-          AND ISNULL(D.InvoiceID, 0) = 0
+          AND ISNULL(D.InvoiceID, 0) IN (0, 3)
           AND D.CancelledOn IS NULL
           AND D.DeletedOn IS NULL
           AND NOT EXISTS (
@@ -208,6 +208,10 @@ class ModeloSelectorModulo:
                 'operación. No se envió ninguno; actualice e intente de nuevo.'
             )
         return afectados
+
+    def obtener_resultado_timbrado(self, documentos):
+        """Devuelve el estado operativo y fiscal de los documentos enviados."""
+        return self.obtener_estados_timbrado(documentos)
 
     def obtener_cliente_documento(self, document_id):
         return int(self.base_de_datos.fetchone(
@@ -1233,6 +1237,10 @@ class ModeloSelectorModulo:
         anchos_columnas = info_columnas[0]['ColumnsSize']
         primary_key = info_columnas[0]['PrimaryKey']
 
+        if tabla == 'tbv_facturas' and 'EstadoTimbrado' not in columnas:
+            columnas = f"{columnas}, [EstadoTimbrado]"
+            anchos_columnas = f"{anchos_columnas}, 165"
+
         columnas = f"{columnas}, [{primary_key}]"
         anchos_columnas = f"{anchos_columnas}, 0"
 
@@ -1257,9 +1265,22 @@ class ModeloSelectorModulo:
                    CancelledIcon, CFDStatusID, CFDStatusName,
                    CFDStatusCancelledName,
                    CFDStatusError, CFDCancelledStatusID, Usuario,
-                   TimbradoPor, HoraVenta, Comentarios, CanceladoPor, CreatedBy
-            FROM dbo.vwLBSDocCustomerInvoiceGlobalList2
-            WHERE CreatedBy = ?
+                   TimbradoPor, HoraVenta, Comentarios, CanceladoPor, CreatedBy,
+                   CASE
+                       WHEN ISNULL(Q.InvoiceID, 0) = 1 THEN 'En espera de timbrado'
+                       WHEN ISNULL(Q.InvoiceID, 0) = 4 THEN 'Procesando timbrado'
+                       WHEN ISNULL(Q.InvoiceID, 0) = 2 THEN 'Timbrado'
+                       WHEN ISNULL(Q.InvoiceID, 0) = 3 THEN 'Error de timbrado'
+                       WHEN ISNULL(V.CFDStatusID, 0) = 3 THEN 'Timbrado'
+                       ELSE 'No enviado'
+                   END AS EstadoTimbrado
+            FROM dbo.vwLBSDocCustomerInvoiceGlobalList2 V
+            OUTER APPLY (
+                SELECT D.InvoiceID
+                FROM dbo.docDocument D
+                WHERE D.DocumentID = V.DocumentID
+            ) Q
+            WHERE V.CreatedBy = ?
             ORDER BY DateDocument DESC, HoraVenta DESC, DocumentID DESC
             ''',
             (self.user_id,),
@@ -1307,9 +1328,32 @@ class ModeloSelectorModulo:
             return []
         consulta, filtro_usuario, parametros = configuracion
 
+        joins = ''
+        if tabla == 'tbv_facturas':
+            columnas_str = columnas_str.replace(
+                '[EstadoTimbrado]',
+                """CASE
+                    WHEN ISNULL(Q.InvoiceID, 0) = 1
+                        THEN 'En espera de timbrado'
+                    WHEN ISNULL(Q.InvoiceID, 0) = 4
+                        THEN 'Procesando timbrado'
+                    WHEN ISNULL(Q.InvoiceID, 0) = 2 THEN 'Timbrado'
+                    WHEN ISNULL(Q.InvoiceID, 0) = 3 THEN 'Error de timbrado'
+                    WHEN ISNULL(M.CFDStatusID, 0) = 3 THEN 'Timbrado'
+                    ELSE 'No enviado'
+                END AS [EstadoTimbrado]""",
+            )
+            joins = (
+                ' OUTER APPLY ('
+                ' SELECT D.InvoiceID FROM dbo.docDocument D'
+                ' WHERE D.DocumentID = M.DocumentID'
+                ' ) Q'
+            )
+
         query = f"""
                 SELECT {columnas_str}
                 FROM {consulta} M
+                {joins}
                 WHERE {filtro_usuario}
                 AND CAST(M.Fecha as date) = CAST(GETDATE() as date)
                 ORDER BY {primary_key} DESC

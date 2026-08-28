@@ -1,5 +1,6 @@
 import re
 from datetime import datetime, time, timedelta
+from threading import Thread
 
 from capturar_documento.herramientas.depositos.llamar_instancia_deposito import LlamarInstanciaDeposito
 from capturar_documento.buscar_generales_cliente import BuscarGeneralesCliente
@@ -109,6 +110,8 @@ class ControladorSelectorModulo:
         self._ejecutando = False
         self._globalizacion_en_curso = False
         self._configuracion_impresoras_abierta = False
+        self._seguimiento_timbrado = None
+        self._consulta_timbrado_en_curso = None
         self._inyectar_funciones_barra_herramientas()
         self._agregar_eventos_tablas()
         self._configurar_aplicativo()
@@ -437,10 +440,11 @@ class ControladorSelectorModulo:
                 'CFDStatusCancelledName', 'CFDStatusError',
                 'CFDCancelledStatusID', 'Usuario', 'TimbradoPor',
                 'HoraVenta', 'Comentarios', 'CanceladoPor', 'CreatedBy',
+                'EstadoTimbrado',
             ]
             anchos_columnas = [
                 0, 210, 100, 100, 55, 0, 105,
-                130, 200, 0, 105, 110, 150, 220, 120, 0,
+                130, 200, 0, 105, 110, 150, 220, 120, 0, 165,
             ]
             columnas_str = ', '.join(
                 '[{}]'.format(nombre) for nombre in nombres_columnas
@@ -857,6 +861,13 @@ class ControladorSelectorModulo:
         )
 
     def _timbrar(self):
+        solicitud_intentada = False
+        if self._seguimiento_timbrado:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Ya se está consultando una solicitud de timbrado. Espere a '
+                'que termine el seguimiento antes de enviar otra.'
+            )
+            return None
         tabla = self._interfaz.obtener_tabla_activa()
         modulos = {
             'tbv_facturas': 1400,
@@ -897,6 +908,7 @@ class ControladorSelectorModulo:
                 int(estado['DocumentID']): estado for estado in estados
             }
             errores = []
+            reintentos = []
 
             for document_id in documentos:
                 folio = folios.get(document_id, str(document_id))
@@ -928,9 +940,20 @@ class ControladorSelectorModulo:
                     errores.append('{}: ya está timbrado.'.format(folio))
                     continue
                 if invoice_id == 3:
+                    if int(estado.get('CFDStatusID', 0) or 0) == 3:
+                        errores.append(
+                            '{}: el ERP indica que ya está timbrado.'.format(
+                                folio
+                            )
+                        )
+                    else:
+                        reintentos.append(folio)
+                    continue
+                if invoice_id == 4:
                     errores.append(
-                        '{}: tiene un error de timbrado y no puede '
-                        'reenviarse automáticamente.'.format(folio)
+                        '{}: el servidor está procesando el timbrado.'.format(
+                            folio
+                        )
                     )
                     continue
                 if invoice_id != 0:
@@ -966,13 +989,23 @@ class ControladorSelectorModulo:
                 )
                 return None
 
+            detalle_reintentos = ''
+            if reintentos:
+                detalle_reintentos = (
+                    '\n\nSe reintentará el timbrado de: {}'.format(
+                        ', '.join(reintentos)
+                    )
+                )
             if not self._interfaz.ventanas.mostrar_mensaje_pregunta(
                 'Se enviarán {} documento(s) a la cola de timbrado. '
-                '¿Desea continuar?'.format(len(documentos)),
+                '¿Desea continuar?{}'.format(
+                    len(documentos), detalle_reintentos
+                ),
                 master=self._interfaz._master,
             ):
                 return None
 
+            solicitud_intentada = True
             afectados = self._modelo.solicitar_timbrado(documentos, self._modelo.user_id)
             self._interfaz.ventanas.mostrar_mensaje(
                 tipo='info',
@@ -983,17 +1016,174 @@ class ControladorSelectorModulo:
                 ),
             )
             self._interfaz.mostrar_estado(
-                '{} documento(s) enviados a timbrado'.format(afectados)
+                '{} solicitud(es) registradas; esperando al servidor...'.format(
+                    afectados
+                )
             )
+            self._iniciar_seguimiento_timbrado(documentos, tabla, folios)
             return afectados
         except Exception as error:
-            self._interfaz.ventanas.mostrar_mensaje(
-                'No fue posible solicitar el timbrado:\n{}'.format(error),
-                self._interfaz._master,
-            )
+            if (
+                    not solicitud_intentada
+                    or not self._resolver_resultado_ambiguo(documentos, error)
+            ):
+                self._interfaz.ventanas.mostrar_mensaje(
+                    'No fue posible solicitar el timbrado:\n{}'.format(error),
+                    self._interfaz._master,
+                )
             return None
         finally:
-            self._actualizar_despues_de_accion(tabla)
+            try:
+                self._actualizar_tabla(tabla)
+                self._interfaz.ventanas.refrescar_tamano_forma()
+            except Exception as error:
+                self._interfaz.mostrar_estado(
+                    'Solicitud procesada; no fue posible actualizar: {}'.format(
+                        error
+                    )
+                )
+
+    def _resolver_resultado_ambiguo(self, documentos, error):
+        """Aclara si la solicitud se guardó pese a perder la respuesta."""
+        try:
+            estados = self._modelo.obtener_resultado_timbrado(documentos)
+        except Exception:
+            return False
+        if len(estados) != len(documentos):
+            return False
+        invoice_ids = {
+            int(estado.get('InvoiceID', 0) or 0) for estado in estados
+        }
+        if invoice_ids and 0 not in invoice_ids:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'La comunicación se interrumpió, pero la solicitud sí quedó '
+                'registrada. Se continuará consultando su resultado.\n\n{}'.format(
+                    error
+                ),
+                self._interfaz._master,
+            )
+            tabla = self._interfaz.obtener_tabla_activa()
+            self._iniciar_seguimiento_timbrado(documentos, tabla, {})
+            return True
+        return False
+
+    def _iniciar_seguimiento_timbrado(self, documentos, tabla, folios):
+        self._seguimiento_timbrado = {
+            'documentos': tuple(documentos),
+            'tabla': tabla,
+            'folios': folios,
+            'limite': datetime.now() + timedelta(seconds=90),
+        }
+        self._interfaz._master.after(1500, self._consultar_seguimiento_timbrado)
+
+    def _consultar_seguimiento_timbrado(self):
+        seguimiento = self._seguimiento_timbrado
+        if not seguimiento or self._consulta_timbrado_en_curso:
+            return
+
+        resultado = {}
+
+        def consultar():
+            try:
+                resultado['estados'] = self._modelo.obtener_resultado_timbrado(
+                    seguimiento['documentos']
+                )
+            except Exception as error:
+                resultado['error'] = error
+
+        hilo = Thread(target=consultar, daemon=True)
+        consulta = (hilo, resultado, seguimiento)
+        self._consulta_timbrado_en_curso = consulta
+        hilo.start()
+        self._interfaz._master.after(
+            100, lambda: self._recibir_seguimiento_timbrado(consulta)
+        )
+
+    def _recibir_seguimiento_timbrado(self, consulta):
+        if self._consulta_timbrado_en_curso is not consulta:
+            return
+        hilo, resultado, seguimiento = consulta
+        if hilo.is_alive():
+            self._interfaz._master.after(
+                100, lambda: self._recibir_seguimiento_timbrado(consulta)
+            )
+            return
+
+        self._consulta_timbrado_en_curso = None
+        error = resultado.get('error')
+        if error is not None:
+            if datetime.now() < seguimiento['limite']:
+                self._interfaz.mostrar_estado(
+                    'Esperando al servidor de timbrado... ({})'.format(error)
+                )
+                self._interfaz._master.after(
+                    5000, self._consultar_seguimiento_timbrado
+                )
+            else:
+                self._seguimiento_timbrado = None
+                self._interfaz.mostrar_estado(
+                    'No fue posible confirmar el resultado del timbrado'
+                )
+            return
+
+        estados = resultado.get('estados') or []
+
+        pendientes = []
+        timbrados = []
+        errores = []
+        encontrados = set()
+        for estado in estados:
+            document_id = int(estado['DocumentID'])
+            encontrados.add(document_id)
+            folio = seguimiento['folios'].get(document_id, str(document_id))
+            invoice_id = int(estado.get('InvoiceID', 0) or 0)
+            cfd_status_id = int(estado.get('CFDStatusID', 0) or 0)
+            if invoice_id == 2 or cfd_status_id == 3:
+                timbrados.append(folio)
+            elif invoice_id == 3:
+                errores.append(folio)
+            else:
+                pendientes.append(folio)
+
+        for document_id in seguimiento['documentos']:
+            if document_id not in encontrados:
+                pendientes.append(
+                    seguimiento['folios'].get(document_id, str(document_id))
+                )
+
+        if pendientes and datetime.now() < seguimiento['limite']:
+            self._interfaz.mostrar_estado(
+                'Timbrando: {} listo(s), {} pendiente(s), {} error(es)'.format(
+                    len(timbrados), len(pendientes), len(errores)
+                )
+            )
+            self._interfaz._master.after(
+                3000, self._consultar_seguimiento_timbrado
+            )
+            return
+
+        self._seguimiento_timbrado = None
+        try:
+            self._actualizar_tabla(seguimiento['tabla'])
+        except Exception:
+            pass
+        if pendientes:
+            mensaje = (
+                '{} timbrado(s), {} error(es) y {} todavía pendiente(s). '
+                'El servicio podría no estar disponible; actualice antes de '
+                'volver a intentar.'.format(
+                    len(timbrados), len(errores), len(pendientes)
+                )
+            )
+        else:
+            mensaje = '{} timbrado(s) y {} error(es).'.format(
+                len(timbrados), len(errores)
+            )
+        self._interfaz.mostrar_estado(mensaje)
+        if errores or pendientes:
+            self._interfaz.ventanas.mostrar_mensaje(
+                mensaje, self._interfaz._master
+            )
 
     def _cfdi_relacionados(self):
         fila = self._obtener_valores_fila()

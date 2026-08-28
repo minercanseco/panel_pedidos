@@ -541,6 +541,11 @@ class ControladorCaptura:
                     costo_producto=self._modelo.obtener_costo_producto(
                         producto_id
                     ),
+                    conversion_producto=(
+                        self._modelo.obtener_conversion_producto_compra(
+                            producto_id
+                        )
+                    ),
                 )
 
                 ventana.wait_window()
@@ -692,6 +697,11 @@ class ControladorCaptura:
                         partida_producto=partida,
                         costo_producto=self._modelo.obtener_costo_producto(
                             product_id
+                        ),
+                        conversion_producto=(
+                            self._modelo.obtener_conversion_producto_compra(
+                                product_id
+                            )
                         ),
                     )
 

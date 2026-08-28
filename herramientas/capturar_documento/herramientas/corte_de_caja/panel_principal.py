@@ -299,6 +299,7 @@ class PanelPrincipal:
     def _validar_ventas_globalizadas_del_turno(self):
         consulta_facturas_globales = self._base_de_datos.fetchall("""
                             SELECT DISTINCT D.DestinationDocumentID,
+                                ISNULL(D.Globalized, 0) Globalized,
                                 ISNULL(DF.FolioPrefix, '')
                                     + ISNULL(DF.Folio, '') Folio,
                                 ISNULL(CFD.CFDStatusID, 0) CFDStatusID
@@ -311,12 +312,14 @@ class PanelPrincipal:
                                 AND CAST(D.CreatedON as date) = CAST(GETDATE() as date)
                                 AND D.CancelledOn IS NULL
                                 AND D.CreatedBy = ?
-								AND (ISNULL(D.DestinationDocumentID, 0) = 0
+								AND (ISNULL(D.Globalized, 0) = 0
+                                    OR ISNULL(D.DestinationDocumentID, 0) = 0
                                     OR DF.CancelledOn IS NULL)
                             """, (self._user_id,))
 
         if any(
-                int(factura['DestinationDocumentID'] or 0) == 0
+                int(factura['Globalized'] or 0) == 0
+                or int(factura['DestinationDocumentID'] or 0) == 0
                 for factura in consulta_facturas_globales
         ):
             self._mostrar_mensaje('Tiene tickets pendientes de globalizar.')

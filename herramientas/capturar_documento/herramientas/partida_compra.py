@@ -3,6 +3,7 @@ from decimal import (
     Decimal,
     InvalidOperation,
     ROUND_CEILING,
+    ROUND_FLOOR,
     ROUND_HALF_UP,
 )
 
@@ -19,6 +20,14 @@ class PartidaCompra:
     FUENTE_RESUMEN = ('Consolas', 13, 'bold')
     FUENTE_TOTAL = ('Consolas', 20, 'bold')
     ESTILO_RESUMEN = 'inverse-danger'
+    ESTILO_CONVERSION = 'inverse-warning'
+
+    COMPONENTES_CONVERSION = (
+        'lbl_conversion_titulo',
+        'lbl_conversion_producto',
+        'lbl_conversion_cantidad',
+        'lbl_conversion_costo',
+    )
 
     COMPONENTES_EDITABLES = (
         'tbx_cantidad_compra',
@@ -61,6 +70,7 @@ class PartidaCompra:
             total_costo_documento=0,
             partida_incluida_en_totales=False,
             costo_producto=None,
+            conversion_producto=None,
     ):
         self._master = master
         self.configuracion = self._crear_configuracion()
@@ -74,6 +84,8 @@ class PartidaCompra:
         self.modo_calculo = 'costo'
         self._recalculando = False
         self._costo_producto = self._decimal(costo_producto)
+        self._conversion_producto = conversion_producto or None
+        self._resultado_conversion = None
         self.partida_incluida_en_totales = partida_incluida_en_totales
         self.totales_documento = {
             'subtotal': self._decimal(subtotal_documento),
@@ -234,6 +246,29 @@ class PartidaCompra:
         self.ventanas.crear_componentes(componentes)
         self.ventanas.crear_componentes(botones)
         self.ventanas.crear_componentes(self._crear_componentes_resumen())
+        self.ventanas.crear_componentes(self._crear_componentes_conversion())
+
+    def _crear_componentes_conversion(self):
+        textos = (
+            ('lbl_conversion_titulo', 'CONVERSIÓN AUTOMÁTICA A PIEZAS'),
+            ('lbl_conversion_producto', ''),
+            ('lbl_conversion_cantidad', ''),
+            ('lbl_conversion_costo', ''),
+        )
+        componentes = {}
+        for fila, (nombre, texto) in enumerate(textos, start=6):
+            componentes[nombre] = (
+                'frame_valores_compra',
+                {
+                    'text': texto,
+                    'bootstyle': self.ESTILO_CONVERSION,
+                    'font': self.FUENTE_CAMPO,
+                    'anchor': tk.W,
+                },
+                self._grid(fila, 0, columnspan=2, sticky=tk.NSEW),
+                None,
+            )
+        return componentes
 
     def _crear_componentes_resumen(self):
         componentes = {
@@ -316,6 +351,9 @@ class PartidaCompra:
 
         if not self.configuracion['permitir_actualizar']:
             self.ventanas.ocultar_componente('btn_actualizar')
+
+        for componente in self.COMPONENTES_CONVERSION:
+            self.ventanas.ocultar_componente(componente)
 
     def _configurar_ventana(self):
         self.ventanas.configurar_ventana_ttkbootstrap(
@@ -527,6 +565,61 @@ class PartidaCompra:
             'importe': self._formatear_decimal(totales['total'], 6),
         })
 
+    def _calcular_conversion(self, cantidad, costo):
+        if not self._conversion_producto:
+            return None
+
+        equivalencia = self._decimal(
+            self._conversion_producto.get('Equivalence')
+        )
+        if equivalencia <= 0 or cantidad <= 0:
+            return None
+
+        piezas_enteras = int(
+            (cantidad / equivalencia).to_integral_value(rounding=ROUND_FLOOR)
+        )
+        sobrante = cantidad - (Decimal(piezas_enteras) * equivalencia)
+        piezas = piezas_enteras + (1 if sobrante > equivalencia / 2 else 0)
+        piezas = max(1, piezas)
+        equivalencia_ajustada = cantidad / Decimal(piezas)
+        costo_pieza = cantidad * costo / Decimal(piezas)
+        return {
+            'piezas': Decimal(piezas),
+            'equivalencia': equivalencia,
+            'equivalencia_ajustada': equivalencia_ajustada,
+            'costo_pieza': costo_pieza,
+        }
+
+    def _actualizar_resumen_conversion(self, cantidad, costo):
+        resultado = self._calcular_conversion(cantidad, costo)
+        self._resultado_conversion = resultado
+        if not resultado:
+            for componente in self.COMPONENTES_CONVERSION:
+                self.ventanas.ocultar_componente(componente)
+            return
+
+        relacionado = self._conversion_producto.get('producto_relacionado', {})
+        valores = {
+            'lbl_conversion_titulo': 'CONVERSIÓN AUTOMÁTICA A PIEZAS',
+            'lbl_conversion_producto': (
+                f"Destino: {relacionado.get('ProductKey', '')} - "
+                f"{relacionado.get('ProductName', '')}"
+            ),
+            'lbl_conversion_cantidad': (
+                f"{self._formatear_decimal(cantidad, 6)} capturados → "
+                f"{int(resultado['piezas'])} piezas | equivalencia "
+                f"{self._formatear_decimal(resultado['equivalencia'], 6)} → "
+                f"{self._formatear_decimal(resultado['equivalencia_ajustada'], 6)}"
+            ),
+            'lbl_conversion_costo': (
+                'Costo distribuido por pieza: '
+                f"{self._formatear_moneda(resultado['costo_pieza'])}"
+            ),
+        }
+        for componente, texto in valores.items():
+            self.ventanas.componentes_forma[componente].configure(text=texto)
+            self.ventanas.mostrar_componente(componente)
+
     def cargar_partida_producto(self, partida_producto):
         """Carga los datos generales y calcula el importe inicial de compra."""
         self.partida_producto = partida_producto or {}
@@ -574,6 +667,7 @@ class PartidaCompra:
             self.ventanas.insertar_input_componente(componente, valor)
 
         self._mostrar_totales_partida(totales)
+        self._actualizar_resumen_conversion(cantidad, costo)
 
         self.product_id = self.partida_producto.get('ProductID', 0)
         self.product_name = self.partida_producto.get('ProductName', '')
@@ -814,6 +908,10 @@ class PartidaCompra:
             self._formatear_decimal(totales['descuento'], 6),
         )
         self._mostrar_totales_partida(totales)
+        self._actualizar_resumen_conversion(
+            entradas['cantidad'],
+            entradas['costo'],
+        )
         self.ventanas.bloquear_componente('tbx_descuento_compra')
         return True
 
@@ -840,18 +938,41 @@ class PartidaCompra:
             return False
 
         factor_descuento = entradas['factor_descuento']
+        self._actualizar_resumen_conversion(
+            entradas['cantidad'],
+            entradas['costo'],
+        )
+        cantidad_guardada = entradas['cantidad']
+        costo_guardado = entradas['costo']
+        if self._resultado_conversion:
+            producto_base = self.partida_producto.get('ProductID')
+            relacionado = dict(
+                self._conversion_producto.get('producto_relacionado', {})
+            )
+            self.partida_producto.update(relacionado)
+            cantidad_guardada = self._resultado_conversion['piezas']
+            costo_guardado = self._resultado_conversion['costo_pieza']
+            self.partida_producto.update({
+                'ConversionProductID': producto_base,
+                'ConversionEquivalence': (
+                    self._resultado_conversion['equivalencia_ajustada']
+                ),
+                'ConversionOriginalQuantity': entradas['cantidad'],
+            })
+
         self.partida_producto.update({
-            'Quantity': entradas['cantidad'],
-            'cantidad': entradas['cantidad'],
-            'CostPrice': entradas['costo'],
-            'UnitPrice': entradas['costo'],
+            'Quantity': cantidad_guardada,
+            'cantidad': cantidad_guardada,
+            'CostPrice': costo_guardado,
+            'UnitPrice': costo_guardado,
+            'precio': costo_guardado,
             # La BD usa factor decimal: 2.25 % se guarda como 0.0225.
             'DiscountPerc': factor_descuento,
             'descuento_porcentaje': entradas['descuento_porcentaje'],
         })
         self._utilerias.crear_partida(
             self.partida_producto,
-            cantidad=entradas['cantidad'],
+            cantidad=cantidad_guardada,
             tipo='compra',
         )
 

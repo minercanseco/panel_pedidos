@@ -25,10 +25,6 @@ def archivos_python(raiz):
         relativo = archivo.relative_to(raiz)
         if '__pycache__' in relativo.parts:
             continue
-        # Existe una copia anidada accidental dentro del panel. No forma
-        # parte del paquete importado y no debe considerarse como fuente.
-        if relativo.parts and relativo.parts[0] == 'capturar_documento':
-            continue
         archivos[relativo] = archivo
     return archivos
 

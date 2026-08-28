@@ -660,3 +660,25 @@ class ModeloCaptura:
     def obtener_costo_producto(self, product_id):
         return self.base_de_datos.fetchone('SELECT COALESCE(UltimoCosto,0) FROM zvwUltimoCostoProductosCayal2Final WHERE ProductID = ?',
                                            (product_id,))
+
+    def obtener_conversion_producto_compra(self, product_id):
+        """Obtiene el producto pieza configurado para una compra especial."""
+        conversiones = self.base_de_datos.fetchall(
+            'SELECT ProductID, RelatedProductID, Equivalence '
+            'FROM zvwConversionProductosComprasCayal '
+            'WHERE ProductID = ?',
+            (product_id,),
+        )
+        if not conversiones:
+            return None
+
+        conversion = dict(conversiones[0])
+        relacionados = self.buscar_info_productos_por_ids(
+            conversion.get('RelatedProductID'),
+            no_en_venta=True,
+        )
+        if not relacionados:
+            return None
+
+        conversion['producto_relacionado'] = dict(relacionados[0])
+        return conversion

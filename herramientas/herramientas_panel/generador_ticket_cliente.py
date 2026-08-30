@@ -9,6 +9,7 @@ import time
 import urllib.parse
 import urllib.request
 from decimal import Decimal
+from io import BytesIO
 from pathlib import Path
 
 from cayal.util import Utilerias
@@ -666,31 +667,99 @@ class GeneradorTicketCliente:
         """
 
     def copy_file_to_clipboard(self, file_path):
-        # Detectar el sistema operativo
-        if sys.platform == "darwin":  # macOS
-            # Usar AppleScript para copiar el archivo al portapapeles
-            applescript = f'''
-            set theFile to POSIX file "{file_path}"
-            set the clipboard to theFile
-            '''
-            try:
-                subprocess.run(['osascript', '-e', applescript], check=True)
-                print("El archivo ha sido copiado al portapapeles en macOS.")
-            except subprocess.CalledProcessError:
-                print("Error al intentar copiar el archivo al portapapeles en macOS.")
+        """Copia la imagen para pegarla directamente en aplicaciones de mensajería."""
+        try:
+            if sys.platform == "darwin":
+                applescript = '''
+                on run argv
+                    set imageFile to POSIX file (item 1 of argv)
+                    set the clipboard to (read imageFile as «class PNGf»)
+                end run
+                '''
+                subprocess.run(
+                    ["osascript", "-e", applescript, file_path],
+                    check=True,
+                    capture_output=True,
+                )
+                print("La imagen del ticket fue copiada al portapapeles.")
 
-        elif sys.platform == "win32":  # Windows
-            # En Windows, no podemos copiar el archivo directamente al portapapeles con facilidad.
-            # Vamos a copiar solo la ruta del archivo al portapapeles usando pyperclip.
-            file_path = self.url_to_windows_path(file_path)
+            elif sys.platform == "win32":
+                self._copiar_imagen_portapapeles_windows(file_path)
+                print("La imagen del ticket fue copiada al portapapeles.")
+
+            else:
+                herramienta = shutil.which("xclip")
+                if not herramienta:
+                    raise RuntimeError("xclip no está instalado")
+                with open(file_path, "rb") as imagen:
+                    subprocess.run(
+                        [herramienta, "-selection", "clipboard", "-t", "image/png"],
+                        stdin=imagen,
+                        check=True,
+                    )
+                print("La imagen del ticket fue copiada al portapapeles.")
+        except Exception as error:
+            print(f"No se pudo copiar la imagen al portapapeles: {error}")
+            self._copiar_ruta_portapapeles(file_path)
+
+    @staticmethod
+    def _copiar_imagen_portapapeles_windows(file_path):
+        """Publica la imagen como mapa de bits usando la API nativa de Windows."""
+        import ctypes
+        from PIL import Image
+
+        with Image.open(file_path) as imagen:
+            salida = BytesIO()
+            imagen.convert("RGB").save(salida, "BMP")
+            datos = salida.getvalue()[14:]  # CF_DIB no incluye el encabezado BMP.
+
+        global_mem_moveable = 0x0002
+        formato_dib = 8
+        kernel32 = ctypes.windll.kernel32
+        user32 = ctypes.windll.user32
+
+        kernel32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+        kernel32.GlobalAlloc.restype = ctypes.c_void_p
+        kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalLock.restype = ctypes.c_void_p
+        kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalFree.argtypes = [ctypes.c_void_p]
+        user32.OpenClipboard.argtypes = [ctypes.c_void_p]
+        user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+        user32.SetClipboardData.restype = ctypes.c_void_p
+        manejador = kernel32.GlobalAlloc(global_mem_moveable, len(datos))
+        if not manejador:
+            raise RuntimeError("Windows no pudo reservar memoria para la imagen")
+
+        puntero = kernel32.GlobalLock(manejador)
+        ctypes.memmove(puntero, datos, len(datos))
+        kernel32.GlobalUnlock(manejador)
+
+        if not user32.OpenClipboard(None):
+            kernel32.GlobalFree(manejador)
+            raise RuntimeError("El portapapeles está ocupado")
+
+        transferido = False
+        try:
+            user32.EmptyClipboard()
+            if not user32.SetClipboardData(formato_dib, manejador):
+                raise RuntimeError("Windows rechazó la imagen")
+            transferido = True
+        finally:
+            user32.CloseClipboard()
+            if not transferido:
+                kernel32.GlobalFree(manejador)
+
+    @staticmethod
+    def _copiar_ruta_portapapeles(file_path):
+        """Respaldo para equipos donde no sea posible copiar los bytes de la imagen."""
+        try:
             import pyperclip
-            try:
-                pyperclip.copy(file_path)
-                print("La ruta del archivo ha sido copiada al portapapeles en Windows.")
-            except pyperclip.PyperclipException:
-                print("Error al intentar copiar la ruta del archivo al portapapeles en Windows.")
-        else:
-            print(f"El sistema operativo {sys.platform} no es compatible con esta función.")
+
+            pyperclip.copy(file_path)
+            print("Como respaldo, se copió la ruta de la imagen al portapapeles.")
+        except Exception as error:
+            print(f"Tampoco se pudo copiar la ruta al portapapeles: {error}")
 
     def url_to_windows_path(self, url):
         try:

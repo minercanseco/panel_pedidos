@@ -704,14 +704,15 @@ class GeneradorTicketCliente:
 
     @staticmethod
     def _copiar_imagen_portapapeles_windows(file_path):
-        """Publica la imagen como mapa de bits usando la API nativa de Windows."""
+        """Publica PNG y DIB para máxima compatibilidad con apps de Windows."""
         import ctypes
         from PIL import Image
 
+        datos_png = Path(file_path).read_bytes()
         with Image.open(file_path) as imagen:
             salida = BytesIO()
             imagen.convert("RGB").save(salida, "BMP")
-            datos = salida.getvalue()[14:]  # CF_DIB no incluye el encabezado BMP.
+            datos_dib = salida.getvalue()[14:]  # CF_DIB no incluye el encabezado BMP.
 
         global_mem_moveable = 0x0002
         formato_dib = 8
@@ -727,28 +728,49 @@ class GeneradorTicketCliente:
         user32.OpenClipboard.argtypes = [ctypes.c_void_p]
         user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
         user32.SetClipboardData.restype = ctypes.c_void_p
-        manejador = kernel32.GlobalAlloc(global_mem_moveable, len(datos))
-        if not manejador:
-            raise RuntimeError("Windows no pudo reservar memoria para la imagen")
+        user32.RegisterClipboardFormatW.argtypes = [ctypes.c_wchar_p]
+        user32.RegisterClipboardFormatW.restype = ctypes.c_uint
 
-        puntero = kernel32.GlobalLock(manejador)
-        ctypes.memmove(puntero, datos, len(datos))
-        kernel32.GlobalUnlock(manejador)
+        def crear_bloque(datos):
+            manejador = kernel32.GlobalAlloc(global_mem_moveable, len(datos))
+            if not manejador:
+                raise RuntimeError("Windows no pudo reservar memoria para la imagen")
+            puntero = kernel32.GlobalLock(manejador)
+            if not puntero:
+                kernel32.GlobalFree(manejador)
+                raise RuntimeError("Windows no pudo acceder a la memoria de la imagen")
+            ctypes.memmove(puntero, datos, len(datos))
+            kernel32.GlobalUnlock(manejador)
+            return manejador
+
+        formato_png = user32.RegisterClipboardFormatW("PNG")
+        manejador_png = crear_bloque(datos_png)
+        manejador_dib = crear_bloque(datos_dib)
 
         if not user32.OpenClipboard(None):
-            kernel32.GlobalFree(manejador)
+            kernel32.GlobalFree(manejador_png)
+            kernel32.GlobalFree(manejador_dib)
             raise RuntimeError("El portapapeles está ocupado")
 
-        transferido = False
+        png_transferido = False
+        dib_transferido = False
         try:
             user32.EmptyClipboard()
-            if not user32.SetClipboardData(formato_dib, manejador):
-                raise RuntimeError("Windows rechazó la imagen")
-            transferido = True
+            if formato_png:
+                png_transferido = bool(
+                    user32.SetClipboardData(formato_png, manejador_png)
+                )
+            dib_transferido = bool(
+                user32.SetClipboardData(formato_dib, manejador_dib)
+            )
+            if not png_transferido and not dib_transferido:
+                raise RuntimeError("Windows rechazó los formatos PNG y DIB")
         finally:
             user32.CloseClipboard()
-            if not transferido:
-                kernel32.GlobalFree(manejador)
+            if not png_transferido:
+                kernel32.GlobalFree(manejador_png)
+            if not dib_transferido:
+                kernel32.GlobalFree(manejador_dib)
 
     @staticmethod
     def _copiar_ruta_portapapeles(file_path):

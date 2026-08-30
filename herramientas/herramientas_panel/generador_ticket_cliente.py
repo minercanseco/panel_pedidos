@@ -703,7 +703,11 @@ class GeneradorTicketCliente:
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-$original = [System.Drawing.Image]::FromFile($args[0])
+$imagePath = [Environment]::GetEnvironmentVariable("CAYAL_TICKET_IMAGE_PATH")
+if ([string]::IsNullOrWhiteSpace($imagePath) -or -not [System.IO.File]::Exists($imagePath)) {
+    throw "No se encontró la imagen del ticket: $imagePath"
+}
+$original = [System.Drawing.Image]::FromFile($imagePath)
 try {
     $bitmap = New-Object System.Drawing.Bitmap $original
     try {
@@ -717,6 +721,8 @@ finally {
     $original.Dispose()
 }
 '''
+        entorno = os.environ.copy()
+        entorno["CAYAL_TICKET_IMAGE_PATH"] = os.path.abspath(file_path)
         resultado = subprocess.run(
             [
                 powershell,
@@ -725,8 +731,8 @@ finally {
                 "-STA",
                 "-Command",
                 script,
-                os.path.abspath(file_path),
             ],
+            env=entorno,
             check=False,
             capture_output=True,
             text=True,

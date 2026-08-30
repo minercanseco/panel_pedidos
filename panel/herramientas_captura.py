@@ -332,13 +332,23 @@ class HerramientasCaptura:
                     self._base_de_datos.actualizar_precios_pedido(order_document_id)
 
             self._parametros.id_principal = order_document_id
-            instancia = TicketPedidoCliente(self._base_de_datos, self._utilerias, self._parametros)
+            instancia = TicketPedidoCliente(
+                self._base_de_datos,
+                self._utilerias,
+                self._parametros,
+            )
 
+            detalle_portapapeles = (
+                ' La imagen está lista para pegar con Ctrl+V.'
+                if instancia.imagen_copiada
+                else ' No fue posible copiar la imagen; se copió su ruta como respaldo.'
+            )
             self._interfaz.ventanas.mostrar_mensaje(
                 master=self._interfaz.master,
-                mensaje='Comprobante generado.',
+                mensaje=f'Comprobante generado.{detalle_portapapeles}',
                 tipo='info'
             )
+            self._interfaz.master.update_idletasks()
             self._interfaz.master.iconify()
 
         finally:

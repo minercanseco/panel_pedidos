@@ -18,6 +18,7 @@ class TicketPedidoCliente:
         self._ticket.ruta_archivo = self._obtener_directorio_reportes()
         self._info_cliente = None
         self._info_pedido = None
+        self.imagen_copiada = False
 
         self._generar_ticket()
         self._afectar_bitacora()
@@ -25,7 +26,7 @@ class TicketPedidoCliente:
     def _generar_ticket(self):
         self._info_pedido = self._buscar_info_pedido()
         self._settear_valores_ticket(self._info_pedido)
-        self._ticket.guardar_archivo()
+        self.imagen_copiada = self._ticket.guardar_archivo()
 
 
     def _obtener_directorio_reportes(self):

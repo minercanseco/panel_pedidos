@@ -9,7 +9,6 @@ import time
 import urllib.parse
 import urllib.request
 from decimal import Decimal
-from io import BytesIO
 from pathlib import Path
 
 from cayal.util import Utilerias
@@ -643,7 +642,7 @@ class GeneradorTicketCliente:
         try:
             self._html_a_imagen(ticket, self._ruta_archivo)
             print(f"Imagen del ticket guardada en '{self._ruta_archivo}'.")
-            self.copy_file_to_clipboard(self._ruta_archivo)
+            return self.copy_file_to_clipboard(self._ruta_archivo)
         except Exception as e:
             print(f"Error al generar la imagen del ticket: {e}")
             raise
@@ -669,10 +668,12 @@ class GeneradorTicketCliente:
                     capture_output=True,
                 )
                 print("La imagen del ticket fue copiada al portapapeles.")
+                return True
 
             elif sys.platform == "win32":
                 self._copiar_imagen_portapapeles_windows(file_path)
                 print("La imagen del ticket fue copiada al portapapeles.")
+                return True
 
             else:
                 herramienta = shutil.which("xclip")
@@ -685,79 +686,55 @@ class GeneradorTicketCliente:
                         check=True,
                     )
                 print("La imagen del ticket fue copiada al portapapeles.")
+                return True
         except Exception as error:
             print(f"No se pudo copiar la imagen al portapapeles: {error}")
             self._copiar_ruta_portapapeles(file_path)
+            return False
 
     @staticmethod
     def _copiar_imagen_portapapeles_windows(file_path):
-        """Publica PNG y DIB para máxima compatibilidad con apps de Windows."""
-        import ctypes
-        from PIL import Image
+        """Usa .NET para publicar un Bitmap compatible con Windows 11."""
+        powershell = shutil.which("powershell.exe") or shutil.which("powershell")
+        if not powershell:
+            raise RuntimeError("No se encontró Windows PowerShell")
 
-        datos_png = Path(file_path).read_bytes()
-        with Image.open(file_path) as imagen:
-            salida = BytesIO()
-            imagen.convert("RGB").save(salida, "BMP")
-            datos_dib = salida.getvalue()[14:]  # CF_DIB no incluye el encabezado BMP.
-
-        global_mem_moveable = 0x0002
-        formato_dib = 8
-        kernel32 = ctypes.windll.kernel32
-        user32 = ctypes.windll.user32
-
-        kernel32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
-        kernel32.GlobalAlloc.restype = ctypes.c_void_p
-        kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
-        kernel32.GlobalLock.restype = ctypes.c_void_p
-        kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
-        kernel32.GlobalFree.argtypes = [ctypes.c_void_p]
-        user32.OpenClipboard.argtypes = [ctypes.c_void_p]
-        user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
-        user32.SetClipboardData.restype = ctypes.c_void_p
-        user32.RegisterClipboardFormatW.argtypes = [ctypes.c_wchar_p]
-        user32.RegisterClipboardFormatW.restype = ctypes.c_uint
-
-        def crear_bloque(datos):
-            manejador = kernel32.GlobalAlloc(global_mem_moveable, len(datos))
-            if not manejador:
-                raise RuntimeError("Windows no pudo reservar memoria para la imagen")
-            puntero = kernel32.GlobalLock(manejador)
-            if not puntero:
-                kernel32.GlobalFree(manejador)
-                raise RuntimeError("Windows no pudo acceder a la memoria de la imagen")
-            ctypes.memmove(puntero, datos, len(datos))
-            kernel32.GlobalUnlock(manejador)
-            return manejador
-
-        formato_png = user32.RegisterClipboardFormatW("PNG")
-        manejador_png = crear_bloque(datos_png)
-        manejador_dib = crear_bloque(datos_dib)
-
-        if not user32.OpenClipboard(None):
-            kernel32.GlobalFree(manejador_png)
-            kernel32.GlobalFree(manejador_dib)
-            raise RuntimeError("El portapapeles está ocupado")
-
-        png_transferido = False
-        dib_transferido = False
-        try:
-            user32.EmptyClipboard()
-            if formato_png:
-                png_transferido = bool(
-                    user32.SetClipboardData(formato_png, manejador_png)
-                )
-            dib_transferido = bool(
-                user32.SetClipboardData(formato_dib, manejador_dib)
-            )
-            if not png_transferido and not dib_transferido:
-                raise RuntimeError("Windows rechazó los formatos PNG y DIB")
-        finally:
-            user32.CloseClipboard()
-            if not png_transferido:
-                kernel32.GlobalFree(manejador_png)
-            if not dib_transferido:
-                kernel32.GlobalFree(manejador_dib)
+        script = r'''
+$ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$original = [System.Drawing.Image]::FromFile($args[0])
+try {
+    $bitmap = New-Object System.Drawing.Bitmap $original
+    try {
+        [System.Windows.Forms.Clipboard]::SetImage($bitmap)
+    }
+    finally {
+        $bitmap.Dispose()
+    }
+}
+finally {
+    $original.Dispose()
+}
+'''
+        resultado = subprocess.run(
+            [
+                powershell,
+                "-NoProfile",
+                "-NonInteractive",
+                "-STA",
+                "-Command",
+                script,
+                os.path.abspath(file_path),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        if resultado.returncode != 0:
+            detalle = resultado.stderr.strip() or resultado.stdout.strip()
+            raise RuntimeError(detalle or "Windows rechazó la imagen")
 
     @staticmethod
     def _copiar_ruta_portapapeles(file_path):

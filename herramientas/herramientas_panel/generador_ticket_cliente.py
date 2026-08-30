@@ -1,8 +1,15 @@
+import base64
+import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
+import time
 import urllib.parse
+import urllib.request
 from decimal import Decimal
+from pathlib import Path
 
 from cayal.util import Utilerias
 
@@ -502,7 +509,140 @@ class GeneradorTicketCliente:
 
     def _nombre_archivo(self):
         cliente = self.cliente.strip().replace('\n', '').replace(' ', '')
-        return f"{cliente}_{self.pedido}.html"
+        return f"{cliente}_{self.pedido}.png"
+
+    @staticmethod
+    def _buscar_navegador():
+        """Busca un navegador Chromium instalado cuando Playwright no trae uno."""
+        candidatos = []
+
+        if sys.platform == "win32":
+            candidatos.extend([
+                os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
+                os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
+                os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge\Application\msedge.exe"),
+                os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+                os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+                os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+            ])
+        elif sys.platform == "darwin":
+            candidatos.extend([
+                "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+                "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+                "/Applications/Chromium.app/Contents/MacOS/Chromium",
+            ])
+        else:
+            candidatos.extend(filter(None, (
+                shutil.which("google-chrome"),
+                shutil.which("microsoft-edge"),
+                shutil.which("chromium"),
+                shutil.which("chromium-browser"),
+            )))
+
+        return next((ruta for ruta in candidatos if ruta and os.path.isfile(ruta)), None)
+
+    def _html_a_imagen(self, html, ruta_imagen):
+        """Renderiza sólo el ticket; su altura se adapta al contenido del pedido."""
+        import websocket
+
+        ruta_temporal = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".html", encoding="utf-8", delete=False
+            ) as archivo:
+                archivo.write(html)
+                ruta_temporal = archivo.name
+
+            navegador_instalado = self._buscar_navegador()
+            if not navegador_instalado:
+                raise RuntimeError(
+                    "No se encontró Chrome, Edge o Chromium para crear la imagen del ticket."
+                )
+
+            with tempfile.TemporaryDirectory(prefix="ticket_navegador_") as perfil:
+                proceso = subprocess.Popen(
+                    [
+                        navegador_instalado,
+                        "--headless=new",
+                        "--disable-gpu",
+                        "--hide-scrollbars",
+                        "--remote-allow-origins=*",
+                        "--remote-debugging-port=0",
+                        f"--user-data-dir={perfil}",
+                        "--window-size=360,800",
+                        Path(ruta_temporal).as_uri(),
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                conexion = None
+                try:
+                    archivo_puerto = Path(perfil) / "DevToolsActivePort"
+                    limite = time.time() + 10
+                    while not archivo_puerto.exists() and time.time() < limite:
+                        time.sleep(0.05)
+                    if not archivo_puerto.exists():
+                        raise RuntimeError("El navegador tardó demasiado en iniciar.")
+
+                    puerto = archivo_puerto.read_text(encoding="utf-8").splitlines()[0]
+                    with urllib.request.urlopen(
+                        f"http://127.0.0.1:{puerto}/json/list", timeout=5
+                    ) as respuesta:
+                        paginas = json.load(respuesta)
+                    pagina = next(item for item in paginas if item.get("type") == "page")
+                    conexion = websocket.create_connection(
+                        pagina["webSocketDebuggerUrl"], timeout=10
+                    )
+
+                    contador = 0
+
+                    def ejecutar(metodo, parametros=None):
+                        nonlocal contador
+                        contador += 1
+                        identificador = contador
+                        conexion.send(json.dumps({
+                            "id": identificador,
+                            "method": metodo,
+                            "params": parametros or {},
+                        }))
+                        while True:
+                            mensaje = json.loads(conexion.recv())
+                            if mensaje.get("id") == identificador:
+                                if "error" in mensaje:
+                                    raise RuntimeError(mensaje["error"].get("message"))
+                                return mensaje.get("result", {})
+
+                    ejecutar("Page.enable")
+                    dimensiones = ejecutar("Runtime.evaluate", {
+                        "expression": """
+                            (() => {
+                                const e = document.querySelector('.ticket');
+                                if (!e) throw new Error('No se encontró el ticket');
+                                const r = e.getBoundingClientRect();
+                                return {x:r.x, y:r.y, width:r.width, height:r.height};
+                            })()
+                        """,
+                        "returnByValue": True,
+                    })["result"]["value"]
+                    captura = ejecutar("Page.captureScreenshot", {
+                        "format": "png",
+                        "captureBeyondViewport": True,
+                        "fromSurface": True,
+                        "clip": {**dimensiones, "scale": 2},
+                    })
+                    with open(ruta_imagen, "wb") as imagen:
+                        imagen.write(base64.b64decode(captura["data"]))
+                finally:
+                    if conexion:
+                        conexion.close()
+                    proceso.terminate()
+                    try:
+                        proceso.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        proceso.kill()
+        finally:
+            if ruta_temporal and os.path.exists(ruta_temporal):
+                os.remove(ruta_temporal)
 
     def guardar_archivo(self):
         # Verifica y ajusta la ruta del archivo
@@ -510,16 +650,15 @@ class GeneradorTicketCliente:
         directorio = self._ruta_archivo if os.path.isdir(self._ruta_archivo) else os.path.expanduser("~/Documents")
         self._ruta_archivo = os.path.join(directorio, nombre_archivo)
 
-        # Generar ticket y guardarlo
+        # Generar el HTML en memoria y renderizarlo como una imagen de altura variable.
         ticket = self.generar_ticket() if self.forma_pago_id != 6 else self.generar_ticket_transferencia()
         try:
-            with open(self._ruta_archivo, "w", encoding="utf-8") as file:
-                file.write(ticket)
-            print(f"Ticket guardado en '{self._ruta_archivo}'.")
+            self._html_a_imagen(ticket, self._ruta_archivo)
+            print(f"Imagen del ticket guardada en '{self._ruta_archivo}'.")
             self.copy_file_to_clipboard(self._ruta_archivo)
         except Exception as e:
-            print(f"Error al guardar el ticket: {e}")
-            return
+            print(f"Error al generar la imagen del ticket: {e}")
+            raise
 
     def _icono_cayal(self):
         return """

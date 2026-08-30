@@ -325,6 +325,7 @@ class ControladorSelectorModulo:
             'listas_precios': self._listas_precios,
             'archivo_mayoreo': self._archivo_mayoreo,
             'archivo_minisuper': self._archivo_minisuper,
+            'archivo_complementos': self._archivo_complementos,
         }
 
         for item in self._interfaz.barra_herramientas:
@@ -1141,7 +1142,14 @@ class ControladorSelectorModulo:
             if invoice_id == 2 or cfd_status_id == 3:
                 timbrados.append(folio)
             elif invoice_id == 3:
-                errores.append(folio)
+                # Algunas versiones del proceso del servidor utilizan 3 de
+                # forma transitoria antes de que el PAC termine. Durante el
+                # seguimiento se conserva como pendiente para evitar mostrar
+                # un falso error; si no cambia, se confirma al vencer el plazo.
+                if datetime.now() < seguimiento['limite']:
+                    pendientes.append(folio)
+                else:
+                    errores.append(folio)
             else:
                 pendientes.append(folio)
 
@@ -1372,6 +1380,19 @@ class ControladorSelectorModulo:
 
     def _archivo_minisuper(self):
         return self._abrir_archivo(1640)
+
+    def _archivo_complementos(self):
+        from capturar_documento.herramientas.archivo_complementos.main import (
+            abrir_archivo_complementos,
+        )
+
+        return self._ejecutar_accion(
+            funcion=lambda ventana: abrir_archivo_complementos(
+                ventana,
+                self._modelo.parametros,
+                self._modelo.base_de_datos,
+            ),
+        )
 
     def _imprimir(self):
         fila = self._obtener_valores_fila()

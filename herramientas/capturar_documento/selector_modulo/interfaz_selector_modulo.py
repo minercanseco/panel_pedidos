@@ -494,6 +494,14 @@ class InterfazSelectorModulo:
                 'hotkey': '',
                 'comando': None
             },
+            {
+                'nombre_icono': 'ActivitySector.ico',
+                'etiqueta': 'Archivo complementos',
+                'nombre': 'archivo_complementos',
+                'seccion': 'administracion',
+                'hotkey': '',
+                'comando': None
+            },
 
         ]
 

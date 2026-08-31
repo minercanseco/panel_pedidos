@@ -9,6 +9,7 @@ import time
 import urllib.parse
 import urllib.request
 from decimal import Decimal
+from io import BytesIO
 from pathlib import Path
 
 from cayal.util import Utilerias
@@ -714,63 +715,79 @@ class GeneradorTicketCliente:
 
     @staticmethod
     def _copiar_imagen_portapapeles_windows(file_path):
-        """Usa .NET para publicar un Bitmap compatible con Windows 11."""
-        powershell = shutil.which("powershell.exe") or shutil.which("powershell")
-        if not powershell:
-            raise RuntimeError("No se encontró Windows PowerShell")
+        """Publica PNG y DIB directamente, sin iniciar PowerShell."""
+        import ctypes
+        from PIL import Image
 
-        script = r'''
-$ErrorActionPreference = "Stop"
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-$imagePath = [Environment]::GetEnvironmentVariable("CAYAL_TICKET_IMAGE_PATH")
-if ([string]::IsNullOrWhiteSpace($imagePath) -or -not [System.IO.File]::Exists($imagePath)) {
-    throw "No se encontró la imagen del ticket: $imagePath"
-}
-$original = [System.Drawing.Image]::FromFile($imagePath)
-try {
-    $bitmap = New-Object System.Drawing.Bitmap $original
-    try {
-        $copiada = $false
-        for ($intento = 1; $intento -le 3 -and -not $copiada; $intento++) {
-            try {
-                [System.Windows.Forms.Clipboard]::SetImage($bitmap)
-                $copiada = $true
-            }
-            catch {
-                if ($intento -eq 3) { throw }
-                Start-Sleep -Milliseconds 100
-            }
-        }
-    }
-    finally {
-        $bitmap.Dispose()
-    }
-}
-finally {
-    $original.Dispose()
-}
-'''
-        entorno = os.environ.copy()
-        entorno["CAYAL_TICKET_IMAGE_PATH"] = os.path.abspath(file_path)
-        resultado = subprocess.run(
-            [
-                powershell,
-                "-NoProfile",
-                "-NonInteractive",
-                "-STA",
-                "-Command",
-                script,
-            ],
-            env=entorno,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=3,
-        )
-        if resultado.returncode != 0:
-            detalle = resultado.stderr.strip() or resultado.stdout.strip()
-            raise RuntimeError(detalle or "Windows rechazó la imagen")
+        datos_png = Path(file_path).read_bytes()
+        with Image.open(file_path) as imagen:
+            salida = BytesIO()
+            imagen.convert("RGB").save(salida, "BMP")
+            datos_dib = salida.getvalue()[14:]
+
+        kernel32 = ctypes.windll.kernel32
+        user32 = ctypes.windll.user32
+        global_mem_moveable = 0x0002
+        formato_dib = 8
+
+        kernel32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+        kernel32.GlobalAlloc.restype = ctypes.c_void_p
+        kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalLock.restype = ctypes.c_void_p
+        kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalFree.argtypes = [ctypes.c_void_p]
+        user32.OpenClipboard.argtypes = [ctypes.c_void_p]
+        user32.OpenClipboard.restype = ctypes.c_bool
+        user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+        user32.SetClipboardData.restype = ctypes.c_void_p
+        user32.RegisterClipboardFormatW.argtypes = [ctypes.c_wchar_p]
+        user32.RegisterClipboardFormatW.restype = ctypes.c_uint
+
+        def crear_bloque(datos):
+            manejador = kernel32.GlobalAlloc(global_mem_moveable, len(datos))
+            if not manejador:
+                raise RuntimeError("Windows no pudo reservar memoria")
+            puntero = kernel32.GlobalLock(manejador)
+            if not puntero:
+                kernel32.GlobalFree(manejador)
+                raise RuntimeError("Windows no pudo acceder a la memoria")
+            ctypes.memmove(puntero, datos, len(datos))
+            kernel32.GlobalUnlock(manejador)
+            return manejador
+
+        manejador_png = crear_bloque(datos_png)
+        manejador_dib = crear_bloque(datos_dib)
+        abierto = False
+        for _ in range(3):
+            if user32.OpenClipboard(None):
+                abierto = True
+                break
+            time.sleep(0.05)
+
+        if not abierto:
+            kernel32.GlobalFree(manejador_png)
+            kernel32.GlobalFree(manejador_dib)
+            raise RuntimeError("El portapapeles está ocupado")
+
+        png_transferido = False
+        dib_transferido = False
+        try:
+            user32.EmptyClipboard()
+            formato_png = user32.RegisterClipboardFormatW("PNG")
+            png_transferido = bool(
+                formato_png and user32.SetClipboardData(formato_png, manejador_png)
+            )
+            dib_transferido = bool(
+                user32.SetClipboardData(formato_dib, manejador_dib)
+            )
+            if not png_transferido and not dib_transferido:
+                raise RuntimeError("Windows rechazó la imagen")
+        finally:
+            user32.CloseClipboard()
+            if not png_transferido:
+                kernel32.GlobalFree(manejador_png)
+            if not dib_transferido:
+                kernel32.GlobalFree(manejador_dib)
 
     @staticmethod
     def _copiar_ruta_portapapeles(file_path):
@@ -785,7 +802,7 @@ finally {
                     input=os.path.abspath(file_path),
                     text=True,
                     check=True,
-                    timeout=2,
+                    timeout=1,
                 )
             else:
                 import pyperclip

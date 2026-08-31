@@ -21,7 +21,12 @@ class TicketPedidoCliente:
         self.imagen_copiada = False
 
         self._generar_ticket()
-        self._afectar_bitacora()
+        try:
+            self._afectar_bitacora()
+        except Exception as error:
+            # La bitácora es secundaria: si falla, el comprobante ya generado
+            # debe seguir notificándose al usuario.
+            print(f'No se pudo registrar la generación del ticket: {error}')
 
     def _generar_ticket(self):
         self._info_pedido = self._buscar_info_pedido()

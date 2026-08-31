@@ -711,7 +711,17 @@ $original = [System.Drawing.Image]::FromFile($imagePath)
 try {
     $bitmap = New-Object System.Drawing.Bitmap $original
     try {
-        [System.Windows.Forms.Clipboard]::SetImage($bitmap)
+        $copiada = $false
+        for ($intento = 1; $intento -le 3 -and -not $copiada; $intento++) {
+            try {
+                [System.Windows.Forms.Clipboard]::SetImage($bitmap)
+                $copiada = $true
+            }
+            catch {
+                if ($intento -eq 3) { throw }
+                Start-Sleep -Milliseconds 100
+            }
+        }
     }
     finally {
         $bitmap.Dispose()
@@ -736,7 +746,7 @@ finally {
             check=False,
             capture_output=True,
             text=True,
-            timeout=20,
+            timeout=3,
         )
         if resultado.returncode != 0:
             detalle = resultado.stderr.strip() or resultado.stdout.strip()
@@ -746,9 +756,20 @@ finally {
     def _copiar_ruta_portapapeles(file_path):
         """Respaldo para equipos donde no sea posible copiar los bytes de la imagen."""
         try:
-            import pyperclip
-
-            pyperclip.copy(file_path)
+            if sys.platform == "win32":
+                clip = shutil.which("clip.exe") or shutil.which("clip")
+                if not clip:
+                    raise RuntimeError("No se encontró clip.exe")
+                subprocess.run(
+                    [clip],
+                    input=os.path.abspath(file_path),
+                    text=True,
+                    check=True,
+                    timeout=2,
+                )
+            else:
+                import pyperclip
+                pyperclip.copy(file_path)
             print("Como respaldo, se copió la ruta de la imagen al portapapeles.")
         except Exception as error:
             print(f"Tampoco se pudo copiar la ruta al portapapeles: {error}")

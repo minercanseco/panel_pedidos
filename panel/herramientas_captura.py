@@ -351,6 +351,13 @@ class HerramientasCaptura:
             self._interfaz.master.update_idletasks()
             self._interfaz.master.iconify()
 
+        except Exception as error:
+            self._interfaz.ventanas.mostrar_mensaje(
+                master=self._interfaz.master,
+                mensaje=f'No fue posible generar el comprobante: {error}',
+                tipo='error'
+            )
+
         finally:
             self._parametros.id_principal = 0
             self._rellenar_tabla()

@@ -546,12 +546,21 @@ class GeneradorTicketCliente:
                     "No se encontró Chrome, Edge o Chromium para crear la imagen del ticket."
                 )
 
-            with tempfile.TemporaryDirectory(prefix="ticket_navegador_") as perfil:
+            # En Windows, Chrome puede conservar por unos instantes archivos de
+            # caché abiertos después de cerrar. Esa limpieza tardía no debe
+            # convertir una imagen ya generada en un error del comprobante.
+            with tempfile.TemporaryDirectory(
+                prefix="ticket_navegador_",
+                ignore_cleanup_errors=True,
+            ) as perfil:
                 proceso = subprocess.Popen(
                     [
                         navegador_instalado,
                         "--headless=new",
                         "--disable-gpu",
+                        "--disable-application-cache",
+                        "--disk-cache-size=1",
+                        "--media-cache-size=1",
                         "--hide-scrollbars",
                         "--remote-allow-origins=*",
                         "--remote-debugging-port=0",
@@ -621,12 +630,23 @@ class GeneradorTicketCliente:
                         imagen.write(base64.b64decode(captura["data"]))
                 finally:
                     if conexion:
+                        try:
+                            conexion.send(json.dumps({
+                                "id": contador + 1,
+                                "method": "Browser.close",
+                                "params": {},
+                            }))
+                        except Exception:
+                            pass
                         conexion.close()
-                    proceso.terminate()
                     try:
-                        proceso.wait(timeout=5)
+                        proceso.wait(timeout=2)
                     except subprocess.TimeoutExpired:
-                        proceso.kill()
+                        proceso.terminate()
+                        try:
+                            proceso.wait(timeout=2)
+                        except subprocess.TimeoutExpired:
+                            proceso.kill()
         finally:
             if ruta_temporal and os.path.exists(ruta_temporal):
                 os.remove(ruta_temporal)

@@ -124,9 +124,9 @@ class ControladorCaptura:
         self._ventanas.enfocar_componente('tbx_clave')
 
         if self._module_id == self.MODULO_PEDIDOS: # si es pedido
-            self._agregar_servicio_a_domicilio()
             self.parametros_pedido = self._modelo.crear_parametros_pedido()
             self._buscar_ofertas(rellenar_tabla=True)
+            self._conciliar_servicio_a_domicilio()
             self._ventanas.enfocar_componente('tbx_buscar_manual')
 
         self._interfaz.cambiar_titulo_ventana(self.cliente.official_name)
@@ -1011,20 +1011,7 @@ class ControladorCaptura:
                 self._actualizar_totales_documento()
                 # ----------------------------------------------------------------------------------
 
-                # Solo aplica para el módulo 1687 pedidos
-                if self._module_id == self.MODULO_PEDIDOS:
-                    # Si el total es menor a 200 y no se ha agregado aún, lo agrega
-                    if self.documento.total < self.MONTO_MINIMO_SIN_ENVIO and not self._modelo.servicio_a_domicilio_agregado:
-
-                        self._agregar_servicio_a_domicilio()
-                        self._modelo.servicio_a_domicilio_agregado = True
-
-                    # Si ya se agregó pero ahora el total (sin el servicio) es >= 200, lo remueve
-                    elif self._modelo.servicio_a_domicilio_agregado and (
-                            self.documento.total - self._costo_servicio_a_domicilio) >= self.MONTO_MINIMO_SIN_ENVIO:
-
-                        self._remover_servicio_a_domicilio()
-                        self._modelo.servicio_a_domicilio_agregado = False
+                self._conciliar_servicio_a_domicilio()
 
     def _editar_partida(self):
 
@@ -1146,11 +1133,8 @@ class ControladorCaptura:
                 self._modelo.base_de_datos,
                 valores_fila,
                 actualizar_totales=self._actualizar_totales_documento,
-                agregar_servicio_domicilio=(
-                    self._agregar_servicio_a_domicilio
-                ),
-                remover_servicio_domicilio=(
-                    self._remover_servicio_a_domicilio
+                actualizar_servicio_domicilio=(
+                    self._conciliar_servicio_a_domicilio
                 ),
             )
 
@@ -1974,8 +1958,6 @@ class ControladorCaptura:
                 partida['Comments'] = ''
                 self._agregar_partida_tabla(partida, document_item_id=0, tipo_captura=2, unidad_cayal=1, monto_cayal=0)
 
-                self._modelo.servicio_a_domicilio_agregado = True
-
 
         # servicio a domicilio solo aplica para pedidos
         if self._module_id != self.MODULO_PEDIDOS:
@@ -2005,6 +1987,7 @@ class ControladorCaptura:
 
     def _agregar_partida_tabla(self, partida, document_item_id, tipo_captura, unidad_cayal=0, monto_cayal=0):
 
+        partida_agregada = False
         product_id = partida.get('ProductID',0) # esta condicion evita romper el flujo de prorrateo en documentos
         if product_id == 1048:
             self._mensajes_de_error(18)
@@ -2114,6 +2097,7 @@ class ControladorCaptura:
                 self._interfaz.ventanas.insertar_fila_treeview(tabla_captura, partida_tabla, al_principio=True)
 
                 self.documento.items.append(partida)
+                partida_agregada = True
 
                 if self._module_id in self.MODULO_VENTAS:
                     self._modelo.agregar_partida_base_de_datos(partida)
@@ -2123,13 +2107,11 @@ class ControladorCaptura:
 
                 self._actualizar_totales_documento()
 
-                # si aplica remueve el servicio a domicilio
-                if self._module_id == self.MODULO_PEDIDOS and self._modelo.servicio_a_domicilio_agregado == True:
-                    if self.documento.total - self._modelo.costo_servicio_a_domicilio >= self.MONTO_MINIMO_SIN_ENVIO:
-                        self._remover_servicio_a_domicilio()
-
             finally:
                 self._modelo.agregando_partida = False
+
+        if partida_agregada:
+            self._conciliar_servicio_a_domicilio()
 
     def _validar_restriccion_por_monto(self, partida, tipo_captura):
         # Los módulos sin restricciones especiales deben permitir la partida.
@@ -2530,6 +2512,49 @@ class ControladorCaptura:
             self.PRODUCTO_SERVICIO_DOMICILIO
         )
         self._actualizar_totales_documento()
+
+    def _conciliar_servicio_a_domicilio(self):
+        """Mantiene el producto 5606 de acuerdo con el total real sin envío."""
+        from decimal import Decimal, InvalidOperation
+
+        if self._module_id != self.MODULO_PEDIDOS:
+            return
+
+        parametros = self.documento.order_parameters or {}
+        order_type_id = int(parametros.get('OrderTypeID', 1) or 1)
+
+        partidas_servicio = []
+        total_sin_servicio = Decimal('0')
+        for partida in self.documento.items:
+            if int(partida.get('ItemProductionStatusModified', 0) or 0) == 3:
+                continue
+
+            product_id = int(partida.get('ProductID', 0) or 0)
+            if product_id == self.PRODUCTO_SERVICIO_DOMICILIO:
+                partidas_servicio.append(partida)
+                continue
+
+            try:
+                total_sin_servicio += Decimal(
+                    str(partida.get('total', 0) or 0)
+                )
+            except (InvalidOperation, TypeError, ValueError):
+                continue
+
+        existe_servicio = bool(partidas_servicio)
+        self._modelo.servicio_a_domicilio_agregado = existe_servicio
+
+        # Los anexos y cambios no deben contener el servicio automático.
+        if order_type_id in (2, 3):
+            if existe_servicio:
+                self._remover_servicio_a_domicilio()
+            return
+
+        if total_sin_servicio < Decimal(str(self.MONTO_MINIMO_SIN_ENVIO)):
+            if not existe_servicio:
+                self._agregar_servicio_a_domicilio()
+        elif existe_servicio:
+            self._remover_servicio_a_domicilio()
 
 
     def _filtrar_productos_no_permitidos(self, partida):

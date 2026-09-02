@@ -15,8 +15,7 @@ class EditarPartida:
             base_de_datos,
             valores_fila_tabla,
             actualizar_totales=None,
-            agregar_servicio_domicilio=None,
-            remover_servicio_domicilio=None,
+            actualizar_servicio_domicilio=None,
     ):
         self._master = master
         self._interfaz = interfaz
@@ -30,8 +29,7 @@ class EditarPartida:
         self._valores_fila = valores_fila_tabla
         self._ventanas = Ventanas(self._master)
         self._actualizar_totales = actualizar_totales
-        self._agregar_servicio_domicilio = agregar_servicio_domicilio
-        self._remover_servicio_domicilio = remover_servicio_domicilio
+        self._actualizar_servicio_domicilio = actualizar_servicio_domicilio
 
         self._user_id = self._parametros_contpaqi.id_usuario
         self._user_name = self._modelo.obtener_nombre_usuario(self._user_id)
@@ -623,7 +621,8 @@ class EditarPartida:
         if callable(self._actualizar_totales):
             self._actualizar_totales()
 
-        self._actualizar_servicio_domicilio()
+        if callable(self._actualizar_servicio_domicilio):
+            self._actualizar_servicio_domicilio()
         self.partida_actualizada = True
         self._master.destroy()
 
@@ -678,27 +677,6 @@ class EditarPartida:
             comentario,
             uuid_partida,
         )
-
-    def _actualizar_servicio_domicilio(self):
-        if self._module_id != 1687:
-            return
-
-        total_documento = self._documento.total
-        if self._modelo.servicio_a_domicilio_agregado:
-            total_sin_servicio = (
-                total_documento
-                - self._modelo.costo_servicio_a_domicilio
-            )
-            if (
-                    total_sin_servicio >= 200
-                    and callable(self._remover_servicio_domicilio)
-            ):
-                self._remover_servicio_domicilio()
-        elif (
-                total_documento < 200
-                and callable(self._agregar_servicio_domicilio)
-        ):
-            self._agregar_servicio_domicilio()
 
     def _procesar_producto(
             self,

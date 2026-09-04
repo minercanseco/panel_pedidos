@@ -257,6 +257,10 @@ class ControladorCaptura:
 
             self.documento.forma_pago = clave_seleccionada
             self._ventanas.insertar_input_componente('cbx_formapago', fp_seleccionada)
+            # Si la primera partida ya creó la cabecera, la selección debe
+            # estar disponible de inmediato para Cobro Rápido y cualquier
+            # otro consumidor que consulte el documento antes del cierre.
+            self._modelo.actualizar_forma_pago_documento()
 
     def _cargar_eventos_componentes(self):
         eventos = {

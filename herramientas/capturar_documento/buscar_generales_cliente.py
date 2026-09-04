@@ -1145,11 +1145,21 @@ class BuscarGeneralesCliente:
             int(registro.get('AddressDetailID', 0) or 0)
             for registro in (self._consulta_direcciones or [])
         }
-        if address_detail_id <= 0 or address_detail_id not in direcciones_cliente:
+        direccion_activa = False
+        if address_detail_id > 0 and address_detail_id in direcciones_cliente:
+            direccion_activa = bool(self._base_de_datos.fetchone(
+                'SELECT AddressDetailID FROM orgAddress '
+                'WHERE AddressDetailID = ? '
+                'AND BusinessEntityID = ? '
+                'AND DeletedOn IS NULL',
+                (address_detail_id, self._cliente.business_entity_id),
+            ))
+
+        if not direccion_activa:
             self._ventanas.mostrar_mensaje(
-                'No fue posible determinar una dirección válida para el '
-                'cliente seleccionado. Seleccione nuevamente el cliente y '
-                'su dirección.'
+                'La dirección seleccionada ya no está disponible para generar '
+                'un documento nuevo. Seleccione nuevamente el cliente y una '
+                'dirección activa.'
             )
             return False
 

@@ -461,6 +461,25 @@ class LlamarInstanciaCapturaPedido:
         if not parametros:
             return 0
 
+        address_detail_id = int(
+            parametros.get('AddressDetailID', 0) or 0
+        )
+        direccion_activa = self._base_de_datos.fetchone(
+            'SELECT AddressDetailID FROM orgAddress '
+            'WHERE AddressDetailID = ? '
+            'AND BusinessEntityID = ? '
+            'AND DeletedOn IS NULL',
+            (
+                address_detail_id,
+                parametros.get('BusinessEntityID'),
+            ),
+        )
+        if not direccion_activa:
+            raise ValueError(
+                'La dirección seleccionada fue borrada y no puede asociarse '
+                'a un pedido nuevo.'
+            )
+
         valores = (
             parametros.get('RelatedOrderID', 0),
             parametros.get('BusinessEntityID'),

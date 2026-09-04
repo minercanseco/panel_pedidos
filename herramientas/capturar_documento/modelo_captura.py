@@ -13,6 +13,7 @@ class ModeloCaptura:
     MODULOS_VENTAS = (158, 1316, 967, 1400, 21, 1319)
     MODULOS_ACTUALIZACION_TOTALES = (21, 152, 158, 967, 1316, 1319, 1400)
     MODULO_VALES = 1692
+    MODULOS_FISCALES = (21, 1400, 1319)
     LINEAS_PRODUCTOS_PERMITIDOS_VALES = [
         'RES LOCAL', 'CERDO', 'POLLO', 'VERDURAS', 'LISTAS PARA COCINAR', 'HUEVO'
     ]
@@ -97,6 +98,26 @@ class ModeloCaptura:
         self.base_de_datos.command(
             'UPDATE docDocument SET BusinessEntityID = ? WHERE DocumentID = ?',
             (business_entity_id, document_id),
+        )
+        return True
+
+    def actualizar_forma_pago_documento(self):
+        """Persiste la forma de pago editable de una factura ya creada."""
+        document_id = int(getattr(self.documento, 'document_id', 0) or 0)
+        cfd_type_id = int(getattr(self.documento, 'cfd_type_id', 1) or 0)
+        forma_pago = str(getattr(self.documento, 'forma_pago', '') or '')
+
+        if (
+                self.module_id not in self.MODULOS_FISCALES
+                or cfd_type_id == 1
+                or document_id <= 0
+                or not forma_pago
+        ):
+            return False
+
+        self.base_de_datos.command(
+            'UPDATE docDocumentCFD SET FormaPago = ? WHERE DocumentID = ?',
+            (forma_pago, document_id),
         )
         return True
 
@@ -470,8 +491,11 @@ class ModeloCaptura:
             if self.documento.document_id == 0:
                 document_id = self.crear_cabecera_documento()
                 self.documento.document_id = document_id
-
-
+                # La cabecera se crea con los valores predeterminados del
+                # procedimiento. Se sincroniza inmediatamente con la opción
+                # elegida en captura para que cobro y procesos posteriores
+                # lean la forma de pago correcta antes de cerrar la ventana.
+                self.actualizar_forma_pago_documento()
 
                 self.crear_cabecera_documento_relacionado()
 
@@ -535,6 +559,12 @@ class ModeloCaptura:
 
     def crear_cabecera_documento(self, module_id=0, prefix=None):
         module_id = self.module_id if module_id == 0 else module_id
+
+        if self.direccion_esta_borrada(self.documento.address_detail_id):
+            raise ValueError(
+                'La dirección seleccionada fue borrada y no puede asociarse '
+                'a un documento nuevo.'
+            )
 
         if not prefix:
             prefix = self.PREFIJOS.get(module_id, '')

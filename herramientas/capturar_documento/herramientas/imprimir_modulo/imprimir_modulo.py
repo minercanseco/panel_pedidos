@@ -976,17 +976,22 @@ class ImprimirModulo:
         return self._img_pil_to_data_url_png(img)
 
     def _make_ean13_data_url(self, ean13_digits: str) -> str:
+        """Representa literalmente el código del documento como Code 128.
+
+        El nombre se conserva para no afectar los puntos de llamada actuales.
+        Code 128 evita que los lectores conviertan los valores que comienzan
+        con cero a UPC-A y conserva el último dígito entregado por SQL.
+        """
         digits = ''.join(ch for ch in str(ean13_digits or '') if ch.isdigit())[:13]
         if len(digits) != 13:
-            raise ValueError("EAN-13 debe contener exactamente 13 dígitos.")
-        ean = barcode.get('ean13', digits, writer=ImageWriter())
+            raise ValueError("El código debe contener exactamente 13 dígitos.")
+
+        codigo_barra = barcode.get('code128', digits, writer=ImageWriter())
         buf = BytesIO()
-        # Desactiva el texto para evitar cargar fuente TTF
-        ean.write(buf, options={
-            "write_text": False,  # <--- CLAVE
+        codigo_barra.write(buf, options={
+            "write_text": False,
             "module_height": 12.0,
-            "font_size": 8,  # inofensivo si write_text=False
-            "text_distance": 1  # "
+            "quiet_zone": 3.0,
         })
         b64 = base64.b64encode(buf.getvalue()).decode("ascii")
         return f"data:image/png;base64,{b64}"

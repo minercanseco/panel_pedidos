@@ -320,17 +320,16 @@ class BuscarGeneralesClienteCartera:
 
         # busqueda por codigo de barras
         if self._utilerias.es_cantidad(termino_buscado):
-
-            if len(self._termino_buscado) < 12:
-                self._ventanas.mostrar_mensaje(f'El código {self._termino_buscado} es incorrecto.')
-                self._ventanas.enfocar_componente('tbx_buscar')
+            document_id = self._procesar_codigo_barras(termino_buscado)
+            if not document_id:
                 return
 
-            codigo = self._termino_buscado[0:11]
-            document_id = int(codigo.lstrip('0') or '0')
             info_documento = self._buscar_info_document_id(document_id=document_id)
             if not info_documento:
-                self._ventanas.mostrar_mensaje(f'La búsqueda del término {codigo} no devolvió resultados.')
+                self._ventanas.mostrar_mensaje(
+                    f'La búsqueda del término {termino_buscado} '
+                    'no devolvió resultados.'
+                )
                 return
 
             business_entity_id = info_documento['BusinessEntityID']
@@ -338,6 +337,28 @@ class BuscarGeneralesClienteCartera:
             self._cliente.consulta = self._info_cliente_seleccionado
             self._cliente.settear_valores_consulta()
             self._llamar_instancia()
+
+    def _procesar_codigo_barras(self, codigo):
+        codigo = str(codigo or '').strip()
+
+        if not self._utilerias.es_cantidad(codigo):
+            self._ventanas.mostrar_mensaje('El código es inválido.')
+            self._ventanas.enfocar_componente('tbx_buscar')
+            return 0
+
+        if len(codigo) not in (12, 13):
+            self._ventanas.mostrar_mensaje(
+                f'El código {codigo} es incorrecto.'
+            )
+            self._ventanas.enfocar_componente('tbx_buscar')
+            return 0
+
+        # Formato anterior UPC-A: 11 dígitos de información + verificador.
+        # Formato nuevo Code 128: 12 dígitos de información + último
+        # dígito entregado por la función SQL. En ambos casos el último
+        # carácter no forma parte del DocumentID.
+        codigo_documento = codigo[:-1]
+        return int(codigo_documento.lstrip('0') or '0')
 
     def _buscar_info_document_id(self, document_id=0, folio_documento=''):
         consulta = []

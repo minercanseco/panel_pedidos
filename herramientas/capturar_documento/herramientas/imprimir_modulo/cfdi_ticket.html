@@ -1,24 +1,22 @@
+<!DOCTYPE html>
+<html lang="es">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+  <meta charset="utf-8">
   <title>*TICKET CFDI*</title>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+EAN13+Text&display=swap" rel="stylesheet">
 
   <style>
     html, body {
       margin:0;
       padding:0;
-      font-family:Arial,sans-serif;
-      font-size:8pt;
+      font-family:Tahoma,Verdana,Arial,sans-serif;
+      font-size:8.5pt;
       width:100%;
     }
 
-    /* ? El ticket nunca será más ancho que ~80 mm */
+    /* ? El ticket nunca serÃ¡ mÃ¡s ancho que ~80 mm */
     .ticket-container {
       width:100%;
-      max-width:80mm;   /* 80mm: típico papel térmico de 80mm */
+      max-width:80mm;   /* 80mm: tÃ­pico papel tÃ©rmico de 80mm */
       margin:0 auto;    /* centrado en hoja grande */
       position:relative;
     }
@@ -31,43 +29,54 @@
     td, th {
       vertical-align:top;
       border-color:#808080;
-      padding:1px 0.05in;
+      padding:1px 1px;
+      box-sizing:border-box;
     }
 
     .hcenter { text-align:center; }
     .hright  { text-align:right; }
 
     .ticket {
-      background:#fff;
+      background:transparent;
       border-collapse:collapse;
       table-layout:fixed;
       text-align:left;
-      padding-right:0.10in;
+      position:relative;
+      z-index:1;
     }
 
     .auto-style1,
     .auto-style8,
     .auto-style9,
-    .auto-style10 { font-size:7.5pt; }
+    .auto-style10 { font-size:8pt; }
 
     .auto-style3,
-    .auto-style4 { font-size:7pt; font-weight:bold; }
+    .auto-style4 { font-size:7.5pt; font-weight:bold; }
 
     .auto-style6 {
-      font-size:7pt;
+      font-size:7.5pt;
       font-weight:bold;
       border-top:1px solid #808080;
       border-bottom:1px solid #808080;
       padding:1px 0;
     }
 
-    .auto-style7,
-    .cfdi-block { font-size:7pt; line-height:1.25; }
+    .auto-style7 { font-size:7.5pt; line-height:1.25; }
+    .cfdi-block {
+      font-size:7.5pt;
+      line-height:1.25;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+    }
 
-    .auto-style11 { font-size:7pt; }
-    .auto-style12 { font-size:7pt; text-align:center; }
+    .datos-encabezado {
+      font-weight:700;
+    }
+
+    .auto-style11 { font-size:7.5pt; }
+    .auto-style12 { font-size:7.5pt; text-align:center; }
     .auto-style22 { font-size:9pt; }
-    .auto-style23 { font-size:7.2pt; border-color:#808080; padding:0.02in; }
+    .auto-style23 { font-size:7.7pt; border-color:#808080; padding:0.02in; }
 
     hr {
       height:1px;
@@ -77,33 +86,36 @@
     }
 
     .encabezado-detalle td {
-      font-size:7pt;
+      font-size:7.5pt;
       padding-top:0;
       padding-bottom:0;
     }
 
-    .th-cant   { width:12%; }
-    .th-desc   { width:48%; }
-    .th-precio { width:20%; }
-    .th-importe{ width:20%; }
+    /* Los cinco anchos deben sumar exactamente 100%. */
+    .th-cant   { width:8%; }
+    .th-unidad { width:10%; }
+    .th-desc   { width:42%; }
+    .th-precio { width:18%; white-space:nowrap; }
+    .th-importe{ width:22%; white-space:nowrap; }
 
     .detalle-row td {
       padding-top:1px;
       padding-bottom:1px;
-      font-size:7.5pt;
+      font-size:8pt;
     }
 
     .wm-copia {
       position:absolute;
-      top:50%;
+      top:45%;
       left:50%;
       transform:translate(-50%,-50%) rotate(-30deg);
-      font-size:52px;
-      letter-spacing:10px;
-      color:rgba(0,0,0,0.3);
+      -webkit-transform:translate(-50%,-50%) rotate(-30deg);
+      font-size:46px;
+      letter-spacing:5px;
+      color:#888;
       font-weight:900;
       white-space:nowrap;
-      z-index:10;
+      z-index:0;
       pointer-events:none;
     }
 
@@ -136,6 +148,7 @@
       }
 
       .wm-copia {
+        color:#888!important;
         -webkit-print-color-adjust:exact;
         print-color-adjust:exact;
       }
@@ -146,7 +159,7 @@
 <body>
 <div class="ticket-container">
   <div class="wm-copia">[TextoMarcaAgua]</div>
-  <table border="0" cellpadding="0" cellspacing="0" class="ticket" style="font-family:Arial;font-size:8pt;text-align:left;padding-right:0.10in;">
+  <table border="0" cellpadding="0" cellspacing="0" class="ticket" style="font-family:Tahoma,Verdana,Arial,sans-serif;font-size:8.5pt;text-align:left;">
     <tbody>
       <tr>
         <td align="center" colspan="2">
@@ -173,7 +186,7 @@
       </tr>
 
       <tr>
-        <td colspan="2" class="cfdi-block">
+        <td colspan="2" class="cfdi-block datos-encabezado">
           <div style="text-align:center;font-weight:bold;margin-bottom:4px;">
             *Este documento es una representaci&oacute;n impresa de un CFDI*
           </div>
@@ -207,7 +220,7 @@
           <table>
             <tr class="encabezado-detalle">
               <td class="hcenter th-cant"><strong>Cant.</strong></td>
-              <td class="hcenter th-cant"><strong>Unidad</strong></td>
+              <td class="hcenter th-unidad"><strong>Unidad</strong></td>
               <td class="hcenter th-desc"><strong>Descripci&oacute;n</strong></td>
               <td class="hright th-precio"><strong>Precio</strong></td>
               <td class="hright th-importe"><strong>Importe</strong></td>
@@ -218,7 +231,7 @@
             <DETAIL>
               <tr>
                 <td class="hcenter th-cant">[Cantidad]</td>
-                <td class="hcenter th-cant">[ClaveUnidad]</td>
+                <td class="hcenter th-unidad">[ClaveUnidad]</td>
                 <td class="th-desc">[Descripcion]</td>
                 <td class="hright th-precio">[PrecioUnSIVA]</td>
                 <td class="hright th-importe">[ImporteCIVA]</td>
@@ -257,8 +270,8 @@
           <p style="text-align:center">
           <img id="CodigoEAN13"
                src="[CodigoEAN13]"
-               alt="Código de barras EAN13"
-               style="width:auto; height:60px; max-width:none; image-rendering:crisp-edges;">
+               alt="CÃ³digo de barras del documento"
+               style="width:62mm; height:auto; max-width:100%; image-rendering:crisp-edges;">
           </p>
         </td>
       </tr>
@@ -266,7 +279,7 @@
       <tr><td colspan="2"><hr></td></tr>
  <!--IF_REMISION-->
 <tr>
-  <td colspan="2" class="cfdi-block" style="padding:0.05in;font-size:7pt;line-height:1.2;word-wrap:break-word;word-break:break-all;max-width:100%;">
+  <td colspan="2" class="cfdi-block" style="padding:0.05in;font-size:7.5pt;line-height:1.25;word-wrap:break-word;word-break:break-all;max-width:100%;">
     <div style="margin-bottom:3px;">
       <strong>[TipoRelacionTitulo]</strong> [TipoRelacion]
     </div>
@@ -282,7 +295,7 @@
       <span style="display:block;white-space:normal;">[SelloDigitalCayal]</span>
     </div>
     <div style="margin-bottom:3px;">
-      <strong>CADENA ORIGINAL DEL COMPLEMENTO DE CERTIFICACIÓN DIGITAL DEL SAT:</strong><br>
+      <strong>CADENA ORIGINAL DEL COMPLEMENTO DE CERTIFICACIÃ“N DIGITAL DEL SAT:</strong><br>
       <span style="display:block;white-space:normal;">[CadenaOriginalCayal]</span>
     </div>
   </td>
@@ -291,7 +304,7 @@
 
 <!-- OBS & REF SIEMPRE SE MUESTRAN -->
 <tr>
-  <td colspan="2" class="cfdi-block" style="padding:0.05in;font-size:7pt;line-height:1.2;word-wrap:break-word;word-break:break-all;max-width:100%;">
+  <td colspan="2" class="cfdi-block" style="padding:0.05in;font-size:7.5pt;line-height:1.25;word-wrap:break-word;word-break:break-all;max-width:100%;">
     <hr>
     <div style="margin-bottom:3px;">
       <strong>OBS:</strong>
@@ -327,3 +340,4 @@
   </table>
 </div>
 </body>
+</html>

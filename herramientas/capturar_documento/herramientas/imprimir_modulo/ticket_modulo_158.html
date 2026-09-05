@@ -8,8 +8,8 @@
   html, body {
     margin: 0;
     padding: 0;
-    font-family: Arial, sans-serif;
-    font-size: 8pt; /* Tamaño base */
+    font-family: Tahoma, Verdana, Arial, sans-serif;
+    font-size: 8.5pt; /* Tamaño base legible en papel térmico */
     width: 100%;
   }
 
@@ -18,20 +18,20 @@
   .hcenter{text-align:center}.hright{text-align:right}
 
   /* Ajuste de tamaños de fuente a unidades pt más coherentes */
-  .auto-style1{text-align:center;font-size:7pt} /* Ajustado */
-  .auto-style2{font-family:"Segoe UI";color:#333; font-size: 7.5pt;} /* Ajustado */
-  .auto-style3{font-size:7pt;font-weight:bold} /* Ajustado de xx-small */
-  .auto-style4{font-size:7pt;vertical-align:top;text-align:right;font-weight:bold;border-color:#808080;padding:2px} /* Ajustado */
-  .auto-style6{font-size:7pt;font-weight:bold;border-top:1px solid #808080;border-bottom:1px solid #808080;padding:1px 0} /* Ajustado */
-  .auto-style7{font-size:7pt} /* Ajustado */
-  .auto-style8{font-size:7.5pt} /* Ajustado */
-  .auto-style9{font-size:7.5pt;font-weight:bold} /* Ajustado */
-  .auto-style10{text-align:right;font-size:7.5pt} /* Ajustado */
-  .auto-style11{font-size:7pt} /* Ajustado de xx-small */
-  .auto-style12{font-size:7pt;text-align:center} /* Ajustado */
-  .auto-style13{font-size:7.5pt;vertical-align:top;text-align:right;border-color:#808080;padding:2px} /* Ajustado */
-  .auto-style22{font-size:9pt}.auto-style23{font-size:7.2pt;vertical-align:top;text-align:right;border-color:#808080;padding:2px}
-  .auto-style24{font-size:7pt}
+  .auto-style1{text-align:center;font-size:7.5pt}
+  .auto-style2{font-family:Tahoma,Verdana,Arial,sans-serif;color:#333;font-size:8pt;}
+  .auto-style3{font-size:7.5pt;font-weight:bold}
+  .auto-style4{font-size:7.5pt;vertical-align:top;text-align:right;font-weight:bold;border-color:#808080;padding:2px}
+  .auto-style6{font-size:7.5pt;font-weight:bold;border-top:1px solid #808080;border-bottom:1px solid #808080;padding:1px 0}
+  .auto-style7{font-size:7.5pt}
+  .auto-style8{font-size:8pt}
+  .auto-style9{font-size:8pt;font-weight:bold}
+  .auto-style10{text-align:right;font-size:8pt}
+  .auto-style11{font-size:7.5pt}
+  .auto-style12{font-size:7.5pt;text-align:center}
+  .auto-style13{font-size:8pt;vertical-align:top;text-align:right;border-color:#808080;padding:2px}
+  .auto-style22{font-size:9pt}.auto-style23{font-size:7.7pt;vertical-align:top;text-align:right;border-color:#808080;padding:2px}
+  .auto-style24{font-size:7.5pt}
 
   /* Contenedor del ticket: Eliminar ancho fijo */
   .ticket-wrap{
@@ -43,11 +43,11 @@
 
   /* Ticket: Eliminar ancho fijo */
   table.ticket{
-    background:#fff;border-color:#000;border-width:thin;
+    background:transparent;border-color:#000;border-width:thin;
     width:100%; /* **IMPORTANTE: 100% del contenedor** */
-    table-layout:fixed;border-collapse:collapse;font-family:Arial;
-    font-size:8pt; /* Tamaño base ajustado */
-    text-align:left; z-index:1;
+    table-layout:fixed;border-collapse:collapse;font-family:Tahoma,Verdana,Arial,sans-serif;
+    font-size:8.5pt;
+    position:relative;text-align:left;z-index:1;
   }
   hr{height:1px;width:100%;color:#808080;border:0;background-color:#808080;margin:2px 0}
   .tight td{padding:1px 2px;} /* Padding reducido */
@@ -55,16 +55,16 @@
   /* Marca de agua: ABSOLUTA dentro de .ticket-wrap */
 .wm-copia {
   position: absolute;
-  top: 50%;
+  top: 45%;
   left: 50%;
   transform: translate(-50%, -50%) rotate(-30deg);
-  font-size: 52px;
-  letter-spacing: 10px;
-  color: rgba(0, 0, 0, 0.9);
-  opacity: 0.25;
+  -webkit-transform: translate(-50%, -50%) rotate(-30deg);
+  font-size: 46px;
+  letter-spacing: 5px;
+  color: #888;
   font-weight: 900;
   white-space: nowrap;
-  z-index: 10;
+  z-index: 0;
   pointer-events: none;
   mix-blend-mode: normal;
 }
@@ -82,7 +82,7 @@
       height: auto;
   }
   .wm-copia {
-    opacity: 0.3;
+    color: #888 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -150,7 +150,7 @@
           <table style="width:100%">
             <tbody>
               <tr>
-                <td class="hcenter th-cant" style="font-size:7pt;height:12px"><span class="auto-style8"><strong>Cant.</strong></span></td>
+                <td class="hcenter th-cant" style="font-size:8pt;height:12px"><span class="auto-style8"><strong>Cant.</strong></span></td>
                 <td class="hcenter th-pad" style="height:12px"></td>
                 <td class="th-desc auto-style8" style="height:12px"><strong>Descripción</strong></td>
                 <td class="hcenter th-precio auto-style8" style="height:12px"><strong>Precio</strong></td>
@@ -162,10 +162,10 @@
           <table border="0" cellpadding="2" cellspacing="0" style="width:100%" id="table1" class="auto-style8">
             <DETAIL>
               <tr id="Concepto" style="page-break-inside:avoid">
-                <td class="hcenter th-cant"><span style="font-size:7pt" id="cantidad">[Cantidad]</span></td>
+                <td class="hcenter th-cant"><span style="font-size:8pt" id="cantidad">[Cantidad]</span></td>
                 <td class="hcenter th-pad">&nbsp;</td>
-                <td class="th-desc"><span style="font-size:7pt" id="descripcion">[Descripcion]</span></td>
-                <td class="hright th-precio"><span style="font-size:7pt" id="valorUnitario" typeof="Currency">[PrecioUnSIVA]</span></td>
+                <td class="th-desc"><span style="font-size:8pt" id="descripcion">[Descripcion]</span></td>
+                <td class="hright th-precio"><span style="font-size:8pt" id="valorUnitario" typeof="Currency">[PrecioUnSIVA]</span></td>
                 <td class="hright th-importe"><span class="auto-style11" id="importe" typeof="Currency">[ImporteCIVA]</span></td>
               </tr>
             </DETAIL>

@@ -990,8 +990,10 @@ class ImprimirModulo:
         buf = BytesIO()
         codigo_barra.write(buf, options={
             "write_text": False,
-            "module_height": 12.0,
+            "module_width": 0.4,
+            "module_height": 16.0,
             "quiet_zone": 3.0,
+            "dpi": 300,
         })
         b64 = base64.b64encode(buf.getvalue()).decode("ascii")
         return f"data:image/png;base64,{b64}"

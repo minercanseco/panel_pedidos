@@ -1,9 +1,11 @@
 import glob
 import logging
 import os
+import re
 import shutil
 import subprocess
 import threading
+import tempfile
 from pathlib import Path
 
 try:
@@ -28,6 +30,7 @@ class ServicioImpresionTicket:
     ALTURA_PARTIDA_MM = 7
     ALTURA_MINIMA_MM = 130
     ALTURA_MAXIMA_MM = 1000
+    INTENTOS_AJUSTE_ALTURA = 6
     TIMEOUT_CONVERSION = 30
     TIMEOUT_IMPRESION = 30
 
@@ -102,16 +105,19 @@ class ServicioImpresionTicket:
             )
 
         ruta_pdf = ruta_html.with_suffix('.pdf')
-        self._convertir_a_pdf(
-            wkhtmltopdf,
-            ruta_html,
-            ruta_pdf,
-            cantidad_partidas,
-            altura_base_mm,
-        )
+        if self._es_impresora_termica(impresora):
+            self._convertir_a_pdf(
+                wkhtmltopdf, ruta_html, ruta_pdf,
+                cantidad_partidas, altura_base_mm,
+            )
+        else:
+            self._convertir_a_pdf_para_hojas(
+                wkhtmltopdf, ruta_html, ruta_pdf
+            )
+        pdf_estable = self._guardar_diagnostico(ruta_html, ruta_pdf)
 
         try:
-            self._enviar_a_impresora(ruta_pdf, impresora)
+            self._enviar_a_impresora(pdf_estable or ruta_pdf, impresora)
             self._marcar_impreso(document_id, user_id)
         except Exception:
             # Se conserva el PDF cuando falla el envío para permitir una
@@ -156,23 +162,49 @@ class ServicioImpresionTicket:
             )
 
         ruta_pdf = ruta_html.with_suffix('.pdf')
-        self._convertir_a_pdf(
-            wkhtmltopdf,
-            ruta_html,
-            ruta_pdf,
-            cantidad_partidas,
-            altura_base_mm,
-            ancho_papel_mm,
-            margen_horizontal_mm,
-        )
+        if self._es_impresora_termica(impresora):
+            self._convertir_a_pdf(
+                wkhtmltopdf, ruta_html, ruta_pdf,
+                cantidad_partidas, altura_base_mm,
+                ancho_papel_mm, margen_horizontal_mm,
+            )
+        else:
+            self._convertir_a_pdf_para_hojas(
+                wkhtmltopdf, ruta_html, ruta_pdf
+            )
+        pdf_estable = self._guardar_diagnostico(ruta_html, ruta_pdf)
         try:
-            self._enviar_a_impresora(ruta_pdf, str(impresora).strip())
+            self._enviar_a_impresora(
+                pdf_estable or ruta_pdf, str(impresora).strip()
+            )
         finally:
             try:
                 ruta_pdf.unlink(missing_ok=True)
             except OSError:
                 logger.warning('No fue posible eliminar %s', ruta_pdf)
         return True
+
+    @staticmethod
+    def _guardar_diagnostico(ruta_html, ruta_pdf):
+        base = os.getenv('IMPRIMIR_MODULO_DIAGNOSTICO_DIR')
+        if not base:
+            base = os.path.join(
+                os.getenv('LOCALAPPDATA', tempfile.gettempdir()),
+                'ImprimirModulo', 'ultima_impresion',
+            )
+        destino = Path(base)
+        try:
+            destino.mkdir(parents=True, exist_ok=True)
+            html_estable = destino / Path(ruta_html).name
+            pdf_estable = destino / Path(ruta_pdf).name
+            shutil.copy2(ruta_html, html_estable)
+            shutil.copy2(ruta_pdf, pdf_estable)
+            shutil.copy2(ruta_html, destino / 'documento.html')
+            shutil.copy2(ruta_pdf, destino / 'documento.pdf')
+            return pdf_estable
+        except OSError:
+            logger.exception('No fue posible conservar el diagnóstico.')
+            return None
 
     def _obtener_impresora_tickets(self):
         if win32print is None:
@@ -222,6 +254,74 @@ class ServicioImpresionTicket:
             if margen_horizontal_mm is None
             else int(margen_horizontal_mm)
         )
+        self._generar_pdf_con_altura(
+            ejecutable, ruta_html, ruta_pdf, altura,
+            ancho_papel_mm, margen_horizontal_mm,
+        )
+
+        paginas = self._contar_paginas_pdf(ruta_pdf)
+        altura_baja = None
+        altura_alta = altura
+        mejor_altura = altura if paginas == 1 else None
+
+        if paginas > 1:
+            altura_baja = altura
+            altura_alta = min(
+                self.ALTURA_MAXIMA_MM, (altura * paginas) + 10,
+            )
+            self._generar_pdf_con_altura(
+                ejecutable, ruta_html, ruta_pdf, altura_alta,
+                ancho_papel_mm, margen_horizontal_mm,
+            )
+            paginas = self._contar_paginas_pdf(ruta_pdf)
+            if paginas == 1:
+                mejor_altura = altura_alta
+        elif altura > self.ALTURA_MINIMA_MM:
+            self._generar_pdf_con_altura(
+                ejecutable, ruta_html, ruta_pdf, self.ALTURA_MINIMA_MM,
+                ancho_papel_mm, margen_horizontal_mm,
+            )
+            paginas = self._contar_paginas_pdf(ruta_pdf)
+            if paginas == 1:
+                mejor_altura = self.ALTURA_MINIMA_MM
+            else:
+                altura_baja = self.ALTURA_MINIMA_MM
+                paginas = 1
+
+        if mejor_altura is not None and altura_baja is not None:
+            altura_actual = None
+            for _ in range(self.INTENTOS_AJUSTE_ALTURA):
+                altura_media = (altura_baja + altura_alta) // 2
+                self._generar_pdf_con_altura(
+                    ejecutable, ruta_html, ruta_pdf, altura_media,
+                    ancho_papel_mm, margen_horizontal_mm,
+                )
+                altura_actual = altura_media
+                paginas = self._contar_paginas_pdf(ruta_pdf)
+                if paginas == 1:
+                    mejor_altura = altura_media
+                    altura_alta = altura_media
+                else:
+                    altura_baja = altura_media
+            if altura_actual != mejor_altura:
+                self._generar_pdf_con_altura(
+                    ejecutable, ruta_html, ruta_pdf, mejor_altura,
+                    ancho_papel_mm, margen_horizontal_mm,
+                )
+                paginas = self._contar_paginas_pdf(ruta_pdf)
+
+        if paginas > 1:
+            raise RuntimeError(
+                'El documento excede la altura máxima de la miniprinter y '
+                f'se generó en {paginas} páginas.'
+            )
+
+    def _generar_pdf_con_altura(
+            self, ejecutable, ruta_html, ruta_pdf, altura_mm,
+            ancho_papel_mm=None, margen_horizontal_mm=None,
+    ):
+        ancho = self.ANCHO_PAPEL_MM if ancho_papel_mm is None else int(ancho_papel_mm)
+        margen = self.MARGEN_HORIZONTAL_MM if margen_horizontal_mm is None else int(margen_horizontal_mm)
         comando = [
             str(ejecutable),
             '--quiet',
@@ -233,11 +333,11 @@ class ServicioImpresionTicket:
             '--load-error-handling', 'ignore',
             '--load-media-error-handling', 'ignore',
             '--page-width', f'{ancho}mm',
-            '--page-height', f'{altura}mm',
+            '--page-height', f'{int(altura_mm)}mm',
             '--margin-top', '0mm',
-            '--margin-right', f'{margen_horizontal}mm',
+            '--margin-right', f'{margen}mm',
             '--margin-bottom', '0mm',
-            '--margin-left', f'{margen_horizontal}mm',
+            '--margin-left', f'{margen}mm',
             '--disable-smart-shrinking',
             str(ruta_html),
             str(ruta_pdf),
@@ -251,6 +351,31 @@ class ServicioImpresionTicket:
         if not ruta_pdf.is_file() or ruta_pdf.stat().st_size == 0:
             raise RuntimeError('wkhtmltopdf no generó un PDF válido.')
 
+    def _convertir_a_pdf_para_hojas(self, ejecutable, ruta_html, ruta_pdf):
+        comando = [
+            str(ejecutable), '--quiet', '--encoding', 'utf-8',
+            '--enable-local-file-access',
+            '--load-error-handling', 'ignore',
+            '--load-media-error-handling', 'ignore',
+            '--page-size', 'Letter',
+            '--margin-top', '8mm', '--margin-right', '8mm',
+            '--margin-bottom', '8mm', '--margin-left', '8mm',
+            '--disable-smart-shrinking', str(ruta_html), str(ruta_pdf),
+        ]
+        self._ejecutar(
+            comando, self.TIMEOUT_CONVERSION,
+            errores_permitidos=('ContentNotFoundError',),
+            archivo_resultado=ruta_pdf,
+        )
+        if not ruta_pdf.is_file() or ruta_pdf.stat().st_size == 0:
+            raise RuntimeError('wkhtmltopdf no generó un PDF válido.')
+
+    @staticmethod
+    def _contar_paginas_pdf(ruta_pdf):
+        contenido = Path(ruta_pdf).read_bytes()
+        paginas = len(re.findall(rb'/Type\s*/Page(?!s)\b', contenido))
+        return max(1, paginas)
+
     def _enviar_a_impresora(self, ruta_pdf, impresora):
         sumatra = self._buscar_sumatra()
         if sumatra is not None:
@@ -260,8 +385,9 @@ class ServicioImpresionTicket:
                 # El controlador térmico tiene un área imprimible menor que
                 # los 80 mm físicos. "fit" reduce el PDF uniformemente y
                 # evita recortar importes, centavos y el pie derecho.
-                '-print-settings', 'fit',
+                '-print-settings', self._ajuste_impresion(impresora),
                 '-silent',
+                '-exit-when-done',
                 str(ruta_pdf),
             ], self.TIMEOUT_IMPRESION)
             return
@@ -281,6 +407,15 @@ class ServicioImpresionTicket:
             'No se encontró SumatraPDF.exe ni la combinación '
             'gsprint.exe/Ghostscript para enviar el ticket.'
         )
+
+    @classmethod
+    def _ajuste_impresion(cls, impresora):
+        return 'fit' if cls._es_impresora_termica(impresora) else 'noscale'
+
+    @classmethod
+    def _es_impresora_termica(cls, impresora):
+        nombre = str(impresora or '').strip().casefold()
+        return nombre == cls.NOMBRE_IMPRESORA.casefold()
 
     def _marcar_impreso(self, document_id, user_id):
         if self.base_de_datos is None:

@@ -523,6 +523,18 @@ class ModeloCaptura:
                 )
                 self.base_de_datos.insertar_partida_documento_cayal(parametros)
 
+                # La cabecera nace en cero. Sincronizarla inmediatamente evita
+                # que otros procesos lean un documento con partidas pero sin
+                # total mientras la ventana de captura permanece abierta.
+                if (
+                        self.module_id
+                        in self.MODULOS_ACTUALIZACION_TOTALES
+                        and getattr(self, 'impuestos', None) is not None
+                ):
+                    self.afectar_impuestos_documento(
+                        self.documento.document_id
+                    )
+
         if self.module_id == self.MODULO_VALES: # modulo de vales
 
             if self.documento.finish_document == 0: # aplica para el módulo de vales

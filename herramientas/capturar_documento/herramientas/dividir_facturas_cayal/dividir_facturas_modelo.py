@@ -346,13 +346,19 @@ class ModeloDividirFacturas:
                         ISNULL(T.IVA_R, 0) + ISNULL(T.ISR_R, 0)
                         + ISNULL(T.IEPS_R, 0) + ISNULL(T.Local_R, 0), 2
                     ) AS decimal(18, 2)) AS TotalRetention,
-                    CAST(ROUND(
-                        ISNULL(P.SubTotalWithDiscount, 0)
-                        + ISNULL(T.IVA_T, 0) + ISNULL(T.IEPS_T, 0)
-                        + ISNULL(T.Otro, 0) + ISNULL(T.Local_T, 0)
-                        - ISNULL(T.IVA_R, 0) - ISNULL(T.ISR_R, 0)
-                        - ISNULL(T.IEPS_R, 0) - ISNULL(T.Local_R, 0), 2
-                    ) AS decimal(18, 2)) AS Total,
+                    CAST(
+                        CAST(ROUND(
+                            ISNULL(P.SubTotalWithDiscount, 0), 2
+                        ) AS decimal(18, 2))
+                        + CAST(ROUND(
+                            ISNULL(T.IVA_T, 0) + ISNULL(T.IEPS_T, 0)
+                            + ISNULL(T.Otro, 0) + ISNULL(T.Local_T, 0), 2
+                        ) AS decimal(18, 2))
+                        - CAST(ROUND(
+                            ISNULL(T.IVA_R, 0) + ISNULL(T.ISR_R, 0)
+                            + ISNULL(T.IEPS_R, 0) + ISNULL(T.Local_R, 0), 2
+                        ) AS decimal(18, 2))
+                    AS decimal(18, 2)) AS Total,
                     CAST(ROUND(ISNULL(D.TotalPaid, 0), 2)
                          AS decimal(18, 2)) AS TotalPaid
                 FROM dbo.docDocument D
@@ -388,16 +394,18 @@ class ModeloDividirFacturas:
                 )
 
             totales = filas[0]
-            subtotal = float(totales['SubTotal'] or 0)
-            subtotal_descuento = float(
-                totales['SubTotalWithDiscount'] or 0
+            subtotal = totales['SubTotal'] or Decimal('0.00')
+            subtotal_descuento = (
+                totales['SubTotalWithDiscount'] or Decimal('0.00')
             )
-            descuento = float(totales['TotalDiscount'] or 0)
-            total_impuestos = float(totales['TotalTax'] or 0)
-            total_retenciones = float(totales['TotalRetention'] or 0)
-            total = float(totales['Total'] or 0)
-            total_pagado = float(totales['TotalPaid'] or 0)
-            saldo = round(total - total_pagado, 2)
+            descuento = totales['TotalDiscount'] or Decimal('0.00')
+            total_impuestos = totales['TotalTax'] or Decimal('0.00')
+            total_retenciones = (
+                totales['TotalRetention'] or Decimal('0.00')
+            )
+            total = totales['Total'] or Decimal('0.00')
+            total_pagado = totales['TotalPaid'] or Decimal('0.00')
+            saldo = total - total_pagado
 
             if total_pagado <= 0:
                 status_paid_id = 3

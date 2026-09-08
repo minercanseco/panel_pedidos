@@ -1,6 +1,7 @@
 import copy
 
 from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
 from cayal.impuestos import Impuestos
 
 from herramientas.capturar_documento.herramientas.servicio_ofertas_cliente import GestorOfertasCliente
@@ -132,22 +133,28 @@ class ModeloCaptura:
         if document_id <= 0:
             return False
 
-        subtotal = getattr(self.documento, 'subtotal', 0) or 0
-        subtotal_with_discount = getattr(
+        def moneda(valor):
+            return Decimal(str(valor or 0)).quantize(
+                Decimal('0.01'),
+                rounding=ROUND_HALF_UP,
+            )
+
+        subtotal = moneda(getattr(self.documento, 'subtotal', 0))
+        subtotal_with_discount = moneda(getattr(
             self.documento,
             'subtotal_with_discount',
             subtotal,
+        ))
+        total_discount = moneda(
+            getattr(self.documento, 'total_discount', 0)
         )
-        total_discount = getattr(self.documento, 'total_discount', 0) or 0
-        total_tax = getattr(self.documento, 'total_tax', 0) or 0
-        total_retention = getattr(
-            self.documento,
-            'total_retention',
-            0,
-        ) or 0
-        ieps = getattr(self.documento, 'ieps', 0) or 0
-        iva = getattr(self.documento, 'iva', 0) or 0
-        total = getattr(self.documento, 'total', 0) or 0
+        total_tax = moneda(getattr(self.documento, 'total_tax', 0))
+        total_retention = moneda(
+            getattr(self.documento, 'total_retention', 0)
+        )
+        ieps = moneda(getattr(self.documento, 'ieps', 0))
+        iva = moneda(getattr(self.documento, 'iva', 0))
+        total = subtotal_with_discount + total_tax - total_retention
 
         self.base_de_datos.command(
             '''

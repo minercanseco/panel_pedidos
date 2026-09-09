@@ -18,6 +18,7 @@ from herramientas.herramientas_compartidas.generador_ticket_produccion import Ge
 from herramientas.herramientas_compartidas.historial_pedido import HistorialPedido
 from herramientas.herramientas_compartidas.horario_acumulado import HorarioslAcumulados
 from herramientas.herramientas_panel.editar_nombre_pedido import EditarNombrePedido
+from herramientas.herramientas_panel.no_surtidos import NoSurtidos
 
 
 class HerramientasGenerales:
@@ -73,6 +74,9 @@ class HerramientasGenerales:
             {'nombre_icono': 'Organizer32.ico', 'etiqueta': 'A.Horarios', 'nombre': 'acumular_horarios',
              'hotkey': None, 'comando': self._acumular_horarios},
 
+            {'nombre_icono': 'StockOut32.ico', 'etiqueta': 'No surtidos', 'nombre': 'no_surtidos',
+             'hotkey': None, 'comando': self._consultar_no_surtidos},
+
             {'nombre_icono': 'Printer21.ico', 'etiqueta': 'Imprimir', 'nombre': 'imprimir_pedido',
              'hotkey': None, 'comando': self._imprimir_ticket_produccion},
 
@@ -102,6 +106,17 @@ class HerramientasGenerales:
         fn = self._callbacks_autorefresco.get("reanudar")
         if fn:
             fn()
+
+    def _consultar_no_surtidos(self):
+        self._pausar_autorefresco()
+        try:
+            ventana = self._ventanas.crear_popup_ttkbootstrap(
+                titulo='Productos no surtidos'
+            )
+            NoSurtidos(ventana, self._modelo)
+            ventana.wait_window()
+        finally:
+            self._reanudar_autorefresco()
 
     def _filtro_post_captura(self):
         fn = self._callbacks_autorefresco.get("postcaptura")

@@ -314,6 +314,17 @@ class ModeloPanelPedidos:
         return self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
             order_document_id, partidas_eliminadas=False, partidas_producidas=True)
 
+    def buscar_productos_no_surtidos(self, fecha_inicial, fecha_final=None):
+        fecha_final = fecha_final or fecha_inicial
+        return self.base_de_datos.fetchall(
+            """
+            EXEC dbo.sp_ProductosNoSurtidosPorPeriodo
+                @FechaInicio = ?,
+                @FechaFin = ?;
+            """,
+            (fecha_inicial, fecha_final),
+        ) or []
+
     def obtener_ultimo_usuario_modificacion(self, order_document_id):
         """Devuelve el autor del cambio más reciente que alteró el pedido."""
         marcadores = ', '.join('?' for _ in self.TIPOS_CAMBIO_MODIFICACION)

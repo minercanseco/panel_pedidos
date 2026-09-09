@@ -8,6 +8,12 @@ from cayal.util import Utilerias
 
 
 class ModeloPanelPedidos:
+    TIPOS_CAMBIO_MODIFICACION = (
+        15, 16, 17,  # partidas agregadas, editadas o eliminadas
+        21, 22, 23, 24, 25, 26, 27, 28, 29, 30,  # características
+        44, 45, 46, 47, 59,  # características adicionales
+    )
+
     def __init__(self, interfaz, parametros):
         self.parametros = parametros
         self.interfaz = interfaz
@@ -307,6 +313,25 @@ class ModeloPanelPedidos:
     def obtener_partidas_pedido(self, order_document_id):
         return self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
             order_document_id, partidas_eliminadas=False, partidas_producidas=True)
+
+    def obtener_ultimo_usuario_modificacion(self, order_document_id):
+        """Devuelve el autor del cambio más reciente que alteró el pedido."""
+        marcadores = ', '.join('?' for _ in self.TIPOS_CAMBIO_MODIFICACION)
+        parametros = (
+            order_document_id,
+            *self.TIPOS_CAMBIO_MODIFICACION,
+        )
+        return self.base_de_datos.fetchone(
+            f"""
+            SELECT TOP 1 U.UserName
+            FROM CayalOrdersChangeLog LO
+            INNER JOIN engUser U ON U.UserID = LO.CreatedBy
+            WHERE LO.OrderDocumentID = ?
+              AND LO.ChangeTypeID IN ({marcadores})
+            ORDER BY LO.CreatedOn DESC
+            """,
+            parametros,
+        )
 
     def obtener_ruta_y_colonia_pedido(self, order_document_id):
         consulta = self.base_de_datos.fetchall(

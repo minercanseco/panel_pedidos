@@ -221,7 +221,15 @@ class HerramientasGenerales:
             self._ticket.entrega = entrega
             self._ticket.tipo_entrega = pedido.get('Entrega', '')
 
-            self._ticket.capturista = pedido.get('Captura', '')
+            # Para un pedido modificado, producción necesita identificar a la
+            # misma persona que aparece como autora en el historial. Si el
+            # pedido no tiene cambios, se conserva al capturista original.
+            usuario_modificacion = self._modelo.obtener_ultimo_usuario_modificacion(
+                order_document_id
+            )
+            self._ticket.capturista = (
+                usuario_modificacion or pedido.get('Captura', '')
+            )
             self._ticket.ruta = pedido.get('Ruta')
 
             ruta, colonia = self._modelo.obtener_ruta_y_colonia_pedido(order_document_id)

@@ -145,6 +145,42 @@ class ModeloPanelPedidos:
             partidas_producidas=True,
         ) or []
 
+    def buscar_componentes_paquete_pedido(self, order_document_id):
+        """Devuelve los ingredientes transaccionales sólo para el detalle visual."""
+        return self.base_de_datos.fetchall(
+            """
+            SELECT T.TransactionComponentID AS DetailItemID,
+                   T.DocumentItemID AS ParentDocumentItemID,
+                   T.ComponentProductID AS ProductID,
+                   COALESCE(T.SuppliedQuantity, T.RequiredQuantity) AS Quantity,
+                   T.RequiredQuantity AS RequestedQuantity,
+                   COALESCE(T.SuppliedQuantity, 0) AS ProducedQuantity,
+                   T.UnitPrice,
+                   COALESCE(T.SuppliedQuantity, T.RequiredQuantity) * T.UnitPrice AS Subtotal,
+                   T.Description AS ProductName,
+                   T.ProductKey,
+                   T.Unit,
+                   P.ClaveUnidad,
+                   P.ClaveProdServ,
+                   P.TaxTypeID,
+                   CAST(0 AS DECIMAL(18,4)) AS DiscountPerc,
+                   CAST(0 AS DECIMAL(18,4)) AS RetentionPerc,
+                   CAST(1 AS INT) AS TipoCaptura,
+                   CASE WHEN T.SuppliedQuantity IS NULL
+                        THEN 'COMPONENTE DE PAQUETE - PENDIENTE'
+                        ELSE 'COMPONENTE DE PAQUETE - SURTIDO' END AS Comments,
+                   T.ProductTypeIDCayal,
+                   CASE WHEN T.SuppliedQuantity IS NULL THEN 0 ELSE 4 END
+                       AS ItemProductionStatusModified
+            FROM dbo.docDocumentItemOrderComponentCayal T
+            INNER JOIN dbo.orgProduct P ON P.ProductID = T.ComponentProductID
+            WHERE T.OrderDocumentID = ?
+              AND T.DeletedOn IS NULL
+            ORDER BY T.DocumentItemID, T.TransactionComponentID
+            """,
+            (order_document_id,),
+        ) or []
+
     def buscar_partidas_pedido_finalizadas(self, order_document_id):
         """Obtiene el resultado persistido por producción, incluso tras facturar."""
         return self.base_de_datos.fetchall(
@@ -568,10 +604,34 @@ class ModeloPanelPedidos:
                 'No se puede generar el documento porque existen paquetes sin '
                 f'componentes surtidos: {faltantes}'
             )
-        # El documento conserva el paquete padre para mantener coherencia
-        # fiscal. Los ingredientes permanecen en la tabla transaccional y se
-        # relacionan mediante el pedido de origen.
-        return [dict(partida) for partida in partidas]
+        # La consulta operativa puede devolver los ingredientes usando el
+        # DocumentItemID del paquete. Para totalizar y facturar se reemplaza
+        # exclusivamente ese desglose por la partida padre capturada.
+        partidas_capturadas = self.base_de_datos.fetchall(
+            "SELECT * FROM [dbo].[zvwBuscarPartidasPedidoCayal-DocumentID](?)",
+            (order_document_id,),
+        ) or []
+        padres_fiscales = [
+            dict(partida) for partida in partidas_capturadas
+            if int(partida.get('DocumentItemID', 0) or 0) in ids_padre
+               and int(partida.get('ProductTypeID', 0) or 0) == 3
+        ]
+        ids_padres_fiscales = {
+            int(partida.get('DocumentItemID', 0) or 0)
+            for partida in padres_fiscales
+        }
+        if ids_padres_fiscales != ids_padre:
+            faltantes = sorted(ids_padre - ids_padres_fiscales)
+            raise ValueError(
+                'No se encontró la partida fiscal de los siguientes paquetes: '
+                f'{faltantes}'
+            )
+
+        partidas_normales = [
+            dict(partida) for partida in partidas
+            if int(partida.get('DocumentItemID', 0) or 0) not in ids_padre
+        ]
+        return partidas_normales + padres_fiscales
 
     def insertar_servicio_a_docimicilio(self, document_id, address_detail_id):
         precio_servicio = self.base_de_datos.fetchone(

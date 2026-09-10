@@ -954,6 +954,8 @@ class ControladorPanelPedidos:
 
                 registro = {
                     'cantidad_producida': cantidad,
+                    'cantidad_pedida_detalle': producto.get('RequestedQuantity'),
+                    'cantidad_producida_detalle': producto.get('ProducedQuantity'),
                     'product_key': producto.get('ProductKey', ''),
                     'product_name': producto.get('ProductName', ''),
                     'tipo_captura': self._modelo.utilerias.resolver_icono(
@@ -964,7 +966,7 @@ class ControladorPanelPedidos:
                     'total': total,
                     'esp': producto.get('Esp', ''),
                     'product_id': product_id,
-                    'document_item_id': producto.get('DocumentItemID'),
+                    'document_item_id': producto.get('DetailItemID', producto.get('DocumentItemID')),
                     'item_production_status_modified': producto.get('ItemProductionStatusModified', 0),
                     'clave_unidad': producto.get('ClaveUnidad', ''),
                     'status_surtido': 0,
@@ -1040,6 +1042,16 @@ class ControladorPanelPedidos:
             status_id = 0
 
         partidas_producidas = self._modelo.buscar_partidas_pedido_producidas(order_document_id) or []
+        componentes_paquete = self._modelo.buscar_componentes_paquete_pedido(order_document_id) or []
+        if componentes_paquete:
+            ids_padre = {
+                int(componente.get('ParentDocumentItemID', 0) or 0)
+                for componente in componentes_paquete
+            }
+            partidas_producidas = [
+                partida for partida in partidas_producidas
+                if int(partida.get('DocumentItemID', 0) or 0) not in ids_padre
+            ] + componentes_paquete
         partidas_capturadas = self._modelo.buscar_partidas_pedido_capturadas(order_document_id) or []
         partidas_finalizadas = self._modelo.buscar_partidas_pedido_finalizadas(order_document_id) or []
 
@@ -1049,7 +1061,11 @@ class ControladorPanelPedidos:
         # de verdad. Una partida nueva todavia puede no existir en las fuentes
         # de produccion y no debe desaparecer por esa razon. Para los demas
         # estados se prefiere la vista operativa de produccion.
-        if status_id == 1:
+        if componentes_paquete:
+            # El detalle operativo del paquete siempre muestra sus ingredientes;
+            # la partida padre se conserva únicamente para generar el documento.
+            fuentes_detalle = (partidas_producidas, partidas_capturadas)
+        elif status_id == 1:
             fuentes_detalle = (partidas_capturadas, partidas_producidas)
         else:
             # Algunos estados no tienen todavía una representación operativa
@@ -1091,6 +1107,11 @@ class ControladorPanelPedidos:
             clave = clave_partida(partida)
             cantidad_capturada = cantidades_capturadas_por_document_item_id.get(clave, 0)
             cantidad_finalizada = cantidades_finalizadas_por_document_item_id.get(clave, 0)
+
+            if partida.get('cantidad_pedida_detalle') is not None:
+                cantidad_capturada = partida['cantidad_pedida_detalle']
+            if partida.get('cantidad_producida_detalle') is not None:
+                cantidad_finalizada = partida['cantidad_producida_detalle']
 
             datos_fila = [
                 cantidad_capturada,

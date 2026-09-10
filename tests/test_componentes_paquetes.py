@@ -9,6 +9,34 @@ class BaseDeDatosPaquetes:
         self.parametros_insertados = []
 
     def fetchall(self, consulta, parametros):
+        if 'zvwBuscarPartidasPedidoCayal-DocumentID' in consulta:
+            return [{
+                'DocumentItemID': 10,
+                'ProductID': 4431,
+                'ProductTypeID': 3,
+                'Quantity': 1,
+                'UnitPrice': 540.8,
+                'Subtotal': 540.8,
+                'TipoCaptura': 1,
+                'Comments': 'PAQUETE POZOLE',
+            }]
+        if 'TransactionComponentID AS DetailItemID' in consulta:
+            return [
+                {
+                    'DetailItemID': 77,
+                    'ParentDocumentItemID': 10,
+                    'ProductID': 250,
+                    'RequestedQuantity': 0.6,
+                    'ProducedQuantity': 0.5,
+                },
+                {
+                    'DetailItemID': 78,
+                    'ParentDocumentItemID': 10,
+                    'ProductID': 1429,
+                    'RequestedQuantity': 2,
+                    'ProducedQuantity': 2,
+                },
+            ]
         if 'INNER JOIN dbo.orgProduct P' in consulta and 'ProductTypeID = 3' in consulta:
             return [{'DocumentItemID': 10}]
         if 'SuppliedQuantity IS NULL' in consulta:
@@ -30,13 +58,24 @@ class ComponentesPaquetesTest(unittest.TestCase):
     def test_conserva_paquete_en_documento_despues_de_validar_surtido(self):
         modelo = self.crear_modelo()
         partidas = [
-            {'DocumentItemID': 10, 'ProductID': 4431},
+            {'DocumentItemID': 10, 'ProductID': 250},
             {'DocumentItemID': 11, 'ProductID': 100, 'ProductName': 'NORMAL'},
         ]
         resultado = modelo.validar_paquetes_surtidos(169564, partidas)
-        self.assertEqual([p['ProductID'] for p in resultado], [4431, 100])
-        self.assertNotIn('IsComponent', resultado[0])
-        self.assertNotIn('OrderComponentTransactionID', resultado[0])
+        self.assertEqual([p['ProductID'] for p in resultado], [100, 4431])
+        self.assertEqual(resultado[1]['UnitPrice'], 540.8)
+        self.assertEqual(resultado[1]['Subtotal'], 540.8)
+        self.assertNotIn('IsComponent', resultado[1])
+        self.assertNotIn('OrderComponentTransactionID', resultado[1])
+
+    def test_detalle_recupera_todos_los_ingredientes_del_paquete(self):
+        modelo = self.crear_modelo()
+
+        resultado = modelo.buscar_componentes_paquete_pedido(169564)
+
+        self.assertEqual([fila['ProductID'] for fila in resultado], [250, 1429])
+        self.assertEqual(resultado[0]['RequestedQuantity'], 0.6)
+        self.assertEqual(resultado[0]['ProducedQuantity'], 0.5)
 
     def test_rechaza_paquete_con_componentes_pendientes(self):
         modelo = self.crear_modelo([{'DocumentItemID': 10}])

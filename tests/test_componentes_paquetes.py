@@ -9,6 +9,11 @@ class BaseDeDatosPaquetes:
         self.parametros_insertados = []
 
     def fetchall(self, consulta, parametros):
+        if 'WITH PackageItems AS' in consulta:
+            return [
+                {'ParentDocumentItemID': 10, 'ProductID': 250},
+                {'ParentDocumentItemID': 10, 'ProductID': 1429},
+            ]
         if 'zvwBuscarPartidasPedidoCayal-DocumentID' in consulta:
             return [{
                 'DocumentItemID': 10,
@@ -76,6 +81,17 @@ class ComponentesPaquetesTest(unittest.TestCase):
         self.assertEqual([fila['ProductID'] for fila in resultado], [250, 1429])
         self.assertEqual(resultado[0]['RequestedQuantity'], 0.6)
         self.assertEqual(resultado[0]['ProducedQuantity'], 0.5)
+
+    def test_ticket_reemplaza_paquete_por_todos_sus_ingredientes(self):
+        modelo = self.crear_modelo()
+        partidas = [
+            {'DocumentItemID': 10, 'ProductID': 4431},
+            {'DocumentItemID': 11, 'ProductID': 100},
+        ]
+
+        resultado = modelo.desglosar_paquetes_para_ticket(169564, partidas)
+
+        self.assertEqual([fila['ProductID'] for fila in resultado], [100, 250, 1429])
 
     def test_rechaza_paquete_con_componentes_pendientes(self):
         modelo = self.crear_modelo([{'DocumentItemID': 10}])

@@ -350,6 +350,63 @@ class ModeloPanelPedidos:
         return self.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
             order_document_id, partidas_eliminadas=False, partidas_producidas=True)
 
+    def desglosar_paquetes_para_ticket(self, order_document_id, partidas):
+        """Sustituye padres promocionales por ingredientes sólo para impresión."""
+        componentes = self.base_de_datos.fetchall(
+            """
+            WITH PackageItems AS (
+                SELECT I.DocumentItemID, I.ProductID, I.Quantity
+                FROM dbo.docDocumentItemOrderCayal I
+                INNER JOIN dbo.orgProduct P ON P.ProductID = I.ProductID
+                WHERE I.DocumentID = ? AND I.DeletedOn IS NULL
+                  AND P.ProductTypeID = 3
+            )
+            SELECT PI.DocumentItemID AS ParentDocumentItemID,
+                   T.ComponentProductID AS ProductID,
+                   T.ProductKey, T.Description AS ProductName,
+                   T.RequiredQuantity AS Quantity,
+                   T.Unit, T.ProductTypeIDCayal,
+                   CAST(0 AS DECIMAL(18,4)) AS CayalPiece,
+                   CONCAT('INGREDIENTE DE PAQUETE ', T.ParentProductID) AS Comments,
+                   CAST(0 AS INT) AS ItemProductionStatusModified
+            FROM PackageItems PI
+            INNER JOIN dbo.docDocumentItemOrderComponentCayal T
+                ON T.DocumentItemID = PI.DocumentItemID
+            WHERE T.DeletedOn IS NULL
+
+            UNION ALL
+
+            SELECT PI.DocumentItemID,
+                   PC.ComponentProductID,
+                   CP.ProductKey, PC.Description,
+                   PC.Quantity * PI.Quantity,
+                   PC.Unit, CP.ProductTypeIDCayal,
+                   CAST(0 AS DECIMAL(18,4)),
+                   CONCAT('INGREDIENTE DE PAQUETE ', PI.ProductID),
+                   CAST(0 AS INT)
+            FROM PackageItems PI
+            INNER JOIN dbo.orgProductComponent PC ON PC.ProductID = PI.ProductID
+            INNER JOIN dbo.orgProduct CP ON CP.ProductID = PC.ComponentProductID
+            WHERE NOT EXISTS (
+                SELECT 1 FROM dbo.docDocumentItemOrderComponentCayal T
+                WHERE T.DocumentItemID = PI.DocumentItemID
+            )
+            ORDER BY ParentDocumentItemID, ProductName
+            """,
+            (order_document_id,),
+        ) or []
+        if not componentes:
+            return partidas
+
+        ids_padre = {
+            int(componente['ParentDocumentItemID']) for componente in componentes
+        }
+        normales = [
+            partida for partida in partidas
+            if int(partida.get('DocumentItemID', 0) or 0) not in ids_padre
+        ]
+        return normales + componentes
+
     def buscar_productos_no_surtidos(self, fecha_inicial, fecha_final=None):
         fecha_final = fecha_final or fecha_inicial
         return self.base_de_datos.fetchall(

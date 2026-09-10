@@ -252,6 +252,10 @@ class HerramientasGenerales:
             self._ticket.colonia = colonia
 
             consulta_partidas = self._modelo.obtener_partidas_pedido(order_document_id)
+            consulta_partidas = self._modelo.desglosar_paquetes_para_ticket(
+                order_document_id,
+                consulta_partidas,
+            )
             areas_imprimibles, todas_las_areas, partidas = filtrar_partidas_por_area_impresion(
                 consulta_partidas, areas_imprimibles, todas_las_areas
             )

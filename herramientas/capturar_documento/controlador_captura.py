@@ -939,9 +939,6 @@ class ControladorCaptura:
             return
 
         if filas:
-            if not self._ventanas.mostrar_mensaje_pregunta('¿Desea eliminar las partidas seleccionadas?'):
-                return
-
             partidas_seleccionadas = [
                 (
                     fila,
@@ -960,6 +957,68 @@ class ControladorCaptura:
                     == self.PRODUCTO_SERVICIO_DOMICILIO
                     for _, valores in partidas_seleccionadas):
                 self._mensajes_de_error(13)
+                return
+
+            componentes_seleccionados = [
+                valores for _, valores in partidas_seleccionadas
+                if int(valores.get('IsComponent', 0) or 0) == 1
+            ]
+            if componentes_seleccionados:
+                if len(componentes_seleccionados) != len(partidas_seleccionadas):
+                    self._ventanas.mostrar_mensaje(
+                        'No mezcle ingredientes de paquetes con partidas normales en la misma eliminación.'
+                    )
+                    return
+                transaction_ids = {
+                    int(v.get('OrderComponentTransactionID', 0) or 0)
+                    for v in componentes_seleccionados
+                }
+                if 0 in transaction_ids:
+                    self._ventanas.mostrar_mensaje(
+                        'No fue posible identificar el paquete al que pertenece el ingrediente.'
+                    )
+                    return
+                marcadores = ','.join('?' for _ in transaction_ids)
+                grupos = self._base_de_datos.fetchall(f"""
+                    SELECT DISTINCT DocumentItemID
+                    FROM dbo.docDocumentItemOrderComponentCayal
+                    WHERE TransactionComponentID IN ({marcadores})
+                """, tuple(transaction_ids)) or []
+                ids_paquete = {int(g['DocumentItemID']) for g in grupos}
+                if len(ids_paquete) != 1:
+                    self._ventanas.mostrar_mensaje(
+                        'Seleccione ingredientes pertenecientes a un solo paquete.'
+                    )
+                    return
+                document_item_id_paquete = next(iter(ids_paquete))
+
+                def _valor_escalar(resultado):
+                    if isinstance(resultado, dict):
+                        return next(iter(resultado.values()), 0)
+                    if isinstance(resultado, (tuple, list)):
+                        return resultado[0] if resultado else 0
+                    return resultado
+
+                filas_documento = self._ventanas.obtener_filas_treeview('tvw_productos') or []
+                partidas_seleccionadas = []
+                for fila_documento in filas_documento:
+                    valores = self._ventanas.procesar_fila_treeview('tvw_productos', fila_documento) or {}
+                    transaction_id = int(valores.get('OrderComponentTransactionID', 0) or 0)
+                    if not transaction_id:
+                        continue
+                    grupo = self._base_de_datos.fetchone("""
+                        SELECT DocumentItemID
+                        FROM dbo.docDocumentItemOrderComponentCayal
+                        WHERE TransactionComponentID = ?
+                    """, (transaction_id,))
+                    if int(_valor_escalar(grupo) or 0) == document_item_id_paquete:
+                        partidas_seleccionadas.append((fila_documento, valores))
+                if not self._ventanas.mostrar_mensaje_pregunta(
+                        'Esta partida pertenece a un paquete y no puede eliminarse individualmente. '
+                        '¿Desea eliminar todos los ingredientes del paquete?'):
+                    return
+            elif not self._ventanas.mostrar_mensaje_pregunta(
+                    '¿Desea eliminar las partidas seleccionadas?'):
                 return
 
             for fila, valores_fila in partidas_seleccionadas:
@@ -2013,6 +2072,17 @@ class ControladorCaptura:
                 self._modelo.agregando_partida = True
 
                 cantidad = self._utilerias.convertir_valor_a_decimal(partida['cantidad'])
+                if (
+                        self._module_id == self.MODULO_PEDIDOS
+                        and document_item_id == 0
+                        and int(partida.get('ProductTypeID', 0) or 0) == 3
+                        and cantidad != 1
+                ):
+                    self._ventanas.mostrar_mensaje(
+                        'Los paquetes promocionales deben capturarse uno por partida. '
+                        'Capture nuevamente el paquete para agregar otra unidad.'
+                    )
+                    return
                 comments = partida.get('Comments', '')
                 producto = partida.get('ProductName', '')
                 partida['TipoCaptura'] = tipo_captura
@@ -2088,6 +2158,8 @@ class ControladorCaptura:
                                  partida.get('TaxTypeID', 0),
                                  partida.get('FechaCosto'),
                                  partida.get('ItemCosto', 0),
+                                 partida.get('IsComponent', 0),
+                                 partida.get('OrderComponentTransactionID'),
                                  )
 
                 if int(partida['ProductID']) == self.PRODUCTO_SERVICIO_DOMICILIO:

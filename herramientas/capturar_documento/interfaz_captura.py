@@ -146,6 +146,8 @@ class InterfazCaptura:
         ('TaxTypeID', 0, tk.W, 1),
         ('FechaCosto', 0, tk.W, 1),
         ('ItemCosto', 0, tk.W, 1),
+        ('IsComponent', 0, tk.W, 1),
+        ('OrderComponentTransactionID', 0, tk.W, 1),
     )
 
     # Sólo controla la presentación de la tabla para compras. Los nombres y

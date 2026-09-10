@@ -513,9 +513,65 @@ class ModeloPanelPedidos:
                 partida['Subtotal'],
                 partida['TipoCaptura'],  # tipo captura
                 21,  # modulo
-                partida['Comments']
+                partida['Comments'],
+                int(partida.get('IsComponent', 0) or 0),
+                partida.get('OrderComponentTransactionID')
             )
             self.base_de_datos.insertar_partida_documento_cayal(parametros)
+
+    def validar_paquetes_surtidos(self, order_document_id, partidas):
+        """Valida el surtido sin sustituir la partida fiscal del paquete."""
+        padres = self.base_de_datos.fetchall(
+            """
+            SELECT I.DocumentItemID
+            FROM dbo.docDocumentItemOrderCayal I
+            INNER JOIN dbo.orgProduct P ON P.ProductID = I.ProductID
+            WHERE I.DocumentID = ? AND P.ProductTypeID = 3
+              AND I.DeletedOn IS NULL
+            """,
+            (order_document_id,),
+        ) or []
+        ids_padre = {int(p['DocumentItemID']) for p in padres}
+        if not ids_padre:
+            return partidas
+
+        pendientes = self.base_de_datos.fetchall(
+            """
+            SELECT DISTINCT DocumentItemID
+            FROM dbo.docDocumentItemOrderComponentCayal
+            WHERE OrderDocumentID = ? AND DeletedOn IS NULL
+              AND (SuppliedQuantity IS NULL OR FulfillmentRecordedOn IS NULL)
+            """,
+            (order_document_id,),
+        ) or []
+        ids_pendientes = {int(p['DocumentItemID']) for p in pendientes}
+        if ids_pendientes:
+            raise ValueError(
+                'No se puede generar el documento porque existen paquetes '
+                f'pendientes de surtir: {sorted(ids_pendientes)}'
+            )
+
+        componentes = self.base_de_datos.fetchall(
+            """
+            SELECT DISTINCT T.DocumentItemID
+            FROM dbo.docDocumentItemOrderComponentCayal T
+            WHERE T.OrderDocumentID = ? AND T.DeletedOn IS NULL
+              AND T.SuppliedQuantity > 0
+              AND T.FulfillmentRecordedOn IS NOT NULL
+            """,
+            (order_document_id,),
+        ) or []
+        padres_completos = {int(c['DocumentItemID']) for c in componentes}
+        if not ids_padre.issubset(padres_completos):
+            faltantes = sorted(ids_padre - padres_completos)
+            raise ValueError(
+                'No se puede generar el documento porque existen paquetes sin '
+                f'componentes surtidos: {faltantes}'
+            )
+        # El documento conserva el paquete padre para mantener coherencia
+        # fiscal. Los ingredientes permanecen en la tabla transaccional y se
+        # relacionan mediante el pedido de origen.
+        return [dict(partida) for partida in partidas]
 
     def insertar_servicio_a_docimicilio(self, document_id, address_detail_id):
         precio_servicio = self.base_de_datos.fetchone(

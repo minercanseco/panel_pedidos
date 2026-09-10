@@ -445,6 +445,14 @@ class HerramientasTimbrado:
             consulta_partidas = self._modelo.base_de_datos.buscar_partidas_pedidos_produccion_cayal(
                 order_document_id, partidas_producidas=True)
 
+            try:
+                consulta_partidas = self._modelo.validar_paquetes_surtidos(
+                    order_document_id, consulta_partidas
+                )
+            except ValueError as error:
+                self._interfaz.ventanas.mostrar_mensaje(str(error))
+                return None, []
+
             consulta_partidas_con_impuestos = self._modelo.utilerias.agregar_impuestos_productos(consulta_partidas)
             total_subtotal = 0
             total_tax = 0
@@ -479,6 +487,8 @@ class HerramientasTimbrado:
                     continue
 
                 total_documento, partidas_con_impuesto = calcular_total_pedido(order_document_id)
+                if total_documento is None:
+                    continue
                 partidas_pedidos[order_document_id] = (total_documento, partidas_con_impuesto)
 
                 if mismo_cliente:
@@ -590,8 +600,12 @@ class HerramientasTimbrado:
                 );
 
                 UPDATE DT
-                SET DT.UnitPrice = COALESCE(PE.SalePrice, P.SalePrice),
-                    DT.Total = DT.Quantity * COALESCE(PE.SalePrice, P.SalePrice),
+                SET DT.UnitPrice = CASE WHEN ISNULL(DT.IsComponent, 0) = 1
+                                        THEN DT.UnitPrice
+                                        ELSE COALESCE(PE.SalePrice, P.SalePrice) END,
+                    DT.Total = DT.Quantity * CASE WHEN ISNULL(DT.IsComponent, 0) = 1
+                                        THEN DT.UnitPrice
+                                        ELSE COALESCE(PE.SalePrice, P.SalePrice) END,
                     DT.TaxPerc = ROUND(PRO.TaxPerc, 2, 0),
                     DT.ClaveUnidad = PRO.ClaveUnidad
                 FROM dbo.docDocument D
@@ -612,7 +626,8 @@ class HerramientasTimbrado:
                 WHERE D.DocumentID = ?
                   AND DT.DeletedOn IS NULL
                   AND DT.ProductID <> 5606
-                  AND COALESCE(PE.SalePrice, P.SalePrice) IS NOT NULL
+                  AND (ISNULL(DT.IsComponent, 0) = 1
+                       OR COALESCE(PE.SalePrice, P.SalePrice) IS NOT NULL)
                 ''',
                 (document_id, document_id)
             )

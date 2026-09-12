@@ -13,6 +13,7 @@ from herramientas.capturar_documento.herramientas.agregar_epecificaciones import
 from herramientas.capturar_documento.herramientas.capturar_cliente.notebook_cliente import NoteBookCliente
 from herramientas.capturar_documento.herramientas.historial_cliente import HistorialCliente
 from herramientas.capturar_documento.herramientas.partida_compra import PartidaCompra
+from herramientas.capturar_documento.herramientas.partida_paquete_promocional import PartidaPaquetePromocional
 from herramientas.capturar_documento.herramientas.prorrateo_maniobras import ProrrateoManiobras
 from herramientas.capturar_documento.herramientas.verificador.interfaz_verificador import InterfazVerificador
 from herramientas.capturar_documento.herramientas.verificador.controlador_verificador import ControladorVerificador
@@ -285,6 +286,11 @@ class ControladorCaptura:
 
         if self._module_id in self.PARTIDAS_EDITABLES: # solo en el modulo de pedidos se puede editar la partida
             eventos['tvw_productos'] = (lambda event: self._editar_partida(), 'doble_click')
+        elif self._module_id in self.MODULO_VENTAS:
+            eventos['tvw_productos'] = (
+                lambda event: self._editar_paquete_promocional(),
+                'doble_click',
+            )
 
         self._ventanas.cargar_eventos(eventos)
 
@@ -536,6 +542,9 @@ class ControladorCaptura:
             unidad_cayal = 0 if info_producto[0]['ClaveUnidad'] == 'KGM' else 1 # Del control de captura manual
             partida['Comments'] = ''
 
+            if not self._capturar_paquete_promocional(partida):
+                return
+
             if self._module_id == 152:
                 ventana = self._ventanas.crear_popup_ttkbootstrap()
                 _ = PartidaCompra(
@@ -691,6 +700,9 @@ class ControladorCaptura:
 
                 if chk_pieza == 1 and partida['CayalPiece'] % 1 != 0:
                     self._ventanas.mostrar_mensaje('La cantidad de piezas deben ser valores no fraccionarios.')
+                    return
+
+                if not self._capturar_paquete_promocional(partida):
                     return
 
                 if self._module_id == 152:
@@ -1274,6 +1286,84 @@ class ControladorCaptura:
             valores_actualizados,
         )
         self._actualizar_totales_documento()
+
+    def _capturar_paquete_promocional(self, partida):
+        if self._module_id not in self.MODULO_VENTAS:
+            return True
+        product_id = int(partida.get('ProductID', 0) or 0)
+        if not self._modelo.es_paquete_promocional(product_id):
+            return True
+
+        if self._utilerias.convertir_valor_a_decimal(
+                partida.get('cantidad', partida.get('Quantity', 0))) != 1:
+            self._ventanas.mostrar_mensaje(
+                'Capture cada paquete promocional en un renglón independiente.'
+            )
+            return False
+
+        if not self._modelo.tabla_componentes_venta_disponible():
+            self._ventanas.mostrar_mensaje(
+                'No está instalada la tabla de componentes para ventas. '
+                'Ejecute el script 01_docDocumentItemComponentCayal.sql '
+                'antes de capturar paquetes.'
+            )
+            return False
+
+        partida['ProductTypeID'] = 3
+        componentes = self._modelo.buscar_componentes_paquete(
+            product_id,
+            partida.get('cantidad', partida.get('Quantity', 1)),
+        )
+        if not componentes:
+            self._ventanas.mostrar_mensaje(
+                'El paquete no tiene ingredientes configurados y no puede capturarse.'
+            )
+            return False
+
+        ventana = self._ventanas.crear_popup_ttkbootstrap(
+            self._master,
+            f"Capturar paquete - {partida.get('ProductName', '')}",
+        )
+        instancia = PartidaPaquetePromocional(
+            ventana, partida.get('ProductName', ''), componentes,
+            self._utilerias, self._modelo.buscar_product_id_codigo,
+        )
+        self._ventanas.centrar_ventana_ttkbootstrap(ventana)
+        ventana.wait_window()
+        if not instancia.confirmado:
+            return False
+        partida['PackageComponents'] = instancia.componentes
+        return True
+
+    def _editar_paquete_promocional(self):
+        filas = self._ventanas.obtener_seleccion_filas_treeview('tvw_productos')
+        if not filas or len(filas) != 1:
+            return
+        valores = self._ventanas.procesar_fila_treeview('tvw_productos', filas[0])
+        product_id = int(valores.get('ProductID', 0) or 0)
+        if not self._modelo.es_paquete_promocional(product_id):
+            return
+        document_item_id = int(valores.get('DocumentItemID', 0) or 0)
+        componentes = self._modelo.buscar_componentes_partida_documento(document_item_id)
+        if not componentes:
+            self._ventanas.mostrar_mensaje(
+                'No se encontró el detalle de ingredientes de este paquete.'
+            )
+            return
+        ventana = self._ventanas.crear_popup_ttkbootstrap(
+            self._master,
+            f"Editar paquete - {valores.get('Descripción', '')}",
+        )
+        instancia = PartidaPaquetePromocional(
+            ventana, valores.get('Descripción', ''), componentes,
+            self._utilerias, self._modelo.buscar_product_id_codigo,
+        )
+        self._ventanas.centrar_ventana_ttkbootstrap(ventana)
+        ventana.wait_window()
+        if instancia.confirmado:
+            self._modelo.guardar_componentes_partida_documento(
+                document_item_id, product_id, instancia.componentes
+            )
 
     def _verificador_precios(self):
         ventana = self._ventanas.crear_popup_ttkbootstrap(self._master)
@@ -2114,6 +2204,38 @@ class ControladorCaptura:
                     cantidad_piezas = int((cantidad/equivalencia_decimal))
 
                 partida['CayalPiece'] = cantidad_piezas
+                paquete_insertado = False
+                if (
+                        self._module_id in self.MODULO_VENTAS
+                        and int(partida.get('ProductTypeID', 0) or 0) == 3
+                        and document_item_id == 0
+                ):
+                    try:
+                        nuevo_item_id = self._modelo.agregar_partida_base_de_datos(
+                            partida
+                        )
+                        if not nuevo_item_id:
+                            raise RuntimeError(
+                                'La inserción no devolvió el identificador '
+                                'del renglón del paquete.'
+                            )
+                        partida['DocumentItemID'] = int(nuevo_item_id)
+                        self._modelo.guardar_componentes_partida_documento(
+                            partida['DocumentItemID'], product_id,
+                            partida.get('PackageComponents') or [],
+                        )
+                    except Exception as error:
+                        if partida.get('DocumentItemID'):
+                            self._modelo.revertir_paquete_incompleto(
+                                partida['DocumentItemID']
+                            )
+                        self._ventanas.mostrar_mensaje(
+                            'No fue posible agregar el paquete al documento. '
+                            f'Detalle: {error}'
+                        )
+                        return
+                    paquete_insertado = True
+
                 cantidad = f"{cantidad:.3f}" if partida['ClaveUnidad'] == 'KGM' else f"{cantidad:.2f}"
                 partida_tabla = (cantidad,
                                  cantidad_piezas,
@@ -2175,7 +2297,7 @@ class ControladorCaptura:
                 self.documento.items.append(partida)
                 partida_agregada = True
 
-                if self._module_id in self.MODULO_VENTAS:
+                if self._module_id in self.MODULO_VENTAS and not paquete_insertado:
                     self._modelo.agregar_partida_base_de_datos(partida)
 
                 if self.documento.document_id != 0:

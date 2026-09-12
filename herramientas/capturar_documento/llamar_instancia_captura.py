@@ -11,15 +11,15 @@ from cayal.documento import Documento
 from cayal.cliente import Cliente
 from cayal.comandos_base_datos import ComandosBaseDatos
 
-from capturar_documento.controlador_captura import ControladorCaptura
-from capturar_documento.interfaz_captura import InterfazCaptura
-from capturar_documento.modelo_captura import ModeloCaptura
-from capturar_documento.plantillas.ticket_158 import Ticket158
-from capturar_documento.herramientas.servicio_ofertas_cliente import GestorOfertasCliente
-from capturar_documento.selector_modulo.servicio_impresion_ticket import (
+from herramientas.capturar_documento.controlador_captura import ControladorCaptura
+from herramientas.capturar_documento.interfaz_captura import InterfazCaptura
+from herramientas.capturar_documento.modelo_captura import ModeloCaptura
+from herramientas.capturar_documento.plantillas.ticket_158 import Ticket158
+from herramientas.capturar_documento.herramientas.servicio_ofertas_cliente import GestorOfertasCliente
+from herramientas.capturar_documento.selector_modulo.servicio_impresion_ticket import (
     ServicioImpresionTicket,
 )
-from capturar_documento.selector_modulo.servicio_generacion_cfdi_ticket import (
+from herramientas.capturar_documento.selector_modulo.servicio_generacion_cfdi_ticket import (
     ServicioGeneracionCFDITicket,
 )
 

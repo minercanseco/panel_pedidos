@@ -408,6 +408,146 @@ class ModeloCaptura:
                                                             )
         return self.base_de_datos.buscar_info_productos(productos_ids, self.customer_type_id, business_entity_id=self.documento.business_entity_id)
 
+    def es_paquete_promocional(self, product_id):
+        resultado = self.base_de_datos.fetchone(
+            'SELECT ProductTypeID FROM dbo.orgProduct WHERE ProductID = ?',
+            (product_id,),
+        )
+        if isinstance(resultado, dict):
+            resultado = resultado.get('ProductTypeID', 0)
+        return int(resultado or 0) == 3
+
+    def tabla_componentes_venta_disponible(self):
+        return bool(self.base_de_datos.fetchone(
+            "SELECT CASE WHEN OBJECT_ID("
+            "'dbo.docDocumentItemComponentCayal', 'U') IS NULL "
+            "THEN 0 ELSE 1 END",
+        ))
+
+    def buscar_product_id_codigo(self, clave):
+        productos = self.base_de_datos.buscar_product_id_clave(clave) or []
+        if len(productos) != 1:
+            return None
+        return productos[0].get('ProductID')
+
+    def buscar_componentes_paquete(self, product_id, cantidad_paquetes=1):
+        componentes = self.base_de_datos.fetchall(
+            '''
+            SELECT PC.ProductComponentID,
+                   PC.ProductID AS ParentProductID,
+                   PC.ComponentProductID,
+                   PC.Description,
+                   PC.Quantity,
+                   PC.UnitPrice,
+                   P.ProductKey,
+                   P.Unit,
+                   P.ClaveUnidad
+            FROM dbo.orgProductComponent PC
+            INNER JOIN dbo.orgProduct P
+                    ON P.ProductID = PC.ComponentProductID
+            WHERE PC.ProductID = ?
+              AND P.DeletedOn IS NULL
+            ORDER BY PC.ProductComponentID
+            ''',
+            (product_id,),
+        ) or []
+        cantidad_paquetes = Decimal(str(cantidad_paquetes or 0))
+        resultado = []
+        for componente in componentes:
+            componente = dict(componente)
+            requerida = Decimal(str(componente.get('Quantity') or 0))
+            componente['RequiredQuantity'] = requerida * cantidad_paquetes
+            componente.setdefault('SuppliedQuantity', None)
+            resultado.append(componente)
+        return resultado
+
+    def buscar_componentes_partida_documento(self, document_item_id):
+        return self.base_de_datos.fetchall(
+            '''
+            SELECT DocumentItemComponentID, DocumentID, DocumentItemID,
+                   ProductComponentID, ParentProductID,
+                   ComponentProductID, Description, RequiredQuantity,
+                   SuppliedQuantity, UnitPrice, ProductKey, Unit, ClaveUnidad
+            FROM dbo.docDocumentItemComponentCayal
+            WHERE DocumentItemID = ? AND DeletedOn IS NULL
+            ORDER BY DocumentItemComponentID
+            ''',
+            (document_item_id,),
+        ) or []
+
+    def guardar_componentes_partida_documento(
+            self, document_item_id, parent_product_id, componentes):
+        document_id = int(self.documento.document_id or 0)
+        document_item_id = int(document_item_id or 0)
+        if document_id <= 0 or document_item_id <= 0:
+            raise ValueError('No fue posible relacionar los ingredientes con el paquete.')
+
+        self.base_de_datos.command(
+            '''
+            UPDATE dbo.docDocumentItemComponentCayal
+               SET DeletedOn = SYSDATETIME(), DeletedBy = ?
+             WHERE DocumentItemID = ? AND DeletedOn IS NULL
+            ''',
+            (self.user_id, document_item_id),
+        )
+        for componente in componentes:
+            self.base_de_datos.command(
+                '''
+                INSERT dbo.docDocumentItemComponentCayal
+                    (DocumentID, DocumentItemID, ProductComponentID,
+                     ParentProductID, ComponentProductID, Description,
+                     RequiredQuantity, SuppliedQuantity, UnitPrice,
+                     ProductKey, Unit, ClaveUnidad, CreatedBy)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''',
+                (
+                    document_id,
+                    document_item_id,
+                    componente.get('ProductComponentID'),
+                    parent_product_id,
+                    componente.get('ComponentProductID'),
+                    componente.get('Description', ''),
+                    componente.get('RequiredQuantity', 0),
+                    componente.get('SuppliedQuantity'),
+                    componente.get('UnitPrice', 0),
+                    componente.get('ProductKey'),
+                    componente.get('Unit'),
+                    componente.get('ClaveUnidad'),
+                    self.user_id,
+                ),
+            )
+
+    def eliminar_componentes_partida_documento(self, document_item_id):
+        if int(document_item_id or 0) <= 0:
+            return
+        self.base_de_datos.command(
+            '''
+            UPDATE dbo.docDocumentItemComponentCayal
+               SET DeletedOn = SYSDATETIME(), DeletedBy = ?
+             WHERE DocumentItemID = ? AND DeletedOn IS NULL
+            ''',
+            (self.user_id, document_item_id),
+        )
+
+    def revertir_paquete_incompleto(self, document_item_id):
+        """Evita dejar un padre sin trazabilidad si falla su detalle."""
+        document_item_id = int(document_item_id or 0)
+        if document_item_id <= 0:
+            return
+        try:
+            self.base_de_datos.exec_stored_procedure(
+                'zvwBorrarPartidasDocumentoCayal',
+                (
+                    self.documento.document_id,
+                    self.module_id,
+                    document_item_id,
+                    self.user_id,
+                ),
+            )
+        except Exception:
+            # Se conserva la excepción original, que contiene la causa útil.
+            pass
+
     def agregar_impuestos_productos(self, consulta_productos):
         consulta_procesada = []
         for producto in consulta_productos:
@@ -521,7 +661,7 @@ class ModeloCaptura:
                     self.module_id,
                     partida['Comments']
                 )
-                self.base_de_datos.insertar_partida_documento_cayal(parametros)
+                document_item_id = self.base_de_datos.insertar_partida_documento_cayal(parametros)
 
                 # La cabecera nace en cero. Sincronizarla inmediatamente evita
                 # que otros procesos lean un documento con partidas pero sin
@@ -534,6 +674,8 @@ class ModeloCaptura:
                     self.afectar_impuestos_documento(
                         self.documento.document_id
                     )
+
+                return document_item_id
 
         if self.module_id == self.MODULO_VALES: # modulo de vales
 

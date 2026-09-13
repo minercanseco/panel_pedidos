@@ -1,5 +1,6 @@
 import unittest
 from decimal import Decimal
+from types import SimpleNamespace
 
 from herramientas.capturar_documento.herramientas.partida_paquete_promocional import (
     PartidaPaquetePromocional,
@@ -8,6 +9,15 @@ from herramientas.capturar_documento.modelo_captura import ModeloCaptura
 
 
 class BaseDatosComponentes:
+    def __init__(self):
+        self.comandos = []
+
+    def command(self, consulta, parametros):
+        self.comandos.append((consulta, parametros))
+
+    def exec_stored_procedure(self, nombre, parametros, sin_resultados=False):
+        self.comandos.append((nombre, parametros, sin_resultados))
+
     def buscar_product_id_clave(self, clave):
         if clave == '070122':
             return [{'ProductID': 250}]
@@ -30,6 +40,37 @@ class BaseDatosComponentes:
 
 
 class PaquetesPromocionalesTest(unittest.TestCase):
+    def test_guardado_y_baja_sincronizan_kardex(self):
+        modelo = object.__new__(ModeloCaptura)
+        modelo.base_de_datos = BaseDatosComponentes()
+        modelo.documento = SimpleNamespace(document_id=900)
+        modelo.user_id = 7
+        componente = {
+            'ProductComponentID': 72, 'ComponentProductID': 250,
+            'Description': 'CEBOLLA', 'RequiredQuantity': Decimal('0.6'),
+            'SuppliedQuantity': Decimal('0.5'), 'UnitPrice': Decimal('20'),
+        }
+
+        modelo.guardar_componentes_partida_documento(9001, 4431, [componente])
+        self.assertIn(
+            'sp_GuardarComponentesPaqueteCayal',
+            modelo.base_de_datos.comandos[-1][0],
+        )
+        self.assertEqual(
+            modelo.base_de_datos.comandos[-1],
+            ('sp_GuardarComponentesPaqueteCayal',
+             (900, 9001, 4431,
+              '[{"ProductComponentID": 72, "ComponentProductID": 250, "Description": "CEBOLLA", "RequiredQuantity": "0.6", "SuppliedQuantity": "0.5", "UnitPrice": "20", "ProductKey": null, "Unit": null, "ClaveUnidad": null}]',
+              7), True),
+        )
+
+        modelo.eliminar_componentes_partida_documento(9001)
+        self.assertEqual(
+            modelo.base_de_datos.comandos[-1],
+            ('sp_SincronizarKardexPaqueteCayal',
+             (900, 9001, None, 1, 7), True),
+        )
+
     def test_multiplica_componentes_por_cantidad_del_paquete(self):
         modelo = object.__new__(ModeloCaptura)
         modelo.base_de_datos = BaseDatosComponentes()

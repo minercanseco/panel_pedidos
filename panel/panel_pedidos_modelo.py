@@ -586,6 +586,22 @@ class ModeloPanelPedidos:
         return document_id
 
     def insertar_partidas_documento(self, order_document_id, document_id, partidas, total_documento, address_detail_id):
+        if any(int(p.get('ProductTypeID', 0) or 0) == 3 for p in partidas):
+            disponible = self.base_de_datos.fetchone(
+                "SELECT CASE WHEN OBJECT_ID("
+                "'dbo.sp_SincronizarKardexPaqueteCayal', 'P') IS NULL "
+                "OR COL_LENGTH('dbo.docDocumentItem', "
+                "'OrderPackageDocumentItemID') IS NULL "
+                "OR NOT EXISTS (SELECT 1 FROM sys.parameters WHERE object_id = "
+                "OBJECT_ID('dbo.zvwInsertarProductoCayal', 'P') "
+                "AND name = '@OrderPackageDocumentItemID') "
+                "THEN 0 ELSE 1 END"
+            )
+            if not disponible:
+                raise ValueError(
+                    'Falta instalar el control de kardex para paquetes. '
+                    'Ejecute los scripts 02 y 03 antes de facturar.'
+                )
         if total_documento < 200:
             order_delivery_type_id = self.base_de_datos.fetchone(
                 'SELECT OrderDeliveryTypeID FROM docDocumentOrderCayal WHERE OrderDocumentID = ?',
@@ -610,6 +626,10 @@ class ModeloPanelPedidos:
                 int(partida.get('IsComponent', 0) or 0),
                 partida.get('OrderComponentTransactionID')
             )
+            if int(partida.get('ProductTypeID', 0) or 0) == 3:
+                # El procedimiento confirma padre fiscal e ingredientes del
+                # kardex en la misma transacción.
+                parametros += (int(partida['DocumentItemID']),)
             self.base_de_datos.insertar_partida_documento_cayal(parametros)
 
     def validar_paquetes_surtidos(self, order_document_id, partidas):
@@ -627,6 +647,22 @@ class ModeloPanelPedidos:
         ids_padre = {int(p['DocumentItemID']) for p in padres}
         if not ids_padre:
             return partidas
+
+        disponible = self.base_de_datos.fetchone(
+            "SELECT CASE WHEN OBJECT_ID("
+            "'dbo.sp_SincronizarKardexPaqueteCayal', 'P') IS NULL "
+            "OR COL_LENGTH('dbo.docDocumentItem', "
+            "'OrderPackageDocumentItemID') IS NULL "
+            "OR NOT EXISTS (SELECT 1 FROM sys.parameters WHERE object_id = "
+            "OBJECT_ID('dbo.zvwInsertarProductoCayal', 'P') "
+            "AND name = '@OrderPackageDocumentItemID') "
+            "THEN 0 ELSE 1 END"
+        )
+        if not disponible:
+            raise ValueError(
+                'Falta instalar el control de kardex para paquetes. '
+                'Ejecute los scripts 02 y 03 antes de facturar.'
+            )
 
         pendientes = self.base_de_datos.fetchall(
             """

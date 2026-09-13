@@ -1038,6 +1038,19 @@ class ControladorCaptura:
                 document_item_id = valores_fila['DocumentItemID']
                 identificador = valores_fila['UUID']
 
+                if (self._module_id in self.MODULO_VENTAS
+                        and self._modelo.es_paquete_promocional(
+                            int(valores_fila.get('ProductID', 0) or 0))):
+                    try:
+                        self._modelo.eliminar_componentes_partida_documento(
+                            document_item_id
+                        )
+                    except Exception as error:
+                        self._ventanas.mostrar_mensaje(
+                            'No fue posible eliminar los ingredientes del paquete. '
+                            f'Detalle: {error}'
+                        )
+                        return
 
                 # filtrar de los items del documento
                 partida_items = next(
@@ -1303,8 +1316,10 @@ class ControladorCaptura:
 
         if not self._modelo.tabla_componentes_venta_disponible():
             self._ventanas.mostrar_mensaje(
-                'No está instalada la tabla de componentes para ventas. '
-                'Ejecute el script 01_docDocumentItemComponentCayal.sql '
+                'No está instalado el control de componentes para ventas. '
+                'Ejecute los scripts 01_docDocumentItemComponentCayal.sql, '
+                '02_kardex_componentes_paquete.sql y '
+                '03_zvwInsertarProductoCayal_paquetes.sql '
                 'antes de capturar paquetes.'
             )
             return False
@@ -1361,9 +1376,15 @@ class ControladorCaptura:
         self._ventanas.centrar_ventana_ttkbootstrap(ventana)
         ventana.wait_window()
         if instancia.confirmado:
-            self._modelo.guardar_componentes_partida_documento(
-                document_item_id, product_id, instancia.componentes
-            )
+            try:
+                self._modelo.guardar_componentes_partida_documento(
+                    document_item_id, product_id, instancia.componentes
+                )
+            except Exception as error:
+                self._ventanas.mostrar_mensaje(
+                    'No fue posible actualizar los ingredientes del paquete. '
+                    f'Detalle: {error}'
+                )
 
     def _verificador_precios(self):
         ventana = self._ventanas.crear_popup_ttkbootstrap(self._master)

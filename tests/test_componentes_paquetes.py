@@ -7,6 +7,16 @@ class BaseDeDatosPaquetes:
     def __init__(self, pendientes=None):
         self.pendientes = pendientes or []
         self.parametros_insertados = []
+        self.comandos = []
+
+    def command(self, consulta, parametros):
+        self.comandos.append((consulta, parametros))
+
+    def exec_stored_procedure(self, nombre, parametros, sin_resultados=False):
+        self.comandos.append((nombre, parametros, sin_resultados))
+
+    def fetchone(self, consulta, parametros=()):
+        return 1
 
     def fetchall(self, consulta, parametros):
         if 'WITH PackageItems AS' in consulta:
@@ -52,6 +62,7 @@ class BaseDeDatosPaquetes:
 
     def insertar_partida_documento_cayal(self, parametros):
         self.parametros_insertados.append(parametros)
+        return 9001
 
 
 class ComponentesPaquetesTest(unittest.TestCase):
@@ -107,6 +118,19 @@ class ComponentesPaquetesTest(unittest.TestCase):
         modelo.insertar_partidas_documento(169564, 900, [partida], 200, 1)
         parametros = modelo.base_de_datos.parametros_insertados[0]
         self.assertEqual(parametros[-2:], (0, None))
+
+    def test_paquete_fiscal_sincroniza_kardex_con_partida_origen(self):
+        modelo = self.crear_modelo()
+        partida = {
+            'DocumentItemID': 10, 'ProductID': 4431, 'ProductTypeID': 3,
+            'Quantity': 1, 'UnitPrice': 540.8, 'Subtotal': 540.8,
+            'TipoCaptura': 1, 'Comments': 'PAQUETE',
+        }
+        modelo.insertar_partidas_documento(169564, 900, [partida], 200, 1)
+        self.assertEqual(modelo.base_de_datos.comandos, [])
+        self.assertEqual(
+            modelo.base_de_datos.parametros_insertados[0][-1], 10
+        )
 
 
 if __name__ == '__main__':

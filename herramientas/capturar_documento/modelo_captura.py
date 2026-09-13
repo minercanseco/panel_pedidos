@@ -1,4 +1,5 @@
 import copy
+import json
 
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
@@ -421,6 +422,11 @@ class ModeloCaptura:
         return bool(self.base_de_datos.fetchone(
             "SELECT CASE WHEN OBJECT_ID("
             "'dbo.docDocumentItemComponentCayal', 'U') IS NULL "
+            "OR OBJECT_ID('dbo.sp_GuardarComponentesPaqueteCayal', 'P') IS NULL "
+            "OR OBJECT_ID('dbo.sp_SincronizarKardexPaqueteCayal', 'P') IS NULL "
+            "OR NOT EXISTS (SELECT 1 FROM sys.parameters WHERE object_id = "
+            "OBJECT_ID('dbo.zvwInsertarProductoCayal', 'P') "
+            "AND name = '@OrderPackageDocumentItemID') "
             "THEN 0 ELSE 1 END",
         ))
 
@@ -482,51 +488,35 @@ class ModeloCaptura:
         if document_id <= 0 or document_item_id <= 0:
             raise ValueError('No fue posible relacionar los ingredientes con el paquete.')
 
-        self.base_de_datos.command(
-            '''
-            UPDATE dbo.docDocumentItemComponentCayal
-               SET DeletedOn = SYSDATETIME(), DeletedBy = ?
-             WHERE DocumentItemID = ? AND DeletedOn IS NULL
-            ''',
-            (self.user_id, document_item_id),
+        datos = [
+            {
+                'ProductComponentID': c.get('ProductComponentID'),
+                'ComponentProductID': c.get('ComponentProductID'),
+                'Description': c.get('Description', ''),
+                'RequiredQuantity': c.get('RequiredQuantity'),
+                'SuppliedQuantity': c.get('SuppliedQuantity'),
+                'UnitPrice': c.get('UnitPrice'),
+                'ProductKey': c.get('ProductKey'),
+                'Unit': c.get('Unit'),
+                'ClaveUnidad': c.get('ClaveUnidad'),
+            }
+            for c in componentes
+        ]
+        self.base_de_datos.exec_stored_procedure(
+            'sp_GuardarComponentesPaqueteCayal',
+            (document_id, document_item_id, int(parent_product_id),
+             json.dumps(datos, default=str, ensure_ascii=False), self.user_id),
+            sin_resultados=True,
         )
-        for componente in componentes:
-            self.base_de_datos.command(
-                '''
-                INSERT dbo.docDocumentItemComponentCayal
-                    (DocumentID, DocumentItemID, ProductComponentID,
-                     ParentProductID, ComponentProductID, Description,
-                     RequiredQuantity, SuppliedQuantity, UnitPrice,
-                     ProductKey, Unit, ClaveUnidad, CreatedBy)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''',
-                (
-                    document_id,
-                    document_item_id,
-                    componente.get('ProductComponentID'),
-                    parent_product_id,
-                    componente.get('ComponentProductID'),
-                    componente.get('Description', ''),
-                    componente.get('RequiredQuantity', 0),
-                    componente.get('SuppliedQuantity'),
-                    componente.get('UnitPrice', 0),
-                    componente.get('ProductKey'),
-                    componente.get('Unit'),
-                    componente.get('ClaveUnidad'),
-                    self.user_id,
-                ),
-            )
 
     def eliminar_componentes_partida_documento(self, document_item_id):
         if int(document_item_id or 0) <= 0:
             return
-        self.base_de_datos.command(
-            '''
-            UPDATE dbo.docDocumentItemComponentCayal
-               SET DeletedOn = SYSDATETIME(), DeletedBy = ?
-             WHERE DocumentItemID = ? AND DeletedOn IS NULL
-            ''',
-            (self.user_id, document_item_id),
+        self.base_de_datos.exec_stored_procedure(
+            'sp_SincronizarKardexPaqueteCayal',
+            (int(self.documento.document_id), int(document_item_id),
+             None, 1, self.user_id),
+            sin_resultados=True,
         )
 
     def revertir_paquete_incompleto(self, document_item_id):

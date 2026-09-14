@@ -52,6 +52,9 @@ class HerramientasCaptura:
             {'nombre_icono': 'HeaderFooter32.ico', 'etiqueta': 'Nuevo', 'nombre': 'capturar_nuevo',
              'hotkey': None, 'comando': self._capturar_nuevo_pedido},
 
+            {'nombre_icono': 'DocumentGenerator32.ico', 'etiqueta': 'Copiar', 'nombre': 'copiar_pedido',
+             'hotkey': None, 'comando': self._copiar_pedido},
+
             {'nombre_icono': 'EditBusinessEntity32.ico', 'etiqueta': 'E.Caracteristicas', 'nombre': 'editar_caracteristicas',
              'hotkey': '', 'comando': self._editar_caracteristicas_pedido},
 
@@ -182,6 +185,51 @@ class HerramientasCaptura:
             # Se libera después de construirlo para mantener abierto el panel.
             self._hacer_ventana_no_modal(ventana)
         except Exception:
+            self._finalizar_captura()
+            raise
+
+    def _copiar_pedido(self):
+        fila = self._obtener_valores_fila_pedido_seleccionado()
+        if not fila:
+            self._interfaz.ventanas.mostrar_mensaje('Debe seleccionar un pedido.')
+            return
+
+        source_id = int(fila['OrderDocumentID'])
+        try:
+            origen, partidas = self._modelo.preparar_copia_pedido(source_id)
+        except ValueError as error:
+            self._interfaz.ventanas.mostrar_mensaje(str(error))
+            return
+
+        documento = Documento()
+        documento.business_entity_id = int(origen['BusinessEntityID'])
+        documento.address_detail_id = int(origen['AddressDetailID'])
+        documento.cfd_type_id = int(origen.get('DocumentTypeID', 1) or 0)
+        documento.comments = origen.get('CommentsOrder', '') or ''
+
+        self._iniciar_captura()
+        ventana = None
+        try:
+            ventana = self._interfaz.ventanas.crear_popup_ttkbootstrap(
+                titulo='Copia de pedido', nombre_icono='icono_logo.ico'
+            )
+            LlamarInstanciaCapturaPedido(
+                ventana,
+                self._crear_parametros_captura(),
+                documento=documento,
+                partidas_iniciales=partidas,
+                esperar_cierre=False,
+                al_finalizar=self._postfinalizar_captura,
+            )
+            self._hacer_ventana_no_modal(ventana)
+        except (ValueError, RuntimeError) as error:
+            if ventana is not None:
+                ventana.destroy()
+            self._finalizar_captura()
+            self._interfaz.ventanas.mostrar_mensaje(str(error))
+        except Exception:
+            if ventana is not None:
+                ventana.destroy()
             self._finalizar_captura()
             raise
 

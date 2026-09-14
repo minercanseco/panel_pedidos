@@ -46,6 +46,45 @@ class ModeloPanelPedidos:
     def buscar_pedidos(self, fecha_entrega):
         return self.base_de_datos.buscar_pedidos_panel_captura_cayal(fecha_entrega)
 
+    def preparar_copia_pedido(self, order_document_id):
+        """Lee sólo lo solicitado; nunca reutiliza resultados de producción."""
+        resultados = self.base_de_datos.fetchall(
+            'SELECT StatusID, OrderTypeID, BusinessEntityID, AddressDetailID, DocumentTypeID, '
+            'CommentsOrder FROM docDocumentOrderCayal WHERE OrderDocumentID = ?',
+            (order_document_id,),
+        ) or []
+        if not resultados:
+            raise ValueError('No se encontró el pedido seleccionado.')
+        origen = resultados[0]
+        if int(origen.get('StatusID', 0) or 0) == 1:
+            raise ValueError('Seleccione un pedido que no esté abierto.')
+        if int(origen.get('OrderTypeID', 0) or 0) != 1:
+            raise ValueError('Sólo se pueden copiar pedidos, no anexos ni cambios.')
+        if not int(origen.get('AddressDetailID', 0) or 0):
+            raise ValueError('El pedido no tiene una dirección válida.')
+
+        direccion = self.base_de_datos.fetchone(
+            'SELECT AddressDetailID FROM orgAddress WHERE AddressDetailID = ? '
+            'AND BusinessEntityID = ? AND DeletedOn IS NULL',
+            (origen['AddressDetailID'], origen['BusinessEntityID']),
+        )
+        if not direccion:
+            raise ValueError('La dirección original ya no está activa.')
+
+        partidas = self.base_de_datos.fetchall(
+            'SELECT * FROM [dbo].[zvwBuscarPartidasPedidoCayal-DocumentID](?)',
+            (order_document_id,),
+        ) or []
+        partidas = [
+            partida for partida in partidas
+            if int(partida.get('ProductID', 0) or 0) != 5606
+            and int(partida.get('ItemProductionStatusModified', 0) or 0) != 3
+            and not partida.get('DeletedOn')
+        ]
+        if not partidas:
+            raise ValueError('El pedido no contiene partidas solicitadas para copiar.')
+        return origen, partidas
+
     def buscar_nombre_de_usuario(self, user_id):
         return self.base_de_datos.buscar_nombre_de_usuario(user_id)
 

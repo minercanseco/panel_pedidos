@@ -29,6 +29,7 @@ class LlamarInstanciaCapturaPedido:
             abrir_interfaz=True,
             esperar_cierre=True,
             al_finalizar=None,
+            partidas_iniciales=None,
     ):
         self._master = master
         self._parametros_contpaqi = parametros
@@ -36,6 +37,7 @@ class LlamarInstanciaCapturaPedido:
         self._user_id = int(getattr(parametros, 'id_usuario', 0) or 0)
         self._esperar_cierre = esperar_cierre
         self._al_finalizar = al_finalizar
+        self._partidas_iniciales = partidas_iniciales or []
 
         self._declarar_clases_auxiliares(
             cliente,
@@ -255,7 +257,9 @@ class LlamarInstanciaCapturaPedido:
             self._settear_documento_existente()
         else:
             business_entity_id = int(
-                getattr(self._cliente, 'business_entity_id', 0) or 0
+                getattr(self._cliente, 'business_entity_id', 0)
+                or getattr(self._documento, 'business_entity_id', 0)
+                or 0
             )
             if business_entity_id and not getattr(
                     self._cliente, 'addresses_details', None):
@@ -298,6 +302,7 @@ class LlamarInstanciaCapturaPedido:
                 self._interfaz_captura,
                 self._modelo_captura,
             )
+            self._precargar_partidas()
             self._master.wait_window()
 
             if self._interfaz_captura.guardar_documento is True:
@@ -350,12 +355,62 @@ class LlamarInstanciaCapturaPedido:
                 self._interfaz_captura,
                 self._modelo_captura,
             )
+            self._precargar_partidas()
         except Exception:
             completada = True
             self.finalizar()
             raise
 
         return self._documento.document_id
+
+    def _precargar_partidas(self):
+        """Agrega partidas de una copia mediante la captura y precios actuales."""
+        if not self._partidas_iniciales:
+            return
+        if self._documento.document_id:
+            raise ValueError('Las partidas iniciales sólo aplican a pedidos nuevos.')
+
+        preparadas = []
+        omitidas = []
+        for original in self._partidas_iniciales:
+            product_id = int(original.get('ProductID', 0) or 0)
+            nombre = original.get('ProductName') or original.get('ProductKey') or str(product_id)
+            etiqueta = f'{nombre} (ID {product_id})'
+            try:
+                cantidad = self._utilerias.convertir_valor_a_decimal(
+                    original.get('Quantity', 0)
+                )
+                if product_id == 1048 or cantidad <= 0:
+                    omitidas.append(f'{etiqueta}: partida no capturable')
+                    continue
+                productos = self._modelo_captura.buscar_info_productos_por_ids(product_id)
+                if not productos or productos[0].get('SalePrice') is None:
+                    omitidas.append(f'{etiqueta}: sin precio de venta vigente')
+                    continue
+                partida = self._utilerias.crear_partida(productos[0], cantidad)
+                partida['Comments'] = original.get('Comments', '') or ''
+                preparadas.append((original, partida, etiqueta))
+            except (TypeError, ValueError, ArithmeticError):
+                omitidas.append(f'{etiqueta}: datos de producto no válidos')
+
+        for original, partida, etiqueta in preparadas:
+            self._controlador_captura._agregar_partida_tabla(
+                partida,
+                document_item_id=0,
+                tipo_captura=0,
+                unidad_cayal=1 if original.get('CayalPiece', 0) else 0,
+                monto_cayal=0,
+            )
+            if not any(item is partida for item in self._documento.items):
+                omitidas.append(f'{etiqueta}: la captura no permitió agregarlo')
+
+        if omitidas:
+            self._interfaz_captura.ventanas.mostrar_mensaje(
+                'La copia se abrió, pero estas partidas no se pudieron agregar '
+                'con los datos actuales. Revise el pedido antes de guardarlo:\n\n'
+                + '\n'.join(omitidas)
+            )
+        return omitidas
 
     def guardar(self):
         """Crea o actualiza el pedido según el estado del Documento."""

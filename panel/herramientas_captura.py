@@ -52,7 +52,7 @@ class HerramientasCaptura:
             {'nombre_icono': 'HeaderFooter32.ico', 'etiqueta': 'Nuevo', 'nombre': 'capturar_nuevo',
              'hotkey': None, 'comando': self._capturar_nuevo_pedido},
 
-            {'nombre_icono': 'DocumentGenerator32.ico', 'etiqueta': 'Copiar', 'nombre': 'copiar_pedido',
+            {'nombre_icono': 'CopyToSale.ico', 'etiqueta': 'Copiar', 'nombre': 'copiar_pedido',
              'hotkey': None, 'comando': self._copiar_pedido},
 
             {'nombre_icono': 'EditBusinessEntity32.ico', 'etiqueta': 'E.Caracteristicas', 'nombre': 'editar_caracteristicas',

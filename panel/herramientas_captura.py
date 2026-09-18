@@ -421,11 +421,17 @@ class HerramientasCaptura:
         try:
             for fila in filas:
                 order_document_id = fila['OrderDocumentID']
-
                 valores = self._modelo.obtener_status_entrega_pedido(order_document_id)
+                folio = valores['doc_folio']
+
+                partidas = self._modelo.buscar_partidas_pedido_producidas(order_document_id)
+                if not partidas:
+                    self._interfaz.ventanas.mostrar_mensaje(
+                        f'Debe por lo menos haber una partida capturada para mandar el pedido a producir {folio}.')
+                    continue
+
                 status = valores['status_id']
                 entrega = valores['fecha_entrega']
-                folio = valores['doc_folio']
 
                 if not entrega or entrega == 'None':
                     self._interfaz.ventanas.mostrar_mensaje(

@@ -425,10 +425,17 @@ class HerramientasCaptura:
                 folio = valores['doc_folio']
 
                 partidas = self._modelo.buscar_partidas_pedido_producidas(order_document_id)
+
                 if not partidas:
                     self._interfaz.ventanas.mostrar_mensaje(
                         f'Debe por lo menos haber una partida capturada para mandar el pedido a producir {folio}.')
                     continue
+
+                if len(partidas) == 1:
+                    if partidas[0].get('ProductID',0) == 5606:
+                        self._interfaz.ventanas.mostrar_mensaje(
+                            f'Debe por lo menos haber una partida capturada para mandar el pedido a producir {folio}.')
+                        continue
 
                 status = valores['status_id']
                 entrega = valores['fecha_entrega']

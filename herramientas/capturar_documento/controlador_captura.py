@@ -1396,9 +1396,92 @@ class ControladorCaptura:
         instancia = HistorialCliente(ventana,
                                      self._modelo.base_de_datos,
                                      self._utilerias,
-                                     self.cliente.business_entity_id
+                                     self.cliente.business_entity_id,
+                                     al_aceptar=self._copiar_documento_historial,
                                      )
         ventana.wait_window()
+
+    def _copiar_documento_historial(self, document_id):
+        """Copia al pedido activo las partidas vigentes de una venta anterior."""
+        partidas = self._modelo.base_de_datos.buscar_partidas_documento(
+            document_id
+        ) or []
+        if not partidas:
+            self._ventanas.mostrar_mensaje(
+                'El documento seleccionado no contiene partidas para copiar.'
+            )
+            return False
+
+        agregadas = 0
+        omitidas = []
+        for original in partidas:
+            product_id = int(original.get('ProductID', 0) or 0)
+            nombre = (
+                original.get('ProductName')
+                or original.get('Description')
+                or original.get('ProductKey')
+                or str(product_id)
+            )
+            etiqueta = f'{nombre} (ID {product_id})'
+            try:
+                cantidad = self._utilerias.convertir_valor_a_decimal(
+                    original.get('cantidad', original.get('Quantity', 0))
+                )
+                if (
+                        product_id in (
+                            self.PRODUCTO_SERVICIO_DOMICILIO,
+                            self.PRODUCTO_MANIOBRAS,
+                        )
+                        or cantidad <= 0
+                        or original.get('DeletedOn')
+                ):
+                    continue
+
+                productos = self._modelo.buscar_info_productos_por_ids(
+                    product_id
+                )
+                if not productos or productos[0].get('SalePrice') is None:
+                    omitidas.append(
+                        f'{etiqueta}: sin precio de venta vigente'
+                    )
+                    continue
+
+                partida = self._utilerias.crear_partida(
+                    productos[0], cantidad
+                )
+                partida['Comments'] = original.get('Comments', '') or ''
+                self._agregar_partida_tabla(
+                    partida,
+                    document_item_id=0,
+                    tipo_captura=0,
+                    unidad_cayal=(
+                        1 if original.get('CayalPiece', 0) else 0
+                    ),
+                    monto_cayal=0,
+                )
+                if any(item is partida for item in self.documento.items):
+                    agregadas += 1
+                else:
+                    omitidas.append(
+                        f'{etiqueta}: la captura no permitió agregarlo'
+                    )
+            except (TypeError, ValueError, ArithmeticError):
+                omitidas.append(f'{etiqueta}: datos de producto no válidos')
+
+        if omitidas:
+            self._ventanas.mostrar_mensaje(
+                'No se pudieron copiar estas partidas con los datos actuales. '
+                'Revise el pedido antes de guardarlo:\n\n'
+                + '\n'.join(omitidas)
+            )
+        if not agregadas:
+            if not omitidas:
+                self._ventanas.mostrar_mensaje(
+                    'El documento seleccionado no contiene partidas '
+                    'capturables.'
+                )
+            return False
+        return True
     #------------------------------------------------------------------------------------------------------------------
     #------------------------------------------------------------------------------------------------------------------
 

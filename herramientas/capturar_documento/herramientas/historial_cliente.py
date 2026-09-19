@@ -3,7 +3,8 @@ from cayal.ventanas import Ventanas
 
 
 class HistorialCliente:
-    def __init__(self, master, base_de_datos, utilerias, bussiness_entity_id):
+    def __init__(self, master, base_de_datos, utilerias,
+                 bussiness_entity_id, al_aceptar=None):
 
         self._master = master
         self._ventanas = Ventanas(self._master)
@@ -11,6 +12,7 @@ class HistorialCliente:
         self._utilerias = utilerias
 
         self._business_entity_id = bussiness_entity_id
+        self._al_aceptar = al_aceptar
         self._cargar_frames()
         self._cargar_componentes()
         self._rellenar_componentes()
@@ -50,7 +52,7 @@ class HistorialCliente:
             'tvw_detalle': ('frame_tabla_detalle', self._crear_columnas_tabla_detalle(), 10, 'Danger'),
             'txt_comentario_documento':('frame_comentarios', None, ' ', None ),
             'txt_especificacion':('frame_comentarios_especificaciones', None, ' ', None ),
-            'btn_aceptar': ('frame_botones', None, 'Aceptar', None),
+            'btn_aceptar': ('frame_botones', None, 'Agregar', None),
             'btn_cancelar': ('frame_botones', 'Danger', 'Cancelar', None),
         }
         self._ventanas.crear_componentes(componentes)
@@ -72,7 +74,7 @@ class HistorialCliente:
     def _cargar_eventos(self):
         eventos = {
             'btn_cancelar': self._master.destroy,
-            'btn_aceptar': self._master.destroy,
+            'btn_aceptar': self._aceptar_documento,
             'tvw_documentos':(lambda event:self._rellenar_tabla_detalle(), 'doble_click')
         }
         self._ventanas.cargar_eventos(eventos)
@@ -82,6 +84,32 @@ class HistorialCliente:
             'tvw_detalle': (lambda event: self._actualizar_comentario_especificacion(), 'seleccion')
         }
         self._ventanas.cargar_eventos(evento_adicional)
+
+    def _aceptar_documento(self):
+        if not self._ventanas.validar_seleccion_una_fila_treeview(
+                'tvw_documentos'):
+            self._ventanas.mostrar_mensaje(
+                'Debe seleccionar el documento que desea copiar.'
+            )
+            return
+
+        fila = self._ventanas.obtener_seleccion_filas_treeview(
+            'tvw_documentos'
+        )
+        valores = self._ventanas.procesar_fila_treeview(
+            'tvw_documentos', fila
+        )
+        document_id = int(valores.get('DocumentID', 0) or 0)
+        if not document_id:
+            self._ventanas.mostrar_mensaje(
+                'No fue posible identificar el documento seleccionado.'
+            )
+            return
+
+        if callable(self._al_aceptar):
+            if self._al_aceptar(document_id) is False:
+                return
+        self._master.destroy()
 
     def _actualizar_comentario_documento(self):
         self._limpiar_componentes()

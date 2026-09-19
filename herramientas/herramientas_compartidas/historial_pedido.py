@@ -66,6 +66,7 @@ class HistorialPedido:
                                 FROM CayalOrdersChangeLog LO INNER JOIN
                                     engUser U ON LO.CreatedBy = U.UserID
                                 WHERE LO.OrderDocumentID = ?
+                                ORDER BY ID
                             """, (self._order_document_id,))
 
     def _buscar_info_pedido(self):

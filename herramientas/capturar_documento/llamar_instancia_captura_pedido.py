@@ -744,6 +744,29 @@ class LlamarInstanciaCapturaPedido:
                 comments=comentario,
             )
 
+    def _marcar_modificaciones_en_proceso(self, document_id):
+        """Marca el pedido si sus partidas cambiaron durante producción."""
+        items_extra = getattr(self._documento, 'items_extra', []) or []
+        tiene_modificaciones = any(
+            int(partida.get('ItemProductionStatusModified', 0) or 0)
+            in (1, 2, 3)
+            for partida in items_extra
+        )
+        if not tiene_modificaciones:
+            return
+
+        # La condición se evalúa en el mismo UPDATE para no marcar un pedido
+        # cuyo estado haya cambiado mientras se guardaban sus partidas.
+        self._base_de_datos.command(
+            """
+            UPDATE docDocumentOrderCayal
+               SET WithModifications = 1
+             WHERE OrderDocumentID = ?
+               AND StatusID = 2;
+            """,
+            (document_id,),
+        )
+
     def _actualizar_cabecera(self, document_id):
         self._base_de_datos.actualizar_totales_pedido_cayal(
             document_id,
@@ -795,6 +818,7 @@ class LlamarInstanciaCapturaPedido:
             self._guardar_respaldos_partidas(document_id)
             self._guardar_bitacora_partidas(document_id)
             self._actualizar_cabecera(document_id)
+            self._marcar_modificaciones_en_proceso(document_id)
 
         except Exception:
             self._procesando_documento = False

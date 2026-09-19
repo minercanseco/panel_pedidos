@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace
 
 from panel.panel_pedidos_modelo import ModeloPanelPedidos
 
@@ -131,6 +132,22 @@ class ComponentesPaquetesTest(unittest.TestCase):
         self.assertEqual(
             modelo.base_de_datos.parametros_insertados[0][-1], 10
         )
+
+    def test_servicio_domicilio_marca_documento_con_entrega(self):
+        modelo = self.crear_modelo()
+        modelo.utilerias = SimpleNamespace(
+            calcular_monto_sin_iva=lambda precio: precio
+        )
+
+        modelo.insertar_servicio_a_docimicilio(900, 1)
+
+        self.assertEqual(
+            modelo.base_de_datos.parametros_insertados[0][1],
+            5606,
+        )
+        sql, parametros = modelo.base_de_datos.comandos[0]
+        self.assertIn('SET WithDelivery = 1', sql)
+        self.assertEqual(parametros, (900,))
 
 
 if __name__ == '__main__':

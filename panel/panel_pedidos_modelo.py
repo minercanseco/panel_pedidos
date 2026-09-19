@@ -551,6 +551,18 @@ class ModeloPanelPedidos:
                              UPDATE docDocumentOrderCayal SET --SentToPrepare = GETDATE(),
                                                             SentToPrepareBy = ?,
                                                             StatusID = 2,
+                                                            WithFrozenProducts = CASE
+                                                                WHEN EXISTS (
+                                                                    SELECT 1
+                                                                      FROM docDocumentItemOrderCayal I
+                                                                      INNER JOIN orgProduct P
+                                                                              ON P.ProductID = I.ProductID
+                                                                     WHERE I.DocumentID = ?
+                                                                       AND I.DeletedOn IS NULL
+                                                                       AND ISNULL(P.FrozenProduct, 0) = 1
+                                                                ) THEN 1
+                                                                ELSE ISNULL(WithFrozenProducts, 0)
+                                                            END,
                                                             UserID = NULL,
                                                             PriorityID = (Case WHEN OrderTypeID = 1 THEN 1 ELSE 2 END)
                             WHERE OrderDocumentID = ?
@@ -558,6 +570,7 @@ class ModeloPanelPedidos:
                             order_document_id,
                             order_document_id,
                             self.user_id,
+                            order_document_id,
                             order_document_id,
                         ))
 
@@ -783,6 +796,10 @@ class ModeloPanelPedidos:
             21  # modulo
         )
         self.base_de_datos.insertar_partida_documento_cayal(parametros)
+        self.base_de_datos.command(
+            'UPDATE docDocument SET WithDelivery = 1 WHERE DocumentID = ?',
+            (document_id,),
+        )
 
     def crear_comentario_taras(self, order_document_ids):
         comentario = ''

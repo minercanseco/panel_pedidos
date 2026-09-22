@@ -352,6 +352,8 @@ class EditarNombrePedido:
         self._buscar_ofertas()
 
         if abrir:
+            self._actualizar_apariencia_forma()
+            self._asignar_parametros_a_documento()
             self._llamar_instancia()
         if actualizar:
             self._actualizar_apariencia_forma()
@@ -954,6 +956,7 @@ class EditarNombrePedido:
             parametros = (
                 self._cliente.business_entity_id,
                 self._documento.address_detail_id,
+                self._documento.depot_id,
                 self._cliente.zone_id,
                 self._documento.cfd_type_id,
                 delivery_cost,
@@ -965,6 +968,7 @@ class EditarNombrePedido:
                     UPDATE docDocumentOrderCayal SET 
                             BusinessEntityID = ?,
                             AddressDetailID = ?,
+                            DepotID = ?,
                             ZoneID = ?,
                             DocumentTypeID = ?,
                             OrderDeliveryCost = ?

@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -663,10 +664,71 @@ class GeneradorTicketCliente:
         try:
             self._html_a_imagen(ticket, self._ruta_archivo)
             print(f"Imagen del ticket guardada en '{self._ruta_archivo}'.")
-            return self.copy_file_to_clipboard(self._ruta_archivo)
+            paginas = self._dividir_imagen_ticket(self._ruta_archivo)
+            if len(paginas) == 1:
+                return self.copy_file_to_clipboard(paginas[0])
+
+            if sys.platform == "win32":
+                self._copiar_archivos_portapapeles_windows(paginas)
+                print(
+                    f"Las {len(paginas)} páginas del ticket fueron copiadas "
+                    "al portapapeles."
+                )
+                return True
+
+            print(
+                f"El ticket se dividió en {len(paginas)} páginas. "
+                "El copiado conjunto sólo está disponible en Windows."
+            )
+            self._copiar_ruta_portapapeles(os.path.dirname(paginas[0]))
+            return False
         except Exception as e:
             print(f"Error al generar la imagen del ticket: {e}")
             raise
+
+    @staticmethod
+    def _dividir_imagen_ticket(ruta_imagen, alto_maximo=1500, alto_minimo=900):
+        """Divide tickets altos sin reducir su ancho ni su resolución."""
+        from PIL import Image
+
+        with Image.open(ruta_imagen) as imagen:
+            imagen.load()
+            if imagen.height <= alto_maximo:
+                return [ruta_imagen]
+
+            escala_grises = imagen.convert("L")
+            ancho, alto = imagen.size
+            inicio = 0
+            cortes = []
+
+            while alto - inicio > alto_maximo:
+                desde = min(inicio + alto_minimo, alto - 1)
+                hasta = min(inicio + alto_maximo, alto - 1)
+                corte = hasta
+
+                # Los productos ya están separados por líneas punteadas. Se
+                # busca la última línea suficientemente larga antes del límite
+                # para no partir una descripción o una observación.
+                for y in range(hasta, desde - 1, -1):
+                    fila = escala_grises.crop((5, y, ancho - 5, y + 1))
+                    pixeles_oscuros = sum(fila.histogram()[:100])
+                    if pixeles_oscuros >= max(20, int((ancho - 10) * 0.12)):
+                        corte = y + 1
+                        break
+
+                cortes.append((inicio, corte))
+                inicio = corte
+
+            cortes.append((inicio, alto))
+            base, extension = os.path.splitext(ruta_imagen)
+            paginas = []
+            for numero, (superior, inferior) in enumerate(cortes, start=1):
+                ruta_pagina = f"{base}_pagina_{numero:02d}{extension}"
+                pagina = imagen.crop((0, superior, ancho, inferior))
+                pagina.save(ruta_pagina, "PNG")
+                paginas.append(ruta_pagina)
+
+        return paginas
 
     def _icono_cayal(self):
         return """
@@ -788,6 +850,69 @@ class GeneradorTicketCliente:
                 kernel32.GlobalFree(manejador_png)
             if not dib_transferido:
                 kernel32.GlobalFree(manejador_dib)
+
+    @staticmethod
+    def _crear_lista_archivos_windows(rutas):
+        """Construye el bloque DROPFILES Unicode usado por el portapapeles."""
+        rutas_absolutas = [os.path.abspath(ruta) for ruta in rutas]
+        nombres = "\0".join(rutas_absolutas) + "\0\0"
+        encabezado = struct.pack("IiiII", 20, 0, 0, 0, 1)
+        return encabezado + nombres.encode("utf-16le")
+
+    @classmethod
+    def _copiar_archivos_portapapeles_windows(cls, rutas):
+        """Copia varias páginas como archivos para pegarlas juntas."""
+        import ctypes
+
+        datos = cls._crear_lista_archivos_windows(rutas)
+        kernel32 = ctypes.windll.kernel32
+        user32 = ctypes.windll.user32
+        global_mem_moveable = 0x0002
+        formato_hdrop = 15
+
+        kernel32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+        kernel32.GlobalAlloc.restype = ctypes.c_void_p
+        kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalLock.restype = ctypes.c_void_p
+        kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalFree.argtypes = [ctypes.c_void_p]
+        user32.OpenClipboard.argtypes = [ctypes.c_void_p]
+        user32.OpenClipboard.restype = ctypes.c_bool
+        user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+        user32.SetClipboardData.restype = ctypes.c_void_p
+
+        manejador = kernel32.GlobalAlloc(global_mem_moveable, len(datos))
+        if not manejador:
+            raise RuntimeError("Windows no pudo reservar memoria")
+        puntero = kernel32.GlobalLock(manejador)
+        if not puntero:
+            kernel32.GlobalFree(manejador)
+            raise RuntimeError("Windows no pudo acceder a la memoria")
+        ctypes.memmove(puntero, datos, len(datos))
+        kernel32.GlobalUnlock(manejador)
+
+        abierto = False
+        for _ in range(3):
+            if user32.OpenClipboard(None):
+                abierto = True
+                break
+            time.sleep(0.05)
+        if not abierto:
+            kernel32.GlobalFree(manejador)
+            raise RuntimeError("El portapapeles está ocupado")
+
+        transferido = False
+        try:
+            user32.EmptyClipboard()
+            transferido = bool(
+                user32.SetClipboardData(formato_hdrop, manejador)
+            )
+            if not transferido:
+                raise RuntimeError("Windows rechazó la lista de imágenes")
+        finally:
+            user32.CloseClipboard()
+            if not transferido:
+                kernel32.GlobalFree(manejador)
 
     @staticmethod
     def _copiar_ruta_portapapeles(file_path):

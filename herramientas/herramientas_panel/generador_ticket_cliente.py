@@ -198,13 +198,22 @@ class GeneradorTicketCliente:
             table {{
                 width: 100%;
                 border-collapse: collapse;
+                table-layout: fixed;
             }}
             table th, table td {{
                 text-align: left;
-                padding: 5px;
+                padding: 5px 3px;
+                overflow-wrap: anywhere;
             }}
+            table th:nth-child(1), table td:nth-child(1) {{ width: 15%; }}
+            table th:nth-child(2), table td:nth-child(2) {{ width: 14%; }}
+            table th:nth-child(3), table td:nth-child(3) {{ width: 35%; }}
+            table th:nth-child(4), table td:nth-child(4) {{ width: 18%; white-space: nowrap; }}
+            table th:nth-child(5), table td:nth-child(5) {{ width: 18%; white-space: nowrap; }}
             table th {{
                 border-bottom: 1px solid #000;
+                font-size: 9px;
+                white-space: nowrap;
             }}
             .observacion {{
                 font-size: 10px; /* Tamaño de fuente 8px */
@@ -372,13 +381,22 @@ class GeneradorTicketCliente:
             table {{
                 width: 100%;
                 border-collapse: collapse;
+                table-layout: fixed;
             }}
             table th, table td {{
                 text-align: left;
-                padding: 5px;
+                padding: 5px 3px;
+                overflow-wrap: anywhere;
             }}
+            table th:nth-child(1), table td:nth-child(1) {{ width: 15%; }}
+            table th:nth-child(2), table td:nth-child(2) {{ width: 14%; }}
+            table th:nth-child(3), table td:nth-child(3) {{ width: 35%; }}
+            table th:nth-child(4), table td:nth-child(4) {{ width: 18%; white-space: nowrap; }}
+            table th:nth-child(5), table td:nth-child(5) {{ width: 18%; white-space: nowrap; }}
             table th {{
                 border-bottom: 1px solid #000;
+                font-size: 9px;
+                white-space: nowrap;
             }}
             .observacion {{
                 font-size: 10px; /* Tamaño de fuente 8px */

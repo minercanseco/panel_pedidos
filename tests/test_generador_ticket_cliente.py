@@ -11,6 +11,19 @@ from herramientas.herramientas_panel.generador_ticket_cliente import (
 
 
 class GeneradorTicketClienteTest(unittest.TestCase):
+    def test_tabla_ajusta_todas_las_columnas_al_ancho_del_ticket(self):
+        generador = GeneradorTicketCliente()
+
+        tickets = (
+            generador.generar_ticket(),
+            generador.generar_ticket_transferencia(),
+        )
+
+        for html in tickets:
+            self.assertIn('table-layout: fixed', html)
+            self.assertIn('table td:nth-child(5)', html)
+            self.assertIn('width: 18%; white-space: nowrap', html)
+
     def test_ticket_alto_se_divide_sin_reducir_el_ancho(self):
         with tempfile.TemporaryDirectory() as directorio:
             ruta = os.path.join(directorio, 'ticket.png')

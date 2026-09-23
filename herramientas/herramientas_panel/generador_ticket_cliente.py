@@ -700,7 +700,7 @@ class GeneradorTicketCliente:
             print(f"Error al generar la imagen del ticket: {e}")
             raise
 
-    def _generar_paginas_ticket(self, ruta_imagen, partidas_por_pagina=10):
+    def _generar_paginas_ticket(self, ruta_imagen, partidas_por_pagina=15):
         """Genera una imagen por cada bloque de partidas del pedido."""
         productos_originales = self.productos
         bloques = [
@@ -728,50 +728,6 @@ class GeneradorTicketCliente:
                 print(f"Imagen del ticket guardada en '{ruta_pagina}'.")
         finally:
             self.productos = productos_originales
-
-        return paginas
-
-    @staticmethod
-    def _dividir_imagen_ticket(ruta_imagen, alto_maximo=1500, alto_minimo=900):
-        """Divide tickets altos sin reducir su ancho ni su resolución."""
-        from PIL import Image
-
-        with Image.open(ruta_imagen) as imagen:
-            imagen.load()
-            if imagen.height <= alto_maximo:
-                return [ruta_imagen]
-
-            escala_grises = imagen.convert("L")
-            ancho, alto = imagen.size
-            inicio = 0
-            cortes = []
-
-            while alto - inicio > alto_maximo:
-                desde = min(inicio + alto_minimo, alto - 1)
-                hasta = min(inicio + alto_maximo, alto - 1)
-                corte = hasta
-
-                # Los productos ya están separados por líneas punteadas. Se
-                # busca la última línea suficientemente larga antes del límite
-                # para no partir una descripción o una observación.
-                for y in range(hasta, desde - 1, -1):
-                    fila = escala_grises.crop((5, y, ancho - 5, y + 1))
-                    pixeles_oscuros = sum(fila.histogram()[:100])
-                    if pixeles_oscuros >= max(20, int((ancho - 10) * 0.12)):
-                        corte = y + 1
-                        break
-
-                cortes.append((inicio, corte))
-                inicio = corte
-
-            cortes.append((inicio, alto))
-            base, extension = os.path.splitext(ruta_imagen)
-            paginas = []
-            for numero, (superior, inferior) in enumerate(cortes, start=1):
-                ruta_pagina = f"{base}_pagina_{numero:02d}{extension}"
-                pagina = imagen.crop((0, superior, ancho, inferior))
-                pagina.save(ruta_pagina, "PNG")
-                paginas.append(ruta_pagina)
 
         return paginas
 

@@ -677,12 +677,8 @@ class GeneradorTicketCliente:
         directorio = self._ruta_archivo if os.path.isdir(self._ruta_archivo) else os.path.expanduser("~/Documents")
         self._ruta_archivo = os.path.join(directorio, nombre_archivo)
 
-        # Generar el HTML en memoria y renderizarlo como una imagen de altura variable.
-        ticket = self.generar_ticket() if self.forma_pago_id != 6 else self.generar_ticket_transferencia()
         try:
-            self._html_a_imagen(ticket, self._ruta_archivo)
-            print(f"Imagen del ticket guardada en '{self._ruta_archivo}'.")
-            paginas = self._dividir_imagen_ticket(self._ruta_archivo)
+            paginas = self._generar_paginas_ticket(self._ruta_archivo)
             if len(paginas) == 1:
                 return self.copy_file_to_clipboard(paginas[0])
 
@@ -703,6 +699,37 @@ class GeneradorTicketCliente:
         except Exception as e:
             print(f"Error al generar la imagen del ticket: {e}")
             raise
+
+    def _generar_paginas_ticket(self, ruta_imagen, partidas_por_pagina=10):
+        """Genera una imagen por cada bloque de partidas del pedido."""
+        productos_originales = self.productos
+        bloques = [
+            productos_originales[indice:indice + partidas_por_pagina]
+            for indice in range(0, len(productos_originales), partidas_por_pagina)
+        ] or [[]]
+        base, extension = os.path.splitext(ruta_imagen)
+        paginas = []
+
+        try:
+            for numero, bloque in enumerate(bloques, start=1):
+                self.productos = bloque
+                ticket = (
+                    self.generar_ticket()
+                    if self.forma_pago_id != 6
+                    else self.generar_ticket_transferencia()
+                )
+                ruta_pagina = (
+                    ruta_imagen
+                    if len(bloques) == 1
+                    else f"{base}_pagina_{numero:02d}{extension}"
+                )
+                self._html_a_imagen(ticket, ruta_pagina)
+                paginas.append(ruta_pagina)
+                print(f"Imagen del ticket guardada en '{ruta_pagina}'.")
+        finally:
+            self.productos = productos_originales
+
+        return paginas
 
     @staticmethod
     def _dividir_imagen_ticket(ruta_imagen, alto_maximo=1500, alto_minimo=900):

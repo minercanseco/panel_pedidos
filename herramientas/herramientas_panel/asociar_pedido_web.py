@@ -1,5 +1,4 @@
 import tkinter as tk
-from cmath import phase
 
 from cayal.ventanas import Ventanas
 from cayal.cliente import Cliente
@@ -32,26 +31,25 @@ class AsociarPedidoWeb:
                                 {'row': 0, 'column': 0, 'sticky': tk.NSEW}),
 
             'frame_cliente': ('frame_principal', 'Prospecto cliente:',
-                              {'row': 0,  'column': 0, 'pady': 2, 'padx': 2,
+                              {'row': 0, 'column': 0, 'pady': 2, 'padx': 2,
                                'sticky': tk.NSEW}),
 
             'frame_direccion': ('frame_principal', 'Dirección prospecto:',
-            {'row': 0, 'column': 1, 'pady': 2, 'padx': 2,
-             'sticky': tk.NSEW}),
+                                {'row': 0, 'column': 1, 'pady': 2, 'padx': 2,
+                                 'sticky': tk.NSEW}),
 
             'frame_acciones': ('frame_principal', None,
-                              {'row': 2, 'column': 0, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
+                               {'row': 2, 'column': 0, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
 
             'frame_cbx': ('frame_acciones', None,
-            {'row': 0, 'column': 0, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
+                          {'row': 0, 'column': 0, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
 
             'frame_botones': ('frame_acciones', None,
                               {'row': 0, 'column': 1, 'padx': 0, 'pady': 5, 'sticky': tk.W}),
 
             'frame_tabla': ('frame_principal', 'Posibles coincidencias',
-                              {'row': 3, 'columnspan': 2, 'column': 0, 'pady': 2, 'padx': 2,
-                               'sticky': tk.NSEW}),
-
+                            {'row': 3, 'columnspan': 2, 'column': 0, 'pady': 2, 'padx': 2,
+                             'sticky': tk.NSEW}),
 
         }
         self._ventanas.crear_frames(frames)
@@ -80,8 +78,8 @@ class AsociarPedidoWeb:
 
     def _cargar_eventos(self):
         eventos = {
-            'btn_guardar':self._guardar_afectacion,
-            'btn_cancelar':self._master.destroy
+            'btn_guardar': self._guardar_afectacion,
+            'btn_cancelar': self._master.destroy
         }
         self._ventanas.cargar_eventos(eventos)
 
@@ -100,86 +98,92 @@ class AsociarPedidoWeb:
 
     def _rellenar_tabla(self):
         info = self._obtener_info_usuario()
+        if not info:
+            return
 
-
-        nombre = info.get('FullName',None)
-        telefono = info.get('Telefono', None)
-        correo = info.get('Email', None)
-        uuid = info.get('UUID',None)
-
-        info_direccion = self._base_de_datos.buscar_detalle_de_direccion(address_detail_id=0, uuid=uuid)
+        nombre = info.get('FullName')
+        correo = info.get('Email')
+        uuid = info.get('UUID')
+        info_direccion = self._obtener_info_direccion(info)
         if not info_direccion:
             return
-        info_direccion =  info_direccion[0]
+
+        telefono = info_direccion.get('Celular') or info_direccion.get('Telefono')
 
         self._info_pedido['UUID'] = uuid
+        self._info_pedido['UserClientID'] = info.get('UserClientID')
+        self._info_pedido['AddressDetailID'] = info.get('AddressDetailID')
 
-        if info:
-            componentes  = {
-                'tbx_nombre': nombre,
-                'tbx_telefono': info_direccion.get('Celular', ''),
-                'tbx_correo': correo,
-                'tbx_direccion': info_direccion.get('AddressName', ''),
-                'tbx_calle': info_direccion.get('Street', ''),
-                'tbx_numero': info_direccion.get('ExtNumber', ''),
-                'txt_comentarios': info_direccion.get('Comments', ''),
+        componentes = {
+            'tbx_nombre': nombre,
+            'tbx_telefono': telefono,
+            'tbx_correo': correo,
+            'tbx_direccion': info_direccion.get('AddressName', ''),
+            'tbx_calle': info_direccion.get('Street', ''),
+            'tbx_numero': info_direccion.get('ExtNumber', ''),
+            'txt_comentarios': info_direccion.get('Comments', ''),
+        }
+        for componente, valor in componentes.items():
+            self._ventanas.insertar_input_componente(componente, valor or '')
+            self._ventanas.bloquear_componente(componente)
 
-            }
-            for componente, valor in componentes.items():
-                self._ventanas.insertar_input_componente(componente, valor)
-                self._ventanas.bloquear_componente(componente)
-
-
-            consulta = self._buscar_clientes_probables(nombre, telefono, correo)
-            if consulta:
-                self._ventanas.rellenar_table_view('tbv_clientes', self._crear_columnas_tabla(), consulta)
+        consulta = self._buscar_clientes_probables(nombre, telefono, correo)
+        if consulta:
+            self._ventanas.rellenar_table_view('tbv_clientes', self._crear_columnas_tabla(), consulta)
 
     def _obtener_info_usuario(self):
-
-        uuid = self._base_de_datos.fetchone(
-            'SELECT UUID FROM docDocumentOrderCayal WHERE OrderDocumentID = ?',
-            (self._info_pedido['OrderDocumentID'],)
-        )
-        if not uuid:
-            return {}
-        uuid = str(uuid)
         info = self._base_de_datos.fetchall("""
-            SELECT 
-                FullName, 
-                Email,
-                NULL Telefono,
-                ReceptorUsoCFDI,
-                RFC,
-                MetodoPago,
-                FormaPago,
-                CompanyTypeName,
-                FiscalZipCode
-            FROM engUserClient
-            WHERE FirstOrderUUID= ?
-        """,(uuid,))
+            SELECT TOP (1)
+                U.UserClientID,
+                U.FullName,
+                U.Email,
+                U.FirstOrderUUID,
+                U.ReceptorUsoCFDI,
+                U.RFC,
+                U.MetodoPago,
+                U.FormaPago,
+                U.CompanyTypeName,
+                U.FiscalZipCode,
+                D.UUID,
+                D.AddressDetailID
+            FROM docDocumentOrderCayal D
+            INNER JOIN engUserClient U
+                ON U.UserClientID = D.UserClientID
+            WHERE D.OrderDocumentID = ?
+              AND (
+                    NULLIF(LTRIM(RTRIM(ISNULL(U.FirstOrderUUID, ''))), '') IS NULL
+                    OR U.FirstOrderUUID = D.UUID
+                  )
+        """, (self._info_pedido['OrderDocumentID'],))
         if not info:
             return {}
 
-        info = info[0]
-        info['UUID'] = uuid
+        return info[0]
 
-        return info
+    def _obtener_info_direccion(self, info_usuario):
+        address_detail_id = info_usuario.get('AddressDetailID') or 0
+        uuid = info_usuario.get('UUID')
+        direcciones = self._base_de_datos.buscar_detalle_de_direccion(
+            address_detail_id=address_detail_id,
+            uuid=None if address_detail_id else uuid,
+        )
+        return direcciones[0] if direcciones else {}
 
     def _buscar_clientes_probables(self, nombre, telefono, correo):
-        return  self._base_de_datos.fetchall("""
+        return self._base_de_datos.fetchall("""
             DECLARE @NombreBuscado   NVARCHAR(200) = ?;
             DECLARE @TelefonoBuscado NVARCHAR(50)  = ?;
             DECLARE @CorreoBuscado   NVARCHAR(200) = ?;
-            
+
             SELECT 
                 E.BusinessEntityID,
                 E.OfficialName,
                 E.CommercialName,
                 Telefono.ChannelValue AS Telefono,
                 Correo.ChannelValue   AS Correo
-                
+
             FROM orgBusinessEntity E
-            
+
             LEFT JOIN (
                 SELECT 
                     CH.BusinessEntityID,
@@ -190,7 +194,7 @@ class AsociarPedidoWeb:
                     AND CH.ChannelTypeID = 1
             ) Correo 
                 ON E.BusinessEntityID = Correo.BusinessEntityID
-            
+
             LEFT JOIN (
                 SELECT 
                     CH.BusinessEntityID,
@@ -201,10 +205,10 @@ class AsociarPedidoWeb:
                     AND CH.ChannelTypeID = 2
             ) Telefono 
                 ON E.BusinessEntityID = Telefono.BusinessEntityID
-            
+
             WHERE 
                 E.DeletedOn IS NULL
-            
+
                 AND
                 (
                     (
@@ -216,9 +220,9 @@ class AsociarPedidoWeb:
                             OR E.CommercialName LIKE '%' + REPLACE(@NombreBuscado, ' ', '%') + '%'
                         )
                     )
-            
+
                     OR
-            
+
                     (
                         @TelefonoBuscado IS NOT NULL
                         AND @TelefonoBuscado <> ''
@@ -232,9 +236,9 @@ class AsociarPedidoWeb:
                         ')', '')
                         LIKE '%' + @TelefonoBuscado + '%'
                     )
-            
+
                     OR
-            
+
                     (
                         @CorreoBuscado IS NOT NULL
                         AND @CorreoBuscado <> ''
@@ -242,20 +246,22 @@ class AsociarPedidoWeb:
                         ISNULL(Correo.ChannelValue, '') LIKE '%' + @CorreoBuscado + '%'
                     )
                 )
-            
+
             ORDER BY 
                 E.OfficialName;
-        """,(nombre, telefono, correo))
+        """, (nombre, telefono, correo))
 
     def _asociar_informacion_y_pedido_cliente_existente(self, business_entity_id):
 
-        uuid = self._info_pedido.get('UUID',None)
+        uuid = self._info_pedido.get('UUID', None)
+        order_document_id = self._info_pedido.get('OrderDocumentID')
+        user_client_id = self._info_pedido.get('UserClientID')
         customer_type_id = 2
         invoice = 0
 
         info_complementaria = self._base_de_datos.fetchall("""
             SELECT CustomerTypeID, CayalCustomerTypeID FROM [zvwBuscarInfoCliente-BusinessEntityID](?)
-        """,(business_entity_id,))
+        """, (business_entity_id,))
 
         if info_complementaria:
             customer_type_id = info_complementaria[0]['CustomerTypeID']
@@ -264,12 +270,16 @@ class AsociarPedidoWeb:
         if uuid:
             self._base_de_datos.command("""
                 DECLARE @BusinessEntityID INT
+                DECLARE @OrderDocumentID INT
+                DECLARE @UserClientID INT
                 DECLARE @UUID NVARCHAR(125)
                 DECLARE @Invoice INT
                 DECLARE @CustomerTypeID INT
                 DECLARE @OfficialName NVARCHAR(MAX)
 
                 SET @BusinessEntityID = ?
+                SET @OrderDocumentID = ?
+                SET @UserClientID = ?
                 SET @UUID = ?
                 SET @Invoice = ?
                 SET @CustomerTypeID = ?
@@ -280,7 +290,9 @@ class AsociarPedidoWeb:
 
                 UPDATE docDocumentOrderCayal
                 SET BusinessEntityID = @BusinessEntityID
-                WHERE UUID = @UUID
+                WHERE OrderDocumentID = @OrderDocumentID
+                  AND UUID = @UUID
+                  AND UserClientID = @UserClientID
 
                 UPDATE orgAddress
                 SET BusinessEntityID = @BusinessEntityID
@@ -292,9 +304,12 @@ class AsociarPedidoWeb:
                     BusinessEntityID = @BusinessEntityID,
                     CustomerTypeID = @CustomerTypeID,
                     Invoice = @Invoice
-                WHERE FirstOrderUUID = @UUID
+                WHERE UserClientID = @UserClientID
+                  AND FirstOrderUUID = @UUID
             """, (
                 business_entity_id,
+                order_document_id,
+                user_client_id,
                 uuid,
                 invoice,
                 customer_type_id
@@ -327,12 +342,14 @@ class AsociarPedidoWeb:
 
         if seleccion == 'Asociar':
             business_entity_id = self._obtener_valores_fila_pedido_seleccionado(valor='BusinessEntityID')
-
+            if not business_entity_id:
+                self._ventanas.mostrar_mensaje('Debe seleccionar un cliente para asociar.')
+                return
 
         if seleccion == 'Crear cliente':
             respuesta = self._ventanas.mostrar_mensaje_pregunta(
                 mensaje='Se creará un cliente con la información proporcionada al capturar el pedido,'
-                                                   '¿Está seguro de proceder?')
+                        '¿Está seguro de proceder?')
             if not respuesta:
                 return
 
@@ -346,22 +363,20 @@ class AsociarPedidoWeb:
 
         info_usuario = self._obtener_info_usuario()
         nombre_cliente = info_usuario.get('FullName', 'Cliente Nuevo')
-        email = info_usuario.get('Email',None)
-        telefono = info_usuario.get('Telefono', None)
-        uuid_direccion = info_usuario.get('UUID', None)
+        email = info_usuario.get('Email', None)
+        fiscal_zip_code = info_usuario.get('FiscalZipCode')
 
-        uso_cfdi = info_usuario.get('ReceptorUsoCFDI',None)
+        uso_cfdi = info_usuario.get('ReceptorUsoCFDI', None)
         rfc = info_usuario.get('RFC', None)
         metodo_pago = info_usuario.get('MetodoPago', None)
         forma_pago = info_usuario.get('FormaPago', None)
         regimen_fiscal = info_usuario.get('CompanyTypeName', None)
 
-
-        info_direccion = self._base_de_datos.buscar_detalle_de_direccion(address_detail_id=0, uuid=uuid_direccion)
+        info_direccion = self._obtener_info_direccion(info_usuario)
         if not info_direccion:
             return
 
-        info_direccion = info_direccion[0]
+        telefono = info_direccion.get('Celular') or info_direccion.get('Telefono')
         zone_id = self._base_de_datos.fetchone(
             'SELECT Top 1 ZoneID FROM zvwColoniasCampeche WHERE Colonia = ?',
             (info_direccion['City'],)
@@ -379,30 +394,30 @@ class AsociarPedidoWeb:
             'commercial_name': '',
             'phone': telefono,
             'cellphone': telefono,
-            'address_fiscal_detail_id': info_direccion.get('AddressDetailID',''),
-            'address_fiscal_street': info_direccion.get('Street',''),
-            'address_fiscal_ext_number': info_direccion.get('ExtNumber',''),
-            'address_fiscal_comments': info_direccion.get('Comments',''),
-            'address_fiscal_zip_code': info_direccion.get('ZipCode',''),
-            'delivery_cost': info_direccion.get('DeliveryCost',''),
+            'address_fiscal_detail_id': info_direccion.get('AddressDetailID', ''),
+            'address_fiscal_street': info_direccion.get('Street', ''),
+            'address_fiscal_ext_number': info_direccion.get('ExtNumber', ''),
+            'address_fiscal_comments': info_direccion.get('Comments', ''),
+            'address_fiscal_zip_code': fiscal_zip_code or info_direccion.get('ZipCode', ''),
+            'delivery_cost': info_direccion.get('DeliveryCost', ''),
             'zone_name': zone_name,
-            'address_fiscal_city': info_direccion.get('Street',''),
+            'address_fiscal_city': info_direccion.get('City', ''),
             'email': email,
-            'address_fiscal_state_province': info_direccion.get('StateProvince',''),
-            'address_fiscal_municipality': info_direccion.get('Municipality',''),
-            'country_code' : info_direccion.get('CountryCode', ''),
-            'state_code' : info_direccion.get('StateCode', ''),
-            'city_code' : info_direccion.get('CityCode', ''),
-            'municipality_code' : info_direccion.get('MunicipalityCode', ''),
+            'address_fiscal_state_province': info_direccion.get('StateProvince', ''),
+            'address_fiscal_municipality': info_direccion.get('Municipality', ''),
+            'country_code': info_direccion.get('CountryCode', ''),
+            'state_code': info_direccion.get('StateCode', ''),
+            'city_code': info_direccion.get('CityCode', ''),
+            'municipality_code': info_direccion.get('MunicipalityCode', ''),
 
             'zone_id': zone_id,
             'company_type_name': regimen_fiscal,
             'official_number': rfc,
             'cif': None,
-            'forma_pago':forma_pago,
-            'metodo_pago':metodo_pago,
-            'receptor_uso_cfdi':uso_cfdi,
-            'customer_type_id':2
+            'forma_pago': forma_pago,
+            'metodo_pago': metodo_pago,
+            'receptor_uso_cfdi': uso_cfdi,
+            'customer_type_id': 2
         }
 
         for atributo_cliente, valor in atributos_equivalentes.items():
@@ -417,7 +432,6 @@ class AsociarPedidoWeb:
 
             # Asignar al cliente
             setattr(cliente, atributo_cliente, valor)
-
 
     def _merge_direccion(self, cliente):
         self._base_de_datos.command("""
@@ -518,22 +532,22 @@ class AsociarPedidoWeb:
                                     source.AddressDeliveryDetailID
                                 );
                         """, (
-                cliente.business_entity_id,
-                cliente.official_number,
-                cliente.phone,
-                cliente.email,
-                cliente.address_fiscal_detail_id,
-                cliente.address_fiscal_state_province,
-                cliente.address_fiscal_city,
-                cliente.address_fiscal_zip_code,
-                cliente.address_fiscal_municipality,
-                cliente.address_fiscal_street,
-                cliente.address_fiscal_ext_number,
-                cliente.address_fiscal_comments,
-                cliente.state_code,
-                cliente.city_code,
-                cliente.municipality_code
-            ))
+            cliente.business_entity_id,
+            cliente.official_number,
+            cliente.phone,
+            cliente.email,
+            cliente.address_fiscal_detail_id,
+            cliente.address_fiscal_state_province,
+            cliente.address_fiscal_city,
+            cliente.address_fiscal_zip_code,
+            cliente.address_fiscal_municipality,
+            cliente.address_fiscal_street,
+            cliente.address_fiscal_ext_number,
+            cliente.address_fiscal_comments,
+            cliente.state_code,
+            cliente.city_code,
+            cliente.municipality_code
+        ))
 
         self._base_de_datos.command(
             'UPDATE orgAddress set AddressTypeID=1, IsMainAddress=1 where BusinessEntityID=?',

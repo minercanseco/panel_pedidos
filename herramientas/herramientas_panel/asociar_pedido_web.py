@@ -147,8 +147,16 @@ class AsociarPedidoWeb:
                 D.UUID,
                 D.AddressDetailID
             FROM docDocumentOrderCayal D
-            INNER JOIN engUserClient U
-                ON U.UserClientID = D.UserClientID
+            CROSS APPLY (
+                SELECT TOP (1) C.*
+                FROM engUserClient C
+                WHERE
+                    (D.UserClientID > 0 AND C.UserClientID = D.UserClientID)
+                    OR C.FirstOrderUUID = D.UUID
+                ORDER BY
+                    CASE WHEN C.UserClientID = D.UserClientID THEN 0 ELSE 1 END,
+                    C.UserClientID
+            ) U
             WHERE D.OrderDocumentID = ?
               AND (
                     NULLIF(LTRIM(RTRIM(ISNULL(U.FirstOrderUUID, ''))), '') IS NULL
@@ -289,10 +297,11 @@ class AsociarPedidoWeb:
                 WHERE BusinessEntityID = @BusinessEntityID
 
                 UPDATE docDocumentOrderCayal
-                SET BusinessEntityID = @BusinessEntityID
+                SET BusinessEntityID = @BusinessEntityID,
+                    UserClientID = @UserClientID
                 WHERE OrderDocumentID = @OrderDocumentID
                   AND UUID = @UUID
-                  AND UserClientID = @UserClientID
+                  AND (UserClientID = @UserClientID OR UserClientID IS NULL OR UserClientID = 0)
 
                 UPDATE orgAddress
                 SET BusinessEntityID = @BusinessEntityID

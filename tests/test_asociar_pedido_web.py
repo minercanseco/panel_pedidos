@@ -23,8 +23,9 @@ class AsociarPedidoWebTests(unittest.TestCase):
 
         self.assertEqual(resultado, esperado)
         sql, parametros = self.ventana._base_de_datos.fetchall.call_args.args
-        self.assertIn('U.UserClientID = D.UserClientID', sql)
-        self.assertIn('U.FirstOrderUUID = D.UUID', sql)
+        self.assertIn('C.UserClientID = D.UserClientID', sql)
+        self.assertIn('C.FirstOrderUUID = D.UUID', sql)
+        self.assertIn('CROSS APPLY', sql)
         self.assertIn('U.FiscalZipCode', sql)
         self.assertEqual(parametros, (77,))
 
@@ -60,6 +61,7 @@ class AsociarPedidoWebTests(unittest.TestCase):
         sql, parametros = self.ventana._base_de_datos.command.call_args.args
         self.assertIn('OrderDocumentID = @OrderDocumentID', sql)
         self.assertIn('UserClientID = @UserClientID', sql)
+        self.assertIn('UserClientID IS NULL OR UserClientID = 0', sql)
         self.assertEqual(parametros, (900, 77, 12, 'pedido-uuid', 0, 2))
 
 

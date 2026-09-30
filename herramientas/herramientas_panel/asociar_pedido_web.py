@@ -147,7 +147,7 @@ class AsociarPedidoWeb:
             SELECT 
                 FullName, 
                 Email,
-                Telefono,
+                NULL Telefono,
                 ReceptorUsoCFDI,
                 RFC,
                 MetodoPago,

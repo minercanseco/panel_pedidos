@@ -457,6 +457,80 @@ class ModeloPanelPedidos:
             (fecha_inicial, fecha_final),
         ) or []
 
+    def buscar_clientes_sin_compra(self, dias_sin_compra=90):
+        return self.base_de_datos.fetchall(
+            """
+            SELECT
+                E.BusinessEntityID,
+                UltimoDoc.UltimaFecha,
+                DATEDIFF(DAY, UltimoDoc.UltimaFecha, GETDATE()) AS DiasSinCompra,
+                E.OfficialName AS Cliente,
+                Z.TipoRuta,
+                UltimoDoc.DocFolio,
+                UltimoDoc.Total,
+                DatosContacto.Correo,
+                DatosContacto.TelCasa,
+                DatosContacto.TelCel,
+                Seguimiento.CreatedOn AS UltimoSeguimiento,
+                Seguimiento.UsuarioSeguimiento,
+                CASE
+                    WHEN Seguimiento.CustomerFollowUpID IS NULL THEN 'Pendiente'
+                    WHEN Seguimiento.Recovered = 1 THEN 'Sí'
+                    ELSE 'No'
+                END AS Recuperado,
+                Seguimiento.Comments AS ComentarioSeguimiento
+            FROM orgBusinessEntity E
+            OUTER APPLY (
+                SELECT TOP 1
+                    D.DocumentID AS MaxDocumentID,
+                    D.CreatedOn AS UltimaFecha,
+                    D.Custom3 AS ZoneID,
+                    D.Total,
+                    ISNULL(D.FolioPrefix, '') + ISNULL(D.Folio, '') AS DocFolio
+                FROM docDocument D
+                WHERE D.BusinessEntityID = E.BusinessEntityID
+                  AND D.ModuleID IN (21, 1400, 1316, 1319)
+                  AND D.CancelledOn IS NULL
+                ORDER BY D.CreatedOn DESC, D.DocumentID DESC
+            ) UltimoDoc
+            LEFT JOIN orgZone Z ON UltimoDoc.ZoneID = Z.ZoneID
+            OUTER APPLY dbo.fn_ObtenerDatosContacto(E.BusinessEntityID) DatosContacto
+            OUTER APPLY (
+                SELECT TOP 1
+                    S.CustomerFollowUpID,
+                    S.CreatedOn,
+                    S.Recovered,
+                    S.Comments,
+                    U.UserName AS UsuarioSeguimiento
+                FROM dbo.CustomerFollowUpCayal S
+                LEFT JOIN engUser U ON U.UserID = S.UserID
+                WHERE S.BusinessEntityID = E.BusinessEntityID
+                ORDER BY S.CreatedOn DESC, S.CustomerFollowUpID DESC
+            ) Seguimiento
+            WHERE E.BusinessEntityID NOT IN (9270, 8179, 6211)
+              AND UltimoDoc.UltimaFecha < DATEADD(DAY, -?, GETDATE())
+            ORDER BY E.BusinessEntityID
+            """,
+            (dias_sin_compra,),
+        ) or []
+
+    def guardar_seguimiento_cliente(
+            self, business_entity_id, comentario, recuperado,
+    ):
+        return self.base_de_datos.command(
+            """
+            INSERT INTO dbo.CustomerFollowUpCayal
+                (BusinessEntityID, UserID, Comments, Recovered)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                business_entity_id,
+                self.user_id,
+                comentario,
+                bool(recuperado),
+            ),
+        )
+
     def obtener_ultimo_usuario_modificacion(self, order_document_id):
         """Devuelve el autor del cambio más reciente que alteró el pedido."""
         marcadores = ', '.join('?' for _ in self.TIPOS_CAMBIO_MODIFICACION)

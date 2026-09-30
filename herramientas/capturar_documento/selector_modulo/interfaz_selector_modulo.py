@@ -355,6 +355,22 @@ class InterfazSelectorModulo:
                 'comando': None
             },
             {
+                'nombre_icono': 'PDF.ico',
+                'etiqueta': 'Crear PDF',
+                'nombre': 'crear_pdf_documento',
+                'seccion': 'timbrado',
+                'hotkey': '',
+                'comando': None
+            },
+            {
+                'nombre_icono': 'XML.ico',
+                'etiqueta': 'Abrir XML',
+                'nombre': 'abrir_xml_documento',
+                'seccion': 'timbrado',
+                'hotkey': '',
+                'comando': None
+            },
+            {
                 'nombre_icono': 'CopyToInvoice32.ico',
                 'etiqueta': 'Convertir docto',
                 'nombre': 'convertir_documento',

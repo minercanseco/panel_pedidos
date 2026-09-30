@@ -19,6 +19,7 @@ from herramientas.herramientas_compartidas.historial_pedido import HistorialPedi
 from herramientas.herramientas_compartidas.horario_acumulado import HorarioslAcumulados
 from herramientas.herramientas_panel.editar_nombre_pedido import EditarNombrePedido
 from herramientas.herramientas_panel.no_surtidos import NoSurtidos
+from herramientas.herramientas_panel.seguimiento_clientes import SeguimientoClientes
 
 
 class HerramientasGenerales:
@@ -77,6 +78,9 @@ class HerramientasGenerales:
             {'nombre_icono': 'StockOut32.ico', 'etiqueta': 'No surtidos', 'nombre': 'no_surtidos',
              'hotkey': None, 'comando': self._consultar_no_surtidos},
 
+            {'nombre_icono': 'Partner32.ico', 'etiqueta': 'Seguimiento', 'nombre': 'seguimiento_clientes',
+             'hotkey': None, 'comando': self._seguimiento_clientes},
+
             {'nombre_icono': 'Printer21.ico', 'etiqueta': 'Imprimir', 'nombre': 'imprimir_pedido',
              'hotkey': None, 'comando': self._imprimir_ticket_produccion},
 
@@ -114,6 +118,17 @@ class HerramientasGenerales:
                 titulo='Productos no surtidos'
             )
             NoSurtidos(ventana, self._modelo)
+            ventana.wait_window()
+        finally:
+            self._reanudar_autorefresco()
+
+    def _seguimiento_clientes(self):
+        self._pausar_autorefresco()
+        try:
+            ventana = self._ventanas.crear_popup_ttkbootstrap(
+                titulo='Seguimiento a clientes'
+            )
+            SeguimientoClientes(ventana, self._modelo)
             ventana.wait_window()
         finally:
             self._reanudar_autorefresco()

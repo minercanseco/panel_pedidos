@@ -757,6 +757,7 @@ class ProrrateoManiobras:
         costo = None
         subtotal_factura = None
         total_factura = None
+        entrada_factura_valida = False
         try:
             costo = self._leer_costo()
             # El listado de productos con IVA no depende del total objetivo.
@@ -774,14 +775,13 @@ class ProrrateoManiobras:
                 self._plan = self._calcular_plan(
                     costo, total_factura, subtotal_factura
                 )
+                entrada_factura_valida = True
                 self.btn_aplicar.configure(
                     state='normal' if costo > 0 else 'disabled'
                 )
             except ValueError:
                 # Mantiene visible el plan base. El total faltante, inválido
                 # o fuera de tolerancia sólo impide aplicar los cambios.
-                total_factura = None
-                subtotal_factura = None
                 self.btn_aplicar.configure(state='disabled')
 
         impuesto = costo * self.tasa_iva_maniobras \
@@ -801,6 +801,9 @@ class ProrrateoManiobras:
             (costo if costo is not None else Decimal('0')) + impuesto
         ))
         self.lbl_diferencia.configure(text=self._moneda(diferencia))
+        self.lbl_diferencia.configure(
+            bootstyle='warning' if entrada_factura_valida else 'danger'
+        )
         self._pintar_plan()
 
     def _pintar_plan(self):
@@ -1054,17 +1057,24 @@ class ProrrateoManiobras:
             return False
 
     def eliminar_maniobras(self):
+        prorrateo_revertido = False
         if self.aplicado or self.registros_prorrateo:
-            self.revertir()
+            prorrateo_revertido = self.revertir()
+            if not prorrateo_revertido:
+                return False
 
         partida = self._buscar_partida_maniobras(incluir_eliminada=True)
-        if partida is None:
+        # Si Maniobras fue creada por el propio prorrateo, revertir ya la
+        # retira de la colección. Eso también es una eliminación exitosa y
+        # todavía se deben limpiar los controles y refrescar la vista.
+        if partida is None and not prorrateo_revertido:
             return False
 
-        if int(partida.get('DocumentItemID', 0) or 0) == 0:
-            self.documento.items.remove(partida)
-        else:
-            partida['ItemProductionStatusModified'] = self.ESTADO_ELIMINADO
+        if partida is not None:
+            if int(partida.get('DocumentItemID', 0) or 0) == 0:
+                self.documento.items.remove(partida)
+            else:
+                partida['ItemProductionStatusModified'] = self.ESTADO_ELIMINADO
 
         self.var_costo.set('0.00')
         self.var_subtotal_factura.set('')

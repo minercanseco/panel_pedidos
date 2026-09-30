@@ -1,4 +1,6 @@
 import re
+import webbrowser
+from pathlib import Path
 from datetime import datetime, time, timedelta
 from threading import Thread
 
@@ -321,6 +323,8 @@ class ControladorSelectorModulo:
             'cfdi_relacionados': self._cfdi_relacionados,
             'intercambiar_rfc': self._intercambiar_rfc,
             'enviar_correos': self._enviar_correos,
+            'crear_pdf_documento': self._crear_pdf_documento,
+            'abrir_xml_documento': self._abrir_xml_documento,
             'convertir_documento': self._convertir_documento,
             'listas_precios': self._listas_precios,
             'archivo_mayoreo': self._archivo_mayoreo,
@@ -1441,6 +1445,73 @@ class ControladorSelectorModulo:
             id_principal=id_seleccionado,
             tabla_actualizar=fila['Tabla'],
         )
+
+    def _crear_pdf_documento(self):
+        fila = self._obtener_valores_fila()
+        if not fila or fila.get('Tabla') != 'tbv_facturas':
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Seleccione una sola factura del módulo 1400 para crear su PDF.'
+            )
+            return None
+        document_id = int(fila.get('DocumentID', 0) or 0)
+        if document_id <= 0 or self._ejecutando:
+            return None
+
+        try:
+            self._ejecutando = True
+            self._interfaz.mostrar_estado('Generando PDF de la factura...')
+            self._modelo.parametros.id_modulo = 1400
+            self._modelo.parametros.id_principal = document_id
+            from capturar_documento.herramientas.crear_pdf_documento.main import (
+                generar_pdf_documento,
+            )
+            ruta_pdf = generar_pdf_documento(
+                self._modelo.parametros,
+                self._modelo.base_de_datos,
+                document_id,
+            )
+            webbrowser.open(Path(ruta_pdf).resolve().as_uri())
+            self._interfaz.mostrar_estado('PDF generado correctamente')
+            return ruta_pdf
+        except Exception as error:
+            self._interfaz.ventanas.mostrar_mensaje(
+                f'No fue posible crear el PDF:\n{error}',
+                self._interfaz._master,
+            )
+            return None
+        finally:
+            self._reiniciar_parametros()
+            self._ejecutando = False
+
+    def _abrir_xml_documento(self):
+        fila = self._obtener_valores_fila()
+        if not fila or fila.get('Tabla') != 'tbv_facturas':
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Seleccione una sola factura del módulo 1400 para abrir su XML.'
+            )
+            return None
+        document_id = int(fila.get('DocumentID', 0) or 0)
+        if document_id <= 0 or self._ejecutando:
+            return None
+
+        try:
+            self._ejecutando = True
+            from capturar_documento.herramientas.abrir_xml_documento.main import (
+                abrir_xml_documento,
+            )
+            ruta_xml = abrir_xml_documento(
+                self._modelo.base_de_datos, document_id
+            )
+            self._interfaz.mostrar_estado('XML abierto en el Bloc de notas')
+            return ruta_xml
+        except Exception as error:
+            self._interfaz.ventanas.mostrar_mensaje(
+                f'No fue posible abrir el XML:\n{error}',
+                self._interfaz._master,
+            )
+            return None
+        finally:
+            self._ejecutando = False
 
     def _cobrar_cartera(self):
         return self._ejecutar_accion(

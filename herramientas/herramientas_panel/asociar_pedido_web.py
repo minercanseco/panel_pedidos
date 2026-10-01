@@ -311,6 +311,8 @@ class AsociarPedidoWeb:
                 SET
                     FullName = @OfficialName,
                     BusinessEntityID = @BusinessEntityID,
+                    LinkStatus = 1,
+                    LinkedOn = COALESCE(LinkedOn, SYSDATETIME()),
                     CustomerTypeID = @CustomerTypeID,
                     Invoice = @Invoice
                 WHERE UserClientID = @UserClientID

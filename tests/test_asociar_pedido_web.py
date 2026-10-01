@@ -62,6 +62,8 @@ class AsociarPedidoWebTests(unittest.TestCase):
         self.assertIn('OrderDocumentID = @OrderDocumentID', sql)
         self.assertIn('UserClientID = @UserClientID', sql)
         self.assertIn('UserClientID IS NULL OR UserClientID = 0', sql)
+        self.assertIn('LinkStatus = 1', sql)
+        self.assertIn('LinkedOn = COALESCE(LinkedOn, SYSDATETIME())', sql)
         self.assertEqual(parametros, (900, 77, 12, 'pedido-uuid', 0, 2))
 
 

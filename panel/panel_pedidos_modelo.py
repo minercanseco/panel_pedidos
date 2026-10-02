@@ -524,7 +524,7 @@ class ModeloPanelPedidos:
             """
             SELECT ItemData, ItemValue
             FROM engrefcombo
-            WHERE CboGroupName = 'Seguimiento'
+            WHERE CboGroupName LIKE '%Seguimiento clientes%'
             ORDER BY ItemValue
             """
         ) or []

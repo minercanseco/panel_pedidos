@@ -33,7 +33,7 @@ class SeguimientoClientes:
         self._cargar_eventos()
         self._ventanas.configurar_ventana_ttkbootstrap(
             titulo='Seguimiento a clientes',
-            nombre_icono='Partner32.ico',
+            nombre_icono='CustomerFollowUpCayal.ico',
             bloquear=False,
         )
         #self._master.geometry('1380x650')

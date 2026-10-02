@@ -36,8 +36,8 @@ class SeguimientoClientes:
             nombre_icono='Partner32.ico',
             bloquear=False,
         )
-        self._master.geometry('1380x650')
-        self._master.minsize(980, 520)
+        #self._master.geometry('1380x650')
+        #self._master.minsize(980, 520)
         self._consultar()
 
     def _crear_frames(self):

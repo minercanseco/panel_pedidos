@@ -212,7 +212,8 @@ class FormularioSeguimiento:
         self._motivos_por_nombre = {}
         self._crear_frames()
         self._crear_componentes()
-        self._configurar_layout()
+        #self._configurar_layout()
+        self._ventanas.configurar_ventana_ttkbootstrap()
         self._cargar_eventos()
         self._cargar_motivos()
 

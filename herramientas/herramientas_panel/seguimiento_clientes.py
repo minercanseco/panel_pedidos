@@ -222,9 +222,13 @@ class FormularioSeguimiento:
                 'master', None,
                 {'row': 0, 'column': 0, 'sticky': tk.NSEW, 'padx': 12, 'pady': 12},
             ),
-            'frame_botones': (
+            'frame_chk': (
                 'frame_principal', None,
                 {'row': 5, 'column': 0, 'columnspan': 2, 'sticky': tk.E, 'pady': (12, 0)},
+            ),
+            'frame_botones': (
+                'frame_principal', None,
+                {'row': 6, 'column': 0, 'columnspan': 2, 'sticky': tk.E, 'pady': (12, 0)},
             ),
         })
 
@@ -254,7 +258,7 @@ class FormularioSeguimiento:
         self._ventanas.ajustar_alto_componente('txt_comentario', 7)
         self._ventanas.crear_componentes({
             'chk_recuperado': (
-                'frame_principal', None, 'Se logró recuperar la compra', None,
+                'frame_chk', None, 'Se logró recuperar la compra', None,
             ),
         })
         self._ventanas.componentes_forma['chk_recuperado'].grid_configure(

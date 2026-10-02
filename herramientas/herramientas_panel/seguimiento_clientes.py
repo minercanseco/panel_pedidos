@@ -64,6 +64,9 @@ class SeguimientoClientes:
             ),
         })
 
+    def _crear_columnas(self):
+        return self._ventanas.ajustar_columnas_a_resolucion(self.COLUMNAS)
+
     def _crear_componentes(self):
         self._ventanas.crear_componentes({
             'tbx_buscar': (
@@ -89,7 +92,7 @@ class SeguimientoClientes:
         self._ventanas.crear_table_view(
             nombre='tbv_seguimiento_clientes',
             frame='frame_tabla',
-            columnas=self.COLUMNAS,
+            columnas=self._crear_columnas(),
             filas=22,
             stripecolor=True,
         )

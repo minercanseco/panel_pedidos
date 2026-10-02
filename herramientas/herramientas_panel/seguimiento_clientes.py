@@ -1,7 +1,5 @@
 import tkinter as tk
 
-import ttkbootstrap as ttk
-
 from cayal.ventanas import Ventanas
 
 
@@ -19,6 +17,7 @@ class SeguimientoClientes:
         {'text': 'Celular', 'stretch': False, 'width': 105},
         {'text': 'Último seguimiento', 'stretch': False, 'width': 135},
         {'text': 'Atendió', 'stretch': False, 'width': 110},
+        {'text': 'Motivo', 'stretch': False, 'width': 180},
         {'text': 'Recuperado', 'stretch': False, 'width': 85},
         {'text': 'Comentario', 'stretch': False, 'width': 260},
     ]
@@ -28,10 +27,10 @@ class SeguimientoClientes:
         self._modelo = modelo
         self._ventanas = Ventanas(master)
         self._clientes = []
-        self._busqueda = tk.StringVar(value='')
-        self._estado = tk.StringVar(value='Todos')
-
-        self._crear_interfaz()
+        self._crear_frames()
+        self._crear_componentes()
+        self._configurar_layout()
+        self._cargar_eventos()
         self._ventanas.configurar_ventana_ttkbootstrap(
             titulo='Seguimiento a clientes',
             nombre_icono='Partner32.ico',
@@ -41,41 +40,55 @@ class SeguimientoClientes:
         self._master.minsize(980, 520)
         self._consultar()
 
-    def _crear_interfaz(self):
-        principal = ttk.Frame(self._master, padding=8)
-        principal.grid(row=0, column=0, sticky=tk.NSEW)
-        self._master.grid_rowconfigure(0, weight=1)
-        self._master.grid_columnconfigure(0, weight=1)
-        principal.grid_rowconfigure(1, weight=1)
-        principal.grid_columnconfigure(0, weight=1)
+    def _crear_frames(self):
+        self._ventanas.crear_frames({
+            'frame_principal': (
+                'master', None,
+                {'row': 0, 'column': 0, 'sticky': tk.NSEW, 'padx': 8, 'pady': 8},
+            ),
+            'frame_filtros': (
+                'frame_principal', 'Buscar clientes',
+                {'row': 0, 'column': 0, 'sticky': tk.EW, 'pady': (0, 6)},
+            ),
+            'frame_estado_filtro': (
+                'frame_filtros', None,
+                {'row': 0, 'column': 2, 'sticky': tk.W, 'padx': (0, 8)},
+            ),
+            'frame_tabla': (
+                'frame_principal', 'Clientes sin compra por más de 90 días',
+                {'row': 1, 'column': 0, 'sticky': tk.NSEW},
+            ),
+            'frame_pie': (
+                'frame_principal', None,
+                {'row': 2, 'column': 0, 'sticky': tk.EW, 'pady': (6, 0)},
+            ),
+        })
 
-        filtros = ttk.LabelFrame(principal, text='Buscar clientes', padding=8)
-        filtros.grid(row=0, column=0, sticky=tk.EW, pady=(0, 6))
-        filtros.grid_columnconfigure(1, weight=1)
-        ttk.Label(filtros, text='Buscar:').grid(row=0, column=0, padx=(0, 6))
-        entrada = ttk.Entry(filtros, textvariable=self._busqueda)
-        entrada.grid(row=0, column=1, sticky=tk.EW, padx=(0, 10))
-        ttk.Label(filtros, text='Seguimiento:').grid(row=0, column=2, padx=(0, 6))
-        estado = ttk.Combobox(
-            filtros,
-            textvariable=self._estado,
-            values=('Todos', 'Pendientes', 'Con seguimiento', 'Recuperados'),
-            state='readonly',
-            width=17,
+    def _crear_componentes(self):
+        self._ventanas.crear_componentes({
+            'tbx_buscar': (
+                'frame_filtros',
+                {'row': 0, 'column': 1, 'sticky': tk.EW, 'padx': (0, 10)},
+                'Buscar:', None,
+            ),
+        })
+        self._ventanas.crear_componentes({
+            'cbx_estado': ('frame_estado_filtro', None, 'Seguimiento:', None),
+        })
+        self._ventanas.crear_componentes({
+            'btn_actualizar': ('frame_filtros', 'primary', 'Actualizar', None),
+        })
+        self._ventanas.componentes_forma['btn_actualizar'].grid_configure(
+            row=0, column=3,
         )
-        estado.grid(row=0, column=3, padx=(0, 8))
-        ttk.Button(
-            filtros, text='Actualizar', bootstyle='primary', command=self._consultar,
-        ).grid(row=0, column=4)
-
-        tabla = ttk.LabelFrame(principal, text='Clientes sin compra por más de 90 días')
-        tabla.grid(row=1, column=0, sticky=tk.NSEW)
-        tabla.grid_rowconfigure(0, weight=1)
-        tabla.grid_columnconfigure(0, weight=1)
-        self._ventanas.componentes_forma['frame_seguimiento_tabla'] = tabla
+        self._ventanas.rellenar_cbx(
+            'cbx_estado',
+            ('Todos', 'Pendientes', 'Con seguimiento', 'Recuperados'),
+            sin_seleccione=True,
+        )
         self._ventanas.crear_table_view(
             nombre='tbv_seguimiento_clientes',
-            frame='frame_seguimiento_tabla',
+            frame='frame_tabla',
             columnas=self.COLUMNAS,
             filas=22,
             stripecolor=True,
@@ -83,30 +96,53 @@ class SeguimientoClientes:
         self._ventanas.habilitar_ordenamiento_table_view(
             'tbv_seguimiento_clientes'
         )
+        self._ventanas.crear_componentes({
+            'lbl_estado': ('frame_pie', None, '0 clientes', None),
+            'btn_registrar': ('frame_pie', 'success', 'Registrar seguimiento', None),
+            'btn_cerrar': ('frame_pie', 'danger', 'Cerrar', None),
+        })
 
-        pie = ttk.Frame(principal)
-        pie.grid(row=2, column=0, sticky=tk.EW, pady=(6, 0))
+    def _configurar_layout(self):
+        principal = self._ventanas.componentes_forma['frame_principal']
+        filtros = self._ventanas.componentes_forma['frame_filtros']
+        tabla = self._ventanas.componentes_forma['frame_tabla']
+        pie = self._ventanas.componentes_forma['frame_pie']
+        self._master.grid_rowconfigure(0, weight=1)
+        self._master.grid_columnconfigure(0, weight=1)
+        principal.grid_rowconfigure(1, weight=1)
+        principal.grid_columnconfigure(0, weight=1)
+        filtros.grid_columnconfigure(1, weight=1)
+        tabla.grid_rowconfigure(0, weight=1)
+        tabla.grid_columnconfigure(0, weight=1)
         pie.grid_columnconfigure(0, weight=1)
-        self._lbl_estado = ttk.Label(pie, text='0 clientes')
-        self._lbl_estado.grid(row=0, column=0, sticky=tk.W)
-        ttk.Button(
-            pie,
-            text='Registrar seguimiento',
-            bootstyle='success',
-            command=self._abrir_seguimiento,
-        ).grid(row=0, column=1, padx=4)
-        ttk.Button(
-            pie, text='Cerrar', bootstyle='danger', command=self._master.destroy,
-        ).grid(row=0, column=2, padx=(4, 0))
+        self._ventanas.componentes_forma['lbl_estado'].grid_configure(
+            row=0, column=0, sticky=tk.W,
+        )
+        self._ventanas.componentes_forma['btn_registrar'].grid_configure(
+            row=0, column=1, padx=4,
+        )
+        self._ventanas.componentes_forma['btn_cerrar'].grid_configure(
+            row=0, column=2, padx=(4, 0),
+        )
 
-        self._busqueda.trace_add('write', lambda *_args: self._aplicar_filtros())
-        estado.bind('<<ComboboxSelected>>', self._aplicar_filtros)
-        entrada.bind('<Escape>', lambda _event: self._busqueda.set(''))
+    def _cargar_eventos(self):
+        self._ventanas.cargar_eventos({
+            'btn_actualizar': self._consultar,
+            'cbx_estado': self._aplicar_filtros,
+            'btn_registrar': self._abrir_seguimiento,
+            'btn_cerrar': self._master.destroy,
+            'tbv_seguimiento_clientes': (self._abrir_seguimiento, 'doble_click'),
+        })
+        buscar = self._ventanas.componentes_forma['tbx_buscar']
+        buscar.bind('<KeyRelease>', self._aplicar_filtros)
+        buscar.bind('<Escape>', self._limpiar_busqueda)
         self._master.bind('<F5>', self._consultar)
         self._master.bind('<Escape>', lambda _event: self._master.destroy())
-        tabla_view = self._ventanas.componentes_forma['tbv_seguimiento_clientes']
-        tabla_view.bind('<Double-1>', self._abrir_seguimiento)
-        entrada.focus_set()
+        buscar.focus_set()
+
+    def _limpiar_busqueda(self, _event=None):
+        self._ventanas.limpiar_componentes('tbx_buscar')
+        self._aplicar_filtros()
 
     def _consultar(self, _event=None):
         try:
@@ -124,13 +160,13 @@ class SeguimientoClientes:
         campos = (
             'BusinessEntityID', 'Cliente', 'TipoRuta', 'DocFolio',
             'Correo', 'TelCasa', 'TelCel', 'UsuarioSeguimiento',
-            'ComentarioSeguimiento',
+            'MotivoSeguimiento', 'ComentarioSeguimiento',
         )
         return ' '.join(str(cliente.get(campo) or '') for campo in campos).casefold()
 
     def _aplicar_filtros(self, _event=None):
-        termino = self._busqueda.get().strip().casefold()
-        estado = self._estado.get()
+        termino = self._ventanas.obtener_input_componente('tbx_buscar').strip().casefold()
+        estado = self._ventanas.obtener_input_componente('cbx_estado')
         clientes = []
         for cliente in self._clientes:
             recuperado = cliente.get('Recuperado') or 'Pendiente'
@@ -143,11 +179,12 @@ class SeguimientoClientes:
             if estado == 'Recuperados' and recuperado != 'Sí':
                 continue
             clientes.append(cliente)
-
         self._ventanas.rellenar_table_view(
             'tbv_seguimiento_clientes', self.COLUMNAS, clientes,
         )
-        self._lbl_estado.configure(text=f'{len(clientes)} clientes mostrados')
+        self._ventanas.insertar_input_componente(
+            'lbl_estado', f'{len(clientes)} clientes mostrados',
+        )
 
     def _abrir_seguimiento(self, _event=None):
         seleccion = self._ventanas.procesar_filas_table_view(
@@ -160,10 +197,7 @@ class SeguimientoClientes:
             titulo='Registrar seguimiento'
         )
         FormularioSeguimiento(
-            ventana,
-            self._modelo,
-            seleccion[0],
-            al_guardar=self._consultar,
+            ventana, self._modelo, seleccion[0], al_guardar=self._consultar,
         )
         ventana.wait_window()
 
@@ -174,59 +208,118 @@ class FormularioSeguimiento:
         self._modelo = modelo
         self._cliente = cliente
         self._al_guardar = al_guardar
-        self._recuperado = tk.BooleanVar(value=False)
-        self._crear_interfaz()
+        self._ventanas = Ventanas(master)
+        self._motivos_por_nombre = {}
+        self._crear_frames()
+        self._crear_componentes()
+        self._configurar_layout()
+        self._cargar_eventos()
+        self._cargar_motivos()
 
-    def _crear_interfaz(self):
-        principal = ttk.Frame(self._master, padding=12)
-        principal.grid(row=0, column=0, sticky=tk.NSEW)
-        principal.grid_columnconfigure(1, weight=1)
-        ttk.Label(principal, text='Cliente:').grid(row=0, column=0, sticky=tk.NW)
-        ttk.Label(
-            principal,
-            text=self._cliente.get('Cliente') or '',
-            font=('TkDefaultFont', 10, 'bold'),
-            wraplength=460,
-        ).grid(row=0, column=1, sticky=tk.W, pady=(0, 8))
-        ttk.Label(principal, text='Motivo / comentarios:').grid(
-            row=1, column=0, columnspan=2, sticky=tk.W,
+    def _crear_frames(self):
+        self._ventanas.crear_frames({
+            'frame_principal': (
+                'master', None,
+                {'row': 0, 'column': 0, 'sticky': tk.NSEW, 'padx': 12, 'pady': 12},
+            ),
+            'frame_botones': (
+                'frame_principal', None,
+                {'row': 5, 'column': 0, 'columnspan': 2, 'sticky': tk.E, 'pady': (12, 0)},
+            ),
+        })
+
+    def _crear_componentes(self):
+        self._ventanas.crear_componentes({
+            'lbl_cliente_titulo': (
+                'frame_principal', {'text': 'Cliente:'},
+                {'row': 0, 'column': 0, 'sticky': tk.NW}, None,
+            ),
+            'lbl_cliente': (
+                'frame_principal',
+                {
+                    'text': self._cliente.get('Cliente') or '',
+                    'font': ('TkDefaultFont', 10, 'bold'),
+                    'wraplength': 460,
+                },
+                {'row': 0, 'column': 1, 'sticky': tk.W, 'pady': (0, 8)}, None,
+            ),
+            'cbx_motivo': (
+                'frame_principal', None, 'Motivo:', None,
+            ),
+            'txt_comentario': (
+                'frame_principal', None, 'Comentarios:', None,
+            ),
+        })
+        self._ventanas.ajustar_ancho_componente('txt_comentario', 65)
+        self._ventanas.ajustar_alto_componente('txt_comentario', 7)
+        self._ventanas.crear_componentes({
+            'chk_recuperado': (
+                'frame_principal', None, 'Se logró recuperar la compra', None,
+            ),
+        })
+        self._ventanas.componentes_forma['chk_recuperado'].grid_configure(
+            row=4, column=0, columnspan=2, sticky=tk.W,
         )
-        self._comentario = tk.Text(principal, width=65, height=7, wrap=tk.WORD)
-        self._comentario.grid(row=2, column=0, columnspan=2, sticky=tk.EW, pady=(4, 8))
-        ttk.Checkbutton(
-            principal,
-            text='Se logró recuperar la compra',
-            variable=self._recuperado,
-            bootstyle='success-round-toggle',
-        ).grid(row=3, column=0, columnspan=2, sticky=tk.W)
-        botones = ttk.Frame(principal)
-        botones.grid(row=4, column=0, columnspan=2, sticky=tk.E, pady=(12, 0))
-        ttk.Button(
-            botones, text='Guardar', bootstyle='success', command=self._guardar,
-        ).grid(row=0, column=0, padx=4)
-        ttk.Button(
-            botones, text='Cancelar', bootstyle='danger', command=self._master.destroy,
-        ).grid(row=0, column=1, padx=4)
-        self._master.bind('<Escape>', lambda _event: self._master.destroy())
+        self._ventanas.crear_componentes({
+            'btn_guardar': ('frame_botones', 'success', 'Guardar', None),
+            'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', None),
+        })
+
+    def _configurar_layout(self):
+        principal = self._ventanas.componentes_forma['frame_principal']
+        principal.grid_columnconfigure(1, weight=1)
+        self._master.grid_rowconfigure(0, weight=1)
+        self._master.grid_columnconfigure(0, weight=1)
         self._master.resizable(False, False)
-        self._comentario.focus_set()
+
+    def _cargar_eventos(self):
+        self._ventanas.cargar_eventos({
+            'btn_guardar': self._guardar,
+            'btn_cancelar': self._master.destroy,
+        })
+        self._master.bind('<Escape>', lambda _event: self._master.destroy())
+
+    def _cargar_motivos(self):
+        try:
+            motivos = self._modelo.obtener_motivos_seguimiento()
+            self._motivos_por_nombre = {
+                str(motivo['ItemValue']): int(motivo['ItemData'])
+                for motivo in motivos
+            }
+            self._ventanas.rellenar_cbx(
+                'cbx_motivo', self._motivos_por_nombre.keys(),
+            )
+            self._ventanas.enfocar_componente('cbx_motivo')
+        except Exception as error:
+            self._ventanas.mostrar_mensaje(
+                f'No fue posible consultar los motivos de seguimiento:\n{error}'
+            )
+            self._master.destroy()
 
     def _guardar(self):
-        comentario = self._comentario.get('1.0', tk.END).strip()
+        motivo = self._ventanas.obtener_input_componente('cbx_motivo')
+        motivo_id = self._motivos_por_nombre.get(motivo)
+        if motivo_id is None:
+            self._ventanas.mostrar_mensaje('Debe seleccionar un motivo de seguimiento.')
+            return
+        comentario = self._ventanas.obtener_input_componente(
+            'txt_comentario'
+        ).strip()
         if len(comentario) < 10:
-            Ventanas(self._master).mostrar_mensaje(
-                'Explique el motivo de no compra con al menos 10 caracteres.'
+            self._ventanas.mostrar_mensaje(
+                'Explique el seguimiento con al menos 10 caracteres.'
             )
             return
         try:
             self._modelo.guardar_seguimiento_cliente(
                 int(self._cliente['ID cliente']),
+                motivo_id,
                 comentario,
-                self._recuperado.get(),
+                bool(self._ventanas.obtener_input_componente('chk_recuperado')),
             )
             self._master.destroy()
             self._al_guardar()
         except Exception as error:
-            Ventanas(self._master).mostrar_mensaje(
+            self._ventanas.mostrar_mensaje(
                 f'No fue posible guardar el seguimiento:\n{error}'
             )

@@ -473,6 +473,7 @@ class ModeloPanelPedidos:
                 DatosContacto.TelCel,
                 Seguimiento.CreatedOn AS UltimoSeguimiento,
                 Seguimiento.UsuarioSeguimiento,
+                Motivo.ItemValue AS MotivoSeguimiento,
                 CASE
                     WHEN Seguimiento.CustomerFollowUpID IS NULL THEN 'Pendiente'
                     WHEN Seguimiento.Recovered = 1 THEN 'Sí'
@@ -501,12 +502,16 @@ class ModeloPanelPedidos:
                     S.CreatedOn,
                     S.Recovered,
                     S.Comments,
+                    S.FollowUpReasonID,
                     U.UserName AS UsuarioSeguimiento
                 FROM dbo.CustomerFollowUpCayal S
                 LEFT JOIN engUser U ON U.UserID = S.UserID
                 WHERE S.BusinessEntityID = E.BusinessEntityID
                 ORDER BY S.CreatedOn DESC, S.CustomerFollowUpID DESC
             ) Seguimiento
+            LEFT JOIN engrefcombo Motivo
+                ON Motivo.CboGroupName = 'Seguimiento'
+               AND Motivo.ItemData = Seguimiento.FollowUpReasonID
             WHERE E.BusinessEntityID NOT IN (9270, 8179, 6211)
               AND UltimoDoc.UltimaFecha < DATEADD(DAY, -?, GETDATE())
             ORDER BY E.BusinessEntityID
@@ -514,18 +519,30 @@ class ModeloPanelPedidos:
             (dias_sin_compra,),
         ) or []
 
+    def obtener_motivos_seguimiento(self):
+        return self.base_de_datos.fetchall(
+            """
+            SELECT ItemData, ItemValue
+            FROM engrefcombo
+            WHERE CboGroupName = 'Seguimiento'
+            ORDER BY ItemValue
+            """
+        ) or []
+
     def guardar_seguimiento_cliente(
-            self, business_entity_id, comentario, recuperado,
+            self, business_entity_id, motivo_seguimiento_id, comentario,
+            recuperado,
     ):
         return self.base_de_datos.command(
             """
             INSERT INTO dbo.CustomerFollowUpCayal
-                (BusinessEntityID, UserID, Comments, Recovered)
-            VALUES (?, ?, ?, ?)
+                (BusinessEntityID, UserID, FollowUpReasonID, Comments, Recovered)
+            VALUES (?, ?, ?, ?, ?)
             """,
             (
                 business_entity_id,
                 self.user_id,
+                motivo_seguimiento_id,
                 comentario,
                 bool(recuperado),
             ),

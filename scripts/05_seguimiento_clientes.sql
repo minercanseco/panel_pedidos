@@ -9,12 +9,19 @@ BEGIN
             CONSTRAINT PK_CustomerFollowUpCayal PRIMARY KEY,
         BusinessEntityID INT NOT NULL,
         UserID INT NOT NULL,
+        FollowUpReasonID INT NOT NULL,
         Comments NVARCHAR(1000) NOT NULL,
         Recovered BIT NOT NULL
             CONSTRAINT DF_CustomerFollowUpCayal_Recovered DEFAULT (0),
         CreatedOn DATETIME2(0) NOT NULL
             CONSTRAINT DF_CustomerFollowUpCayal_CreatedOn DEFAULT (SYSDATETIME())
     );
+END;
+
+IF COL_LENGTH(N'dbo.CustomerFollowUpCayal', N'FollowUpReasonID') IS NULL
+BEGIN
+    ALTER TABLE dbo.CustomerFollowUpCayal
+        ADD FollowUpReasonID INT NULL;
 END;
 
 COMMIT TRANSACTION;

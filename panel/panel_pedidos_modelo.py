@@ -750,7 +750,8 @@ class ModeloPanelPedidos:
                 'SELECT OrderDeliveryTypeID FROM docDocumentOrderCayal WHERE OrderDocumentID = ?',
                                          (order_document_id,))
 
-            # si el cliente viene omite el servicio a domicilio
+            # La entrega a domicilio agrega el servicio; si el cliente viene
+            # (OrderDeliveryTypeID = 2), se omite.
             if order_delivery_type_id == 1:
                 self.insertar_servicio_a_docimicilio(document_id, address_detail_id)
 

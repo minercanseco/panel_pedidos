@@ -2824,6 +2824,9 @@ class ControladorCaptura:
 
         parametros = self.documento.order_parameters or {}
         order_type_id = int(parametros.get('OrderTypeID', 1) or 1)
+        delivery_type_id = int(
+            parametros.get('OrderDeliveryTypeID', 1) or 1
+        )
 
         partidas_servicio = []
         total_sin_servicio = Decimal('0')
@@ -2848,6 +2851,13 @@ class ControladorCaptura:
 
         # Los anexos y cambios no deben contener el servicio automático.
         if order_type_id in (2, 3):
+            if existe_servicio:
+                self._remover_servicio_a_domicilio()
+            return
+
+        # Cuando el cliente recoge el pedido no debe existir el cargo de
+        # servicio a domicilio, independientemente del total del pedido.
+        if delivery_type_id == 2:
             if existe_servicio:
                 self._remover_servicio_a_domicilio()
             return

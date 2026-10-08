@@ -7,6 +7,8 @@ from herramientas.herramientas_panel.generador_ticket_cliente import GeneradorTi
 
 
 class TicketPedidoCliente:
+    PRODUCTO_SERVICIO_DOMICILIO = 5606
+
     def __init__(self, base_de_datos, utilerias, parametros):
         self._base_de_datos = base_de_datos
         self._utilerias = utilerias
@@ -96,8 +98,37 @@ class TicketPedidoCliente:
         consulta_partidas = self._base_de_datos.buscar_partidas_pedidos_produccion_cayal(
             self._order_document_id, partidas_eliminadas=False, partidas_producidas=True)
 
-
+        delivery_type_id = info_pedido.get('OrderDeliveryTypeID')
+        if delivery_type_id is None:
+            delivery_type_id = self._base_de_datos.fetchone(
+                'SELECT OrderDeliveryTypeID FROM docDocumentOrderCayal '
+                'WHERE OrderDocumentID = ?',
+                (self._order_document_id,),
+            )
+        consulta_partidas = self._filtrar_partidas_por_tipo_entrega(
+            consulta_partidas,
+            delivery_type_id,
+        )
         self._procesar_partidas(consulta_partidas)
+
+    @classmethod
+    def _filtrar_partidas_por_tipo_entrega(cls, partidas, delivery_type_id):
+        try:
+            delivery_type_id = int(delivery_type_id)
+        except (TypeError, ValueError):
+            raise ValueError('El pedido no tiene una forma de entrega válida.')
+
+        if delivery_type_id not in (1, 2):
+            raise ValueError('El pedido no tiene una forma de entrega válida.')
+
+        if delivery_type_id == 2:
+            return [
+                partida for partida in partidas
+                if int(partida.get('ProductID', 0) or 0)
+                != cls.PRODUCTO_SERVICIO_DOMICILIO
+            ]
+
+        return list(partidas)
 
     def _buscar_info_pedido(self):
         consulta = self._base_de_datos.buscar_info_documento_pedido_cayal(self._order_document_id)

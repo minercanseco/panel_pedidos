@@ -5,8 +5,11 @@ from panel.panel_pedidos_modelo import ModeloPanelPedidos
 
 
 class BaseDeDatosPaquetes:
-    def __init__(self, pendientes=None):
+    def __init__(self, pendientes=None, error_sincronizacion=None,
+                 document_item_id_insertado=9001):
         self.pendientes = pendientes or []
+        self.error_sincronizacion = error_sincronizacion
+        self.document_item_id_insertado = document_item_id_insertado
         self.parametros_insertados = []
         self.comandos = []
 
@@ -15,6 +18,9 @@ class BaseDeDatosPaquetes:
 
     def exec_stored_procedure(self, nombre, parametros, sin_resultados=False):
         self.comandos.append((nombre, parametros, sin_resultados))
+        if nombre == 'sp_SincronizarKardexPaqueteCayal' \
+                and self.error_sincronizacion:
+            raise self.error_sincronizacion
 
     def fetchone(self, consulta, parametros=()):
         return 1
@@ -63,13 +69,14 @@ class BaseDeDatosPaquetes:
 
     def insertar_partida_documento_cayal(self, parametros):
         self.parametros_insertados.append(parametros)
-        return 9001
+        return self.document_item_id_insertado
 
 
 class ComponentesPaquetesTest(unittest.TestCase):
     def crear_modelo(self, pendientes=None):
         modelo = object.__new__(ModeloPanelPedidos)
         modelo.base_de_datos = BaseDeDatosPaquetes(pendientes)
+        modelo.user_id = 7
         return modelo
 
     def test_conserva_paquete_en_documento_despues_de_validar_surtido(self):
@@ -118,7 +125,9 @@ class ComponentesPaquetesTest(unittest.TestCase):
         }
         modelo.insertar_partidas_documento(169564, 900, [partida], 200, 1)
         parametros = modelo.base_de_datos.parametros_insertados[0]
+        self.assertEqual(len(parametros), 12)
         self.assertEqual(parametros[-2:], (0, None))
+        self.assertEqual(modelo.base_de_datos.comandos, [])
 
     def test_paquete_fiscal_sincroniza_kardex_con_partida_origen(self):
         modelo = self.crear_modelo()
@@ -128,10 +137,67 @@ class ComponentesPaquetesTest(unittest.TestCase):
             'TipoCaptura': 1, 'Comments': 'PAQUETE',
         }
         modelo.insertar_partidas_documento(169564, 900, [partida], 200, 1)
-        self.assertEqual(modelo.base_de_datos.comandos, [])
         self.assertEqual(
-            modelo.base_de_datos.parametros_insertados[0][-1], 10
+            modelo.base_de_datos.parametros_insertados[0],
+            (900, 4431, 2, 1, 540.8, 0, 540.8, 1, 21, 'PAQUETE'),
         )
+        self.assertEqual(
+            modelo.base_de_datos.comandos[-1],
+            ('sp_SincronizarKardexPaqueteCayal',
+             (900, 9001, 10, 0, 7), True),
+        )
+
+    def test_paquete_sin_partida_origen_es_rechazado(self):
+        modelo = self.crear_modelo()
+        partida = {
+            'DocumentItemID': 0, 'ProductID': 4431, 'ProductTypeID': 3,
+            'Quantity': 1, 'UnitPrice': 540.8, 'Subtotal': 540.8,
+            'TipoCaptura': 1, 'Comments': 'PAQUETE',
+        }
+        with self.assertRaisesRegex(ValueError, 'partida origen'):
+            modelo.insertar_partidas_documento(
+                169564, 900, [partida], 200, 1
+            )
+        self.assertEqual(modelo.base_de_datos.parametros_insertados, [])
+
+    def test_fallo_de_sincronizacion_revierte_partida_fiscal(self):
+        modelo = self.crear_modelo()
+        modelo.base_de_datos = BaseDeDatosPaquetes(
+            error_sincronizacion=RuntimeError('sin kardex')
+        )
+        partida = {
+            'DocumentItemID': 10, 'ProductID': 4431, 'ProductTypeID': 3,
+            'Quantity': 1, 'UnitPrice': 540.8, 'Subtotal': 540.8,
+            'TipoCaptura': 1, 'Comments': 'PAQUETE',
+        }
+
+        with self.assertRaisesRegex(RuntimeError, 'sin kardex'):
+            modelo.insertar_partidas_documento(
+                169564, 900, [partida], 200, 1
+            )
+
+        self.assertEqual(
+            modelo.base_de_datos.comandos[-1],
+            ('zvwBorrarPartidasDocumentoCayal',
+             (900, 21, 9001, 7), True),
+        )
+
+    def test_paquete_sin_id_fiscal_retorna_error_sin_compensacion(self):
+        modelo = self.crear_modelo()
+        modelo.base_de_datos = BaseDeDatosPaquetes(
+            document_item_id_insertado=None
+        )
+        partida = {
+            'DocumentItemID': 10, 'ProductID': 4431, 'ProductTypeID': 3,
+            'Quantity': 1, 'UnitPrice': 540.8, 'Subtotal': 540.8,
+            'TipoCaptura': 1, 'Comments': 'PAQUETE',
+        }
+
+        with self.assertRaisesRegex(RuntimeError, 'no devolvió'):
+            modelo.insertar_partidas_documento(
+                169564, 900, [partida], 200, 1
+            )
+        self.assertEqual(modelo.base_de_datos.comandos, [])
 
     def test_servicio_domicilio_marca_documento_con_entrega(self):
         modelo = self.crear_modelo()

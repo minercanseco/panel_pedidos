@@ -1,3 +1,4 @@
+import logging
 import os
 import platform
 import tempfile
@@ -735,15 +736,13 @@ class ModeloPanelPedidos:
                 "'dbo.sp_SincronizarKardexPaqueteCayal', 'P') IS NULL "
                 "OR COL_LENGTH('dbo.docDocumentItem', "
                 "'OrderPackageDocumentItemID') IS NULL "
-                "OR NOT EXISTS (SELECT 1 FROM sys.parameters WHERE object_id = "
-                "OBJECT_ID('dbo.zvwInsertarProductoCayal', 'P') "
-                "AND name = '@OrderPackageDocumentItemID') "
+                "OR OBJECT_ID('dbo.docDocumentItemOrderComponentCayal', 'U') IS NULL "
                 "THEN 0 ELSE 1 END"
             )
             if not disponible:
                 raise ValueError(
                     'Falta instalar el control de kardex para paquetes. '
-                    'Ejecute los scripts 02 y 03 antes de facturar.'
+                    'Ejecute el script 02 antes de facturar.'
                 )
         if total_documento < 200:
             order_delivery_type_id = self.base_de_datos.fetchone(
@@ -756,25 +755,91 @@ class ModeloPanelPedidos:
                 self.insertar_servicio_a_docimicilio(document_id, address_detail_id)
 
         for partida in partidas:
-            parametros = (
-                document_id,
-                partida['ProductID'],
-                2,  # depot_id
-                partida['Quantity'],
-                partida['UnitPrice'],
-                0,  # costo,
-                partida['Subtotal'],
-                partida['TipoCaptura'],  # tipo captura
-                21,  # modulo
-                partida['Comments'],
-                int(partida.get('IsComponent', 0) or 0),
-                partida.get('OrderComponentTransactionID')
-            )
             if int(partida.get('ProductTypeID', 0) or 0) == 3:
-                # El procedimiento confirma padre fiscal e ingredientes del
-                # kardex en la misma transacción.
-                parametros += (int(partida['DocumentItemID']),)
-            self.base_de_datos.insertar_partida_documento_cayal(parametros)
+                self._insertar_paquete_facturado(document_id, partida)
+            else:
+                self._insertar_partida_normal(document_id, partida)
+
+    def _parametros_partida_fiscal(self, document_id, partida):
+        """Parámetros básicos, sin depender de opcionales posicionales."""
+        return (
+            document_id,
+            partida['ProductID'],
+            2,  # depot_id
+            partida['Quantity'],
+            partida['UnitPrice'],
+            0,  # costo
+            partida['Subtotal'],
+            partida['TipoCaptura'],
+            21,  # módulo de facturación
+            partida.get('Comments', ''),
+        )
+
+    def _insertar_partida_normal(self, document_id, partida):
+        parametros = self._parametros_partida_fiscal(document_id, partida)
+        parametros += (
+            int(partida.get('IsComponent', 0) or 0),
+            partida.get('OrderComponentTransactionID'),
+        )
+        return self.base_de_datos.insertar_partida_documento_cayal(parametros)
+
+    def _insertar_paquete_facturado(self, document_id, partida):
+        """Inserta el padre fiscal y confirma su kardex desde el pedido."""
+        order_document_item_id = int(partida.get('DocumentItemID', 0) or 0)
+        if order_document_item_id <= 0:
+            raise ValueError('No se encontró la partida origen del paquete.')
+
+        fiscal_document_item_id = None
+        try:
+            fiscal_document_item_id = (
+                self.base_de_datos.insertar_partida_documento_cayal(
+                    self._parametros_partida_fiscal(document_id, partida)
+                )
+            )
+            if not fiscal_document_item_id:
+                raise RuntimeError(
+                    'La inserción no devolvió el identificador de la partida '
+                    'fiscal del paquete.'
+                )
+
+            self.base_de_datos.exec_stored_procedure(
+                'sp_SincronizarKardexPaqueteCayal',
+                (
+                    int(document_id),
+                    int(fiscal_document_item_id),
+                    order_document_item_id,
+                    0,
+                    self.user_id,
+                ),
+                sin_resultados=True,
+            )
+            return int(fiscal_document_item_id)
+        except Exception:
+            if fiscal_document_item_id:
+                self._revertir_paquete_facturado(
+                    document_id, fiscal_document_item_id
+                )
+            raise
+
+    def _revertir_paquete_facturado(
+            self, document_id, fiscal_document_item_id):
+        """Compensa el alta si no fue posible crear el kardex del paquete."""
+        try:
+            self.base_de_datos.exec_stored_procedure(
+                'zvwBorrarPartidasDocumentoCayal',
+                (
+                    int(document_id),
+                    21,
+                    int(fiscal_document_item_id),
+                    self.user_id,
+                ),
+                sin_resultados=True,
+            )
+        except Exception:
+            logging.exception(
+                'No fue posible revertir la partida fiscal del paquete %s.',
+                fiscal_document_item_id,
+            )
 
     def validar_paquetes_surtidos(self, order_document_id, partidas):
         """Valida el surtido sin sustituir la partida fiscal del paquete."""
@@ -797,15 +862,13 @@ class ModeloPanelPedidos:
             "'dbo.sp_SincronizarKardexPaqueteCayal', 'P') IS NULL "
             "OR COL_LENGTH('dbo.docDocumentItem', "
             "'OrderPackageDocumentItemID') IS NULL "
-            "OR NOT EXISTS (SELECT 1 FROM sys.parameters WHERE object_id = "
-            "OBJECT_ID('dbo.zvwInsertarProductoCayal', 'P') "
-            "AND name = '@OrderPackageDocumentItemID') "
+            "OR OBJECT_ID('dbo.docDocumentItemOrderComponentCayal', 'U') IS NULL "
             "THEN 0 ELSE 1 END"
         )
         if not disponible:
             raise ValueError(
                 'Falta instalar el control de kardex para paquetes. '
-                'Ejecute los scripts 02 y 03 antes de facturar.'
+                'Ejecute el script 02 antes de facturar.'
             )
 
         pendientes = self.base_de_datos.fetchall(

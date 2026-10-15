@@ -39,5 +39,17 @@ class UsuarioTicketProduccionTest(unittest.TestCase):
         self.assertIsNone(modelo.obtener_ultimo_usuario_modificacion(123))
 
 
+class CapturistaTicketProduccionTest(unittest.TestCase):
+    def test_conserva_capturista_original_aunque_existan_modificaciones(self):
+        pedido_modificado = {
+            'Captura': 'CAPTURISTA ORIGINAL',
+            'UltimoModificador': 'USUARIO MODIFICADOR',
+        }
+
+        capturista = ModeloPanelPedidos.obtener_capturista_ticket(pedido_modificado)
+
+        self.assertEqual(capturista, 'CAPTURISTA ORIGINAL')
+
+
 if __name__ == '__main__':
     unittest.main()

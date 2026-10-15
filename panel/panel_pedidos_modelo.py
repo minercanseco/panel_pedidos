@@ -568,6 +568,11 @@ class ModeloPanelPedidos:
             parametros,
         )
 
+    @staticmethod
+    def obtener_capturista_ticket(pedido):
+        """Devuelve siempre al usuario que capturó originalmente el pedido."""
+        return pedido.get('Captura', '')
+
     def obtener_ruta_y_colonia_pedido(self, order_document_id):
         consulta = self.base_de_datos.fetchall(
             """

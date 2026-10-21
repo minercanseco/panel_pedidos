@@ -22,6 +22,9 @@ from herramientas.capturar_documento.selector_modulo.servicio_impresion_ticket i
 from herramientas.capturar_documento.selector_modulo.servicio_generacion_cfdi_ticket import (
     ServicioGeneracionCFDITicket,
 )
+from herramientas.capturar_documento.persistencia_prorrateo import (
+    persistir_prorrateo_maniobras,
+)
 
 
 MODULO_TICKET = 158
@@ -469,7 +472,12 @@ class LlamarInstanciaCaptura:
                 registros = self._documento.prorrateo_maniobras
                 if registros:
 
-                    self._base_de_datos.guardar_prorrateo_maniobras(self._documento.document_id, self._user_id, registros)
+                    persistir_prorrateo_maniobras(
+                        self._base_de_datos,
+                        self._documento.document_id,
+                        self._user_id,
+                        registros,
+                    )
 
             # Las partidas ya están persistidas. A partir de ellas se
             # reconstruyen detalle, resumen fiscal y resumen por impuesto

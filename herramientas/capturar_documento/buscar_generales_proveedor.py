@@ -9,6 +9,9 @@ from cayal.ventanas import Ventanas
 from capturar_documento.controlador_captura import ControladorCaptura
 from capturar_documento.interfaz_captura import InterfazCaptura
 from capturar_documento.modelo_captura import ModeloCaptura
+from capturar_documento.persistencia_prorrateo import (
+    persistir_prorrateo_maniobras,
+)
 
 
 class BuscarGeneralesProveedor:
@@ -437,7 +440,12 @@ class BuscarGeneralesProveedor:
             registros = self._documento.prorrateo_maniobras
             if registros:
 
-                self._base_de_datos.guardar_prorrateo_maniobras(document_id, self._user_id, registros)
+                persistir_prorrateo_maniobras(
+                    self._base_de_datos,
+                    document_id,
+                    self._user_id,
+                    registros,
+                )
 
             self._modelo_captura.actualizar_totales_documento(document_id)
 

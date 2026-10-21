@@ -9,6 +9,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'herramientas'))
 from capturar_documento.herramientas.prorrateo_maniobras import (
     ProrrateoManiobras,
 )
+from capturar_documento.persistencia_prorrateo import (
+    persistir_prorrateo_maniobras,
+    revertir_prorrateo_maniobras,
+)
 
 
 def crear_herramienta(partidas):
@@ -52,3 +56,42 @@ class EliminarManiobrasTests(TestCase):
         self.assertEqual(maniobras['ItemProductionStatusModified'], 3)
         herramienta._recalcular_documento.assert_called_once_with()
         herramienta._actualizar_vista_previa.assert_called_once_with()
+
+
+class PersistenciaProrrateoTests(TestCase):
+    def test_reversion_escribe_total_y_no_subtotal_de_partida(self):
+        base_de_datos = Mock()
+
+        revertir_prorrateo_maniobras(
+            base_de_datos,
+            230437,
+            'operacion-1',
+            7,
+        )
+
+        sql, parametros = base_de_datos.command.call_args.args
+        self.assertIn('I.Total = P.SubTotalBefore', sql)
+        self.assertNotIn('I.SubTotal', sql)
+        self.assertIn('BEGIN TRANSACTION', sql)
+        self.assertEqual(parametros[0:2], (230437, 'operacion-1'))
+
+    def test_persistencia_revierte_antes_de_guardar_bitacora(self):
+        base_de_datos = Mock()
+        registros = [{
+            'OperationID': 'operacion-1',
+            'DatabaseAction': 'REVERT',
+        }]
+
+        persistir_prorrateo_maniobras(
+            base_de_datos,
+            230437,
+            7,
+            registros,
+        )
+
+        self.assertEqual(base_de_datos.command.call_count, 1)
+        base_de_datos.guardar_prorrateo_maniobras.assert_called_once_with(
+            230437,
+            7,
+            registros,
+        )

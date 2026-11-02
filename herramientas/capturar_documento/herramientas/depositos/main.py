@@ -32,6 +32,9 @@ def llamar_instancia_principal(ventana, parametros):
     grupo_usuario = parametros.id_grupo_usuario
     aceptar_depositos = 0
 
+    # Lee opcion de recepcionar despositos como si fuera domingo
+    leer_como_domingo = base_de_datos.fetchone('select RecibirDepositoDomingos from orgBusinessEntityCFD')
+
     if dia == 6 and pendientes != 0 and grupo_usuario == 11:
         ventana.position_center()
         respuesta = ttk.dialogs.Messagebox.yesno(
@@ -40,6 +43,9 @@ def llamar_instancia_principal(ventana, parametros):
 
         if respuesta != 'No':
             aceptar_depositos = 1
+
+    if leer_como_domingo == 1:
+        aceptar_depositos = 1
 
     if grupo_usuario != 11 and pendientes != 0:
         ventana.position_center()

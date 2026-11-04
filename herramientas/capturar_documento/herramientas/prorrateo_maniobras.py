@@ -754,6 +754,28 @@ class ProrrateoManiobras:
         self.registros_prorrateo = copy.deepcopy(actualizados)
 
     def _actualizar_vista_previa(self, event=None):
+        hay_maniobras = self._buscar_partida_maniobras() is not None
+        self.btn_eliminar.configure(
+            state='normal' if hay_maniobras or self.registros_prorrateo else 'disabled'
+        )
+        # Una operación guardada ya está incluida en los importes actuales.
+        # Simular desde Before evita volver a sumar Maniobras en la vista
+        # previa y producir una diferencia negativa ficticia al reabrir.
+        if not self.registros_prorrateo:
+            return self._actualizar_vista_previa_desde_base(event)
+        estado_actual = [
+            (partida, copy.deepcopy(partida))
+            for partida in self.documento.items
+        ]
+        try:
+            self._restaurar_base_operacion_activa()
+            return self._actualizar_vista_previa_desde_base(event)
+        finally:
+            for partida, valores in estado_actual:
+                partida.clear()
+                partida.update(valores)
+
+    def _actualizar_vista_previa_desde_base(self, event=None):
         costo = None
         subtotal_factura = None
         total_factura = None
@@ -1114,7 +1136,12 @@ class ProrrateoManiobras:
         coleccion = otras_operaciones + registros_reversion
         self.documento.prorrateo_maniobras = coleccion
         self._registros_documento = copy.deepcopy(coleccion)
-        self.registros_prorrateo = copy.deepcopy(registros_reversion)
+        # La reversión queda pendiente en documento.prorrateo_maniobras;
+        # ya no debe tratarse como operación activa dentro de la herramienta.
+        self.registros_prorrateo = []
+        self.registros_persistencia = []
+        self._snapshots = []
+        self.operation_id = str(uuid.uuid4())
 
         self.aplicado = False
         self.revertido = True

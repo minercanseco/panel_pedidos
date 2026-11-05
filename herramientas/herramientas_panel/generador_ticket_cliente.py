@@ -263,7 +263,10 @@ class GeneradorTicketCliente:
 
         for producto in self.productos:
 
-            precio = Decimal(str(producto.get('precio', 0)))
+            precio = (
+                Decimal(str(producto.get('precio', 0) or 0))
+                + Decimal(str(producto.get('impuestos', 0) or 0))
+            )
             piezas = int(producto.get('CayalPiece', 0) or 0)
             # ``total`` ya fue calculado por Utilerias con la cantidad vigente,
             # impuestos y gramaje. No debe reconstruirse a partir de CayalPiece,
@@ -445,7 +448,10 @@ class GeneradorTicketCliente:
         cuerpo = ""
         for producto in self.productos:
 
-            precio = Decimal(str(producto.get('precio', 0)))
+            precio = (
+                Decimal(str(producto.get('precio', 0) or 0))
+                + Decimal(str(producto.get('impuestos', 0) or 0))
+            )
             piezas = int(producto.get('CayalPiece', 0) or 0)
             total_producto = Decimal(str(producto.get('total', 0) or 0))
 

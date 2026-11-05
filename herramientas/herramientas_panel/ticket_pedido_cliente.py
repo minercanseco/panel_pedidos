@@ -160,6 +160,7 @@ class TicketPedidoCliente:
                 partida_con_impuesto['Equivalencia'] = 0
 
             partidas_con_impuestos.append(partida_con_impuesto)
+
             total_documento += partida_con_impuesto['total']
 
         self._ticket.productos = partidas_con_impuestos

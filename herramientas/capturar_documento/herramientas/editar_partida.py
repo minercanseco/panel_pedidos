@@ -449,8 +449,10 @@ class EditarPartida:
             cantidad = valores_controles['cantidad']
             cantidad_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(cantidad)
 
-            equivalencia = valores_controles['equivalencia']
-            equivalencia_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
+            # La equivalencia del catálogo conserva la precisión del peso por pieza.
+            equivalencia_decimal = self._utilerias.convertir_valor_a_decimal(
+                info_producto.get('Equivalencia', 0)
+            )
 
             cantidad_real_decimal = calcular_cantidad_real(tipo_calculo, equivalencia_decimal, cantidad_decimal)
 
@@ -540,7 +542,7 @@ class EditarPartida:
             )
         )
         cantidad_nueva = (
-            self._utilerias.redondear_valor_cantidad_a_decimal(
+            self._utilerias.convertir_valor_a_decimal(
                 valores_partida['cantidad']
             )
         )
@@ -565,7 +567,7 @@ class EditarPartida:
         valor_pieza = int(
             self._ventanas.obtener_input_componente('chk_pieza') or 0
         )
-        equivalencia = self._utilerias.redondear_valor_cantidad_a_decimal(
+        equivalencia = self._utilerias.convertir_valor_a_decimal(
             self._info_producto.get('Equivalencia', 0)
         )
         piezas = (

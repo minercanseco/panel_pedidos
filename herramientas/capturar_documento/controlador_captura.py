@@ -1814,8 +1814,10 @@ class ControladorCaptura:
             cantidad_piezas = cantidad
             cantidad_decimal = self._utilerias.convertir_valor_a_decimal(cantidad)
 
-            equivalencia = valores_controles['equivalencia']
-            equivalencia_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
+            # La equivalencia del catálogo conserva la precisión del peso por pieza.
+            equivalencia_decimal = self._utilerias.convertir_valor_a_decimal(
+                info_producto.get('Equivalencia', 0)
+            )
 
             cantidad_real_decimal = calcular_cantidad_real(tipo_calculo, equivalencia_decimal, cantidad_decimal)
 
@@ -2302,7 +2304,7 @@ class ControladorCaptura:
 
                 equivalencia = self._modelo.obtener_equivalencia_producto(partida.get('ProductID', 0))
                 equivalencia = 0 if not equivalencia else equivalencia
-                equivalencia_decimal = self._utilerias.redondear_valor_cantidad_a_decimal(equivalencia)
+                equivalencia_decimal = self._utilerias.convertir_valor_a_decimal(equivalencia)
 
                 if equivalencia_decimal > 0 and unidad_cayal == 1:
                     cantidad_piezas = int((cantidad/equivalencia_decimal))

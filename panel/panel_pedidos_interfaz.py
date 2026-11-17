@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import font as tkfont
 from cayal.ventanas import Ventanas
 
 
@@ -224,10 +225,12 @@ class InterfazPanelPedidos:
             'warning': ('#fff0d4', '#805000'),
             'danger': ('#fbe5e5', '#9c2929'),
         }
+        fuente = tkfont.nametofont('TkDefaultFont', root=self.master)
+        fuente_negrita = (fuente.actual('family'), fuente.actual('size'), 'bold')
         self.ventanas.crear_componentes({
             f'lbl_resumen_{clave}': (
                 'frame_resumen',
-                {'text': texto, 'anchor': 'center', 'padding': (6, 4),
+                {'text': texto, 'anchor': 'center', 'padding': (6, 4), 'font': fuente_negrita,
                  'background': colores[estilo][0], 'foreground': colores[estilo][1]},
                 {'row': fila, 'column': columna, 'columnspan': ancho,
                  'sticky': tk.NSEW, 'padx': 1, 'pady': 1},

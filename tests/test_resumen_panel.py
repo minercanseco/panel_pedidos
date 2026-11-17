@@ -50,6 +50,41 @@ class ResumenPanelTest(unittest.TestCase):
         resumen = self.resumir(filas)
         self.assertEqual([resumen[k] for k in ('en_tiempo', 'proximos', 'retrasados')], [0, 1, 3])
 
+    def test_configuracion_vacia_o_invalida_no_impide_contar(self):
+        casos = ((None, None), ('', ''), ('None', 'None'),
+                 ('inválido', 30), (float('nan'), float('inf')),
+                 (0, -1), (45, 15), ('15', '30'))
+        for minimo, margen in casos:
+            with self.subTest(limites=(minimo, margen)):
+                self.modelo.valor_a_tiempo = minimo
+                self.modelo.valor_en_tiempo = margen
+                resumen = self.resumir([self.pedido(), self.pedido(HoraEntrega='12:15'),
+                                        self.pedido(HoraEntrega='12:14'),
+                                        self.pedido(Cancelado=1)])
+                self.assertEqual(resumen['total'], 4)
+                self.assertEqual(resumen['pedidos'], 3)
+                self.assertEqual(resumen['cancelados'], 1)
+                self.assertEqual([resumen[k] for k in ('en_tiempo', 'proximos', 'retrasados')],
+                                 [1, 1, 1])
+
+    def test_actualiza_etiquetas_con_datos_cargados_y_limites_nulos(self):
+        self.modelo.valor_a_tiempo = None
+        self.modelo.valor_en_tiempo = None
+        self.modelo.consulta_pedidos = [self.pedido() for _ in range(300)] + [
+            self.pedido(OrderTypeID=2) for _ in range(40)] + [
+            self.pedido(OrderTypeID=3) for _ in range(30)] + [
+            self.pedido(Cancelado=1) for _ in range(14)]
+        controlador = object.__new__(ControladorPanelPedidos)
+        controlador._modelo = self.modelo
+        ventanas = Mock()
+        controlador._interfaz = SimpleNamespace(ventanas=ventanas)
+        controlador._colorear_filas_panel_horarios(actualizar_resumen=True)
+        for clave, texto in (('total', 'Registros: 384'), ('pedidos', 'Pedidos netos: 300'),
+                             ('anexos', 'Anexos: 40'), ('cambios', 'Cambios: 30'),
+                             ('cancelados', 'Cancelados: 14')):
+            ventanas.insertar_input_componente.assert_any_call(f'lbl_resumen_{clave}', texto)
+        self.assertEqual(ventanas.insertar_input_componente.call_count, 9)
+
     def test_pago_prioridad_y_tipo_entrega_no_sustituyen_la_puntualidad(self):
         filas = [self.pedido(PaymentConfirmedID=2), self.pedido(PaymentConfirmedID=3),
                  self.pedido(PriorityID=2), self.pedido(OrderDeliveryTypeID=2)]

@@ -118,12 +118,12 @@ class InterfazPanelPedidos:
                                     'sticky': tk.W}),
 
             'frame_totales': ('frame_principal', None,
-                              {'row': 0, 'column': 1, 'pady': 0, 'padx': 0,
-                               'sticky': tk.E}),
+                              {'row': 0, 'column': 1, 'pady': (5, 0), 'padx': (5, 5),
+                               'sticky': tk.NE}),
 
             'frame_resumen': ('frame_totales', 'Resumen del día',
                              {'row': 0, 'column': 0, 'pady': 0, 'padx': 0,
-                              'sticky': tk.W}),
+                              'sticky': tk.EW}),
 
             'frame_filtros': ('frame_principal', None,
                               {'row': 2, 'column': 0, 'columnspan': 2, 'pady': 0, 'padx': 0,
@@ -221,7 +221,7 @@ class InterfazPanelPedidos:
             f'lbl_resumen_{clave}': (
                 'frame_resumen',
                 {'text': texto, 'bootstyle': estilo, 'anchor': 'center',
-                 'padding': (3, 1), 'font': ('TkDefaultFont', 8)},
+                 'padding': (5, 2)},
                 {'row': fila, 'column': columna, 'columnspan': ancho,
                  'sticky': tk.EW, 'padx': 0, 'pady': 0},
                 None,

@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import platform
 import tempfile
@@ -31,10 +32,10 @@ class ModeloPanelPedidos:
         self.user_name = self.buscar_nombre_de_usuario(self.user_id)
         self.user_group_id = self.buscar_grupo_de_usuario(self.user_id)
 
-        valores_puntualidad = self.obtener_valores_de_puntualidad()
-
-        self.valor_a_tiempo = valores_puntualidad['ATiempo']
-        self.valor_en_tiempo = valores_puntualidad['EnTiempo']
+        valores_puntualidad = self.obtener_valores_de_puntualidad() or {}
+        self.valor_a_tiempo = valores_puntualidad.get('ATiempo')
+        self.valor_en_tiempo = valores_puntualidad.get('EnTiempo')
+        self.valor_a_tiempo, self.valor_en_tiempo = self._limites_puntualidad()
 
         self.hoy = datetime.now().date()
         self.hora_actual = self.utilerias.hora_actual()
@@ -44,9 +45,25 @@ class ModeloPanelPedidos:
     def buscar_pedidos(self, fecha_entrega):
         return self.base_de_datos.buscar_pedidos_panel_captura_cayal(fecha_entrega)
 
+    def _limites_puntualidad(self):
+        """La configuración vacía o inválida usa los límites habituales: 15/30 min."""
+        limites = []
+        for valor, respaldo in ((self.valor_a_tiempo, 15), (self.valor_en_tiempo, 30)):
+            try:
+                valor = float(valor)
+                if not math.isfinite(valor) or valor <= 0:
+                    valor = respaldo
+            except (TypeError, ValueError):
+                valor = respaldo
+            limites.append(valor)
+        if limites[1] <= limites[0]:
+            return 15, 30
+        return tuple(limites)
+
     def resumir_pedidos(self, filas, ahora=None):
         """Cuenta categorías excluyentes y puntualidad real de pendientes activos."""
         ahora = ahora or datetime.now()
+        min_proximos, min_en_tiempo = self._limites_puntualidad()
         resumen = dict.fromkeys((
             'total', 'pedidos', 'anexos', 'cambios', 'cancelados', 'pendientes',
             'en_tiempo', 'proximos', 'retrasados', 'sin_horario',
@@ -70,9 +87,9 @@ class ModeloPanelPedidos:
             except (ValueError, TypeError):
                 resumen['sin_horario'] += 1
                 continue
-            if minutos >= self.valor_en_tiempo:
+            if minutos >= min_en_tiempo:
                 clave = 'en_tiempo'
-            elif minutos >= self.valor_a_tiempo:
+            elif minutos >= min_proximos:
                 clave = 'proximos'
             else:
                 clave = 'retrasados'

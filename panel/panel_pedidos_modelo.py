@@ -40,12 +40,44 @@ class ModeloPanelPedidos:
         self.hora_actual = self.utilerias.hora_actual()
         self.usuario_operador_panel = ''
 
-        self.pedidos_en_tiempo = 0
-        self.pedidos_a_tiempo = 0
-        self.pedidos_retrasados = 0
 
     def buscar_pedidos(self, fecha_entrega):
         return self.base_de_datos.buscar_pedidos_panel_captura_cayal(fecha_entrega)
+
+    def resumir_pedidos(self, filas, ahora=None):
+        """Cuenta categorías excluyentes y puntualidad real de pendientes activos."""
+        ahora = ahora or datetime.now()
+        resumen = dict.fromkeys((
+            'total', 'pedidos', 'anexos', 'cambios', 'cancelados', 'pendientes',
+            'en_tiempo', 'proximos', 'retrasados', 'sin_horario',
+        ), 0)
+        for fila in filas or []:
+            resumen['total'] += 1
+            status = int(fila.get('TypeStatusID') or 0)
+            if str(fila.get('Cancelado', 0)).lower() in ('1', 'true') or status == 10:
+                resumen['cancelados'] += 1
+                continue
+            tipo = int(fila.get('OrderTypeID') or 1)
+            resumen[{2: 'anexos', 3: 'cambios'}.get(tipo, 'pedidos')] += 1
+            # En ruta, entregado, cobrado y cartera ya no son pendientes.
+            if status in (9, 13, 14, 15):
+                continue
+            resumen['pendientes'] += 1
+            try:
+                fecha = self.utilerias.convertir_fecha_str_a_datetime(fila.get('FechaEntrega'))
+                hora = datetime.strptime(fila.get('HoraEntrega'), '%H:%M').time()
+                minutos = (datetime.combine(fecha, hora) - ahora).total_seconds() / 60
+            except (ValueError, TypeError):
+                resumen['sin_horario'] += 1
+                continue
+            if minutos >= self.valor_en_tiempo:
+                clave = 'en_tiempo'
+            elif minutos >= self.valor_a_tiempo:
+                clave = 'proximos'
+            else:
+                clave = 'retrasados'
+            resumen[clave] += 1
+        return resumen
 
     def preparar_copia_pedido(self, order_document_id):
         """Lee sólo lo solicitado; nunca reutiliza resultados de producción."""

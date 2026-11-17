@@ -121,7 +121,7 @@ class InterfazPanelPedidos:
                               {'row': 0, 'column': 1, 'pady': 0, 'padx': 0,
                                'sticky': tk.E}),
 
-            'frame_meters': ('frame_totales', None,
+            'frame_resumen': ('frame_totales', 'Resumen del día',
                              {'row': 0, 'column': 0, 'pady': 0, 'padx': 0,
                               'sticky': tk.W}),
 
@@ -171,7 +171,6 @@ class InterfazPanelPedidos:
 
     def _cargar_componentes_forma(self):
         ancho, alto = self.ventanas.obtener_resolucion_pantalla()
-        tamano_meters =  75
         componentes = {
             'cbx_horarios': ('frame_horarios', None, 'Horas:', None),
 
@@ -194,19 +193,45 @@ class InterfazPanelPedidos:
             'chk_transferencias': ('frame_chks',
                               {'row': 5, 'column': 5, 'pady': 0, 'padx': 0, 'sticky': tk.W},
                               'Transferencias', None),
-            'mtr_total': ('frame_meters', None, 'Total', tamano_meters),
-            'mtr_en_tiempo': ('frame_meters', 'success', 'En tiempo', tamano_meters),
-            'mtr_a_tiempo': ('frame_meters', 'warning', 'A tiempo', tamano_meters),
-            'mtr_retrasado': ('frame_meters', 'danger', 'Retrasos', tamano_meters),
             'tbx_comentarios': ('frame_comentarios', {'row': 0, 'column': 1, 'pady': 0, 'padx': 0, 'sticky': tk.NSEW},
                                 ' ', None),
             'tvw_detalle':('frame_detalle', self.crear_columnas_tabla_detalle(), 5, None)
         }
 
         self.ventanas.crear_componentes(componentes)
+        self._crear_resumen()
         frame_comentario = self.ventanas.componentes_forma['frame_comentarios']
         frame_comentario.columnconfigure(1, weight=1)  # Asegurar que la columna 1 se extienda
         frame_comentario.rowconfigure(0, weight=1)
+
+    def _crear_resumen(self):
+        """Etiquetas contiguas en el espacio antes ocupado por los medidores."""
+        etiquetas = (
+            ('total', 'Registros: 0', 0, 0, 3, 'primary'),
+            ('pedidos', 'Pedidos netos: 0', 0, 3, 3, 'primary'),
+            ('anexos', 'Anexos: 0', 1, 0, 2, 'default'),
+            ('cambios', 'Cambios: 0', 1, 2, 2, 'default'),
+            ('cancelados', 'Cancelados: 0', 1, 4, 2, 'secondary'),
+            ('en_tiempo', 'En tiempo: 0', 2, 0, 2, 'success'),
+            ('proximos', 'Próximos: 0', 2, 2, 2, 'warning'),
+            ('retrasados', 'Retrasos: 0', 2, 4, 2, 'danger'),
+            ('pendientes', 'Pendientes: 0 · Sin horario: 0', 3, 0, 6, 'secondary'),
+        )
+        self.ventanas.crear_componentes({
+            f'lbl_resumen_{clave}': (
+                'frame_resumen',
+                {'text': texto, 'bootstyle': estilo, 'anchor': 'center',
+                 'padding': (3, 1), 'font': ('TkDefaultFont', 8)},
+                {'row': fila, 'column': columna, 'columnspan': ancho,
+                 'sticky': tk.EW, 'padx': 0, 'pady': 0},
+                None,
+            )
+            for clave, texto, fila, columna, ancho, estilo in etiquetas
+        })
+        frame = self.ventanas.componentes_forma['frame_resumen']
+        frame.configure(bootstyle='primary')
+        for columna in range(6):
+            frame.grid_columnconfigure(columna, weight=1, uniform='resumen')
 
     def crear_columnas_tabla_detalle(self):
         columnas = [

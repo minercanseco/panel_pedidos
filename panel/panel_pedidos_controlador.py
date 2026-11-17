@@ -394,11 +394,11 @@ class ControladorPanelPedidos:
         return self._aplicar_filtros_consulta(consulta, valores, despues_de_captura)
 
     # ------------------------------
-    # Pintar tabla + meters
+    # Pintar tabla + resumen
     # ------------------------------
     def _pintar_tabla_pedidos(self, consulta_filtrada):
         """
-        Pinta la tabla de pedidos y actualiza colores/meters.
+        Pinta la tabla de pedidos y actualiza colores y resumen.
         """
         if not consulta_filtrada:
             self._limpiar_tabla()
@@ -410,8 +410,8 @@ class ControladorPanelPedidos:
             consulta_filtrada
         )
 
-        # Actualiza colores + meters
-        self._colorear_filas_panel_horarios(actualizar_meters=True)
+        # Actualiza colores + resumen
+        self._colorear_filas_panel_horarios(actualizar_resumen=True)
 
     # ------------------------------
     # Método orquestador principal
@@ -425,7 +425,7 @@ class ControladorPanelPedidos:
         - Construir opciones de filtros
         - Decidir qué queda seleccionado en los combos
         - Aplicar filtros sobre la consulta
-        - Pintar tabla y meters
+        - Pintar tabla y resumen
         """
         if self._actualizando_tabla:
             return
@@ -467,7 +467,7 @@ class ControladorPanelPedidos:
                 despues_de_captura=despues_de_capturar_pedido
             )
 
-            # 8) Pinta tabla + meters
+            # 8) Pinta tabla + resumen
             self._pintar_tabla_pedidos(consulta_filtrada)
 
         finally:
@@ -502,18 +502,16 @@ class ControladorPanelPedidos:
         self._interfaz.ventanas.limpiar_componentes(['tbx_comentarios', 'tvw_detalle'])
 
     def _limpiar_tabla(self):
-        """Limpia la tabla y restablece los contadores de métricas"""
+        """Limpia la tabla y conserva el resumen global de la consulta."""
         tabla = self._interfaz.ventanas.componentes_forma['tbv_pedidos']
-        for campo in ['mtr_total', 'mtr_en_tiempo', 'mtr_a_tiempo', 'mtr_retrasado']:
-            self._interfaz.ventanas.insertar_input_componente(campo, (1, 0))
+        self._actualizar_resumen()
         tabla.delete_rows()
 
-    def _colorear_filas_panel_horarios(self, actualizar_meters=None):
-        """
-        Colorea las filas de la tabla según la fase de producción (`StatusID`) y los tiempos estimados.
-        También tiene en cuenta la fecha y hora de captura. Si `actualizar_meters` es True, solo actualiza
-        los contadores sin modificar los colores en la tabla.
-        """
+    def _colorear_filas_panel_horarios(self, actualizar_resumen=None):
+        """Colorea las filas visibles o actualiza el resumen de la consulta completa."""
+        if actualizar_resumen:
+            self._actualizar_resumen()
+            return
         if not self._fecha_seleccionada():
             return
 
@@ -523,15 +521,7 @@ class ControladorPanelPedidos:
         self._coloreando = True
         ahora = datetime.now()
 
-        # Obtener filas a procesar
-        filas = self._modelo.consulta_pedidos if actualizar_meters else \
-            self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', visibles=True)
-
-        # Reiniciar contadores si estamos actualizando meters
-        if actualizar_meters:
-            self._modelo.pedidos_retrasados = 0
-            self._modelo.pedidos_en_tiempo = 0
-            self._modelo.pedidos_a_tiempo = 0
+        filas = self._interfaz.ventanas.procesar_filas_table_view('tbv_pedidos', visibles=True)
 
         if not filas:
             self._coloreando = False
@@ -552,8 +542,8 @@ class ControladorPanelPedidos:
             valores_fila = {
                 'PriorityID': fila['PriorityID'],
                 'Cancelled': fila['Cancelado'],
-                'FechaEntrega': fila['FechaEntrega'] if actualizar_meters else fila['F.Entrega'],
-                'HoraEntrega': fila['HoraCaptura'] if actualizar_meters else fila['H.Entrega'],
+                'FechaEntrega': fila['F.Entrega'],
+                'HoraEntrega': fila['H.Entrega'],
                 'StatusID': fila['TypeStatusID'],
                 'OrderDeliveryTypeID': fila['OrderDeliveryTypeID'],
                 'PaymentConfirmedID': fila['PaymentConfirmedID']
@@ -563,46 +553,27 @@ class ControladorPanelPedidos:
 
             color = colores[status_pedido]
 
-            if actualizar_meters:
-                if status_pedido in (1, 4):
-                    self._modelo.pedidos_en_tiempo += 1
-                elif status_pedido == 2:
-                    self._modelo.pedidos_a_tiempo += 1
-                elif status_pedido == 3:
-                    self._modelo.pedidos_retrasados += 1
-            else:
-                self._interfaz.ventanas.colorear_filas_table_view('tbv_pedidos', [i], color)
-
-        if actualizar_meters:
-            self._rellenar_meters()
+            self._interfaz.ventanas.colorear_filas_table_view('tbv_pedidos', [i], color)
 
         self._coloreando = False
 
-    def _rellenar_meters(self):
-
-        pedidos_entrega = len(self._modelo.consulta_pedidos)
-        if pedidos_entrega == 0:
-            self._interfaz.ventanas.insertar_input_componente('mtr_total', (1, pedidos_entrega))
-            self._interfaz.ventanas.insertar_input_componente('mtr_en_tiempo', (1, pedidos_entrega))
-            self._interfaz.ventanas.insertar_input_componente('mtr_a_tiempo', (1, pedidos_entrega))
-            self._interfaz.ventanas.insertar_input_componente('mtr_retrasado', (1, pedidos_entrega))
-            return
-
-        self._interfaz.ventanas.insertar_input_componente('mtr_total', (pedidos_entrega, pedidos_entrega))
-        self._interfaz.ventanas.insertar_input_componente('mtr_en_tiempo',
-                                                          (pedidos_entrega, self._modelo.pedidos_en_tiempo))
-        self._interfaz.ventanas.insertar_input_componente('mtr_a_tiempo',
-                                                          (pedidos_entrega, self._modelo.pedidos_a_tiempo))
-        self._interfaz.ventanas.insertar_input_componente('mtr_retrasado',
-                                                          (pedidos_entrega, self._modelo.pedidos_retrasados))
-
-        en_tiempo = f">={self._modelo.valor_en_tiempo}min."
-        a_tiempo = f">={self._modelo.valor_a_tiempo}min."
-        retrasado = f"<{self._modelo.valor_a_tiempo}min."
-
-        self._interfaz.ventanas.actualizar_etiqueta_meter('mtr_en_tiempo', en_tiempo)
-        self._interfaz.ventanas.actualizar_etiqueta_meter('mtr_a_tiempo', a_tiempo)
-        self._interfaz.ventanas.actualizar_etiqueta_meter('mtr_retrasado', retrasado)
+    def _actualizar_resumen(self):
+        """Resumen global de la consulta, independiente de filtros y paginación."""
+        resumen = self._modelo.resumir_pedidos(self._modelo.consulta_pedidos)
+        textos = {
+            'total': f"Registros: {resumen['total']}",
+            'pedidos': f"Pedidos netos: {resumen['pedidos']}",
+            'anexos': f"Anexos: {resumen['anexos']}",
+            'cambios': f"Cambios: {resumen['cambios']}",
+            'cancelados': f"Cancelados: {resumen['cancelados']}",
+            'en_tiempo': f"En tiempo: {resumen['en_tiempo']}",
+            'proximos': f"Próximos: {resumen['proximos']}",
+            'retrasados': f"Retrasos: {resumen['retrasados']}",
+            'pendientes': (f"Pendientes: {resumen['pendientes']} · "
+                           f"Sin horario: {resumen['sin_horario']}"),
+        }
+        for clave, texto in textos.items():
+            self._interfaz.ventanas.insertar_input_componente(f'lbl_resumen_{clave}', texto)
 
     def _rellenar_cbx_captura(self, valores):
         valores = sorted(list(set(valores)))
@@ -699,6 +670,7 @@ class ControladorPanelPedidos:
         self._interfaz.ventanas.actualizar_etiqueta_externa_tabla_view('tbv_pedidos', texto)
 
     def _buscar_nuevos_registros(self, fecha):
+        self._actualizar_resumen()
 
         # Usa la fecha seleccionada si existe; si no, hoy
         hoy = datetime.now().date() if not fecha else datetime.strptime(fecha, "%Y-%m-%d").date()
@@ -760,7 +732,7 @@ class ControladorPanelPedidos:
         )
 
         self._modelo.consulta_pedidos = consulta
-        self._colorear_filas_panel_horarios(actualizar_meters=True)
+        self._colorear_filas_panel_horarios(actualizar_resumen=True)
 
     def _sin_fecha(self):
 

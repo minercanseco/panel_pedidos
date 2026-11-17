@@ -25,6 +25,8 @@ class MandarPedidoAProducirTest(unittest.TestCase):
         modelo.mandar_pedido_a_producir(125)
 
         sql, parametros = modelo.base_de_datos.comandos[0]
+        sql_activo = '\n'.join(linea.split('--', 1)[0] for linea in sql.splitlines())
+        self.assertIn('SentToPrepare = GETDATE(),', sql_activo)
         self.assertIn('WithFrozenProducts = CASE', sql)
         self.assertIn('ISNULL(P.FrozenProduct, 0) = 1', sql)
         self.assertIn('I.DeletedOn IS NULL', sql)

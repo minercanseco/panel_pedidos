@@ -305,6 +305,7 @@ class ControladorSelectorModulo:
         funciones = {
             'nuevo_ticket': self._nuevo_ticket,
             'nueva_factura': self._nueva_factura,
+            'vales': self._vales,
             'nuevo_deposito': self._nuevo_deposito,
             'nuevo_corte_caja': self._nuevo_corte_caja,
             'editar_cliente': self._editar_cliente,
@@ -1365,6 +1366,19 @@ class ControladorSelectorModulo:
             return None
         finally:
             self._ejecutando = False
+
+    def _vales(self):
+        from herramientas.capturar_documento.herramientas.vales.main import Vales
+
+        try:
+            return self._ejecutar_accion(
+                funcion=lambda ventana: Vales(ventana, self._modelo.parametros),
+            )
+        except Exception as error:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'No fue posible abrir Vales:\n{}'.format(error),
+                self._interfaz._master,
+            )
 
     def _abrir_archivo(self, id_modulo):
         from capturar_documento.herramientas.archivo_cayal.main import (

@@ -321,6 +321,14 @@ class InterfazSelectorModulo:
                 'hotkey': '[F3]',
                 'comando': None
             },
+            {
+                'nombre_icono': 'Checkbook32.ico',
+                'etiqueta': 'Vales',
+                'nombre': 'vales',
+                'seccion': 'generales',
+                'hotkey': '',
+                'comando': None,
+            },
 
             {
                 'nombre_icono': 'CFD.ico',

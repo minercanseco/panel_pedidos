@@ -645,7 +645,7 @@ class ModeloPanelPedidos:
                                SET ItemProductionStatusModified = 0
                              WHERE DocumentID = ?
 
-                             UPDATE docDocumentOrderCayal SET --SentToPrepare = GETDATE(),
+                             UPDATE docDocumentOrderCayal SET SentToPrepare = GETDATE(),
                                                             SentToPrepareBy = ?,
                                                             StatusID = 2,
                                                             WithFrozenProducts = CASE

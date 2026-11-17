@@ -78,6 +78,9 @@ class HerramientasGenerales:
             {'nombre_icono': 'StockOut32.ico', 'etiqueta': 'No surtidos', 'nombre': 'no_surtidos',
              'hotkey': None, 'comando': self._consultar_no_surtidos},
 
+            {'nombre_icono': 'Checkbook32.ico', 'etiqueta': 'Vales', 'nombre': 'vales',
+             'hotkey': None, 'comando': self._vales},
+
             {'nombre_icono': 'Partner32.ico', 'etiqueta': 'Seguimiento', 'nombre': 'seguimiento_clientes',
              'hotkey': None, 'comando': self._seguimiento_clientes},
 
@@ -110,6 +113,30 @@ class HerramientasGenerales:
         fn = self._callbacks_autorefresco.get("reanudar")
         if fn:
             fn()
+
+    def _vales(self):
+        if getattr(self, '_vales_abierto', False):
+            return
+        from herramientas.capturar_documento.herramientas.vales.main import Vales
+
+        self._vales_abierto = True
+        self._pausar_autorefresco()
+        ventana = None
+        try:
+            ventana = self._ventanas.crear_popup_ttkbootstrap(
+                titulo='Vales de facturas anticipadas',
+            )
+            Vales(ventana, self._parametros)
+            ventana.wait_window()
+        except Exception as error:
+            if ventana is not None and ventana.winfo_exists():
+                ventana.destroy()
+            self._ventanas.mostrar_mensaje(
+                f'No fue posible abrir Vales:\n{error}', self._master,
+            )
+        finally:
+            self._vales_abierto = False
+            self._reanudar_autorefresco()
 
     def _consultar_no_surtidos(self):
         self._pausar_autorefresco()

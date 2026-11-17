@@ -569,8 +569,6 @@ class ControladorPanelPedidos:
             'en_tiempo': f"En tiempo: {resumen['en_tiempo']}",
             'proximos': f"Próximos: {resumen['proximos']}",
             'retrasados': f"Retrasos: {resumen['retrasados']}",
-            'pendientes': (f"Pendientes: {resumen['pendientes']} · "
-                           f"Sin horario: {resumen['sin_horario']}"),
         }
         for clave, texto in textos.items():
             self._interfaz.ventanas.insertar_input_componente(f'lbl_resumen_{clave}', texto)

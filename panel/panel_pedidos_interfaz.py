@@ -215,15 +215,22 @@ class InterfazPanelPedidos:
             ('en_tiempo', 'En tiempo: 0', 2, 0, 2, 'success'),
             ('proximos', 'Próximos: 0', 2, 2, 2, 'warning'),
             ('retrasados', 'Retrasos: 0', 2, 4, 2, 'danger'),
-            ('pendientes', 'Pendientes: 0 · Sin horario: 0', 3, 0, 6, 'secondary'),
         )
+        colores = {
+            'primary': ('#e6eefb', '#174783'),
+            'default': ('#eef2f7', '#283747'),
+            'secondary': ('#e8ebef', '#475569'),
+            'success': ('#e4f2e8', '#216239'),
+            'warning': ('#fff0d4', '#805000'),
+            'danger': ('#fbe5e5', '#9c2929'),
+        }
         self.ventanas.crear_componentes({
             f'lbl_resumen_{clave}': (
                 'frame_resumen',
-                {'text': texto, 'bootstyle': estilo, 'anchor': 'center',
-                 'padding': (5, 2)},
+                {'text': texto, 'anchor': 'center', 'padding': (6, 4),
+                 'background': colores[estilo][0], 'foreground': colores[estilo][1]},
                 {'row': fila, 'column': columna, 'columnspan': ancho,
-                 'sticky': tk.EW, 'padx': 0, 'pady': 0},
+                 'sticky': tk.NSEW, 'padx': 1, 'pady': 1},
                 None,
             )
             for clave, texto, fila, columna, ancho, estilo in etiquetas

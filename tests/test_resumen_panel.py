@@ -83,7 +83,7 @@ class ResumenPanelTest(unittest.TestCase):
                              ('anexos', 'Anexos: 40'), ('cambios', 'Cambios: 30'),
                              ('cancelados', 'Cancelados: 14')):
             ventanas.insertar_input_componente.assert_any_call(f'lbl_resumen_{clave}', texto)
-        self.assertEqual(ventanas.insertar_input_componente.call_count, 9)
+        self.assertEqual(ventanas.insertar_input_componente.call_count, 8)
 
     def test_pago_prioridad_y_tipo_entrega_no_sustituyen_la_puntualidad(self):
         filas = [self.pedido(PaymentConfirmedID=2), self.pedido(PaymentConfirmedID=3),

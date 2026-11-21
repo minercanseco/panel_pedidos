@@ -1,3 +1,5 @@
+from herramientas.credito_documento import evaluar_credito_documento, componer_comentarios
+
 import logging
 import math
 import os
@@ -1131,40 +1133,14 @@ class ModeloPanelPedidos:
             comentario = ", ".join(comentarios)
             return comentario
 
-    def validar_credito_documento_cliente(self, business_entity_id, comentarios_documento, total_documento):
-
-        info_cliente = self.base_de_datos.fetchall('SELECT * FROM [dbo].[zvwBuscarInfoCliente-BusinessEntityID](?)',
-                                                   (business_entity_id,))
-        credito_autorizado = self.utilerias.redondear_valor_cantidad_a_decimal(info_cliente[0]['AuthorizedCredit'])
-        ruta = int(info_cliente[0]['ZoneID'])
-        comentario_crediticio = ''
-        if credito_autorizado > 0 and ruta == 1040:
-            bloqueo_crediticio = int(info_cliente[0]['CreditBlock'])
-
-            if bloqueo_crediticio == 1:
-                comentario_crediticio = '--NO TIENE CRÉDITO SU COMPRA ES DE CONTADO.-- '
-            else:
-                credito_restante = self.utilerias.redondear_valor_cantidad_a_decimal(info_cliente[0]['RemainingCredit'])
-                debe = credito_autorizado - credito_restante
-
-                if credito_restante > 0:
-                    comentario_crediticio = f'--DEBE: {debe}. CRÉDITO DISPONIBLE: {credito_restante}-- '
-                else:
-                    credito_restante_real = credito_restante + total_documento
-
-                    if credito_restante_real <= 0:
-                        comentario_crediticio = '--NO TIENE CRÉDITO SU COMPRA ES DE CONTADO.-- '
-
-                    elif credito_restante_real > 0 and credito_restante_real < total_documento:
-                        obligatorio = total_documento - credito_restante_real
-                        comentario_crediticio = f'--DEBE PAGAR OBLIGATORIAMENTE: {obligatorio}-- '
-
-                    elif credito_restante_real == total_documento:
-                        comentario_crediticio = f'--DEBE: {debe}. CRÉDITO DISPONIBLE: 0-- '
-
-            return f'{comentario_crediticio} {comentarios_documento}'
-
-        return comentarios_documento
+    def validar_credito_documento_cliente(self, business_entity_id, comentarios_documento,
+                                         total_documento, document_id, order_document_ids=None):
+        # Los totales ya están persistidos: nunca volver a descontar el total
+        # recibido desde los pedidos; puede diferir tras impuestos y ajustes.
+        resultado = evaluar_credito_documento(
+            self.base_de_datos, document_id, order_document_ids,
+        )
+        return componer_comentarios(resultado, comentarios_documento)
 
     def relacionar_pedidos_con_facturas(self, document_id, order_document_id):
         self.base_de_datos.command(

@@ -817,7 +817,9 @@ class HerramientasTimbrado:
             comentario_a_insertar = self._modelo.validar_credito_documento_cliente(
                 business_entity_id,
                 comentario_a_insertar,
-                total_documento
+                total_documento,
+                document_id,
+                order_document_ids,
             )
 
             self._modelo.actualizar_comentario_document_id(comentario_a_insertar, document_id)

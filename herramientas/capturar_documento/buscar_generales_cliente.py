@@ -1092,6 +1092,11 @@ class BuscarGeneralesCliente:
                     self._modelo_captura.actualizar_totales_documento(
                         self._documento.document_id
                     )
+                # Generar la leyenda con el saldo final, incluso si hubo cobro.
+                if self._modelo_captura is not None:
+                    self._modelo_captura.actualizar_leyenda_credito(
+                        self._documento.document_id
+                    )
                 if self._module_id == 1400:
                     ServicioGeneracionCFDITicket(
                         base_de_datos=self._base_de_datos,

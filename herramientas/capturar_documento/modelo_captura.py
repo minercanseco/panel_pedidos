@@ -1,3 +1,5 @@
+from herramientas.credito_documento import guardar_leyenda_credito
+
 import copy
 import json
 
@@ -234,6 +236,16 @@ class ModeloCaptura:
         )
         return True
 
+    def actualizar_leyenda_credito(self, document_id=None):
+        if self.module_id not in (21, 1400, 1319):
+            return None
+        document_id = int(document_id or getattr(self.documento, 'document_id', 0) or 0)
+        if document_id <= 0:
+            return None
+        comentarios = guardar_leyenda_credito(self.base_de_datos, document_id)
+        self.documento.comments = comentarios
+        return comentarios
+
     def preparar_documento_para_cobro(self):
         """Compatibilidad con el flujo existente de cobro inmediato."""
         document_id = int(
@@ -243,7 +255,9 @@ class ModeloCaptura:
             return False
 
         self.afectar_impuestos_documento(document_id)
-        return self.actualizar_totales_documento(document_id)
+        actualizado = self.actualizar_totales_documento(document_id)
+        self.actualizar_leyenda_credito(document_id)
+        return actualizado
 
     def afectar_impuestos_documento(self, document_id=None):
         """Reconstruye las tablas fiscales después de persistir las partidas."""

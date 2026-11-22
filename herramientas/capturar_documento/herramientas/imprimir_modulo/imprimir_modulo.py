@@ -1852,8 +1852,11 @@ class ImprimirModulo:
                 OCE.CompanyTypeName AS RegimenEmisor,
                 OCEM.OfficialNumber RFCEmisor,
                 ISNULL(D.Custom3,0) ZoneID,
-                D.OrderDocumentID
+                D.OrderDocumentID,
+                Pedido.WayToPayID
             FROM docDocument AS D
+            LEFT JOIN docDocumentOrderCayal AS Pedido
+                ON Pedido.OrderDocumentID = D.OrderDocumentID
             LEFT JOIN docDocumentTax               AS Tax  ON Tax.DocumentID        = D.DocumentID
             LEFT JOIN docDocumentCFD               AS CFD  ON CFD.DocumentID        = D.DocumentID
             LEFT JOIN orgBusinessEntity            AS E    ON E.BusinessEntityID    = D.BusinessEntityID
@@ -1974,6 +1977,7 @@ class ImprimirModulo:
         placeholders = {
             # Generales
             'OrderDocumentID':order_document_id,
+            'WayToPayID': g.get('WayToPayID'),
             'EmisorNombre':emisor,
             'EmisorRFC':rfc_emisor,
             'EmisorRegimen': regimen_emisor,
@@ -2205,48 +2209,63 @@ class ImprimirModulo:
         # este paso es para garantizar que el nombre no tenga espacios y para que los archivos se puedan mandar a imprimir
         return nombre_impresora.replace(' ', '_')
 
+    def _es_contado_por_pedido(self, placeholders):
+        # El catálogo de pedidos es OrdersPaymentTermCayal, no engPaymentTerm.
+        forma_pago = placeholders.get('WayToPayID')
+        return (
+            self._module_id == 21
+            and bool(placeholders.get('OrderDocumentID'))
+            and forma_pago is not None
+            and int(forma_pago) > 0
+            and int(forma_pago) != 5
+        )
+
     def _determinar_cantidad_impresiones(self, placeholders, motivo_id, document_id):
-        # Convertir valores a números seguros
-        impresiones = placeholders.get("Impresiones", 1)
-        zone_id = int(placeholders.get('ZoneID',0))
-        saldo = placeholders.get("Saldo", 0)
-
-        if zone_id == 1040:
-            credit_block = self._base_de_datos.fetchone(
-                """
-                SELECT CASE  WHEN CreditBlock = 1 THEN 'Bloqueado' ELSE 'Desbloqueado' END Credit
-                FROM [dbo].[zvwBuscarInfoCliente-BusinessEntityID](?)
-                """,(zone_id,))
-
-            if credit_block == 'Bloqueado':
-                return 1
-
         try:
-            impresiones = int(impresiones)
-        except Exception:
+            impresiones = int(placeholders.get('Impresiones', 1) or 1)
+        except (TypeError, ValueError):
             impresiones = 1
-
         try:
-            saldo = float(saldo)
-        except Exception:
+            saldo = float(placeholders.get('Saldo', 0) or 0)
+        except (TypeError, ValueError):
             saldo = 0
+        zone_id = int(placeholders.get('ZoneID', 0) or 0)
+        contado = self._es_contado_por_pedido(placeholders)
 
-        # Regla principal: solo motivo 1 permite doble impresión
-        cantidad = impresiones if motivo_id == 1 else 1
-
-        # Forzar 1 si está pagado
-        if saldo == 0:
+        # Contado no desplaza la configuración de dos impresiones; Firma
+        # siempre conserva las reglas crediticias y la cantidad del cliente.
+        if contado and impresiones != 2:
             return 1
 
-        # Forzar 1 si se canceló
-        if document_id in self._seleccionados_cancelados:
+        comentarios = str(placeholders.get('Comentarios') or '').lstrip().upper()
+        if 'CreditoRestringido' in placeholders:
+            restringido = bool(placeholders['CreditoRestringido'])
+        elif comentarios.startswith('--CRÉDITO RESTRINGIDO'):
+            restringido = True
+        elif comentarios.startswith(('--CRÉDITO VÁLIDO', '--SE ELIGIO FORMA DE PAGO:')):
+            restringido = False
+        elif zone_id == 1040 and not contado:
+            credit_block = self._base_de_datos.fetchone("""
+                SELECT CASE WHEN Cliente.CreditBlock = 1
+                            THEN 'Bloqueado' ELSE 'Desbloqueado' END AS Credit
+                FROM docDocument AS D
+                LEFT JOIN docDocumentExt AS X ON X.IDExtra = D.DocumentID
+                CROSS APPLY [dbo].[zvwBuscarInfoCliente-BusinessEntityID](
+                    CASE WHEN D.BusinessEntityID = 8179
+                         THEN X.CustomerID ELSE D.BusinessEntityID END
+                ) AS Cliente
+                WHERE D.DocumentID = ?
+            """, (document_id,))
+            restringido = credit_block == 'Bloqueado'
+        else:
+            restringido = False
+        if restringido:
             return 1
-
-        # Forzar 1 si ya se imprimió previamente
-        if document_id in self._seleccionados_historial:
+        if (motivo_id != 1 or saldo == 0
+                or document_id in self._seleccionados_cancelados
+                or document_id in self._seleccionados_historial):
             return 1
-
-        return cantidad
+        return impresiones
 
     def _determinar_texto_marca(self, cantidad, motivo_id, copia_idx=0, esta_cancelado=False):
         """

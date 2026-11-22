@@ -139,39 +139,50 @@ class ServicioImpresionSilenciosa:
             self, archivo, impresora_primaria, impresora_secundaria,
             datos_enrutamiento=None,
     ):
-        id_modulo = int(getattr(self.parametros, "id_modulo", 0) or 0)
+        id_modulo = int(getattr(self.parametros, 'id_modulo', 0) or 0)
         cantidad = self._extraer_cantidad(archivo)
         document_id = self._extraer_document_id(archivo)
-
-        ruta_id = 0
-        impresiones_cliente = 1
-
-        datos_documento = (datos_enrutamiento or {}).get(document_id)
-        if datos_documento:
-            ruta_id = int(datos_documento.get('RutaID', 0) or 0)
-            impresiones_cliente = int(
-                datos_documento.get('Impresiones', 1) or 1
-            )
-        elif id_modulo in self.MODULOS_CON_RUTA and document_id:
-            ruta_id, impresiones_cliente = self._obtener_datos_documento(document_id)
+        datos = (datos_enrutamiento or {}).get(document_id)
+        if datos is None:
+            datos = (self._consultar_contexto_documento(document_id)
+                     if document_id and id_modulo in self.MODULOS_CON_RUTA else {})
+        ruta_id = int(datos.get('RutaID', 0) or 0)
+        impresiones = int(datos.get('Impresiones', 1) or 1)
+        forma_pago = int(datos.get('WayToPayID', 0) or 0)
+        contado = id_modulo == 21 and forma_pago > 0 and forma_pago != 5
 
         if cantidad == 2:
             if id_modulo == 1400 or ruta_id == 1040:
-
-                if "COPIA" in archivo and ruta_id == 1040 and id_modulo in (1692, 1400):
+                if 'COPIA' in archivo and ruta_id == 1040 and id_modulo in (1692, 1400):
                     return None
-
-                if "COPIA" in archivo:
+                if 'COPIA' in archivo:
                     return impresora_primaria
-
                 return impresora_secundaria
-
             return impresora_secundaria
 
         if id_modulo in self.MODULOS_SECUNDARIA_DIRECTO:
             return impresora_secundaria
 
-        if id_modulo in (21, 1400) and impresiones_cliente == 2:
+        # La configuración del cliente prevalece sobre la forma de pago,
+        # incluso si una reimpresión o un saldo cero generó sólo un archivo.
+        if id_modulo in (21, 1400) and impresiones == 2:
+            return impresora_secundaria
+
+        comentarios = str(datos.get('Comentarios') or '').lstrip().upper()
+        if comentarios.startswith('--CRÉDITO VÁLIDO'):
+            credito_valido = True
+        elif comentarios.startswith('--CRÉDITO RESTRINGIDO'):
+            credito_valido = False
+        else:
+            from decimal import Decimal
+            credito_valido = (
+                int(datos.get('CreditBlock', 0) or 0) == 0
+                and Decimal(str(datos.get('AuthorizedCredit') or 0)) > 0
+                and Decimal(str(datos.get('RemainingCredit') or 0)) >= 0
+            )
+        from decimal import Decimal
+        if (id_modulo in (21, 1400) and ruta_id == 1040 and not contado
+                and credito_valido and Decimal(str(datos.get('Saldo') or 0)) > 0):
             return impresora_secundaria
 
         return impresora_primaria
@@ -246,35 +257,39 @@ class ServicioImpresionSilenciosa:
             )
         return nombre_real
 
-    def _obtener_datos_documento(self, document_id):
-        if not self.modelo:
-            return 0, 1
+    def _fuente_base_de_datos(self):
+        if self.modelo is None or callable(getattr(self.modelo, 'fetchall', None)):
+            return self.modelo
+        return getattr(self.modelo, 'base_de_datos', self.modelo)
 
-        fuente = getattr(self.modelo, 'base_de_datos', self.modelo)
-        registros = fuente.fetchall(
-            """
-            SELECT 
-                ISNULL(D.Custom3, 0) AS RutaID,
-                ISNULL(E.Impresiones, 1) AS Impresiones
-            FROM docDocument D
-            INNER JOIN orgBusinessEntity E 
-                ON D.BusinessEntityID = E.BusinessEntityID
+    def _consultar_contexto_documento(self, document_id):
+        fuente = self._fuente_base_de_datos()
+        if fuente is None:
+            return {}
+        registros = fuente.fetchall("""
+            SELECT ISNULL(D.Custom3, 0) AS RutaID,
+                   CASE WHEN D.BusinessEntityID = 8179
+                        THEN CASE WHEN ISNULL(E2.Impresiones, 1) = 1 THEN 1 ELSE 2 END
+                        ELSE CASE WHEN ISNULL(E.Impresiones, 1) = 1 THEN 1 ELSE 2 END
+                   END AS Impresiones,
+                   ISNULL(D.Balance, 0) AS Saldo, D.Comments AS Comentarios,
+                   Pedido.WayToPayID,
+                   Cliente.CreditBlock, Cliente.AuthorizedCredit, Cliente.RemainingCredit
+            FROM docDocument AS D
+            LEFT JOIN orgBusinessEntity AS E ON E.BusinessEntityID = D.BusinessEntityID
+            LEFT JOIN docDocumentExt AS X ON X.IDExtra = D.DocumentID
+            LEFT JOIN orgBusinessEntity AS E2 ON E2.BusinessEntityID = X.CustomerID
+            LEFT JOIN docDocumentOrderCayal AS Pedido ON Pedido.OrderDocumentID = D.OrderDocumentID
+            OUTER APPLY [dbo].[zvwBuscarInfoCliente-BusinessEntityID](
+                CASE WHEN D.BusinessEntityID = 8179 THEN X.CustomerID ELSE D.BusinessEntityID END
+            ) AS Cliente
             WHERE D.DocumentID = ?
-            """,
-            (document_id,)
-        )
+        """, (document_id,))
+        return registros[0] if registros and isinstance(registros[0], dict) else {}
 
-        if not registros:
-            return 0, 1
-
-        registro = registros[0]
-        if isinstance(registro, dict):
-            return (
-                int(registro.get("RutaID", 0) or 0),
-                int(registro.get("Impresiones", 1) or 1)
-            )
-
-        return 0, 1
+    def _obtener_datos_documento(self, document_id):
+        datos = self._consultar_contexto_documento(document_id)
+        return int(datos.get('RutaID', 0) or 0), int(datos.get('Impresiones', 1) or 1)
 
     def _obtener_impresoras_configuradas(self):
         ruta_configuracion = self._obtener_ruta_configuracion_impresoras()

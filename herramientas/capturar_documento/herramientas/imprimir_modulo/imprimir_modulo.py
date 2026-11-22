@@ -2220,6 +2220,28 @@ class ImprimirModulo:
             and int(forma_pago) != 5
         )
 
+    def _empleado_solo_ticket(self, placeholders, document_id):
+        if (self._module_id not in (21, 1400)
+                or int(placeholders.get('ZoneID', 0) or 0) != 1040):
+            return False
+        # Consultar incluso para contado y aunque exista una leyenda guardada:
+        # dos impresiones no habilitan crédito cuando el límite es cero.
+        solo_ticket = self._base_de_datos.fetchone("""
+            SELECT CASE
+                WHEN ISNULL(C.AuthorizedCredit, 0) <= 0 THEN 1
+                WHEN LTRIM(ISNULL(D.Comments, '')) LIKE '--CRÉDITO RESTRINGIDO%' THEN 1
+                WHEN LTRIM(ISNULL(D.Comments, '')) LIKE '--CRÉDITO VÁLIDO%' THEN 0
+                WHEN ISNULL(C.CreditBlock, 0) = 1 OR ISNULL(C.RemainingCredit, 0) < 0 THEN 1
+                ELSE 0 END AS SoloTicket
+            FROM docDocument AS D
+            LEFT JOIN docDocumentExt AS X ON X.IDExtra = D.DocumentID
+            OUTER APPLY [dbo].[zvwBuscarInfoCliente-BusinessEntityID](
+                CASE WHEN D.BusinessEntityID = 8179 THEN X.CustomerID ELSE D.BusinessEntityID END
+            ) AS C
+            WHERE D.DocumentID = ?
+        """, (document_id,))
+        return solo_ticket == 1
+
     def _determinar_cantidad_impresiones(self, placeholders, motivo_id, document_id):
         try:
             impresiones = int(placeholders.get('Impresiones', 1) or 1)
@@ -2231,6 +2253,10 @@ class ImprimirModulo:
             saldo = 0
         zone_id = int(placeholders.get('ZoneID', 0) or 0)
         contado = self._es_contado_por_pedido(placeholders)
+        if zone_id == 1040 and contado:
+            return 1
+        if self._empleado_solo_ticket(placeholders, document_id):
+            return 1
 
         # Contado no desplaza la configuración de dos impresiones; Firma
         # siempre conserva las reglas crediticias y la cantidad del cliente.

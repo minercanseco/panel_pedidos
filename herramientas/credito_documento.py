@@ -33,10 +33,12 @@ def resolver_credito(registro, pagos):
     """Separa el cálculo puro de la lectura de SQL Server."""
     autorizado = moneda(registro.get('AuthorizedCredit'))
     saldo_actual = moneda(registro.get('SaldoActual'))
-    deuda = moneda(registro.get('DeudaOtros')) + saldo_actual
-    disponible = autorizado - deuda
     formas = {int(p.get('WayToPayID') or 0) for p in pagos}
-    contado = bool(formas) and all(f > 0 and f != 5 for f in formas)
+    contado = (int(registro.get('ModuleID') or 0) == 21
+               and bool(formas) and all(f > 0 and f != 5 for f in formas))
+    # Mayoreo de contado en reparto no consume crédito aunque aún tenga saldo.
+    deuda = moneda(registro.get('DeudaOtros')) + (moneda(0) if contado else saldo_actual)
+    disponible = autorizado - deuda
     leyenda = ''
     restringido = False
     if contado:
@@ -49,7 +51,7 @@ def resolver_credito(registro, pagos):
                 nombres.append(nombre)
         leyenda = '--SE ELIGIO FORMA DE PAGO: ' + ' / '.join(nombres) + '--'
     elif int(registro.get('ZoneID') or 0) == 1040:
-        restringido = int(registro.get('CreditBlock') or 0) == 1 or disponible < 0
+        restringido = autorizado <= 0 or int(registro.get('CreditBlock') or 0) == 1 or disponible < 0
         estado = 'CRÉDITO RESTRINGIDO' if restringido else 'CRÉDITO VÁLIDO'
         leyenda = f'--{estado} | DEBE: {deuda:.2f} | CRÉDITO DISPONIBLE: {max(disponible, Decimal(0)):.2f}'
         if disponible < 0:
@@ -80,6 +82,13 @@ def evaluar_credito_documento(base_de_datos, document_id, order_document_ids=Non
             WHERE P.DocumentID <> D.DocumentID
               AND P.CancelledOn IS NULL AND P.StatusPaidID <> 1
               AND P.ModuleID IN (21, 1400, 1319)
+              AND NOT EXISTS (
+                  SELECT 1 FROM docDocumentOrderCayal AS PedidoContado
+                  WHERE P.ModuleID = 21
+                    AND PedidoContado.OrderDocumentID = P.OrderDocumentID
+                    AND PedidoContado.WayToPayID > 0
+                    AND PedidoContado.WayToPayID <> 5
+              )
               AND (P.BusinessEntityID = Receptor.ID OR EXISTS (
                   SELECT 1 FROM docDocumentExt AS PX
                   WHERE PX.IDExtra = P.DocumentID AND PX.CustomerID = Receptor.ID

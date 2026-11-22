@@ -151,8 +151,34 @@ class ServicioImpresionSilenciosa:
         forma_pago = int(datos.get('WayToPayID', 0) or 0)
         contado = id_modulo == 21 and forma_pago > 0 and forma_pago != 5
 
+        # Empleados de Mayoreo que eligieron contado: sólo un ticket,
+        # independientemente del crédito o de la configuración de dos hojas.
+        if ruta_id == 1040 and contado:
+            return None if 'COPIA' in archivo else impresora_primaria
+
+        # Para empleados sin crédito, la primaria prevalece sobre las dos
+        # impresiones configuradas. Omitir cualquier copia ya generada.
+        if id_modulo in (21, 1400) and ruta_id == 1040:
+            if 'AuthorizedCredit' not in datos:
+                datos = {**datos, **self._consultar_contexto_documento(document_id)}
+            from decimal import Decimal
+            comentario = str(datos.get('Comentarios') or '').lstrip().upper()
+            sin_credito = (
+                Decimal(str(datos.get('AuthorizedCredit') or 0)) <= 0
+                or comentario.startswith('--CRÉDITO RESTRINGIDO')
+                or (not comentario.startswith('--CRÉDITO VÁLIDO') and (
+                    int(datos.get('CreditBlock', 0) or 0) == 1
+                    or Decimal(str(datos.get('RemainingCredit') or 0)) < 0
+                ))
+            )
+            if sin_credito:
+                return None if 'COPIA' in archivo else impresora_primaria
+
         if cantidad == 2:
-            if id_modulo == 1400 or ruta_id == 1040:
+            # Mayoreo también separa original y copia para clientes de otras
+            # rutas que tienen configuradas dos impresiones.
+            if (id_modulo == 1400 or ruta_id == 1040
+                    or (id_modulo == 21 and impresiones == 2)):
                 if 'COPIA' in archivo and ruta_id == 1040 and id_modulo in (1692, 1400):
                     return None
                 if 'COPIA' in archivo:

@@ -84,8 +84,10 @@ class HistorialTerminales:
         for nombre in ('tvw_terminales','tvw_detalle'):
             self.v.componentes_forma[nombre].configure(selectmode='browse')
             self.v.agregar_barra_desplazamiento_horizontal_treeview(self.v.componentes_forma[nombre])
+        # Como en Reportes, elegir una fecha no ejecuta SQL desde el calendario.
+        # La consulta se realiza explícitamente con Buscar.
         self.v.cargar_eventos({'btn_buscar':self.buscar,'btn_cerrar':master.destroy,
-            'den_fecha':lambda event:self.buscar(), 'tvw_terminales':(self.mostrar_detalle,'seleccion')})
+            'tvw_terminales':(self.mostrar_detalle,'seleccion')})
         self.v.insertar_input_componente('den_fecha',date.today().isoformat())
         self.v.configurar_ventana_ttkbootstrap(titulo='Historial de terminales',nombre_icono='History32.ico')
         self.buscar()

@@ -63,4 +63,19 @@ class HistorialTerminalesTests(unittest.TestCase):
         self.assertEqual(ui.filas,[]);self.assertEqual(ui.terminales,[])
         ui.v.rellenar_treeview.assert_any_call('tvw_detalle',[],[])
 
+    def test_fecha_no_dispara_consulta_automatica_como_en_reportes(self):
+        from unittest.mock import patch
+        v=Mock();v.componentes_forma={'tvw_terminales':Mock(),'tvw_detalle':Mock()}
+        db=Mock();db.fetchall.return_value=[]
+        v.obtener_input_componente.return_value='2026-11-23'
+        with patch('herramientas.herramientas_panel.historial_terminales.Ventanas',return_value=v):
+            ui=HistorialTerminales(Mock(),db)
+        eventos=v.cargar_eventos.call_args.args[0]
+        self.assertNotIn('den_fecha',eventos)
+        self.assertEqual(eventos['btn_buscar'],ui.buscar)
+        self.assertEqual(db.fetchall.call_count,1)
+        eventos['btn_buscar']()
+        self.assertEqual(db.fetchall.call_count,2)
+
+
 if __name__=='__main__':unittest.main()

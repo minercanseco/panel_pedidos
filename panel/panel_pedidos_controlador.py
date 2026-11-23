@@ -404,6 +404,9 @@ class ControladorPanelPedidos:
             self._limpiar_tabla()
             return
 
+        if self._interfaz.ventanas.obtener_input_componente('chk_sin_fecha') == 1:
+            consulta_filtrada = sorted(consulta_filtrada, key=lambda f: int(f.get('OrderDocumentID') or 0), reverse=True)
+
         self._interfaz.ventanas.rellenar_table_view(
             'tbv_pedidos',
             self._interfaz.crear_columnas_tabla(),
@@ -720,7 +723,8 @@ class ControladorPanelPedidos:
             self._interfaz.ventanas.mostrar_mensaje('Debe abundar en el valor a buscar.')
             return
 
-        consulta = self._modelo.buscar_pedidos_cliente_sin_fecha(criteria)
+        consulta = sorted(self._modelo.buscar_pedidos_cliente_sin_fecha(criteria) or [],
+                          key=lambda f: int(f.get('OrderDocumentID') or 0), reverse=True)
 
         # Rellenar tabla con los datos filtrados
         self._interfaz.ventanas.rellenar_table_view(

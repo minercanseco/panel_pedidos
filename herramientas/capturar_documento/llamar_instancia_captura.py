@@ -1,5 +1,6 @@
 
 import re
+import uuid
 import os, json, gzip, datetime
 
 from datetime import datetime
@@ -561,7 +562,7 @@ class LlamarInstanciaCaptura:
         # ---- Datos para placeholders ----
         ticket.set_datos(
             folio=self._documento.folio,
-            uuid = self._parametros_contpaqi.uuid,
+            uuid=f"ticket-{self._documento.document_id}-{uuid.uuid4().hex}",
             FechaExpedicion=fecha_expedicion,
             SubTotal=redondear(self._documento.subtotal),
             IEPS=redondear(self._documento.ieps),

@@ -176,6 +176,34 @@ class RegresionImpresorasTest(unittest.TestCase):
         self.assertEqual(self.cantidad(ZoneID=1066), 2)
         self.v._base_de_datos.fetchone.assert_not_called()
 
+    def test_caso_270311_efectivo_con_contexto_parcial_va_a_primaria(self):
+        registro = dict(RutaID=1040, Impresiones=2, WayToPayID=2, Saldo='435.87',
+            Comentarios='--SE ELIGIO FORMA DE PAGO: Efectivo--', AuthorizedCredit=1750,
+            RemainingCredit=1716, CreditBlock=0)
+        for parcial in (dict(RutaID=1040, Impresiones=2),
+                        dict(RutaID=1040, Impresiones=2, AuthorizedCredit=1750),
+                        dict(RutaID=1040, Impresiones=2, WayToPayID=None)):
+            with self.subTest(parcial=parcial):
+                self.s.modelo.fetchall.return_value = [registro]
+                datos = {270311: parcial.copy()}
+                self.assertEqual(self.s._resolver_impresora(
+                    'ORIGINAL-prueba-0(1)_270311.html', 'Principal configurada',
+                    'Secundaria configurada', datos), 'Principal configurada')
+                self.assertIsNone(self.s._resolver_impresora(
+                    'COPIA-prueba-1(2)_270311.html', 'Principal configurada',
+                    'Secundaria configurada', datos))
+                self.assertEqual(datos[270311], parcial)
+
+    def test_firma_contexto_parcial_conserva_original_y_copia(self):
+        registro = dict(RutaID=1040, Impresiones=2, WayToPayID=5, Saldo=100,
+            AuthorizedCredit=500, RemainingCredit=300, CreditBlock=0, Comentarios='')
+        self.s.modelo.fetchall.return_value = [registro]
+        datos = {456: dict(RutaID=1040, Impresiones=2)}
+        self.assertEqual(self.s._resolver_impresora('ORIGINAL-prueba-0(2)_456.html',
+            'Principal configurada', 'Secundaria configurada', datos), 'Secundaria configurada')
+        self.assertEqual(self.s._resolver_impresora('COPIA-prueba-1(2)_456.html',
+            'Principal configurada', 'Secundaria configurada', datos), 'Principal configurada')
+
     def test_modelo_directo_y_modelo_envuelto_se_resuelven(self):
         self.s.modelo.fetchall.return_value = [dict(RutaID=1040, Impresiones=2)]
         self.assertEqual(self.s._obtener_datos_documento(456), (1040, 2))

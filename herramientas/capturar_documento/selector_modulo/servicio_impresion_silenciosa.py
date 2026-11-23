@@ -143,9 +143,15 @@ class ServicioImpresionSilenciosa:
         cantidad = self._extraer_cantidad(archivo)
         document_id = self._extraer_document_id(archivo)
         datos = (datos_enrutamiento or {}).get(document_id)
-        if datos is None:
-            datos = (self._consultar_contexto_documento(document_id)
-                     if document_id and id_modulo in self.MODULOS_CON_RUTA else {})
+        campos = ('RutaID', 'Impresiones', 'WayToPayID', 'Saldo',
+                  'Comentarios', 'AuthorizedCredit', 'RemainingCredit', 'CreditBlock')
+        if (document_id and id_modulo in self.MODULOS_CON_RUTA
+                and (datos is None or any(datos.get(campo) is None for campo in campos))):
+            # Completar antes de decidir el destino. Algunos generadores sólo
+            # enviaban ruta e impresiones, omitiendo la forma de pago elegida.
+            contexto = self._consultar_contexto_documento(document_id)
+            datos = {**contexto, **{k: v for k, v in (datos or {}).items() if v is not None}}
+        datos = datos or {}
         ruta_id = int(datos.get('RutaID', 0) or 0)
         impresiones = int(datos.get('Impresiones', 1) or 1)
         forma_pago = int(datos.get('WayToPayID', 0) or 0)
@@ -159,8 +165,6 @@ class ServicioImpresionSilenciosa:
         # Para empleados sin crédito, la primaria prevalece sobre las dos
         # impresiones configuradas. Omitir cualquier copia ya generada.
         if id_modulo in (21, 1400) and ruta_id == 1040:
-            if 'AuthorizedCredit' not in datos:
-                datos = {**datos, **self._consultar_contexto_documento(document_id)}
             from decimal import Decimal
             comentario = str(datos.get('Comentarios') or '').lstrip().upper()
             sin_credito = (

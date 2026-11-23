@@ -62,6 +62,8 @@ class ServicioImpresionTicket:
                 )
                 if callable(al_error):
                     al_error(error)
+                else:
+                    self._notificar_error_impresion(document_id, error)
 
         hilo = threading.Thread(
             target=ejecutar,
@@ -70,6 +72,23 @@ class ServicioImpresionTicket:
         )
         hilo.start()
         return hilo
+
+    @staticmethod
+    def _notificar_error_impresion(document_id, error):
+        # Diálogo nativo: puede ejecutarse desde el hilo de impresión sin
+        # acceder a ventanas Tk que ya fueron cerradas al terminar la captura.
+        if os.name != 'nt':
+            return
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(
+                None,
+                f'No fue posible imprimir el documento {document_id}.\n\n{error}\n\n'
+                'El documento permanece guardado. Puede reimprimirlo desde el selector.',
+                'Error de impresión', 0x10,
+            )
+        except Exception:
+            logger.exception('No fue posible mostrar el error de impresión.')
 
     @staticmethod
     def _guardar_error_impresion(ruta_html, error):

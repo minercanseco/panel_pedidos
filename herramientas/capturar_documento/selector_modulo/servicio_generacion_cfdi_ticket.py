@@ -1,4 +1,5 @@
 import logging
+from herramientas.capturar_documento.selector_modulo.servicio_impresion_ticket import ServicioImpresionTicket
 import os
 import re
 import threading
@@ -77,11 +78,12 @@ class ServicioGeneracionCFDITicket:
                     datos_enrutamiento=self._datos_enrutamiento,
                 )
                 self._registrar_impresion(document_id)
-            except Exception:
+            except Exception as error:
                 logger.exception(
                     'No fue posible generar el CFDI ticket del documento %s.',
                     document_id,
                 )
+                ServicioImpresionTicket._notificar_error_impresion(document_id, error)
 
         hilo = threading.Thread(
             target=ejecutar,
@@ -148,6 +150,7 @@ class ServicioGeneracionCFDITicket:
             raise ValueError('El CFDI ticket requiere un DocumentID válido.')
 
         proveedor_datos = ImprimirModulo.__new__(ImprimirModulo)
+        proveedor_datos._module_id = self.MODULO_CFDI
         proveedor_datos._base_de_datos = self.base_de_datos
         proveedor_datos._utilerias = Utilerias()
         proveedor_datos._user_name = self.user_name
@@ -168,6 +171,9 @@ class ServicioGeneracionCFDITicket:
             int(document_id): {
                 'RutaID': placeholders.get('ZoneID', 0),
                 'Impresiones': placeholders.get('Impresiones', 1),
+                'WayToPayID': placeholders.get('WayToPayID'),
+                'Saldo': placeholders.get('Saldo', 0),
+                'Comentarios': placeholders.get('Comentarios', ''),
             }
         }
 

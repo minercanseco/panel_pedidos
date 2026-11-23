@@ -62,13 +62,13 @@ class HistorialTerminales:
     def __init__(self, master, db):
         self._master, self.db, self.v = master, db, Ventanas(master)
         self.filas, self.terminales = [], []
+        self._consulta_programada = None
         self.v.crear_frames({
             'frame_principal': ('master',None,dict(row=0,column=0,sticky='nsew')),
             'frame_fecha': ('frame_principal','Fecha de salida a reparto',dict(row=0,column=0,columnspan=2,padx=8,pady=5,sticky='ew')),
             'frame_terminales': ('frame_principal','Terminales utilizadas',dict(row=1,column=0,padx=8,pady=5,sticky='nsew')),
             'frame_detalle': ('frame_principal','Colaboradores y salidas',dict(row=1,column=1,padx=8,pady=5,sticky='nsew')),
-            'frame_botones': ('frame_principal',None,dict(row=2,column=0,columnspan=2,padx=8,pady=5)),
-            'frame_estado': ('frame_principal',None,dict(row=3,column=0,columnspan=2,padx=8,pady=5,sticky='ew')),
+            'frame_estado': ('frame_principal',None,dict(row=2,column=0,columnspan=2,padx=8,pady=5,sticky='ew')),
         })
         columna = lambda c,w:dict(text=c,width=w,stretch=False,column_anchor='w',heading_anchor='w',hide=0)
         self.columnas_terminales = [columna(c,w) for c,w in [('Referencia',140),('Código',145),('Salidas',65),('Colaboradores',95)]]
@@ -77,20 +77,34 @@ class HistorialTerminales:
             'den_fecha': ('frame_fecha',None,'Fecha:',None),
             'tvw_terminales': ('frame_terminales',self.columnas_terminales,14,'primary'),
             'tvw_detalle': ('frame_detalle',self.columnas_detalle,14,'info'),
-            'btn_buscar': ('frame_botones','primary','Buscar',None),
-            'btn_cerrar': ('frame_botones','danger','Cerrar',None),
             'lbl_estado': ('frame_estado',{'text':'Seleccione una fecha y una terminal para ver sus salidas.'},None,None),
         })
         for nombre in ('tvw_terminales','tvw_detalle'):
             self.v.componentes_forma[nombre].configure(selectmode='browse')
             self.v.agregar_barra_desplazamiento_horizontal_treeview(self.v.componentes_forma[nombre])
-        # Como en Reportes, elegir una fecha no ejecuta SQL desde el calendario.
-        # La consulta se realiza explícitamente con Buscar.
-        self.v.cargar_eventos({'btn_buscar':self.buscar,'btn_cerrar':master.destroy,
+        # Mismo evento de fecha que Horario acumulado y No surtidos, diferido
+        # hasta terminar el evento del calendario para evitar consultas anidadas.
+        self.v.cargar_eventos({'den_fecha':self._programar_busqueda,
             'tvw_terminales':(self.mostrar_detalle,'seleccion')})
         self.v.insertar_input_componente('den_fecha',date.today().isoformat())
         self.v.configurar_ventana_ttkbootstrap(titulo='Historial de terminales',nombre_icono='History32.ico')
-        self.buscar()
+        self._master.bind('<Destroy>',self._al_destruir,add='+')
+        self._programar_busqueda()
+
+    def _programar_busqueda(self, event=None):
+        if self._consulta_programada is not None:
+            self._master.after_cancel(self._consulta_programada)
+        self._consulta_programada = self._master.after_idle(self._buscar_fecha_elegida)
+
+    def _buscar_fecha_elegida(self):
+        self._consulta_programada = None
+        if self._master.winfo_exists():
+            self.buscar()
+
+    def _al_destruir(self, event):
+        if event.widget is self._master and self._consulta_programada is not None:
+            self._master.after_cancel(self._consulta_programada)
+            self._consulta_programada = None
 
     def buscar(self):
         self.filas, self.terminales = [], []

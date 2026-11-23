@@ -63,19 +63,41 @@ class HistorialTerminalesTests(unittest.TestCase):
         self.assertEqual(ui.filas,[]);self.assertEqual(ui.terminales,[])
         ui.v.rellenar_treeview.assert_any_call('tvw_detalle',[],[])
 
-    def test_fecha_no_dispara_consulta_automatica_como_en_reportes(self):
+    def test_hoy_y_cambio_de_fecha_consultan_despues_del_evento_sin_botones(self):
         from unittest.mock import patch
         v=Mock();v.componentes_forma={'tvw_terminales':Mock(),'tvw_detalle':Mock()}
-        db=Mock();db.fetchall.return_value=[]
+        db=Mock();db.fetchall.return_value=[];master=Mock()
         v.obtener_input_componente.return_value='2026-11-23'
         with patch('herramientas.herramientas_panel.historial_terminales.Ventanas',return_value=v):
-            ui=HistorialTerminales(Mock(),db)
+            ui=HistorialTerminales(master,db)
+        v.insertar_input_componente.assert_any_call('den_fecha',date.today().isoformat())
+        componentes=v.crear_componentes.call_args.args[0]
+        self.assertFalse(any(k.startswith('btn_') for k in componentes))
         eventos=v.cargar_eventos.call_args.args[0]
-        self.assertNotIn('den_fecha',eventos)
-        self.assertEqual(eventos['btn_buscar'],ui.buscar)
+        self.assertEqual(eventos['den_fecha'],ui._programar_busqueda)
+        db.fetchall.assert_not_called()
+        master.after_idle.call_args.args[0]()
         self.assertEqual(db.fetchall.call_count,1)
-        eventos['btn_buscar']()
+        v.obtener_input_componente.return_value='2026-11-22'
+        eventos['den_fecha'](Mock())
+        self.assertEqual(db.fetchall.call_count,1)
+        master.after_idle.call_args.args[0]()
         self.assertEqual(db.fetchall.call_count,2)
+        self.assertEqual(db.fetchall.call_args.args[1][0],date(2026,11,22))
+
+    def test_cambios_seguidos_cancelan_la_consulta_anterior(self):
+        ui=object.__new__(HistorialTerminales);ui._master=Mock();ui._consulta_programada=None
+        ui._master.after_idle.side_effect=['primera','segunda']
+        ui._programar_busqueda();ui._programar_busqueda()
+        ui._master.after_cancel.assert_called_once_with('primera')
+        self.assertEqual(ui._consulta_programada,'segunda')
+
+    def test_cerrar_cancela_consulta_pendiente(self):
+        from types import SimpleNamespace
+        ui=object.__new__(HistorialTerminales);ui._master=Mock();ui._consulta_programada='pendiente'
+        ui._al_destruir(SimpleNamespace(widget=ui._master))
+        ui._master.after_cancel.assert_called_once_with('pendiente')
+        self.assertIsNone(ui._consulta_programada)
 
 
 if __name__=='__main__':unittest.main()

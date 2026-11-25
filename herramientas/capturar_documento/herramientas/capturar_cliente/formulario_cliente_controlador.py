@@ -1,11 +1,12 @@
+from .ubicacion_interfaz import CapturaUbicacion
 import datetime
 import webbrowser
 
 import pyperclip
 
-from herramientas.capturar_documento.herramientas.capturar_cliente.buscar_info_cif import BuscarInfoCif
-from herramientas.capturar_documento.herramientas.capturar_cliente.direccion_adicional import DireccionAdicional
-from herramientas.capturar_documento.herramientas.capturar_cliente.nombre_direccion import NombreDireccion
+from .buscar_info_cif import BuscarInfoCif
+from .direccion_adicional import DireccionAdicional
+from .nombre_direccion import NombreDireccion
 
 
 class FormularioClienteControlador:
@@ -13,6 +14,7 @@ class FormularioClienteControlador:
         self._interfaz = interfaz
         self._modelo = modelo
 
+        self._ubicacion = modelo.obtener_ubicacion(modelo.cliente.address_fiscal_detail_id)
         self._actualizando_por_cif = False
         self._cif_consultado_exitosamente = bool(getattr(
             self._modelo.cliente,
@@ -35,20 +37,47 @@ class FormularioClienteControlador:
 
         self._bloqueos_iniciales()
         self._cargar_eventos()
+        self._actualizar_boton_ubicacion()
 
     def _cargar_eventos(self):
         eventos = {
             'tbx_cp':  lambda event: self._rellenar_cbx_colonias_por_cp(),
             'cbx_colonia':  lambda event: self._eventos_cbx_colonia(),
-            'btn_cancelar': self._cerrar_notebook,
-            'btn_guardar': self._guardar_o_actualizar_cliente,
-            'btn_copiar': self._copiar_info_direccion,
             'btn_cif': self._actualizar_por_cif,
-            'btn_nueva_direccion':self._agregar_direccion,
             'btn_cif_visual': self._visualizar_cif,
 
         }
         self._interfaz.ventanas.cargar_eventos(eventos)
+        funciones = {
+            'nueva_direccion': self._agregar_direccion,
+            'guardar': self._guardar_o_actualizar_cliente,
+            'copiar': self._copiar_info_direccion,
+            'ubicacion': self._editar_ubicacion,
+            'cancelar': self._cerrar_notebook,
+        }
+        for herramienta in self._interfaz.barra_herramientas:
+            herramienta['comando'] = funciones[herramienta['nombre']]
+        self._interfaz.elementos_barra_herramientas = self._interfaz.ventanas.crear_barra_herramientas(
+            self._interfaz.barra_herramientas, 'frame_toolbar')
+        frame = self._interfaz.ventanas.componentes_forma['frame_toolbar']
+        for herramienta in self._interfaz.barra_herramientas:
+            nombre = herramienta['nombre']
+            self._interfaz.ventanas.componentes_forma['btn_' + nombre] = frame.nametowidget(nombre)
+
+    def _actualizar_boton_ubicacion(self):
+        texto = 'Editar ubicación' if self._ubicacion.get('Latitude') is not None else 'Agregar ubicación'
+        indice = next(i for i, h in enumerate(self._interfaz.barra_herramientas)
+                      if h['nombre'] == 'ubicacion')
+        self._interfaz.barra_herramientas[indice]['etiqueta'] = texto
+        self._interfaz.elementos_barra_herramientas[2][indice].configure(text=texto)
+
+
+    def _editar_ubicacion(self):
+        def aceptar(ubicacion):
+            self._ubicacion = dict(ubicacion)
+            self._actualizar_boton_ubicacion()
+        CapturaUbicacion(self._interfaz.ventanas, self._ubicacion, aceptar)
+
 
     def _bloqueos_iniciales(self):
         es_cif = self._modelo.utilerias.es_cif(self._modelo.cliente.cif)
@@ -792,6 +821,13 @@ class FormularioClienteControlador:
         # aqui guardamos al cliente o lo actualizamos, guardamos las direcciones adicionales o las actualizamos
         self._settear_valores_formulario_a_cliente()
 
+        try:
+            self._modelo.validar_guardado_ubicaciones()
+        except Exception as exc:
+            self._interfaz.ventanas.mostrar_mensaje(
+                f'No se puede guardar la ubicación. {exc}')
+            return
+
         # borramos las direcciones que ya no sean validas
         for address_detail_id in self._modelo.cliente.deleted_addresses:
             if address_detail_id == 0:
@@ -809,6 +845,14 @@ class FormularioClienteControlador:
             )
 
         self._modelo.base_de_datos.crear_cliente(self._modelo.cliente, self._modelo.user_id)
+
+        try:
+            self._modelo.guardar_ubicaciones()
+        except Exception:
+            self._interfaz.ventanas.mostrar_mensaje(
+                'Los datos del cliente se guardaron, pero no se pudo guardar la ubicación '
+                'y su bitácora. Revise la conexión e intente Guardar nuevamente.')
+            return
 
         self._registrar_bitacora_cambios_cliente(self._modelo.cliente,
                                                  self._modelo.user_id,
@@ -846,6 +890,7 @@ class FormularioClienteControlador:
             'OfficialNumber': self._modelo.cliente.official_number,
             'CIF':self._modelo.cliente.cif,
             'ZoneName': self._modelo.cliente.zone_name,
+            **self._ubicacion,
             'IsMainAddress':1
         }
 

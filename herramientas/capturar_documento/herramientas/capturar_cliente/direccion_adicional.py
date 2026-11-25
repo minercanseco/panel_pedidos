@@ -2,13 +2,15 @@ import tkinter as tk
 
 import pyperclip
 from cayal.ventanas import Ventanas
+from .ubicacion_interfaz import CapturaUbicacion
 
 class DireccionAdicional:
     def __init__(self, master,modelo, info_direccion, info_notebook):
         self.master = master
 
         self._ventanas = Ventanas(self.master)
-        self.info_direccion =  info_direccion
+        self.info_direccion = dict(info_direccion)
+        self.info_direccion.update(modelo.obtener_ubicacion(info_direccion.get("AddressDetailID", 0)))
         self.info_notebook = info_notebook
 
 
@@ -25,6 +27,7 @@ class DireccionAdicional:
         self._rellenar_componentes()
         self._bloquear_componentes()
         self._cargar_eventos()
+        self._actualizar_boton_ubicacion()
 
     def _agregar_componentes_notebook_a_ventanas(self, info_notebook):
 
@@ -72,8 +75,8 @@ class DireccionAdicional:
             'frame_fiscal1': ('frame_fiscal', None,
                              {'row': 40, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
 
-            'frame_botones': ('frame_principal', None,
-                              {'row': 2, 'column': 0, 'sticky': tk.E}),
+            'frame_toolbar': ('frame_principal', None,
+                              {'row': 2, 'column': 0, 'columnspan': 2, 'sticky': tk.EW}),
 
         }
 
@@ -117,8 +120,6 @@ class DireccionAdicional:
             'cbx_usocfdi': ('frame_fiscal', None, 'UsoCFDI:', None),
             'txt_correo': ('frame_fiscal', None, 'Email:', None),
 
-            'btn_eliminar': ('frame_botones', 'danger', 'Eliminar', None),
-            'btn_copiar': ('frame_botones', 'warning', 'Copiar', None),
         }
 
         self._ventanas.crear_componentes(componentes)
@@ -253,13 +254,41 @@ class DireccionAdicional:
 
     def _cargar_eventos(self):
         eventos = {
-            'btn_copiar': self._copiar_info_direccion,
-            'btn_eliminar': self._eliminar_direccion,
             'tbx_cp': lambda event: self._rellenar_cbx_colonias_por_cp(),
             'cbx_colonia':  lambda event: self._eventos_cbx_colonia(),
 
         }
         self._ventanas.cargar_eventos(eventos)
+        self._crear_barra_herramientas()
+
+
+    def _crear_barra_herramientas(self):
+        self.barra_herramientas = [
+            {'nombre_icono': icono, 'etiqueta': etiqueta, 'nombre': nombre,
+             'hotkey': '', 'comando': comando}
+            for nombre, etiqueta, icono, comando in (
+                ('copiar', 'Copiar dirección', 'AddressType32.ico', self._copiar_info_direccion),
+                ('ubicacion', 'Agregar ubicación', 'ChangeTaskStatus32.ico', self._editar_ubicacion),
+                ('eliminar', 'Eliminar', 'Eliminar21.ico', self._eliminar_direccion))
+        ]
+        self.elementos_barra_herramientas = self._ventanas.crear_barra_herramientas(
+            self.barra_herramientas, 'frame_toolbar')
+        frame = self._ventanas.componentes_forma['frame_toolbar']
+        for herramienta in self.barra_herramientas:
+            nombre = herramienta['nombre']
+            self._ventanas.componentes_forma['btn_' + nombre] = frame.nametowidget(nombre)
+
+    def _actualizar_boton_ubicacion(self):
+        texto = 'Editar ubicación' if self.info_direccion.get('Latitude') is not None else 'Agregar ubicación'
+        indice = next(i for i, h in enumerate(self.barra_herramientas) if h['nombre'] == 'ubicacion')
+        self.barra_herramientas[indice]['etiqueta'] = texto
+        self.elementos_barra_herramientas[2][indice].configure(text=texto)
+
+    def _editar_ubicacion(self):
+        def aceptar(ubicacion):
+            self.info_direccion.update(ubicacion)
+            self._actualizar_boton_ubicacion()
+        CapturaUbicacion(self._ventanas, self.info_direccion, aceptar)
 
     def _eliminar_direccion(self):
         notebook = self.info_notebook['notebook']  # widget ttk.Notebook

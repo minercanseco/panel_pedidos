@@ -1,3 +1,4 @@
+from .ubicacion import CAMPOS, normalizar
 
 
 class FormularioClienteModelo:
@@ -29,6 +30,20 @@ class FormularioClienteModelo:
         self.consulta_regimenes = []
         self.consulta_rutas = []
         self.consulta_colonias = []
+        self._ubicaciones_originales = {}
+        if self.cliente.business_entity_id:
+            filas = self.base_de_datos.fetchall("""
+                SELECT D.AddressDetailID, D.Latitude, D.Longitude, D.AccuracyMeters
+                FROM dbo.orgAddressDetail D
+                WHERE EXISTS (SELECT 1 FROM dbo.orgAddress A
+                    WHERE A.AddressDetailID = D.AddressDetailID AND A.BusinessEntityID = ?)
+            """, (self.cliente.business_entity_id,))
+            self._ubicaciones_originales = {
+                fila['AddressDetailID']: {campo: fila.get(campo) for campo in CAMPOS}
+                for fila in filas}
+
+
+
 
     def obtener_todas_las_rutas(self):
         if not self.consulta_rutas:
@@ -225,3 +240,66 @@ class FormularioClienteModelo:
                     if nombre_ruta == ruta['ZoneName']]
         # 0 = sin ruta encontrada
         return consulta[0] if consulta else 0
+
+    def obtener_ubicacion(self, address_detail_id):
+        return dict(self._ubicaciones_originales.get(address_detail_id, dict.fromkeys(CAMPOS)))
+
+    def _cambios_ubicaciones(self):
+        for detalle in self.cliente.addresses_details:
+            anterior = self.obtener_ubicacion(detalle.get('AddressDetailID', 0))
+            nueva = {campo: detalle.get(campo) for campo in CAMPOS}
+            # No exigir normalización a ubicaciones antiguas que no se modificaron.
+            if anterior == nueva:
+                continue
+            nueva = normalizar(*(nueva[campo] for campo in CAMPOS))
+            if anterior != nueva:
+                yield detalle, anterior, nueva
+
+    def validar_guardado_ubicaciones(self):
+        # Validar lo capturado antes de guardar el cliente; no requiere instalación SQL.
+        list(self._cambios_ubicaciones())
+
+    def guardar_ubicaciones(self):
+        cambios = list(self._cambios_ubicaciones())
+        if not cambios:
+            return
+        sql = ['SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION;']
+        parametros = []
+        for detalle, anterior, nueva in cambios:
+            address_id = detalle.get('AddressDetailID')
+            if not address_id:
+                raise ValueError('La dirección no recibió su identificador al guardarse.')
+            if nueva['Latitude'] is None:
+                incidencia_id, incidencia = 46, 'ELIMINACIÓN DE UBICACIÓN DE DIRECCIÓN'
+            elif anterior['Latitude'] is None:
+                incidencia_id, incidencia = 44, 'ALTA DE UBICACIÓN DE DIRECCIÓN'
+            else:
+                incidencia_id, incidencia = 45, 'CAMBIO DE UBICACIÓN DE DIRECCIÓN'
+            def describir(ubicacion):
+                return '; '.join(f"{campo}={ubicacion[campo] if ubicacion[campo] is not None else '(vacío)'}"
+                                 for campo in CAMPOS)
+            # UPDATE y bitácora usan los objetos existentes, con el mismo patrón
+            # de IDs de incidencia definidos desde el aplicativo (1..43 previos).
+            sql.append("""
+                UPDATE D SET Latitude = ?, Longitude = ?, AccuracyMeters = ?
+                FROM dbo.orgAddressDetail D
+                WHERE D.AddressDetailID = ? AND EXISTS (
+                    SELECT 1 FROM dbo.orgAddress A
+                    WHERE A.AddressDetailID = D.AddressDetailID AND A.BusinessEntityID = ?);
+                IF @@ROWCOUNT <> 1
+                    THROW 51005, 'No se encontró la dirección del cliente.', 1;
+                EXEC dbo.InsertarBitacoraCambiosClientes
+                    @incidencia = ?, @valor_anterior = ?, @valor_nuevo = ?,
+                    @nombre_usuario = ?, @business_entity_id = ?,
+                    @incidencia_id = ?, @address_detail_id = ?;
+            """)
+            parametros.extend((nueva['Latitude'], nueva['Longitude'], nueva['AccuracyMeters'],
+                               address_id, self.cliente.business_entity_id,
+                               incidencia, describir(anterior), describir(nueva), self.user_name,
+                               self.cliente.business_entity_id, incidencia_id, address_id))
+        sql.append('COMMIT TRANSACTION; END TRY BEGIN CATCH '
+                   'IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION; THROW; END CATCH;')
+        self.base_de_datos.command('\n'.join(sql), tuple(parametros))
+        for detalle, anterior, nueva in cambios:
+            detalle.update(nueva)
+            self._ubicaciones_originales[detalle['AddressDetailID']] = dict(nueva)

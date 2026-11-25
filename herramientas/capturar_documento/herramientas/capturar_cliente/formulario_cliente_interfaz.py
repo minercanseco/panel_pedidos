@@ -10,6 +10,7 @@ class FormularioClienteInterfaz:
 
         self._crear_frames()
         self._cargar_componentes()
+        self._crear_barra_herramientas()
         self._agregar_componentes_notebook_a_ventanas(info_notebook)
 
         self._ajustar_ancho_componentes()
@@ -55,8 +56,8 @@ class FormularioClienteInterfaz:
             'frame_fiscal1': ('frame_fiscal', None,
                              {'row': 40, 'column': 1, 'padx': 5, 'pady': 5, 'sticky': tk.NSEW}),
 
-            'frame_botones': ('frame_principal', None,
-                              {'row': 2, 'column': 0, 'sticky': tk.E}),
+            'frame_toolbar': ('frame_principal', None,
+                              {'row': 2, 'column': 0, 'columnspan': 2, 'sticky': tk.EW}),
 
         }
 
@@ -103,13 +104,21 @@ class FormularioClienteInterfaz:
             'btn_cif': ('frame_fiscal1', 'info', 'Validar CIF', None),
             'btn_cif_visual': ('frame_fiscal1', 'info', 'Visualizar CIF', None),
 
-            'btn_guardar': ('frame_botones', 'success', 'Guardar', None),
-            'btn_cancelar': ('frame_botones', 'danger', 'Cancelar', None),
-            'btn_nueva_direccion': ('frame_botones', 'dark', 'Nueva', None),
-            'btn_copiar': ('frame_botones', 'warning', 'Copiar', None),
         }
 
         self.ventanas.crear_componentes(componentes)
+
+    def _crear_barra_herramientas(self):
+        self.barra_herramientas = [
+            {'nombre_icono': icono, 'etiqueta': etiqueta, 'nombre': nombre,
+             'hotkey': '', 'comando': None}
+            for nombre, etiqueta, icono in (
+                ('guardar', 'Guardar', 'Validate32.ico'),
+                ('cancelar', 'Cancelar', 'Cancelled32.ico'),
+                ('copiar', 'Copiar dirección', 'AddressType32.ico'),
+                ('nueva_direccion', 'Nueva dirección', 'Agregar21.ico'),
+                ('ubicacion', 'Agregar ubicación', 'ChangeTaskStatus32.ico'))
+        ]
 
     def _ajustar_ancho_componentes(self):
         componentes = {

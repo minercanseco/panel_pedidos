@@ -41,7 +41,7 @@ def resolver_credito(registro, pagos):
     disponible = autorizado - deuda
     leyenda = ''
     restringido = False
-    if contado:
+    if contado and int(registro.get('ZoneID') or 0) == 1040:
         nombres = []
         for pago in pagos:
             nombre = pago.get('PaymentTermName')

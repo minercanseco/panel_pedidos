@@ -60,6 +60,23 @@ class LeyendaCreditoTest(unittest.TestCase):
             self.assertFalse(r['Restringido'])
             self.assertEqual(r['Leyenda'], '--SE ELIGIO FORMA DE PAGO: Tarjeta Debito--')
 
+    def test_leyenda_forma_pago_solo_empleados_sin_cambiar_deuda(self):
+        for zona in (1040, 1066):
+            with self.subTest(zona=zona):
+                resultado = credito.resolver_credito(self.registro(ZoneID=zona),
+                    [dict(WayToPayID=2, PaymentTermName='Efectivo')])
+                self.assertTrue(resultado['Contado'])
+                self.assertEqual(resultado['Deuda'], 300)
+                self.assertEqual(resultado['Disponible'], 700)
+                self.assertEqual(resultado['Leyenda'],
+                    '--SE ELIGIO FORMA DE PAGO: Efectivo--' if zona == 1040 else '')
+
+    def test_regenerar_otras_rutas_retira_leyenda_y_conserva_observaciones(self):
+        resultado = credito.resolver_credito(self.registro(ZoneID=1066),
+            [dict(WayToPayID=2, PaymentTermName='Efectivo')])
+        self.assertEqual(credito.componer_comentarios(resultado,
+            '--SE ELIGIO FORMA DE PAGO: Efectivo--\nEntregar en puerta'), 'Entregar en puerta')
+
     def test_firma_no_omite_suspension(self):
         r = credito.resolver_credito(self.registro(CreditBlock=1), [dict(WayToPayID=5)])
         self.assertTrue(r['Restringido'])

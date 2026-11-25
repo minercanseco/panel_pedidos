@@ -153,7 +153,13 @@
         print-color-adjust:exact;
       }
     }
-  </style>
+    /* Cifras de ancho uniforme y trazo firme para impresión térmica. */
+  .numero {
+    font-family: Consolas, "DejaVu Sans Mono", "Courier New", monospace;
+    font-weight: 700;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+</style>
 </head>
 
 <body>
@@ -181,7 +187,7 @@
 
       <tr>
         <td colspan="2" class="auto-style6" align="center">
-          <strong>Folio: [Serie][Folio]</strong>
+          <strong>Folio: <span class="numero">[Serie]</span><span class="numero">[Folio]</span></strong>
         </td>
       </tr>
 
@@ -193,12 +199,12 @@
           <strong>Captur&oacute;:</strong> [Capturista]
           &nbsp;&nbsp;&nbsp;<strong>Timbr&oacute;:</strong> [TimbradoPor]
           &nbsp;&nbsp;&nbsp;<strong>Imprimi&oacute;:</strong> [ImpresoPor]<br><br>
-          <strong>Fecha y Hora de Emisi&oacute;n:</strong> [FechaExpedicion] [HoraExpedicion]<br>
-          <strong>Fecha y Hora de Impresi&oacute;n:</strong> [FechaImpresion] [HoraImpresion]<br><br>
+          <strong>Fecha y Hora de Emisi&oacute;n:</strong> <span class="numero">[FechaExpedicion]</span> <span class="numero">[HoraExpedicion]</span><br>
+          <strong>Fecha y Hora de Impresi&oacute;n:</strong> <span class="numero">[FechaImpresion]</span> <span class="numero">[HoraImpresion]</span><br><br>
           <strong>Folio Fiscal:</strong> [Uuid]<br>
-          <strong>No. Serie Certificado SAT:</strong> [NoCertificadoSAT]<br>
-          <strong>Fecha y Hora Certificaci&oacute;n:</strong> [FechaTimbrado]<br>
-          <strong>No. Serie CSD Emisor:</strong> [NoCertificado]<br>
+          <strong>No. Serie Certificado SAT:</strong> <span class="numero">[NoCertificadoSAT]</span><br>
+          <strong>Fecha y Hora Certificaci&oacute;n:</strong> <span class="numero">[FechaTimbrado]</span><br>
+          <strong>No. Serie CSD Emisor:</strong> <span class="numero">[NoCertificado]</span><br>
           <strong>R&eacute;gimen fiscal:</strong> [ReceptorEmisor]<br>
           <strong>M&eacute;todo de Pago:</strong> [MetodoPago] -
           <strong>Forma de Pago:</strong> [FormaPago] -
@@ -230,11 +236,11 @@
           <table class="detalle-row">
             <DETAIL>
               <tr>
-                <td class="hcenter th-cant">[Cantidad]</td>
+                <td class="hcenter th-cant"><span class="numero">[Cantidad]</span></td>
                 <td class="hcenter th-unidad">[ClaveUnidad]</td>
                 <td class="th-desc">[Descripcion]</td>
-                <td class="hright th-precio">[PrecioUnSIVA]</td>
-                <td class="hright th-importe">[ImporteCIVA]</td>
+                <td class="hright th-precio"><span class="numero">[PrecioUnSIVA]</span></td>
+                <td class="hright th-importe"><span class="numero">[ImporteCIVA]</span></td>
               </tr>
             </DETAIL>
           </table>
@@ -243,17 +249,17 @@
 
       <tr><td colspan="2"><hr></td></tr>
 
-      <tr><td align="right">Subtotal</td><td class="hright auto-style8">[SubTotal]</td></tr>
-      <tr><td align="right">IEPS</td><td class="hright auto-style8">[IEPS]</td></tr>
-      <tr><td align="right">IVA</td><td class="hright auto-style8">[IVA]</td></tr>
-      <tr><td align="right"><strong>Total</strong></td><td class="hright auto-style9"><strong>[Total]</strong></td></tr>
+      <tr><td align="right">Subtotal</td><td class="hright auto-style8"><span class="numero">[SubTotal]</span></td></tr>
+      <tr><td align="right">IEPS</td><td class="hright auto-style8"><span class="numero">[IEPS]</span></td></tr>
+      <tr><td align="right">IVA</td><td class="hright auto-style8"><span class="numero">[IVA]</span></td></tr>
+      <tr><td align="right"><strong>Total</strong></td><td class="hright auto-style9"><strong><span class="numero">[Total]</span></strong></td></tr>
 
-      <tr><td align="right">[cliente_pago_ticket]</td><td class="hright auto-style9"><strong>[pagado_ticket]</strong></td></tr>
-      <tr><td align="right">[cliente_cambio_ticket]</td><td class="hright auto-style9"><strong>[cambio_venta]</strong></td></tr>
+      <tr><td align="right">[cliente_pago_ticket]</td><td class="hright auto-style9"><strong><span class="numero">[pagado_ticket]</span></strong></td></tr>
+      <tr><td align="right">[cliente_cambio_ticket]</td><td class="hright auto-style9"><strong><span class="numero">[cambio_venta]</span></strong></td></tr>
       <!--IF_DESCUENTO-->
       <tr>
         <td align="right"><em>[DescuentoCayalTitulo]</em></td>
-        <td class="hright auto-style9"><strong>[DescuentoCayal]</strong></td>
+        <td class="hright auto-style9"><strong><span class="numero">[DescuentoCayal]</span></strong></td>
       </tr>
       <!--END_IF-->
       <tr><td colspan="2"><hr></td></tr>

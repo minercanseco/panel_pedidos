@@ -170,11 +170,46 @@ class CapturaTests(unittest.TestCase):
         captura.master.destroy.assert_not_called()
         captura.ventanas.mostrar_mensaje.assert_called_once()
 
-    def test_vacio_no_borra_la_ubicacion(self):
-        captura = self.dialogo('', normalizar(19, -90))
+    def test_vacio_elimina_la_ubicacion_al_aceptar(self):
+        captura = self.dialogo('', normalizar(19, -90, 5))
         self.procesar(captura)
-        captura._aceptar.assert_not_called()
+        captura._aceptar.assert_called_once_with(normalizar())
+        captura.master.destroy.assert_called_once()
         captura.master.after.assert_not_called()
+
+    def test_borrar_enlace_actualiza_null_y_registra_eliminacion(self):
+        from herramientas.capturar_documento.herramientas.capturar_cliente.formulario_cliente_modelo import FormularioClienteModelo
+        anterior = normalizar(19, -90, 5)
+        detalle = {'AddressDetailID': 7, **anterior}
+        modelo = FormularioClienteModelo.__new__(FormularioClienteModelo)
+        modelo.cliente = SimpleNamespace(addresses_details=[detalle], business_entity_id=10)
+        modelo.user_name = 'Usuario de prueba'
+        modelo._ubicaciones_originales = {7: dict(anterior)}
+        modelo.base_de_datos = SimpleNamespace(command=Mock())
+        captura = self.dialogo('   ', anterior)
+        captura._aceptar = detalle.update
+        self.procesar(captura)
+        modelo.validar_guardado_ubicaciones()
+        modelo.guardar_ubicaciones()
+        sql, parametros = modelo.base_de_datos.command.call_args.args
+        self.assertEqual(parametros[:3], (None, None, None))
+        self.assertEqual(parametros[3:5], (7, 10))
+        self.assertEqual(parametros[5], 'ELIMINACIÓN DE UBICACIÓN DE DIRECCIÓN')
+        self.assertIn('Latitude=19.0000000', parametros[6])
+        self.assertIn('AccuracyMeters=5.00', parametros[6])
+        self.assertIn('Latitude=(vacío)', parametros[7])
+        self.assertEqual(parametros[-2:], (46, 7))
+        self.assertIn('UPDATE D SET Latitude = ?, Longitude = ?, AccuracyMeters = ?', sql)
+        self.assertIn('EXEC dbo.InsertarBitacoraCambiosClientes', sql)
+        self.assertEqual(modelo.obtener_ubicacion(7), normalizar())
+        modelo.guardar_ubicaciones()
+        modelo.base_de_datos.command.assert_called_once()
+
+    def test_vacio_sin_ubicacion_previa_se_acepta(self):
+        captura = self.dialogo('')
+        self.procesar(captura)
+        captura._aceptar.assert_called_once_with(normalizar())
+        captura.master.destroy.assert_called_once()
 
     def test_aceptar_sin_cambio_conserva_precision_interna(self):
         original = normalizar(19, -90, 5)

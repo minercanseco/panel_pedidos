@@ -117,7 +117,7 @@ class FormularioClienteInterfaz:
                 ('cancelar', 'Cancelar', 'Cancelled32.ico'),
                 ('copiar', 'Copiar dirección', 'AddressType32.ico'),
                 ('nueva_direccion', 'Nueva dirección', 'Agregar21.ico'),
-                ('ubicacion', 'Agregar ubicación', 'ChangeTaskStatus32.ico'))
+                ('ubicacion', 'Agregar ubicación', 'map.ico'))
         ]
 
     def _ajustar_ancho_componentes(self):

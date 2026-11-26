@@ -2,7 +2,7 @@ import threading
 import queue
 import webbrowser
 from cayal.ventanas import Ventanas
-from .ubicacion import extraer_ubicacion, enlace_mapa, enlace_desde_texto
+from .ubicacion import extraer_ubicacion, enlace_mapa, enlace_desde_texto, normalizar
 
 
 class CapturaUbicacion:
@@ -45,7 +45,9 @@ class CapturaUbicacion:
             return
         texto = self.ventanas.obtener_input_componente('txt_enlace').strip()
         if not texto:
-            self.ventanas.mostrar_mensaje('Pegue un enlace de ubicación de Maps o WhatsApp.')
+            # Vaciar y aceptar elimina la ubicación al guardar el cliente.
+            self._aceptar(normalizar())
+            self.master.destroy()
             return
         self._pendiente = True
         for nombre in ('btn_aceptar', 'btn_mapa'):

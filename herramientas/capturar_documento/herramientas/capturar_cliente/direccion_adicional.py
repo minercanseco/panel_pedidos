@@ -268,7 +268,7 @@ class DireccionAdicional:
              'hotkey': '', 'comando': comando}
             for nombre, etiqueta, icono, comando in (
                 ('copiar', 'Copiar dirección', 'AddressType32.ico', self._copiar_info_direccion),
-                ('ubicacion', 'Agregar ubicación', 'ChangeTaskStatus32.ico', self._editar_ubicacion),
+                ('ubicacion', 'Agregar ubicación', 'map.ico', self._editar_ubicacion),
                 ('eliminar', 'Eliminar', 'Eliminar21.ico', self._eliminar_direccion))
         ]
         self.elementos_barra_herramientas = self._ventanas.crear_barra_herramientas(

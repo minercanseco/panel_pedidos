@@ -1,3 +1,6 @@
+from herramientas.capturar_documento.herramientas.capturar_cliente.ubicacion import (
+    LEYENDA_UBICACION_WHATSAPP, texto_ubicacion_guardada_whatsapp,
+)
 import tkinter as tk
 import unicodedata
 
@@ -336,6 +339,14 @@ class BuscarGeneralesCliente:
         address_detail_id = self._documento.address_detail_id
 
         informacion = self._base_de_datos.buscar_informacion_direccion_whatsapp(address_detail_id, business_entity_id)
+        ubicacion = texto_ubicacion_guardada_whatsapp(
+            self._base_de_datos, business_entity_id, address_detail_id,
+        )
+        informacion = informacion.rstrip()
+        if ubicacion == LEYENDA_UBICACION_WHATSAPP:
+            informacion = ubicacion + '\n\n' + informacion
+        else:
+            informacion += '\n\n' + ubicacion
         pyperclip.copy(informacion)
         self._master.iconify()
 

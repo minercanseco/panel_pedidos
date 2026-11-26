@@ -1,3 +1,4 @@
+from .ubicacion import LEYENDA_UBICACION_WHATSAPP, texto_ubicacion_guardada_whatsapp
 import tkinter as tk
 
 import pyperclip
@@ -321,7 +322,15 @@ class DireccionAdicional:
                 f"📄 *Uso CFDI:* {self._modelo.cliente.receptor_uso_cfdi}\n"
             )
             mensaje += fiscales
-        return mensaje.replace('None', '')
+        ubicacion = texto_ubicacion_guardada_whatsapp(
+            self._modelo.base_de_datos,
+            self._modelo.cliente.business_entity_id,
+            self._address_detail_id,
+        )
+        mensaje = mensaje.replace('None', '').rstrip()
+        if ubicacion == LEYENDA_UBICACION_WHATSAPP:
+            return ubicacion + '\n\n' + mensaje
+        return mensaje + '\n\n' + ubicacion
 
     def _copiar_info_direccion(self):
         mensaje = self._buscar_informacion_direccion_whatsapp()

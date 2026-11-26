@@ -111,3 +111,33 @@ def enlace_desde_texto(texto):
     if not urls and PAR.fullmatch(texto.strip()):
         return enlace_mapa(extraer_ubicacion(texto))
     raise ValueError('Pegue un solo enlace de ubicación de Google Maps o WhatsApp.')
+
+
+LEYENDA_UBICACION_WHATSAPP = (
+    '📍 Para facilitar tu entrega, por favor compártenos por WhatsApp '
+    'la ubicación de este domicilio.'
+)
+
+
+def texto_ubicacion_guardada_whatsapp(base_de_datos, business_entity_id, address_detail_id):
+    """Comparte solo la ubicación persistida de la dirección seleccionada."""
+    if not business_entity_id or not address_detail_id:
+        return LEYENDA_UBICACION_WHATSAPP
+    filas = base_de_datos.fetchall("""
+        SELECT D.Latitude, D.Longitude
+        FROM dbo.orgAddressDetail D
+        WHERE D.AddressDetailID = ? AND EXISTS (
+            SELECT 1 FROM dbo.orgAddress A
+            WHERE A.AddressDetailID = D.AddressDetailID
+              AND A.BusinessEntityID = ? AND A.DeletedOn IS NULL
+        )
+    """, (address_detail_id, business_entity_id))
+    if not filas:
+        return LEYENDA_UBICACION_WHATSAPP
+    try:
+        ubicacion = normalizar(filas[0].get('Latitude'), filas[0].get('Longitude'))
+    except ValueError:
+        return LEYENDA_UBICACION_WHATSAPP
+    if ubicacion['Latitude'] is None:
+        return LEYENDA_UBICACION_WHATSAPP
+    return '📍 *Ubicación del domicilio:*\n' + enlace_mapa(ubicacion)

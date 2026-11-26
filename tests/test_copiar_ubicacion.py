@@ -63,7 +63,7 @@ class CopiarUbicacionTests(unittest.TestCase):
                 self.assertIn("*Correo:*", message)
                 self.assertIn("*RFC:*", message)
                 self.assertIn("*Uso CFDI:*", message)
-                self.assertTrue(message.endswith("https://www.google.com/maps/?q=19,-90"))
+                self.assertIn("correctos?  \n\n📍 *Ubicación del domicilio:*\nhttps://www.google.com/maps/?q=19,-90\n\n👤 *Cliente:*", message)
                 self.assertNotIn("88", message)
                 reader.return_value = ubicacion.LEYENDA_UBICACION_WHATSAPP
                 message = namespace[method.name](obj)
@@ -82,7 +82,7 @@ class SeleccionarClienteCopiarTests(unittest.TestCase):
             "LEYENDA_UBICACION_WHATSAPP": ubicacion.LEYENDA_UBICACION_WHATSAPP}
         exec(compile(ast.Module(body=[method], type_ignores=[]), "selector_cliente", "exec"), namespace)
         db = Mock()
-        db.buscar_informacion_direccion_whatsapp.return_value = "📍 ¿Podría confirmar si los datos de su dirección son correctos?\nCliente y dirección\n"
+        db.buscar_informacion_direccion_whatsapp.return_value = "📍 ¿Podría confirmar si los datos de su dirección son correctos?\n\nCliente y dirección\n"
         window = Mock()
         obj = SimpleNamespace(_base_de_datos=db, _info_cliente_seleccionado=[{"BusinessEntityID": 12}],
             _documento=SimpleNamespace(address_detail_id=56), _master=window)
@@ -102,5 +102,5 @@ class SeleccionarClienteCopiarTests(unittest.TestCase):
         link = "📍 *Ubicación del domicilio:*\nhttps://www.google.com/maps/?q=19,-90"
         message = self.run_copy(link)
         self.assertTrue(message.startswith("📍 ¿Podría confirmar"))
-        self.assertTrue(message.endswith(link))
+        self.assertIn("correctos?\n\n" + link + "\n\nCliente y dirección", message)
         self.assertNotIn(ubicacion.LEYENDA_UBICACION_WHATSAPP, message)

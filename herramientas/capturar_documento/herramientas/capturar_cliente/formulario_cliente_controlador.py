@@ -336,7 +336,8 @@ class FormularioClienteControlador:
         mensaje = mensaje.replace('None', '').rstrip()
         if ubicacion == LEYENDA_UBICACION_WHATSAPP:
             return ubicacion + '\n\n' + mensaje
-        return mensaje + '\n\n' + ubicacion
+        confirmacion, separador, datos = mensaje.partition('\n\n')
+        return confirmacion + '\n\n' + ubicacion + ('\n\n' + datos if separador else '')
 
     def _copiar_info_direccion(self):
         mensaje = self._buscar_informacion_direccion_whatsapp()

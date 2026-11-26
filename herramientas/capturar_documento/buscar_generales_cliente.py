@@ -346,7 +346,8 @@ class BuscarGeneralesCliente:
         if ubicacion == LEYENDA_UBICACION_WHATSAPP:
             informacion = ubicacion + '\n\n' + informacion
         else:
-            informacion += '\n\n' + ubicacion
+            confirmacion, separador, datos = informacion.partition('\n\n')
+            informacion = confirmacion + '\n\n' + ubicacion + ('\n\n' + datos if separador else '')
         pyperclip.copy(informacion)
         self._master.iconify()
 
